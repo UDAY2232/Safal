@@ -1,0 +1,353 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  ACCOUNTANT
+  EMPLOYEE
+}
+
+enum WageType {
+  MONTHLY
+  DAILY
+  HOURLY
+}
+
+enum POStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  OPEN
+  CLOSED
+  REJECTED
+  CANCELLED
+}
+
+enum FinancialStatus {
+  NOT_CALCULATED
+  PENDING_COST_DATA
+  PENDING_SALES_DATA
+  IN_PROGRESS
+  PROFIT
+  LOSS
+  BREAK_EVEN
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  PAYMENT_PENDING
+  PARTIALLY_REIMBURSED
+  PAID_CLEARED
+}
+
+model User {
+  id               String             @id @default(cuid())
+  email            String             @unique
+  passwordHash     String
+  name             String
+  role             Role               @default(EMPLOYEE)
+  department       String?
+  designation      String?
+  phone            String?
+  isActive         Boolean            @default(true)
+  lastLoginAt      DateTime?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  accountantProfile AccountantProfile?
+  employee         Employee?
+  createdPOs       PurchaseOrder[]    @relation("POCreator")
+  approvedPOs      PurchaseOrder[]    @relation("POApprover")
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+
+  @@map("users")
+}
+
+model AccountantProfile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountantId      String   @unique // e.g. ACC-001
+  canCreatePO       Boolean  @default(true)
+  canSubmitPO       Boolean  @default(true)
+  canReviewExpenses Boolean  @default(true)
+  canViewWages      Boolean  @default(false)
+  canRecordPayments Boolean  @default(false)
+  status            String   @default("ACTIVE")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("accountant_profiles")
+}
+
+model Employee {
+  id           String              @id @default(cuid())
+  employeeId   String              @unique // e.g. EMP-001
+  userId       String?             @unique
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName     String
+  email        String
+  phone        String?
+  department   String
+  designation  String
+  joiningDate  DateTime            @default(now())
+  wageType     WageType            @default(MONTHLY)
+  baseWageRate Decimal             @db.Decimal(12, 2)
+  status       String              @default("ACTIVE")
+  wageRecords  EmployeeWageRecord[]
+  expenseClaims ExpenseClaim[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  @@map("employees")
+}
+
+model Supplier {
+  id             String          @id @default(cuid())
+  supplierCode   String          @unique // e.g. SUP-001
+  name           String
+  contactPerson  String?
+  email          String?
+  phone          String?
+  address        String?
+  country        String          @default("India")
+  category       String          @default("Wholesale Fruits")
+  paymentTerms   String          @default("Net 30")
+  status         String          @default("ACTIVE")
+  notes          String?
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id                   String                        @id @default(cuid())
+  poNumber             String                        @unique // e.g. PO/SF/2026/001
+  poDate               DateTime                      @default(now())
+  expectedDeliveryDate DateTime?
+  supplierId           String
+  supplier             Supplier                      @relation(fields: [supplierId], references: [id])
+  createdById          String
+  createdBy            User                          @relation("POCreator", fields: [createdById], references: [id])
+  approvedById         String?
+  approvedBy           User?                         @relation("POApprover", fields: [approvedById], references: [id])
+  deliveryAddress      String?
+  paymentTerms         String?
+  notes                String?
+  subtotal             Decimal                       @default(0) @db.Decimal(14, 2)
+  discountTotal        Decimal                       @default(0) @db.Decimal(14, 2)
+  taxTotal             Decimal                       @default(0) @db.Decimal(14, 2)
+  grandTotal           Decimal                       @default(0) @db.Decimal(14, 2)
+  status               POStatus                      @default(DRAFT)
+  rejectionReason      String?
+  items                PurchaseOrderItem[]
+  statusHistory        PurchaseOrderStatusHistory[]
+  financialRecord      PurchaseOrderFinancialRecord?
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
+
+  @@index([status])
+  @@index([supplierId])
+  @@index([createdById])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  fruitName       String
+  category        String
+  varietyGrade    String
+  quantity        Decimal       @db.Decimal(12, 2)
+  unit            String        @default("KG") // KG, BOX, CRATE, TON
+  ratePerUnit     Decimal       @db.Decimal(12, 2)
+  discountPercent Decimal       @default(0) @db.Decimal(5, 2)
+  taxPercent      Decimal       @default(0) @db.Decimal(5, 2)
+  lineTotal       Decimal       @db.Decimal(14, 2)
+
+  @@map("purchase_order_items")
+}
+
+model PurchaseOrderStatusHistory {
+  id              String        @id @default(cuid())
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  status          POStatus
+  changedById     String
+  comment         String?
+  createdAt       DateTime      @default(now())
+
+  @@map("purchase_order_status_history")
+}
+
+model PurchaseOrderFinancialRecord {
+  id                     String          @id @default(cuid())
+  purchaseOrderId        String          @unique
+  purchaseOrder          PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  verifiedCost           Decimal?        @db.Decimal(14, 2)
+  costNotes              String?
+  allocatedTransportCost Decimal?        @default(0) @db.Decimal(14, 2)
+  allocatedLaborCost     Decimal?        @default(0) @db.Decimal(14, 2)
+  linkedRevenue          Decimal?        @db.Decimal(14, 2)
+  revenueNotes           String?
+  realizedProfitLoss     Decimal?        @db.Decimal(14, 2)
+  financialStatus        FinancialStatus @default(PENDING_COST_DATA)
+  updatedById            String?
+  updatedAt              DateTime        @updatedAt
+
+  @@map("purchase_order_financial_records")
+}
+
+model EmployeeWageRecord {
+  id               String        @id @default(cuid())
+  employeeId       String
+  employee         Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payPeriod        String        // e.g. "November 2026"
+  wageType         WageType
+  wageRate         Decimal       @db.Decimal(12, 2)
+  workedUnits      Decimal?      @db.Decimal(8, 2)
+  grossAmount      Decimal       @db.Decimal(12, 2)
+  deductions       Decimal       @default(0) @db.Decimal(12, 2)
+  deductionNotes   String?
+  netPayable       Decimal       @db.Decimal(12, 2)
+  amountPaid       Decimal       @default(0) @db.Decimal(12, 2)
+  balanceRemaining Decimal       @db.Decimal(12, 2)
+  status           PaymentStatus @default(PENDING)
+  payments         WagePayment[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([employeeId])
+  @@index([payPeriod])
+  @@map("employee_wage_records")
+}
+
+model WagePayment {
+  id             String             @id @default(cuid())
+  wageRecordId   String
+  wageRecord     EmployeeWageRecord @relation(fields: [wageRecordId], references: [id], onDelete: Cascade)
+  amount         Decimal            @db.Decimal(12, 2)
+  paymentDate    DateTime           @default(now())
+  paymentMethod  String             @default("Bank Transfer")
+  transactionRef String
+  notes          String?
+  recordedById   String
+  receiptNumber  String             @unique
+  createdAt      DateTime           @default(now())
+
+  @@map("wage_payments")
+}
+
+model ExpenseClaim {
+  id                String           @id @default(cuid())
+  claimNumber       String           @unique // e.g. EXP/SF/2026/001
+  employeeId        String
+  employee          Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  expenseDate       DateTime
+  category          String
+  description       String
+  businessPurpose   String
+  travelFrom        String?
+  travelTo          String?
+  amountSpent       Decimal          @db.Decimal(12, 2)
+  approvedAmount    Decimal          @default(0) @db.Decimal(12, 2)
+  amountPaid        Decimal          @default(0) @db.Decimal(12, 2)
+  balanceRemaining  Decimal          @default(0) @db.Decimal(12, 2)
+  paymentMethodUsed String?
+  receiptUrl        String?
+  status            ExpenseStatus    @default(SUBMITTED)
+  rejectionReason   String?
+  reviewedById      String?
+  reviewedAt        DateTime?
+  approvedById      String?
+  approvedAt        DateTime?
+  payments          ExpensePayment[]
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([employeeId])
+  @@index([status])
+  @@map("expense_claims")
+}
+
+model ExpensePayment {
+  id             String        @id @default(cuid())
+  expenseClaimId String
+  expenseClaim   ExpenseClaim  @relation(fields: [expenseClaimId], references: [id], onDelete: Cascade)
+  amount         Decimal       @db.Decimal(12, 2)
+  paymentDate    DateTime      @default(now())
+  paymentMethod  String        @default("Bank Transfer")
+  transactionRef String
+  notes          String?
+  recordedById   String
+  receiptNumber  String        @unique
+  createdAt      DateTime      @default(now())
+
+  @@map("expense_payments")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName   String
+  userRole   String
+  action     String
+  entityType String
+  entityId   String?
+  details    String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipientRole String?  // ALL, ADMIN, ACCOUNTANT, EMPLOYEE
+  title         String
+  message       String
+  type          String   @default("INFO")
+  linkUrl       String?
+  isRead        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([recipientRole])
+  @@map("notifications")
+}
+
+model ApplicationSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  category  String   @default("GENERAL")
+  updatedAt DateTime @updatedAt
+
+  @@map("application_settings")
+}
+

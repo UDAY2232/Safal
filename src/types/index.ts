@@ -1,0 +1,240 @@
+export type Role = 'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  department?: string | null;
+  designation?: string | null;
+  phone?: string | null;
+  accountantProfile?: {
+    id: string;
+    accountantId: string;
+    canCreatePO: boolean;
+    canSubmitPO: boolean;
+    canReviewExpenses: boolean;
+    canViewWages: boolean;
+    canRecordPayments: boolean;
+  } | null;
+  employee?: {
+    id: string;
+    employeeId: string;
+    department: string;
+    designation: string;
+  } | null;
+}
+
+export type POStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'OPEN' | 'CLOSED' | 'REJECTED' | 'CANCELLED';
+
+export type FinancialStatus =
+  | 'NOT_CALCULATED'
+  | 'PENDING_COST_DATA'
+  | 'PENDING_SALES_DATA'
+  | 'IN_PROGRESS'
+  | 'PROFIT'
+  | 'LOSS'
+  | 'BREAK_EVEN';
+
+export interface POItem {
+  id?: string;
+  fruitName: string;
+  category: string;
+  varietyGrade: string;
+  quantity: number;
+  unit: string;
+  ratePerUnit: number;
+  discountPercent: number;
+  taxPercent: number;
+  lineTotal: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  supplierName: string;
+  poDate: string;
+  expectedDeliveryDate?: string | null;
+  createdById: string;
+  createdByName: string;
+  approvedById?: string | null;
+  approvedByName?: string | null;
+  deliveryAddress?: string | null;
+  paymentTerms?: string | null;
+  notes?: string | null;
+  subtotal: number;
+  discountTotal: number;
+  taxTotal: number;
+  grandTotal: number;
+  status: POStatus;
+  rejectionReason?: string | null;
+  itemsCount: number;
+  items?: POItem[];
+  financial: {
+    verifiedCost: number | null;
+    allocatedTransportCost: number;
+    allocatedLaborCost: number;
+    linkedRevenue: number | null;
+    realizedProfitLoss: number | null;
+    financialStatus: FinancialStatus;
+  };
+}
+
+export interface Supplier {
+  id: string;
+  supplierCode: string;
+  name: string;
+  contactPerson?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  country: string;
+  category: string;
+  paymentTerms: string;
+  status: string;
+  notes?: string | null;
+  poCount: number;
+  totalPOValue: number;
+}
+
+export interface Employee {
+  id: string;
+  employeeId: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  department: string;
+  designation: string;
+  joiningDate: string;
+  wageType: 'MONTHLY' | 'DAILY' | 'HOURLY';
+  baseWageRate: number;
+  status: string;
+  totalClaims?: number;
+  latestWageRecord?: {
+    payPeriod: string;
+    netPayable: number;
+    status: string;
+  } | null;
+}
+
+export interface WagePayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  transactionRef: string;
+  notes?: string | null;
+  receiptNumber: string;
+}
+
+export interface WageRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  designation: string;
+  wageType: string;
+  wageRate: number;
+  payPeriod: string;
+  workedUnits?: number | null;
+  grossAmount: number;
+  deductions: number;
+  deductionNotes?: string | null;
+  netPayable: number;
+  amountPaid: number;
+  balanceRemaining: number;
+  status: 'PENDING' | 'PARTIALLY_PAID' | 'PAID';
+  paymentsCount: number;
+  latestPaymentDate?: string | null;
+  payments?: WagePayment[];
+}
+
+export interface ExpensePayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  transactionRef: string;
+  notes?: string | null;
+  receiptNumber: string;
+}
+
+export interface ExpenseClaim {
+  id: string;
+  claimNumber: string;
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  expenseDate: string;
+  category: string;
+  description: string;
+  businessPurpose: string;
+  travelFrom?: string | null;
+  travelTo?: string | null;
+  amountSpent: number;
+  approvedAmount: number;
+  amountPaid: number;
+  balanceRemaining: number;
+  paymentMethodUsed?: string | null;
+  receiptUrl?: string | null;
+  status:
+    | 'DRAFT'
+    | 'SUBMITTED'
+    | 'UNDER_REVIEW'
+    | 'APPROVED'
+    | 'REJECTED'
+    | 'PAYMENT_PENDING'
+    | 'PARTIALLY_REIMBURSED'
+    | 'PAID_CLEARED';
+  rejectionReason?: string | null;
+  reviewedById?: string | null;
+  reviewedAt?: string | null;
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  paymentsCount: number;
+  payments?: ExpensePayment[];
+}
+
+export interface ClearanceBill {
+  id: string;
+  billId: string;
+  type: 'EXPENSE_REIMBURSEMENT' | 'WAGE_PAYMENT';
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  category: string;
+  billDate: string;
+  approvedAmount: number;
+  amountPaid: number;
+  balanceRemaining: number;
+  clearanceStatus: 'Payment Pending' | 'Partially Paid' | 'Paid/Cleared';
+  latestPaymentDate?: string | null;
+  latestPaymentMethod?: string;
+  latestTransactionRef?: string;
+  paymentsCount: number;
+  payments?: any[];
+}
+
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  linkUrl?: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  userId?: string | null;
+  userName: string;
+  userRole: string;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  details?: string | null;
+  createdAt: string;
+}
+

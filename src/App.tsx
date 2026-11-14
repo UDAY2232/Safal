@@ -1,120 +1,172 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import {
-  Archive, ArrowDownToLine, ArrowRight, BarChart3, Bell, BriefcaseBusiness, CalendarDays, Check,
-  ChevronDown, CircleDollarSign, ClipboardCheck, ClipboardList, Clock3, FileBarChart, FileText,
-  Filter, Home, Leaf, Menu, Package, Plus, ReceiptIndianRupee, Search, Settings, ShoppingCart,
-  SlidersHorizontal, Truck, Upload, UserRound, Users, WalletCards, X, CheckCircle2,
-} from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu, CheckCircle2, Home, ShoppingCart, Users, Truck, ReceiptIndianRupee, WalletCards } from 'lucide-react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LoginPage } from './pages/LoginPage';
+import { Header } from './components/Header';
+import { Sidebar } from './components/Sidebar';
+import { DashboardPage } from './pages/DashboardPage';
+import { PurchaseOrdersPage } from './pages/PurchaseOrdersPage';
+import { ExpensesPage } from './pages/ExpensesPage';
+import { ClearancePage } from './pages/ClearancePage';
+import { WagesPage } from './pages/WagesPage';
+import { EmployeesPage } from './pages/EmployeesPage';
+import { SuppliersPage } from './pages/SuppliersPage';
+import { ReportsPage } from './pages/ReportsPage';
+import { PerformancePage } from './pages/PerformancePage';
+import { ActivityLogsPage } from './pages/ActivityLogsPage';
+import { SettingsPage } from './pages/SettingsPage';
 
-type Status = 'Open' | 'Closed' | 'Pending' | 'Approved' | 'Paid' | 'Rejected' | 'Draft';
-type PageKey = 'Dashboard' | 'Purchase Order (PO)' | 'Sales Order' | 'Inventory / Stock' | 'Invoices' | 'Payments' | 'Customers' | 'Suppliers' | 'Reports' | 'Settings' | 'Employees' | 'Wages & Salary' | 'Employee Expenses' | 'Bill Clearance' | 'Accountant Performance' | 'Activity Logs';
-type PurchaseOrder = { id: number; number: string; supplier: string; date: string; amount: number; status: 'Open' | 'Closed'; result: 'Pending' | 'Profit' | 'Loss'; };
-type Expense = { id: number; claim: string; employee: string; category: string; date: string; amount: number; approved: number; paid: number; status: Status; };
-
-const initialOrders: PurchaseOrder[] = [
-  { id: 1, number: 'PO/SF/2026/001', supplier: 'Fresh Valley Exports', date: '02/11/2026', amount: 1007155, status: 'Closed', result: 'Profit' },
-  { id: 2, number: 'PO/SF/2026/002', supplier: 'Green Orchard Co.', date: '04/11/2026', amount: 901901, status: 'Closed', result: 'Pending' },
-  { id: 3, number: 'PO/SF/2026/003', supplier: 'Himalayan Harvest', date: '07/11/2026', amount: 1114000, status: 'Closed', result: 'Profit' },
-  { id: 4, number: 'PO/SF/2026/004', supplier: 'Sunrise Produce', date: '08/11/2026', amount: 1149500, status: 'Open', result: 'Pending' },
-  { id: 5, number: 'PO/SF/2026/005', supplier: 'Royal Fruit Traders', date: '09/11/2026', amount: 1283260, status: 'Open', result: 'Loss' },
-  { id: 6, number: 'PO/SF/2026/006', supplier: 'Fresh Valley Exports', date: '11/11/2026', amount: 884055, status: 'Closed', result: 'Profit' },
-  { id: 7, number: 'PO/SF/2026/007', supplier: 'Green Orchard Co.', date: '12/11/2026', amount: 1071450, status: 'Closed', result: 'Pending' },
-  { id: 8, number: 'PO/SF/2026/008', supplier: 'Sunrise Produce', date: '13/11/2026', amount: 1336000, status: 'Open', result: 'Pending' },
-  { id: 9, number: 'PO/SF/2026/009', supplier: 'Himalayan Harvest', date: '13/11/2026', amount: 844055, status: 'Open', result: 'Loss' },
-];
-
-const expenses: Expense[] = [
-  { id: 1, claim: 'EXP/SF/0261', employee: 'Rakesh Sharma', category: 'Official Travel', date: '12/11/2026', amount: 18450, approved: 18450, paid: 0, status: 'Pending' },
-  { id: 2, claim: 'EXP/SF/0260', employee: 'Meena Joshi', category: 'Fuel & Transport', date: '11/11/2026', amount: 8200, approved: 7800, paid: 7800, status: 'Paid' },
-  { id: 3, claim: 'EXP/SF/0259', employee: 'Vikram Patel', category: 'Client Meeting', date: '10/11/2026', amount: 5300, approved: 5300, paid: 0, status: 'Approved' },
-  { id: 4, claim: 'EXP/SF/0258', employee: 'Anita Verma', category: 'Office Supplies', date: '09/11/2026', amount: 2750, approved: 0, paid: 0, status: 'Rejected' },
-];
-
-const suppliers = ['Fresh Valley Exports', 'Green Orchard Co.', 'Himalayan Harvest', 'Sunrise Produce', 'Royal Fruit Traders'];
-const formatCurrency = (value: number) => `₹${value.toLocaleString('en-IN')}`;
-
-const navItems: { label: PageKey; icon: typeof Home; admin?: boolean }[] = [
-  { label: 'Dashboard', icon: Home }, { label: 'Purchase Order (PO)', icon: ShoppingCart }, { label: 'Sales Order', icon: ClipboardList },
-  { label: 'Inventory / Stock', icon: Package }, { label: 'Invoices', icon: FileText }, { label: 'Payments', icon: CircleDollarSign },
-  { label: 'Customers', icon: Users }, { label: 'Suppliers', icon: Truck }, { label: 'Employees', icon: UserRound }, { label: 'Wages & Salary', icon: WalletCards },
-  { label: 'Employee Expenses', icon: ReceiptIndianRupee }, { label: 'Bill Clearance', icon: ClipboardCheck }, { label: 'Reports', icon: BarChart3 },
-  { label: 'Accountant Performance', icon: BriefcaseBusiness, admin: true }, { label: 'Activity Logs', icon: Clock3, admin: true }, { label: 'Settings', icon: Settings, admin: true },
-];
-
-function App() {
-  const [activePage, setActivePage] = useState<PageKey>('Dashboard');
-  const [orders, setOrders] = useState<PurchaseOrder[]>(initialOrders);
+function MainApp() {
+  const { user, token, isLoading } = useAuth();
+  const [activePage, setActivePage] = useState('Dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showCreate, setShowCreate] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    return localStorage.getItem('safal_sidebar_collapsed') === 'true';
+  });
+  const [showCreatePO, setShowCreatePO] = useState(false);
   const [toast, setToast] = useState('');
 
-  const navigate = (page: PageKey) => { setActivePage(page); setIsSidebarOpen(false); };
-  const notify = (message: string) => { setToast(message); window.setTimeout(() => setToast(''), 2600); };
-  const addOrder = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); const data = new FormData(event.currentTarget); const amount = Number(data.get('amount') || 0);
-    setOrders((current) => [{ id: Date.now(), number: `PO/SF/2026/${String(current.length + 1).padStart(3, '0')}`, supplier: String(data.get('supplier')), date: new Date().toLocaleDateString('en-GB'), amount, status: 'Open', result: 'Pending' }, ...current]);
-    setShowCreate(false); notify('Purchase order created successfully');
+  const toggleSidebarCollapsed = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem('safal_sidebar_collapsed', String(next));
+      return next;
+    });
   };
 
-  return <div className="app-shell">
-    <Header onNotifications={() => setShowNotifications((open) => !open)} showNotifications={showNotifications} onNavigate={navigate} />
-    <button className="mobile-menu-button" onClick={() => setIsSidebarOpen(true)} aria-label="Open menu"><Menu size={22} /></button>
-    {isSidebarOpen && <button className="sidebar-overlay" onClick={() => setIsSidebarOpen(false)} aria-label="Close menu" />}
-    <Sidebar activePage={activePage} onNavigate={navigate} isOpen={isSidebarOpen} close={() => setIsSidebarOpen(false)} />
-    <main className="main-content"><PageHeader page={activePage} onCreate={() => setShowCreate(true)} />
-      {activePage === 'Dashboard' && <Dashboard orders={orders} expenses={expenses} navigate={navigate} />}
-      {activePage === 'Purchase Order (PO)' && <PurchaseOrders orders={orders} onNotify={notify} />}
-      {activePage === 'Employee Expenses' && <Expenses onNotify={notify} />}
-      {activePage === 'Bill Clearance' && <BillClearance onNotify={notify} />}
-      {activePage === 'Wages & Salary' && <Wages onNotify={notify} />}
-      {activePage === 'Employees' && <Employees onNotify={notify} />}
-      {activePage === 'Suppliers' && <Suppliers onNotify={notify} />}
-      {activePage === 'Reports' && <Reports onNotify={notify} />}
-      {activePage === 'Accountant Performance' && <Performance />}
-      {activePage === 'Activity Logs' && <ActivityLogs />}
-      {activePage === 'Settings' && <SettingsPage onNotify={notify} />}
-      {['Sales Order', 'Inventory / Stock', 'Invoices', 'Payments', 'Customers'].includes(activePage) && <GenericPage page={activePage} navigate={navigate} />}
-    </main>
-    {showCreate && <CreatePOModal onClose={() => setShowCreate(false)} onSubmit={addOrder} />}
-    {toast && <div className="toast"><CheckCircle2 size={18} />{toast}</div>}
-  </div>;
+  const notify = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  };
+
+  const navigate = (page: string) => {
+    setActivePage(page);
+    setIsSidebarOpen(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#F4F8F4] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#087A3E] mx-auto mb-3" />
+          <p className="text-xs font-bold text-[#064D2B] tracking-wider uppercase">Loading SAFAL System...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!token || !user) {
+    return <LoginPage />;
+  }
+
+  return (
+    <div className="app-shell">
+      <Header
+        onNavigate={navigate}
+        isSidebarCollapsed={isSidebarCollapsed}
+        onToggleSidebar={toggleSidebarCollapsed}
+      />
+
+      <button
+        className="mobile-menu-button"
+        onClick={() => setIsSidebarOpen(true)}
+        aria-label="Open menu"
+      >
+        <Menu size={22} />
+      </button>
+
+      {isSidebarOpen && (
+        <button
+          className="sidebar-overlay"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-label="Close menu"
+        />
+      )}
+
+      <Sidebar
+        activePage={activePage}
+        onNavigate={navigate}
+        isOpen={isSidebarOpen}
+        close={() => setIsSidebarOpen(false)}
+        isCollapsed={isSidebarCollapsed}
+        toggleCollapse={toggleSidebarCollapsed}
+      />
+
+      <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
+        {activePage !== 'Purchase Order (PO)' && activePage !== 'Dashboard' && (
+          <PageHeading
+            page={activePage}
+            onAction={() => {
+              if (activePage === 'Dashboard') {
+                setShowCreatePO(true);
+              }
+            }}
+          />
+        )}
+
+        {activePage === 'Dashboard' && (
+          <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
+        )}
+        {activePage === 'Purchase Order (PO)' && (
+          <PurchaseOrdersPage
+            onNotify={notify}
+            showCreateModal={showCreatePO}
+            setShowCreateModal={setShowCreatePO}
+          />
+        )}
+        {activePage === 'Employee Expenses' && <ExpensesPage onNotify={notify} />}
+        {activePage === 'Bill Clearance' && <ClearancePage onNotify={notify} />}
+        {activePage === 'Wages & Salary' && <WagesPage onNotify={notify} />}
+        {activePage === 'Employees' && <EmployeesPage onNotify={notify} />}
+        {activePage === 'Suppliers' && <SuppliersPage onNotify={notify} />}
+        {activePage === 'Reports' && <ReportsPage onNotify={notify} />}
+        {activePage === 'Accountant Performance' && <PerformancePage />}
+        {activePage === 'Activity Logs' && <ActivityLogsPage />}
+        {activePage === 'Settings' && <SettingsPage onNotify={notify} />}
+      </main>
+
+      {toast && (
+        <div className="toast">
+          <CheckCircle2 size={18} />
+          {toast}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function Header({ onNotifications, showNotifications, onNavigate }: { onNotifications: () => void; showNotifications: boolean; onNavigate: (page: PageKey) => void }) {
-  return <header className="topbar"><div className="brand-lockup"><div className="brand-mark"><Leaf size={28} /><span>SAFAL <b>APP</b></span></div><div className="brand-divider" /><div className="brand-copy"><strong>SAFAL EXPORT AND IMPORT PVT LTD</strong><span>Fruits Import &amp; Export</span></div></div><div className="header-fruit-image" /><div className="topbar-actions"><button className="icon-button notification-button" onClick={onNotifications} aria-label="Notifications"><Bell size={20} /><span className="notification-dot">3</span></button><div className="profile"><div className="avatar">AK</div><div className="profile-text"><strong>Admin Kumar</strong><span>Administrator</span></div><ChevronDown size={16} /></div></div>{showNotifications && <div className="notification-panel"><div className="notification-panel-head"><strong>Notifications</strong><span>3 new</span></div><Notification text="New PO submitted for approval" time="8 min ago" /><Notification text="Expense claim EXP/SF/0261 needs review" time="36 min ago" /><Notification text="Monthly report is ready to download" time="2 hrs ago" /><button onClick={() => onNavigate('Activity Logs')}>View activity centre <ArrowRight size={14} /></button></div>}</header>;
+function PageHeading({ page, onAction }: { page: string; onAction: () => void }) {
+  const subtitles: Record<string, string> = {
+    Dashboard: 'Consolidated overview of fruit procurement, workforce wages, and realized performance.',
+    'Purchase Order (PO)': 'Create, review, approve, and track fruit procurement orders with verified P&L.',
+    'Employee Expenses': 'Submit and audit company-related spending, travel, logistics, and reimbursements.',
+    'Bill Clearance': 'Disburse authorized expense claims and employee wages with complete transaction records.',
+    'Wages & Salary': 'Manage pay periods, authorized deductions, and traceable bank salary disbursements.',
+    Employees: 'Maintain active personnel, wage structures, and historical earnings.',
+    Suppliers: 'Maintain fruit producer directories, commercial terms, and procurement volume.',
+    Reports: 'Download compliant CSV and PDF financial performance statements.',
+    'Accountant Performance': 'Audit accountant activity throughput, turnaround velocity, and compliance rates.',
+    'Activity Logs': 'Tamper-proof append-only record of all critical company operations.',
+    Settings: 'Configure company branding, numbering formats, and policy parameters.',
+  };
+
+  return (
+    <div className="page-heading">
+      <div>
+        <div className="eyebrow">
+          <span className="eyebrow-line" /> SAFAL ENTERPRISE PLATFORM
+        </div>
+        <h1>{page}</h1>
+        <p>{subtitles[page] || `Manage ${page.toLowerCase()} across SAFAL operations.`}</p>
+      </div>
+    </div>
+  );
 }
-function Notification({ text, time }: { text: string; time: string }) { return <div className="notification-row"><div className="notification-symbol"><Bell size={14} /></div><div><strong>{text}</strong><span>{time}</span></div></div>; }
-function Sidebar({ activePage, onNavigate, isOpen, close }: { activePage: PageKey; onNavigate: (page: PageKey) => void; isOpen: boolean; close: () => void }) { return <aside className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}><div className="sidebar-mobile-header"><span>SAFAL workspace</span><button onClick={close}><X size={20} /></button></div><nav>{navItems.map(({ label, icon: Icon, admin }) => <button key={label} className={`nav-item ${activePage === label ? 'active' : ''}`} onClick={() => onNavigate(label)}><Icon size={19} /><span>{label}</span>{admin && <span className="admin-dot">A</span>}</button>)}</nav><div className="sidebar-footer"><div className="leaf-badge"><Leaf size={18} /></div><div><strong>SAFAL Workspace</strong><span>FY 2026 · Active</span></div></div></aside>; }
-function PageHeader({ page, onCreate }: { page: PageKey; onCreate: () => void }) { const actions: Partial<Record<PageKey, string>> = { Dashboard: 'Create Purchase Order', 'Purchase Order (PO)': 'Create PO', Employees: 'Add Employee', Suppliers: 'Add Supplier', 'Employee Expenses': 'Submit Expense', 'Wages & Salary': 'Create Wage Record' }; return <div className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line" /> SAFAL OPERATIONS</div><h1>{pageIcon(page)} {page}</h1><p>{pageSubtitle(page)}</p></div>{actions[page] && <button className="primary-button" onClick={onCreate}><Plus size={18} />{actions[page]}</button>}</div>; }
-function pageIcon(page: PageKey) { const Icon = navItems.find((item) => item.label === page)?.icon || Home; return <Icon size={29} />; }
-function pageSubtitle(page: PageKey) { const subtitles: Partial<Record<PageKey, string>> = { Dashboard: 'A clear view of procurement, people, and financial health.', 'Purchase Order (PO)': 'Track, manage, and review your fruit procurement orders.', Employees: 'Manage your team and access the employee financial record.', 'Wages & Salary': 'Process pay periods and keep every payment traceable.', 'Employee Expenses': 'Review company spending claims and reimbursements.', 'Bill Clearance': 'Clear approved claims with a complete payment history.', Suppliers: 'Keep supplier records ready for the next purchase order.', Reports: 'Download clear, permission-aware business reports.', 'Accountant Performance': 'Monitor workload and activity without reducing performance to value alone.', 'Activity Logs': 'A complete append-only history of important business actions.', Settings: 'Configure the workspace without changing financial history.' }; return subtitles[page] || `Manage ${page.toLowerCase()} in one connected workspace.`; }
 
-function Dashboard({ orders, expenses, navigate }: { orders: PurchaseOrder[]; expenses: Expense[]; navigate: (page: PageKey) => void }) { const total = orders.reduce((sum, item) => sum + item.amount, 0); return <><section className="stat-grid dashboard-stats"><StatCard label="Total PO Amount" value={formatCurrency(total)} icon={<CircleDollarSign />} tone="gold" detail="Current financial year" /><StatCard label="Pending Approvals" value="8" icon={<Clock3 />} tone="blue" detail="Needs attention" /><StatCard label="Monthly Wage Commitment" value="₹4,82,500" icon={<WalletCards />} tone="green" detail="12 active employees" /><StatCard label="Pending Reimbursements" value="₹26,450" icon={<ReceiptIndianRupee />} tone="rose" detail="4 claims awaiting payment" /></section><div className="dashboard-grid"><section className="dashboard-panel chart-panel"><PanelHeading title="Financial overview" action="View reports" onClick={() => navigate('Reports')} /><div className="chart-legend"><span><i className="legend-green" /> PO value</span><span><i className="legend-yellow" /> Expenses</span></div><div className="bar-chart">{['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'].map((month, index) => <div className="bar-group" key={month}><div className="bars"><span style={{ height: `${[38, 48, 42, 65, 52, 77][index]}%` }} /><span style={{ height: `${[22, 30, 27, 34, 40, 45][index]}%` }} /></div><small>{month}</small></div>)}</div></section><section className="dashboard-panel"><PanelHeading title="PO status distribution" action="View POs" onClick={() => navigate('Purchase Order (PO)')} /><div className="donut-wrap"><div className="donut"><strong>48</strong><span>Total POs</span></div><div className="donut-key"><span><i className="key-open" />Open <b>12</b></span><span><i className="key-closed" />Closed <b>28</b></span><span><i className="key-pending" />Pending <b>8</b></span></div></div></section></div><div className="dashboard-grid lower-grid"><section className="dashboard-panel"><PanelHeading title="Recent purchase orders" action="See all" onClick={() => navigate('Purchase Order (PO)')} /><MiniTable headers={['PO number', 'Supplier', 'Amount', 'Status']} rows={orders.slice(0, 4).map((order) => [order.number, order.supplier, formatCurrency(order.amount), order.status])} /></section><section className="dashboard-panel"><PanelHeading title="Expense claims needing attention" action="Review expenses" onClick={() => navigate('Employee Expenses')} /><MiniTable headers={['Claim', 'Employee', 'Amount', 'Status']} rows={expenses.slice(0, 4).map((expense) => [expense.claim, expense.employee, formatCurrency(expense.amount), expense.status])} /></section></div><section className="quick-actions"><strong>Quick actions</strong><div>{[['Create PO', 'Purchase Order (PO)'], ['Add employee', 'Employees'], ['Review expenses', 'Employee Expenses'], ['Clear bills', 'Bill Clearance'], ['Download report', 'Reports']].map(([label, page]) => <button key={label} onClick={() => navigate(page as PageKey)}><Plus size={15} />{label}<ArrowRight size={14} /></button>)}</div></section></>; }
-
-function PurchaseOrders({ orders, onNotify }: { orders: PurchaseOrder[]; onNotify: (message: string) => void }) { const [search, setSearch] = useState(''); const [status, setStatus] = useState('All'); const [selected, setSelected] = useState<PurchaseOrder | null>(null); const filtered = orders.filter((order) => (order.number + order.supplier).toLowerCase().includes(search.toLowerCase()) && (status === 'All' || order.status === status)); const total = orders.reduce((sum, order) => sum + order.amount, 0); return <><section className="stat-grid"><StatCard label="Total PO" value={String(orders.length)} icon={<FileText />} tone="blue" detail="All purchase orders" /><StatCard label="Open PO" value={String(orders.filter((o) => o.status === 'Open').length)} icon={<Archive />} tone="green" detail="Awaiting completion" /><StatCard label="Closed PO" value={String(orders.filter((o) => o.status === 'Closed').length)} icon={<Check />} tone="rose" detail="Successfully completed" /><StatCard label="Total PO Amount" value={formatCurrency(total)} icon={<CircleDollarSign />} tone="gold" detail="Current financial year" /></section><section className="workspace-card"><div className="toolbar"><div className="search-field"><Search size={17} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search PO number or supplier" /></div><div className="date-field"><CalendarDays size={16} /><span>From Date</span><ArrowRight size={14} /><span>To Date</span></div><label className="status-select"><span>Status:</span><select value={status} onChange={(e) => setStatus(e.target.value)}><option>All</option><option>Open</option><option>Closed</option></select><ChevronDown size={14} /></label><button className="filter-button"><Filter size={16} /> Search</button></div><div className="table-meta"><span>Showing <strong>{filtered.length}</strong> of {orders.length} purchase orders</span><button className="export-button" onClick={() => onNotify('Report export is ready')}><ArrowDownToLine size={15} /> Export report</button></div><DataTable headers={['S.No.', 'PO number', 'Supplier', 'Date', 'PO amount', 'Financial result', 'Status', 'Action']} rows={filtered.map((order, index) => [String(index + 1), <button className="po-link" onClick={() => setSelected(order)}>{order.number}</button>, <span className="supplier-cell"><span className="supplier-avatar">{order.supplier[0]}</span>{order.supplier}</span>, order.date, <strong>{formatCurrency(order.amount)}</strong>, <StatusBadge status={order.result} />, <StatusBadge status={order.status} />, <button className="view-button" onClick={() => setSelected(order)}>View <ArrowRight size={13} /></button>])} /><div className="table-footer"><span>Financial results remain pending until verified cost and revenue records are entered.</span><div className="pagination"><button>Previous</button><button className="current-page">1</button><button>Next</button></div></div></section>{selected && <DetailModal order={selected} onClose={() => setSelected(null)} onNotify={onNotify} />}</>; }
-
-function Expenses({ onNotify }: { onNotify: (message: string) => void }) { const [showForm, setShowForm] = useState(false); return <>{showForm ? <ExpenseForm onClose={() => setShowForm(false)} onNotify={onNotify} /> : <><section className="stat-grid"><StatCard label="Total claims" value="26" icon={<ReceiptIndianRupee />} tone="blue" detail="This financial year" /><StatCard label="Pending review" value="4" icon={<Clock3 />} tone="gold" detail="Needs your attention" /><StatCard label="Approved expenses" value="₹1,84,620" icon={<Check />} tone="green" detail="Approved to date" /><StatCard label="Outstanding balance" value="₹26,450" icon={<CircleDollarSign />} tone="rose" detail="Awaiting reimbursement" /></section><section className="workspace-card"><SectionToolbar search="Search claim, employee, or category" onCreate={() => setShowForm(true)} createLabel="Submit expense" /><DataTable headers={['Claim ID', 'Employee', 'Category', 'Expense date', 'Claimed', 'Approved', 'Status', 'Action']} rows={expenses.map((expense) => [expense.claim, expense.employee, expense.category, expense.date, formatCurrency(expense.amount), expense.approved ? formatCurrency(expense.approved) : '—', <StatusBadge status={expense.status} />, <button className="view-button" onClick={() => onNotify('Expense details opened')}>View <ArrowRight size={13} /></button>])} /></section></>}</>; }
-function ExpenseForm({ onClose, onNotify }: { onClose: () => void; onNotify: (message: string) => void }) { const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onClose(); onNotify('Expense claim saved as draft'); }; return <form className="form-panel" onSubmit={submit}><div className="form-panel-head"><div><span className="eyebrow">NEW CLAIM</span><h2>Submit employee expense</h2><p>Add the business purpose and receipt details for reimbursement.</p></div><button type="button" onClick={onClose} className="close-button"><X size={19} /></button></div><div className="form-grid"><Field label="Employee name" placeholder="Select employee" /><Field label="Expense date" type="date" /><Field label="Expense category" placeholder="Travel, fuel, food..." /><Field label="Amount spent (₹)" type="number" placeholder="0.00" /><Field label="Travel from" placeholder="Optional" /><Field label="Travel to" placeholder="Optional" /><Field label="Business purpose" placeholder="Why was this expense necessary?" wide /><label className="field-label wide">Bill or receipt<input type="file" accept=".pdf,.jpg,.jpeg,.png" /><span className="upload-hint"><Upload size={16} /> PDF, JPG, or PNG up to 10 MB</span></label></div><div className="form-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button className="primary-button" type="submit">Save draft <ArrowRight size={16} /></button></div></form>; }
-function Wages({ onNotify }: { onNotify: (message: string) => void }) { return <><section className="stat-grid"><StatCard label="Active employees" value="12" icon={<Users />} tone="blue" detail="Across 4 departments" /><StatCard label="Monthly commitment" value="₹4,82,500" icon={<WalletCards />} tone="green" detail="Current pay period" /><StatCard label="Salary paid" value="₹3,96,200" icon={<Check />} tone="gold" detail="November 2026" /><StatCard label="Pending salary" value="₹86,300" icon={<Clock3 />} tone="rose" detail="5 records remaining" /></section><section className="workspace-card"><SectionToolbar search="Search employee or ID" onCreate={() => onNotify('Create wage period opened')} createLabel="Create wage period" /><DataTable headers={['Employee ID', 'Employee name', 'Department', 'Wage type', 'Net payable', 'Paid', 'Balance', 'Status', 'Action']} rows={[["EMP-001", 'Rakesh Sharma', 'Procurement', 'Monthly', '₹52,000', '₹52,000', '₹0', <StatusBadge status="Paid" />, <button className="view-button" onClick={() => onNotify('Payment history opened')}>History</button>], ['EMP-002', 'Meena Joshi', 'Accounts', 'Monthly', '₹48,500', '₹25,000', '₹23,500', <StatusBadge status="Pending" />, <button className="view-button" onClick={() => onNotify('Payment recording opened')}>Record payment</button>], ['EMP-003', 'Vikram Patel', 'Logistics', 'Daily', '₹32,800', '₹32,800', '₹0', <StatusBadge status="Paid" />, <button className="view-button" onClick={() => onNotify('Payment history opened')}>History</button>], ['EMP-004', 'Anita Verma', 'Operations', 'Monthly', '₹44,000', '₹0', '₹44,000', <StatusBadge status="Pending" />, <button className="view-button" onClick={() => onNotify('Payment recording opened')}>Record payment</button>]]} /></section></>; }
-function Employees({ onNotify }: { onNotify: (message: string) => void }) { return <><section className="stat-grid"><StatCard label="Total employees" value="14" icon={<Users />} tone="blue" detail="All records" /><StatCard label="Active employees" value="12" icon={<Check />} tone="green" detail="Currently working" /><StatCard label="Departments" value="4" icon={<BriefcaseBusiness />} tone="gold" detail="Configured teams" /><StatCard label="Expense claims" value="26" icon={<ReceiptIndianRupee />} tone="rose" detail="This financial year" /></section><section className="workspace-card"><SectionToolbar search="Search employee ID or name" onCreate={() => onNotify('Add employee form opened')} createLabel="Add employee" /><DataTable headers={['Employee ID', 'Full name', 'Department', 'Designation', 'Wage type', 'Status', 'Action']} rows={[["EMP-001", 'Rakesh Sharma', 'Procurement', 'Senior Buyer', 'Monthly', <StatusBadge status="Approved" />, <button className="view-button" onClick={() => onNotify('Employee profile opened')}>View</button>], ["EMP-002", 'Meena Joshi', 'Accounts', 'Accountant', 'Monthly', <StatusBadge status="Approved" />, <button className="view-button" onClick={() => onNotify('Employee profile opened')}>View</button>], ["EMP-003", 'Vikram Patel', 'Logistics', 'Field Executive', 'Daily', <StatusBadge status="Approved" />, <button className="view-button" onClick={() => onNotify('Employee profile opened')}>View</button>], ["EMP-004", 'Anita Verma', 'Operations', 'Operations Lead', 'Monthly', <StatusBadge status="Approved" />, <button className="view-button" onClick={() => onNotify('Employee profile opened')}>View</button>]]} /></section></>; }
-function Suppliers({ onNotify }: { onNotify: (message: string) => void }) { return <section className="workspace-card"><SectionToolbar search="Search supplier name or ID" onCreate={() => onNotify('Add supplier form opened')} createLabel="Add supplier" /><DataTable headers={['Supplier ID', 'Supplier name', 'Country', 'Payment terms', 'POs', 'PO value', 'Status', 'Action']} rows={suppliers.map((supplier, index) => [`SUP-${String(index + 1).padStart(3, '0')}`, supplier, index === 2 ? 'Nepal' : 'India', index % 2 ? 'Net 30' : 'Advance', String(index + 2), formatCurrency((index + 2) * 486000), <StatusBadge status="Approved" />, <button className="view-button" onClick={() => onNotify('Supplier profile opened')}>View</button>])} /></section>; }
-function BillClearance({ onNotify }: { onNotify: (message: string) => void }) { return <><section className="stat-grid"><StatCard label="Pending clearance" value="4" icon={<Clock3 />} tone="gold" detail="Approved bills" /><StatCard label="Approved amount" value="₹58,450" icon={<CircleDollarSign />} tone="blue" detail="Ready to pay" /><StatCard label="Amount paid" value="₹32,000" icon={<Check />} tone="green" detail="Recorded payments" /><StatCard label="Outstanding" value="₹26,450" icon={<WalletCards />} tone="rose" detail="Remaining balance" /></section><section className="workspace-card"><SectionToolbar search="Search claim or employee" onCreate={() => onNotify('Payment recording opened')} createLabel="Record payment" /><DataTable headers={['Claim / bill ID', 'Employee', 'Category', 'Approved', 'Paid', 'Balance', 'Payment method', 'Status', 'Action']} rows={expenses.filter((expense) => expense.approved > 0).map((expense) => [expense.claim, expense.employee, expense.category, formatCurrency(expense.approved), formatCurrency(expense.paid), formatCurrency(expense.approved - expense.paid), expense.paid ? 'Bank transfer' : '—', <StatusBadge status={expense.paid === expense.approved ? 'Paid' : 'Pending'} />, <button className="view-button" onClick={() => onNotify('Payment history opened')}>History</button>])} /></section></>; }
-function Reports({ onNotify }: { onNotify: (message: string) => void }) { const reports = [['Purchase orders', 'Monthly PO summary', 'Updated today'], ['Employee wages', 'Salary payment history', 'Updated today'], ['Expenses', 'Pending reimbursements', 'Updated 36 min ago'], ['Profit & loss', 'Verified financial results', 'Updated yesterday'], ['Accountant activity', 'Approval time report', 'Updated yesterday']]; return <section className="report-grid">{reports.map(([title, desc, updated]) => <article className="report-card" key={title}><div className="report-icon"><FileBarChart size={22} /></div><div><h3>{title}</h3><p>{desc}</p><span>{updated}</span></div><button onClick={() => onNotify(`${title} report downloaded`)}><ArrowDownToLine size={16} /></button></article>)}</section>; }
-function Performance() { return <><section className="stat-grid"><StatCard label="Total accountants" value="4" icon={<Users />} tone="blue" detail="All accounts" /><StatCard label="Active accounts" value="3" icon={<Check />} tone="green" detail="Currently active" /><StatCard label="POs created" value="38" icon={<ShoppingCart />} tone="gold" detail="This month" /><StatCard label="Avg approval time" value="1.8d" icon={<Clock3 />} tone="rose" detail="This month" /></section><section className="workspace-card"><div className="table-meta"><span><strong>Accountant activity</strong> · November 2026</span><button className="export-button"><SlidersHorizontal size={15} /> Filter period</button></div><DataTable headers={['Employee ID', 'Accountant', 'POs created', 'Approved POs', 'Rejected POs', 'Claims reviewed', 'Last activity', 'Account status']} rows={[["ACC-001", 'Meena Joshi', '16', '12', '1', '24', 'Today, 10:42 AM', <StatusBadge status="Approved" />], ["ACC-002", 'Sanjay Rao', '13', '10', '2', '18', 'Today, 09:18 AM', <StatusBadge status="Approved" />], ["ACC-003", 'Priya Nair', '9', '7', '0', '11', 'Yesterday', <StatusBadge status="Pending" />]]} /></section></>; }
-function ActivityLogs() { return <section className="workspace-card"><div className="table-meta"><span><strong>Activity log</strong> · All important actions are recorded</span><button className="export-button"><DownloadIcon /> Export log</button></div><DataTable headers={['Time', 'User', 'Role', 'Action', 'Related record', 'Result']} rows={[["14 Nov, 10:42", 'Meena Joshi', 'Accountant', 'PO submitted for approval', 'PO/SF/2026/009', <StatusBadge status="Approved" />], ["14 Nov, 10:18", 'Admin Kumar', 'Admin', 'Expense approved', 'EXP/SF/0260', <StatusBadge status="Approved" />], ["14 Nov, 09:51", 'Admin Kumar', 'Admin', 'Payment recorded', 'PAY/SF/0142', <StatusBadge status="Paid" />], ["13 Nov, 17:24", 'Sanjay Rao', 'Accountant', 'Failed login attempt', 'Account access', <StatusBadge status="Rejected" />]]} /></section>; }
-function DownloadIcon() { return <ArrowDownToLine size={15} />; }
-function SettingsPage({ onNotify }: { onNotify: (message: string) => void }) { return <div className="settings-grid">{[['Company settings', 'Company display name, currency, and timezone', <BriefcaseBusiness />], ['Purchase order settings', 'Numbering, approval flow, and default terms', <ShoppingCart />], ['Employee settings', 'Departments, wage types, and salary periods', <Users />], ['Expense settings', 'Categories, receipt requirements, and limits', <ReceiptIndianRupee />], ['Permissions', 'Accountant access and report visibility', <SlidersHorizontal />]].map(([title, desc, icon]) => <button className="settings-card" key={String(title)} onClick={() => onNotify(`${title} opened`)}><span className="settings-icon">{icon as ReactNode}</span><span><strong>{title}</strong><small>{desc}</small></span><ArrowRight size={17} /></button>)}</div>; }
-function GenericPage({ page, navigate }: { page: PageKey; navigate: (page: PageKey) => void }) { return <section className="empty-module"><div className="empty-module-icon">{pageIcon(page)}</div><h2>{page} workspace</h2><p>This module is ready for connected records and role-based workflows.</p><button className="primary-button" onClick={() => navigate('Dashboard')}>Back to dashboard <ArrowRight size={16} /></button></section>; }
-
-function SectionToolbar({ search, onCreate, createLabel }: { search: string; onCreate: () => void; createLabel: string }) { return <div className="section-toolbar"><div className="search-field"><Search size={17} /><input placeholder={search} /></div><button className="secondary-filter"><Filter size={16} /> Filters</button><button className="primary-button" onClick={onCreate}><Plus size={17} /> {createLabel}</button></div>; }
-function PanelHeading({ title, action, onClick }: { title: string; action: string; onClick: () => void }) { return <div className="panel-heading"><h2>{title}</h2><button onClick={onClick}>{action} <ArrowRight size={14} /></button></div>; }
-function StatCard({ label, value, icon, tone, detail }: { label: string; value: string; icon: ReactNode; tone: string; detail: string }) { return <div className={`stat-card ${tone}`}><div className="stat-icon">{icon}</div><div className="stat-content"><span>{label}</span><strong>{value}</strong><small>{detail}</small></div></div>; }
-function StatusBadge({ status }: { status: string }) { const normalized = status.toLowerCase().replace(/\s/g, '-'); return <span className={`status-badge ${normalized}`}><span />{status}</span>; }
-function DataTable({ headers, rows }: { headers: string[]; rows: ReactNode[][] }) { return <div className="table-wrap"><table><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex} className={cellIndex === 0 ? 'serial' : ''}>{cell}</td>)}</tr>)}</tbody></table>{rows.length === 0 && <div className="empty-state"><Search size={27} /><strong>No records found</strong><span>Try changing your filters.</span></div>}</div>; }
-function MiniTable({ headers, rows }: { headers: string[]; rows: string[][] }) { return <DataTable headers={headers} rows={rows.map((row) => row.map((cell, index) => index === row.length - 1 ? <StatusBadge status={cell} /> : cell))} />; }
-function Field({ label, placeholder, type = 'text', wide = false }: { label: string; placeholder?: string; type?: string; wide?: boolean }) { return <label className={`field-label ${wide ? 'wide' : ''}`}>{label}<input type={type} placeholder={placeholder} required={label.includes('name') || label.includes('Amount')} /></label>; }
-function CreatePOModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: (event: FormEvent<HTMLFormElement>) => void }) { return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><form className="modal" onSubmit={onSubmit}><div className="modal-header"><div><span className="eyebrow">NEW RECORD</span><h2>Create purchase order</h2></div><button type="button" onClick={onClose} aria-label="Close"><X size={20} /></button></div><p className="modal-intro">Create a traceable procurement order. Verified costs and revenue remain separate from the PO amount.</p><label>Supplier<select name="supplier" required>{suppliers.map((supplier) => <option key={supplier}>{supplier}</option>)}</select></label><label>PO amount<input name="amount" required type="number" min="1" placeholder="Enter amount in rupees" /></label><div className="modal-actions"><button type="button" className="secondary-button" onClick={onClose}>Cancel</button><button type="submit" className="primary-button">Create PO <ArrowRight size={17} /></button></div></form></div>; }
-function DetailModal({ order, onClose, onNotify }: { order: PurchaseOrder; onClose: () => void; onNotify: (message: string) => void }) { return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}><div className="modal detail-modal"><button className="detail-close" onClick={onClose} aria-label="Close"><X size={20} /></button><div className="detail-icon"><ShoppingCart size={24} /></div><span className="eyebrow">PURCHASE ORDER</span><h2>{order.number}</h2><StatusBadge status={order.status} /><div className="detail-grid"><div><span>Supplier</span><strong>{order.supplier}</strong></div><div><span>Order date</span><strong>{order.date}</strong></div><div><span>PO amount</span><strong>{formatCurrency(order.amount)}</strong></div><div><span>Financial result</span><strong>{order.result} data</strong></div></div><button className="primary-button full-button" onClick={() => { onNotify('PO preview opened'); onClose(); }}>Preview order <ArrowRight size={16} /></button></div></div>; }
-
-export default App;
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainApp />
+    </AuthProvider>
+  );
+}
