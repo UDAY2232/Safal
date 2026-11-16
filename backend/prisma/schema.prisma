@@ -351,3 +351,66 @@ model ApplicationSetting {
   @@map("application_settings")
 }
 
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum InvoiceType {
+  SALES
+  PURCHASE
+  EXPORT
+  IMPORT
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique // e.g. INV/SF/2026/001
+  invoiceType     InvoiceType   @default(SALES)
+  partyName       String        // Customer, Consignee, or Supplier
+  partyGst        String?
+  partyAddress    String?
+  partyEmail      String?
+  partyPhone      String?
+  invoiceDate     DateTime      @default(now())
+  dueDate         DateTime
+  linkedPoNumber  String?
+  subtotal        Decimal       @default(0) @db.Decimal(14, 2)
+  taxRate         Decimal       @default(5) @db.Decimal(5, 2) // Standard 5% GST for fruits
+  taxAmount       Decimal       @default(0) @db.Decimal(14, 2)
+  freightShipping Decimal       @default(0) @db.Decimal(14, 2)
+  grandTotal      Decimal       @default(0) @db.Decimal(14, 2)
+  amountPaid      Decimal       @default(0) @db.Decimal(14, 2)
+  balanceDue      Decimal       @default(0) @db.Decimal(14, 2)
+  status          InvoiceStatus @default(PENDING)
+  paymentTerms    String?       @default("Net 15 Days")
+  paymentMethod   String?
+  notes           String?
+  items           InvoiceItem[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status])
+  @@index([invoiceDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String   // e.g. "Shimla Royal Delicious Apples (Grade A)"
+  hsnCode     String?  @default("08081000") // HSN code for fresh apples
+  quantity    Decimal  @db.Decimal(12, 2)
+  unit        String   @default("BOX") // BOX, KG, TON, CRATE
+  rate        Decimal  @db.Decimal(12, 2)
+  amount      Decimal  @db.Decimal(14, 2)
+
+  @@map("invoice_items")
+}
+
+

@@ -13,6 +13,7 @@ import clearanceRoutes from './routes/clearanceRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
+import invoiceRoutes from './routes/invoiceRoutes.js';
 
 export const app = express();
 
@@ -86,4 +87,5 @@ app.use('/api/clearance', clearanceRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/invoices', invoiceRoutes);
 

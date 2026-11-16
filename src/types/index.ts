@@ -238,3 +238,53 @@ export interface ActivityLog {
   createdAt: string;
 }
 
+export type InvoiceStatus = 'DRAFT' | 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'CANCELLED';
+export type InvoiceType = 'SALES' | 'PURCHASE' | 'EXPORT' | 'IMPORT';
+
+export interface InvoiceItem {
+  id?: string;
+  description: string;
+  hsnCode?: string;
+  quantity: number;
+  unit: string;
+  rate: number;
+  amount: number;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  invoiceType: InvoiceType;
+  partyName: string;
+  partyGst?: string | null;
+  partyAddress?: string | null;
+  partyEmail?: string | null;
+  partyPhone?: string | null;
+  invoiceDate: string;
+  dueDate: string;
+  linkedPoNumber?: string | null;
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  freightShipping: number;
+  grandTotal: number;
+  amountPaid: number;
+  balanceDue: number;
+  status: InvoiceStatus;
+  paymentTerms?: string | null;
+  paymentMethod?: string | null;
+  notes?: string | null;
+  items?: InvoiceItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvoiceStats {
+  totalInvoices: number;
+  totalBilled: number;
+  totalPaid: number;
+  totalPending: number;
+  overdueCount: number;
+}
+
+

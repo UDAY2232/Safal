@@ -137,5 +137,13 @@ export const api = {
   getSettings: () => request<any>('/settings'),
   updateSettings: (data: any) => request<any>('/settings', { method: 'PUT', body: JSON.stringify(data) }),
   getSystemStatus: () => request<any>('/system/status'),
+
+  // Invoices
+  getInvoices: (params: string = '') => request<{ invoices: any[]; stats: any }>(`/invoices${params}`),
+  getInvoiceById: (id: string) => request<any>(`/invoices/${id}`),
+  createInvoice: (data: any) => request<any>('/invoices', { method: 'POST', body: JSON.stringify(data) }),
+  recordInvoicePayment: (id: string, data: any) =>
+    request<any>(`/invoices/${id}/payment`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteInvoice: (id: string) => request<{ message: string }>(`/invoices/${id}`, { method: 'DELETE' }),
 };
 

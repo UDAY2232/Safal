@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Home,
   ShoppingCart,
+  FileText,
   ReceiptIndianRupee,
   ClipboardCheck,
   WalletCards,
@@ -38,6 +39,7 @@ interface NavEntry {
 const navItems: NavEntry[] = [
   { label: 'Dashboard', icon: Home, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Employee Expenses', icon: ReceiptIndianRupee, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Bill Clearance', icon: ClipboardCheck, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Wages & Salary', icon: WalletCards, roles: ['ADMIN', 'ACCOUNTANT'] },

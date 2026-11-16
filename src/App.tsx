@@ -15,6 +15,7 @@ import { ReportsPage } from './pages/ReportsPage';
 import { PerformancePage } from './pages/PerformancePage';
 import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { InvoicesPage } from './pages/InvoicesPage';
 
 function MainApp() {
   const { user, token, isLoading } = useAuth();
@@ -114,6 +115,7 @@ function MainApp() {
             setShowCreateModal={setShowCreatePO}
           />
         )}
+        {activePage === 'Invoices' && <InvoicesPage onNotify={notify} />}
         {activePage === 'Employee Expenses' && <ExpensesPage onNotify={notify} />}
         {activePage === 'Bill Clearance' && <ClearancePage onNotify={notify} />}
         {activePage === 'Wages & Salary' && <WagesPage onNotify={notify} />}
@@ -139,6 +141,7 @@ function PageHeading({ page, onAction }: { page: string; onAction: () => void })
   const subtitles: Record<string, string> = {
     Dashboard: 'Consolidated overview of fruit procurement, workforce wages, and realized performance.',
     'Purchase Order (PO)': 'Create, review, approve, and track fruit procurement orders with verified P&L.',
+    Invoices: 'Generate, track, and clear domestic and international export/import tax invoices.',
     'Employee Expenses': 'Submit and audit company-related spending, travel, logistics, and reimbursements.',
     'Bill Clearance': 'Disburse authorized expense claims and employee wages with complete transaction records.',
     'Wages & Salary': 'Manage pay periods, authorized deductions, and traceable bank salary disbursements.',
