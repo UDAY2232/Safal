@@ -21,7 +21,8 @@ const COMMON_FRUITS = [
 
 export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess }) => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [supplierId, setSupplierId] = useState('');
+  const [supplierName, setSupplierName] = useState('');
+  const [poDate, setPoDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('SAFAL Main Cold Storage, Hub 1, Navi Mumbai');
   const [advanceAmount, setAdvanceAmount] = useState<string>('0');
@@ -49,7 +50,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       try {
         const list = await api.getSuppliers();
         setSuppliers(list);
-        if (list.length > 0) setSupplierId(list[0].id);
+        if (list.length > 0 && !supplierName) setSupplierName(list[0].name);
       } catch {}
     }
     loadSuppliers();
@@ -146,8 +147,8 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
     pendingAmount !== '' ? Number(pendingAmount) : Math.max(0, grandTotal - currentAdvance);
 
   const handleSubmit = async (submitForApproval: boolean) => {
-    if (!supplierId) {
-      setError('Please select a supplier');
+    if (!supplierName.trim()) {
+      setError('Please enter or select a supplier');
       return;
     }
     if (items.length === 0) {
@@ -159,8 +160,15 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       setIsSubmitting(true);
       setError('');
 
+      // Find matching supplier or pass manual name
+      const matched = suppliers.find(
+        (s) => s.id === supplierName || s.name.toLowerCase() === supplierName.trim().toLowerCase()
+      );
+      const finalSupplierId = matched ? matched.id : supplierName.trim();
+
       await api.createPurchaseOrder({
-        supplierId,
+        supplierId: finalSupplierId,
+        poDate: poDate || new Date().toISOString(),
         expectedDeliveryDate: expectedDeliveryDate || null,
         deliveryAddress,
         advanceAmount: currentAdvance,
@@ -205,35 +213,70 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
         )}
 
         <div className="overflow-y-auto flex-1 pr-2 py-3 space-y-4 text-xs">
-          {/* Top metadata grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          {/* Top metadata grid - Supplier (manual input, no down arrow lock), PO Initiation Date, Expected Delivery Date */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-gray-700 font-semibold mb-1">Supplier *</label>
-              <select
-                value={supplierId}
-                onChange={(e) => setSupplierId(e.target.value)}
-                className="w-full h-10 px-2.5 border border-gray-300 rounded-lg text-xs focus:border-emerald-600 focus:outline-none"
-              >
+              <label className="block text-gray-700 font-semibold mb-1 flex items-center justify-between">
+                <span>Supplier Name *</span>
+                <span className="text-[10px] text-gray-400 font-normal">Manual type or pick</span>
+              </label>
+              <input
+                type="text"
+                list="suppliers-datalist"
+                value={supplierName}
+                onChange={(e) => setSupplierName(e.target.value)}
+                placeholder="e.g. Royal Fruit Traders"
+                className="w-full h-10 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
+                required
+              />
+              <datalist id="suppliers-datalist">
                 {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.category})
+                  <option key={s.id} value={s.name}>
+                    {s.category}
                   </option>
                 ))}
-              </select>
+              </datalist>
             </div>
+
+            <div>
+              <label className="block text-gray-700 font-semibold mb-1 flex items-center justify-between">
+                <span>PO Initiation Date *</span>
+                <span className="text-[10px] text-emerald-700 font-medium">Order Date</span>
+              </label>
+              <input
+                type="date"
+                value={poDate}
+                onChange={(e) => setPoDate(e.target.value)}
+                className="w-full h-10 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
+                required
+              />
+            </div>
+
             <div>
               <label className="block text-gray-700 font-semibold mb-1">Expected Delivery Date</label>
               <input
                 type="date"
                 value={expectedDeliveryDate}
                 onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                className="w-full h-10 px-2.5 border border-gray-300 rounded-lg text-xs focus:border-emerald-600 focus:outline-none"
+                className="w-full h-10 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
               />
             </div>
+          </div>
+
+          {/* Real-Time Financial Metric Overview: Total PO Amount, Advance Paid, Pending Balance Due */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+            <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-xs flex flex-col justify-center">
+              <span className="text-[10px] uppercase font-bold text-gray-500 block">Total PO Amount (₹)</span>
+              <strong className="text-xl font-black text-emerald-800 block mt-0.5">
+                ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </strong>
+              <span className="text-[10px] text-gray-400">Total payable including GST</span>
+            </div>
+
             <div>
-              <label className="block text-gray-700 font-semibold mb-1 flex items-center justify-between">
+              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
                 <span>Advance Amount (₹)</span>
-                <span className="text-[10px] text-emerald-700 font-medium">Initial Pay</span>
+                <span className="text-[10px] text-emerald-700 font-semibold">Initial Advance</span>
               </label>
               <input
                 type="number"
@@ -245,13 +288,14 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                   setPendingAmount('');
                 }}
                 placeholder="0.00"
-                className="w-full h-10 px-2.5 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-900 bg-emerald-50/30 focus:border-emerald-600 focus:outline-none"
+                className="w-full h-10 px-2.5 border border-emerald-400 rounded-lg text-sm font-bold text-emerald-900 bg-white focus:border-emerald-600 focus:outline-none shadow-xs"
               />
             </div>
+
             <div>
-              <label className="block text-gray-700 font-semibold mb-1 flex items-center justify-between">
+              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
                 <span>Pending Balance (₹)</span>
-                <span className="text-[10px] text-amber-700 font-medium">Balance Due</span>
+                <span className="text-[10px] text-amber-700 font-semibold">Remaining Due</span>
               </label>
               <input
                 type="number"
@@ -260,7 +304,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 value={pendingAmount !== '' ? pendingAmount : Math.max(0, grandTotal - (Number(advanceAmount) || 0))}
                 onChange={(e) => setPendingAmount(e.target.value)}
                 placeholder="0.00"
-                className="w-full h-10 px-2.5 border border-amber-300 rounded-lg text-xs font-bold text-amber-900 bg-amber-50/30 focus:border-amber-600 focus:outline-none"
+                className="w-full h-10 px-2.5 border border-amber-400 rounded-lg text-sm font-black text-amber-900 bg-white focus:border-amber-600 focus:outline-none shadow-xs"
               />
             </div>
           </div>

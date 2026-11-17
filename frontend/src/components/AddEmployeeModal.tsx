@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Users, ArrowRight } from 'lucide-react';
+import { X, Users, ArrowRight, Eye, EyeOff, Lock } from 'lucide-react';
 import { api } from '../services/api';
 
 interface AddEmployeeModalProps {
@@ -15,6 +15,8 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onS
   const [designation, setDesignation] = useState('Field Officer');
   const [wageType, setWageType] = useState<'MONTHLY' | 'DAILY' | 'HOURLY'>('MONTHLY');
   const [baseWageRate, setBaseWageRate] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -22,6 +24,10 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onS
     e.preventDefault();
     if (!fullName.trim() || !email.trim() || !baseWageRate) {
       setError('Full name, email, and wage rate are required');
+      return;
+    }
+    if (password && password.length < 6) {
+      setError('Password must be at least 6 characters');
       return;
     }
 
@@ -37,9 +43,10 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onS
         designation,
         wageType,
         baseWageRate: Number(baseWageRate),
+        password: password.trim() || undefined,
       });
 
-      onSuccess(`Employee "${fullName}" added successfully`);
+      onSuccess(`Employee "${fullName}" added successfully with portal credentials`);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to add employee');
@@ -91,15 +98,40 @@ export const AddEmployeeModal: React.FC<AddEmployeeModalProps> = ({ onClose, onS
               />
             </div>
             <div>
-              <label className="block text-gray-700 font-semibold mb-1">Contact Phone</label>
-              <input
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 98..."
-                className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs"
-              />
+              <label className="block text-gray-700 font-semibold mb-1 flex items-center justify-between">
+                <span>Login Password *</span>
+                <span className="text-[10px] text-emerald-700 font-semibold">Min 6 chars</span>
+              </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="e.g. Safal@2026"
+                  className="w-full h-9 pl-2.5 pr-8 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-950 focus:border-emerald-600 focus:outline-none bg-emerald-50/20"
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-gray-700 font-semibold mb-1">Contact Phone</label>
+            <input
+              type="text"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+91 98..."
+              className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

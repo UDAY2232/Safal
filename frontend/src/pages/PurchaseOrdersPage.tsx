@@ -499,17 +499,6 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           }}
         />
       )}
-
-      {/* Create Modal */}
-      {showCreateModal && (
-        <CreatePOModal
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={(msg) => {
-            onNotify(msg);
-            loadOrders();
-          }}
-        />
-      )}
     </div>
   );
 };

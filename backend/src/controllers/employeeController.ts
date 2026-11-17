@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
@@ -127,12 +128,52 @@ export async function createEmployee(req: AuthRequest, res: Response) {
       wageType = 'MONTHLY',
       baseWageRate,
       joiningDate,
+      password,
     } = req.body;
 
     if (!fullName || !email || !department || !designation || baseWageRate === undefined) {
       return res.status(400).json({
         error: 'Full name, email, department, designation, and base wage rate are required',
       });
+    }
+
+    const normalizedEmail = String(email).toLowerCase().trim();
+
+    // Check if employee with email already exists
+    const existingEmployee = await prisma.employee.findFirst({
+      where: { email: normalizedEmail },
+    });
+    if (existingEmployee) {
+      return res.status(400).json({ error: 'An employee with this email already exists' });
+    }
+
+    // Provision Login User if password provided
+    let userId: string | null = null;
+    if (password && String(password).trim()) {
+      const pwd = String(password).trim();
+      if (pwd.length < 6) {
+        return res.status(400).json({ error: 'Login password must be at least 6 characters' });
+      }
+
+      const existingUser = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      if (existingUser) {
+        userId = existingUser.id;
+      } else {
+        const passwordHash = await bcrypt.hash(pwd, 10);
+        const newUser = await prisma.user.create({
+          data: {
+            email: normalizedEmail,
+            passwordHash,
+            name: fullName.trim(),
+            role: 'EMPLOYEE',
+            isActive: true,
+          },
+        });
+        userId = newUser.id;
+      }
     }
 
     // Auto-generate employeeId: EMP-001
@@ -142,8 +183,9 @@ export async function createEmployee(req: AuthRequest, res: Response) {
     const newEmployee = await prisma.employee.create({
       data: {
         employeeId,
-        fullName,
-        email: email.toLowerCase().trim(),
+        userId,
+        fullName: fullName.trim(),
+        email: normalizedEmail,
         phone,
         department,
         designation,

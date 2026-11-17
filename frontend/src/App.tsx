@@ -16,6 +16,7 @@ import { PerformancePage } from './pages/PerformancePage';
 import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { InvoicesPage } from './pages/InvoicesPage';
+import { CreatePOModal } from './components/CreatePOModal';
 
 function MainApp() {
   const { user, token, isLoading } = useAuth();
@@ -126,6 +127,20 @@ function MainApp() {
         {activePage === 'Activity Logs' && <ActivityLogsPage />}
         {activePage === 'Settings' && <SettingsPage onNotify={notify} />}
       </main>
+
+      {/* Global Create PO Modal - opens instantly from any page (Dashboard, PO, etc.) */}
+      {showCreatePO && (
+        <CreatePOModal
+          onClose={() => setShowCreatePO(false)}
+          onSuccess={(msg) => {
+            setShowCreatePO(false);
+            notify(msg || 'Purchase Order created successfully');
+            if (activePage !== 'Purchase Order (PO)') {
+              setActivePage('Purchase Order (PO)');
+            }
+          }}
+        />
+      )}
 
       {toast && (
         <div className="toast">

@@ -167,8 +167,35 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       submitForApproval = false,
     } = req.body;
 
-    if (!supplierId) {
+    if (!supplierId || !String(supplierId).trim()) {
       return res.status(400).json({ error: 'Supplier is required' });
+    }
+
+    // Resolve or auto-create supplier from manual input
+    let resolvedSupplierId = String(supplierId).trim();
+    const existingSupplier = await prisma.supplier.findFirst({
+      where: {
+        OR: [
+          { id: resolvedSupplierId },
+          { name: { equals: resolvedSupplierId, mode: 'insensitive' } },
+        ],
+      },
+    });
+
+    if (existingSupplier) {
+      resolvedSupplierId = existingSupplier.id;
+    } else {
+      const sCount = await prisma.supplier.count();
+      const createdSupplier = await prisma.supplier.create({
+        data: {
+          supplierCode: `SUP-${String(sCount + 1).padStart(3, '0')}`,
+          name: resolvedSupplierId,
+          category: 'Wholesale Fruits',
+          paymentTerms: 'Custom',
+          status: 'ACTIVE',
+        },
+      });
+      resolvedSupplierId = createdSupplier.id;
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
