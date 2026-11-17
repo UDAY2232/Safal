@@ -48,7 +48,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
 
     // Accountant Calculations
     const totalAccountants = accountants.length;
-    const activeAccountants = accountants.filter((a) => a.status === 'ACTIVE' && a.user.isActive).length;
+    const activeAccountants = accountants.filter((a) => a.status === 'ACTIVE' && a.user?.isActive).length;
 
     // Employee & Wage Calculations
     const totalEmployees = employees.length;
@@ -143,11 +143,11 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       recentPOs: pos.slice(0, 6).map((p) => ({
         id: p.id,
         number: p.poNumber,
-        supplier: p.supplier.name,
+        supplier: p.supplier?.name || 'Supplier',
         date: p.poDate,
         amount: Number(p.grandTotal),
         status: p.status,
-        createdBy: p.createdBy.name,
+        createdBy: p.createdBy?.name || 'User',
       })),
       pendingPOApprovals: pos
         .filter((p) => p.status === 'PENDING_APPROVAL')
@@ -155,15 +155,15 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         .map((p) => ({
           id: p.id,
           number: p.poNumber,
-          supplier: p.supplier.name,
+          supplier: p.supplier?.name || 'Supplier',
           date: p.poDate,
           amount: Number(p.grandTotal),
-          createdBy: p.createdBy.name,
+          createdBy: p.createdBy?.name || 'User',
         })),
       recentExpenses: expenses.slice(0, 6).map((e) => ({
         id: e.id,
         claim: e.claimNumber,
-        employee: e.employee.fullName,
+        employee: e.employee?.fullName || 'Employee',
         category: e.category,
         date: e.expenseDate,
         amount: Number(e.amountSpent),

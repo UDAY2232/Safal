@@ -14,9 +14,13 @@ import { requireRole } from '../middleware/rbac.js';
 const router = Router();
 
 router.use(authenticateToken);
+
+// Dashboard metrics accessible to authenticated operations staff (Admin, Accountant, Employee)
+router.get('/dashboard', getAdminDashboard);
+
+// Master Admin restricted management routes
 router.use(requireRole('ADMIN'));
 
-router.get('/dashboard', getAdminDashboard);
 router.get('/accountants', getAccountants);
 router.post('/accountants', createAccountant);
 router.put('/accountants/:id', updateAccountant);

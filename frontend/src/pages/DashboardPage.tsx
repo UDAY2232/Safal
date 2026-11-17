@@ -37,35 +37,79 @@ interface DashboardPageProps {
   onCreatePO: () => void;
 }
 
+const DEFAULT_DASHBOARD_DATA = {
+  summary: {
+    totalPOs: 0,
+    openPOs: 0,
+    closedPOs: 0,
+    totalPOAmount: 0,
+    pendingApprovals: 0,
+    totalAccountants: 0,
+    activeAccountants: 0,
+    totalEmployees: 0,
+    activeEmployees: 0,
+    monthlyWageCommitment: 0,
+    totalWagesPayable: 0,
+    totalWagesPaid: 0,
+    pendingWages: 0,
+    totalExpensesSubmitted: 0,
+    approvedExpenses: 0,
+    expensesPaid: 0,
+    pendingReimbursements: 0,
+    totalBillsCleared: 0,
+    realizedProfit: 0,
+    realizedLoss: 0,
+    pendingFinancialResults: 0,
+  },
+  charts: {
+    monthlyData: [],
+    statusCounts: {},
+  },
+  recentPOs: [],
+  pendingPOApprovals: [],
+  recentExpenses: [],
+  recentActivityLogs: [],
+};
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCreatePO }) => {
   const { user } = useAuth();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadData() {
       try {
         setLoading(true);
         const res = await api.getAdminDashboard();
-        setData(res);
+        if (isMounted) setData(res);
       } catch (err) {
         console.error('Failed to load dashboard:', err);
+        if (isMounted) setData(DEFAULT_DASHBOARD_DATA);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }
     loadData();
+    return () => {
+      isMounted = false;
+    };
   }, [user]);
 
-  if (loading || !data) {
+  if (loading && !data) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#087A3E]" />
+      <div className="flex flex-col items-center justify-center min-h-[350px] p-8 text-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#087A3E] mb-3" />
+        <p className="text-xs text-emerald-800 font-semibold tracking-wide">Loading Dashboard Metrics...</p>
       </div>
     );
   }
 
-  const { summary, charts, recentPOs, recentExpenses } = data;
+  const safeData = data || DEFAULT_DASHBOARD_DATA;
+  const summary = safeData.summary || DEFAULT_DASHBOARD_DATA.summary;
+  const charts = safeData.charts || DEFAULT_DASHBOARD_DATA.charts;
+  const recentPOs = safeData.recentPOs || [];
+  const recentExpenses = safeData.recentExpenses || [];
   const isAccountant = user?.role === 'ACCOUNTANT';
   const isEmployee = user?.role === 'EMPLOYEE';
 
@@ -185,16 +229,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                   </tr>
                 </thead>
                 <tbody>
-                  {recentPOs.slice(0, 5).map((po: any) => (
-                    <tr key={po.id}>
-                      <td className="font-semibold text-emerald-800">{po.number}</td>
-                      <td>{po.supplier}</td>
-                      <td className="font-bold">{formatCurrency(po.amount)}</td>
-                      <td>
-                        <StatusBadge status={po.status} />
+                  {recentPOs.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="text-center py-8 text-gray-400 text-xs">
+                        No purchase orders recorded yet. Click "+ Create New PO" above to begin.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    recentPOs.slice(0, 5).map((po: any) => (
+                      <tr key={po.id}>
+                        <td className="font-semibold text-emerald-800">{po.number}</td>
+                        <td>{po.supplier}</td>
+                        <td className="font-bold">{formatCurrency(po.amount)}</td>
+                        <td>
+                          <StatusBadge status={po.status} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -218,16 +270,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                   </tr>
                 </thead>
                 <tbody>
-                  {recentExpenses.slice(0, 5).map((exp: any) => (
-                    <tr key={exp.id}>
-                      <td className="font-semibold text-emerald-800">{exp.claim}</td>
-                      <td>{exp.employee}</td>
-                      <td className="font-bold">{formatCurrency(exp.amount)}</td>
-                      <td>
-                        <StatusBadge status={exp.status} />
+                  {recentExpenses.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="text-center py-8 text-gray-400 text-xs">
+                        No expense claims submitted for verification yet.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    recentExpenses.slice(0, 5).map((exp: any) => (
+                      <tr key={exp.id}>
+                        <td className="font-semibold text-emerald-800">{exp.claim}</td>
+                        <td>{exp.employee}</td>
+                        <td className="font-bold">{formatCurrency(exp.amount)}</td>
+                        <td>
+                          <StatusBadge status={exp.status} />
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -570,16 +630,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 </tr>
               </thead>
               <tbody>
-                {recentPOs.map((order: any) => (
-                  <tr key={order.id}>
-                    <td className="font-semibold text-emerald-800">{order.number}</td>
-                    <td>{order.supplier}</td>
-                    <td className="font-bold">{formatCurrency(order.amount)}</td>
-                    <td>
-                      <StatusBadge status={order.status} />
+                {recentPOs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-8 text-gray-400 text-xs">
+                      No purchase orders recorded yet.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentPOs.map((order: any) => (
+                    <tr key={order.id}>
+                      <td className="font-semibold text-emerald-800">{order.number}</td>
+                      <td>{order.supplier}</td>
+                      <td className="font-bold">{formatCurrency(order.amount)}</td>
+                      <td>
+                        <StatusBadge status={order.status} />
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -603,16 +671,24 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 </tr>
               </thead>
               <tbody>
-                {recentExpenses.map((expense: any) => (
-                  <tr key={expense.id}>
-                    <td className="font-semibold text-emerald-800">{expense.claim}</td>
-                    <td>{expense.employee}</td>
-                    <td className="font-bold">{formatCurrency(expense.amount)}</td>
-                    <td>
-                      <StatusBadge status={expense.status} />
+                {recentExpenses.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="text-center py-8 text-gray-400 text-xs">
+                      No expense claims pending attention.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  recentExpenses.map((expense: any) => (
+                    <tr key={expense.id}>
+                      <td className="font-semibold text-emerald-800">{expense.claim}</td>
+                      <td>{expense.employee}</td>
+                      <td className="font-bold">{formatCurrency(expense.amount)}</td>
+                      <td>
+                        <StatusBadge status={expense.status} />
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
