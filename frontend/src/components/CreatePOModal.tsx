@@ -25,6 +25,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const [poDate, setPoDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('SAFAL Main Cold Storage, Hub 1, Navi Mumbai');
+  const [manualTotal, setManualTotal] = useState<string>('');
   const [advanceAmount, setAdvanceAmount] = useState<string>('0');
   const [pendingAmount, setPendingAmount] = useState<string>('');
   const [notes, setNotes] = useState('');
@@ -141,10 +142,12 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
     return sum + afterDisc * (Number(i.taxPercent) / 100);
   }, 0);
   const grandTotal = subtotal - discountTotal + taxTotal;
+  const effectiveTotal =
+    manualTotal !== '' ? Number(manualTotal) || 0 : grandTotal;
 
   const currentAdvance = Number(advanceAmount) || 0;
   const computedPending =
-    pendingAmount !== '' ? Number(pendingAmount) : Math.max(0, grandTotal - currentAdvance);
+    pendingAmount !== '' ? Number(pendingAmount) : Math.max(0, effectiveTotal - currentAdvance);
 
   const handleSubmit = async (submitForApproval: boolean) => {
     if (!supplierName.trim()) {
@@ -171,6 +174,8 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
         poDate: poDate || new Date().toISOString(),
         expectedDeliveryDate: expectedDeliveryDate || null,
         deliveryAddress,
+        grandTotal: effectiveTotal,
+        totalAmount: effectiveTotal,
         advanceAmount: currentAdvance,
         pendingAmount: computedPending,
         notes,
@@ -263,14 +268,28 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             </div>
           </div>
 
-          {/* Real-Time Financial Metric Overview: Total PO Amount, Advance Paid, Pending Balance Due */}
+          {/* Real-Time Financial Metric Overview: Total PO Amount (Manual or Auto), Advance Paid, Pending Balance Due */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
-            <div className="bg-white p-2.5 rounded-lg border border-emerald-200 shadow-xs flex flex-col justify-center">
-              <span className="text-[10px] uppercase font-bold text-gray-500 block">Total PO Amount (₹)</span>
-              <strong className="text-xl font-black text-emerald-800 block mt-0.5">
-                ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </strong>
-              <span className="text-[10px] text-gray-400">Total payable including GST</span>
+            <div>
+              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                <span>Total PO Amount (₹) *</span>
+                <span className="text-[10px] text-emerald-700 font-semibold">
+                  {manualTotal !== '' ? 'Manual Entry' : (grandTotal > 0 ? 'Auto from Items' : 'Enter Amount')}
+                </span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={manualTotal !== '' ? manualTotal : (grandTotal > 0 ? grandTotal : '')}
+                onChange={(e) => {
+                  setManualTotal(e.target.value);
+                  setPendingAmount('');
+                }}
+                placeholder="0.00"
+                className="w-full h-10 px-2.5 border border-emerald-500 rounded-lg text-sm font-black text-emerald-950 bg-white focus:border-emerald-600 focus:outline-none shadow-xs"
+                required
+              />
             </div>
 
             <div>
@@ -301,7 +320,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 type="number"
                 min="0"
                 step="any"
-                value={pendingAmount !== '' ? pendingAmount : Math.max(0, grandTotal - (Number(advanceAmount) || 0))}
+                value={pendingAmount !== '' ? pendingAmount : Math.max(0, effectiveTotal - (Number(advanceAmount) || 0))}
                 onChange={(e) => setPendingAmount(e.target.value)}
                 placeholder="0.00"
                 className="w-full h-10 px-2.5 border border-amber-400 rounded-lg text-sm font-black text-amber-900 bg-white focus:border-amber-600 focus:outline-none shadow-xs"
@@ -475,7 +494,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 </div>
                 <div className="flex justify-between font-bold text-sm text-[#087A3E] border-t border-gray-300 pt-1">
                   <span>Grand Total:</span>
-                  <span>₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <span>₹{effectiveTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
                 <div className="flex justify-between text-xs text-emerald-800 font-semibold">
                   <span>Advance Amount:</span>

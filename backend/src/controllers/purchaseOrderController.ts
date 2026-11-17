@@ -162,6 +162,8 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       paymentTerms,
       advanceAmount,
       pendingAmount,
+      grandTotal: manualGrandTotal,
+      totalAmount,
       notes,
       items,
       submitForApproval = false,
@@ -241,24 +243,38 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       };
     });
 
-    const grandTotal = subtotal - discountTotal + taxTotal;
+    const calculatedGrandTotal = subtotal - discountTotal + taxTotal;
+    const grandTotal =
+      manualGrandTotal !== undefined && manualGrandTotal !== null && manualGrandTotal !== ''
+        ? Number(manualGrandTotal)
+        : totalAmount !== undefined && totalAmount !== null && totalAmount !== ''
+        ? Number(totalAmount)
+        : calculatedGrandTotal;
+
     const advance = Number(advanceAmount) || 0;
     const pending = pendingAmount !== undefined && pendingAmount !== null && pendingAmount !== ''
       ? Number(pendingAmount)
       : Math.max(0, grandTotal - advance);
     const initialStatus = submitForApproval ? 'PENDING_APPROVAL' : 'DRAFT';
 
+    if (processedItems.length === 1 && processedItems[0].lineTotal === 0 && grandTotal > 0) {
+      processedItems[0].lineTotal = grandTotal;
+      processedItems[0].ratePerUnit = grandTotal / (processedItems[0].quantity || 1);
+    }
+
+    const effectiveSubtotal = subtotal > 0 ? subtotal : grandTotal;
+
     const newPO = await prisma.purchaseOrder.create({
       data: {
         poNumber,
         poDate: poDate ? new Date(poDate) : new Date(),
         expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
-        supplierId,
+        supplierId: resolvedSupplierId,
         createdById: req.user!.id,
         deliveryAddress,
         paymentTerms,
         notes,
-        subtotal,
+        subtotal: effectiveSubtotal,
         discountTotal,
         taxTotal,
         grandTotal,
