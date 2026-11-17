@@ -15,5 +15,9 @@
     "build:frontend": "npm --prefix frontend run build",
     "build:backend": "npm --prefix backend run build",
     "start:backend": "npm --prefix backend start"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.64.6",
+    "@rollup/rollup-linux-x64-musl": "^4.64.6"
   }
 }
