@@ -53,12 +53,26 @@ app.get('/api/system/status', async (_req, res) => {
       prisma.user.count(),
     ]);
 
+    let dbHost = 'localhost';
+    let dbName = 'safal_db';
+    let dbEngine = 'PostgreSQL';
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const parsed = new URL(process.env.DATABASE_URL);
+        dbHost = parsed.hostname;
+        dbName = parsed.pathname.replace(/^\//, '') || 'safal_db';
+        if (dbHost.includes('neon.tech')) {
+          dbEngine = 'Neon Serverless PostgreSQL (Cloud)';
+        }
+      } catch {}
+    }
+
     res.json({
       status: 'CONNECTED',
-      engine: 'PostgreSQL 14',
-      database: 'safal_db',
-      host: 'localhost',
-      port: 5433,
+      engine: dbEngine,
+      database: dbName,
+      host: dbHost,
       tables: 15,
       records: {
         purchaseOrders: poCount,
