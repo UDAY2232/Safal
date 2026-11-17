@@ -391,8 +391,13 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                         {new Date(order.poDate).toLocaleDateString('en-GB')}
                       </td>
                       <td className="py-3 px-3 text-gray-600">{order.createdByName}</td>
-                      <td className="py-3 px-3 font-bold text-gray-900">
-                        ₹{order.grandTotal.toLocaleString('en-IN')}
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-gray-900">₹{order.grandTotal.toLocaleString('en-IN')}</div>
+                        <div className="text-[10px] text-gray-500 font-normal mt-0.5">
+                          <span className="text-emerald-700 font-semibold">Adv: ₹{Number(order.advanceAmount || 0).toLocaleString('en-IN')}</span>
+                          {' • '}
+                          <span className="text-amber-800 font-semibold">Pend: ₹{Number(order.pendingAmount ?? Math.max(0, order.grandTotal - (order.advanceAmount || 0))).toLocaleString('en-IN')}</span>
+                        </div>
                       </td>
                       <td className="py-3 px-3 text-gray-700">
                         {order.financial.verifiedCost !== null

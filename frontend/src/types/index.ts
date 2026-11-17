@@ -67,6 +67,8 @@ export interface PurchaseOrder {
   discountTotal: number;
   taxTotal: number;
   grandTotal: number;
+  advanceAmount?: number;
+  pendingAmount?: number;
   status: POStatus;
   rejectionReason?: string | null;
   itemsCount: number;

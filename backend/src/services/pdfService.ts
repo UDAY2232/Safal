@@ -23,6 +23,8 @@ interface POPDFData {
   createdByName: string;
   deliveryAddress?: string | null;
   paymentTerms?: string | null;
+  advanceAmount?: number | string | null;
+  pendingAmount?: number | string | null;
   notes?: string | null;
   subtotal: number | string;
   discountTotal: number | string;
@@ -63,12 +65,12 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
   doc.text(`Expected Delivery: ${data.expectedDeliveryDate || 'N/A'}`, 40, topY + 44);
   doc.text(`Created By: ${data.createdByName}`, 40, topY + 58);
 
-  doc.font('Helvetica-Bold').fontSize(10).text('Supplier Information:', 300, topY);
+  doc.font('Helvetica-Bold').fontSize(10).text('Financial & Payment Details:', 300, topY);
   doc.font('Helvetica').fontSize(9);
-  doc.text(`Name: ${data.supplierName}`, 300, topY + 16);
-  doc.text(`Contact: ${data.supplierContact || 'N/A'}`, 300, topY + 30);
-  doc.text(`Address: ${data.supplierAddress || 'N/A'}`, 300, topY + 44);
-  doc.text(`Payment Terms: ${data.paymentTerms || 'Net 30'}`, 300, topY + 58);
+  doc.text(`Supplier: ${data.supplierName}`, 300, topY + 16);
+  doc.text(`Advance Paid: ₹${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 30);
+  doc.text(`Pending Due: ₹${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 44);
+  if (data.supplierContact) doc.text(`Contact: ${data.supplierContact}`, 300, topY + 58);
 
   // Table header
   const tableY = 205;
@@ -104,7 +106,7 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
 
   // Totals
   currentY += 15;
-  doc.rect(340, currentY, 215, 80).stroke('#CBD9CE');
+  doc.rect(340, currentY, 215, 110).stroke('#CBD9CE');
   doc.font('Helvetica').fontSize(9);
   doc.text('Subtotal:', 350, currentY + 8);
   doc.text(`₹${Number(data.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 8, { align: 'right' });
@@ -115,9 +117,17 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
   doc.text('Tax Total:', 350, currentY + 40);
   doc.text(`+ ₹${Number(data.taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 40, { align: 'right' });
 
-  doc.font('Helvetica-Bold').fontSize(11).fillColor('#064D2B');
-  doc.text('Grand Total:', 350, currentY + 58);
-  doc.text(`₹${Number(data.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 58, { align: 'right' });
+  doc.font('Helvetica-Bold').fontSize(10).fillColor('#064D2B');
+  doc.text('Grand Total:', 350, currentY + 56);
+  doc.text(`₹${Number(data.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 56, { align: 'right' });
+
+  doc.font('Helvetica').fontSize(9).fillColor('#0369A1');
+  doc.text('Advance Paid:', 350, currentY + 74);
+  doc.text(`₹${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 74, { align: 'right' });
+
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#B91C1C');
+  doc.text('Pending Balance:', 350, currentY + 90);
+  doc.text(`₹${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 90, { align: 'right' });
 
   // Notes & Signatures
   doc.fillColor('#1B2B21').font('Helvetica').fontSize(9);

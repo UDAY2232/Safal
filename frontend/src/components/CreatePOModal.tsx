@@ -24,7 +24,8 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const [supplierId, setSupplierId] = useState('');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('SAFAL Main Cold Storage, Hub 1, Navi Mumbai');
-  const [paymentTerms, setPaymentTerms] = useState('Net 30');
+  const [advanceAmount, setAdvanceAmount] = useState<string>('0');
+  const [pendingAmount, setPendingAmount] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -140,6 +141,10 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   }, 0);
   const grandTotal = subtotal - discountTotal + taxTotal;
 
+  const currentAdvance = Number(advanceAmount) || 0;
+  const computedPending =
+    pendingAmount !== '' ? Number(pendingAmount) : Math.max(0, grandTotal - currentAdvance);
+
   const handleSubmit = async (submitForApproval: boolean) => {
     if (!supplierId) {
       setError('Please select a supplier');
@@ -158,7 +163,8 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
         supplierId,
         expectedDeliveryDate: expectedDeliveryDate || null,
         deliveryAddress,
-        paymentTerms,
+        advanceAmount: currentAdvance,
+        pendingAmount: computedPending,
         notes,
         items,
         submitForApproval,
@@ -200,7 +206,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
         <div className="overflow-y-auto flex-1 pr-2 py-3 space-y-4 text-xs">
           {/* Top metadata grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div>
               <label className="block text-gray-700 font-semibold mb-1">Supplier *</label>
               <select
@@ -225,13 +231,36 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               />
             </div>
             <div>
-              <label className="block text-gray-700 font-semibold mb-1">Payment Terms</label>
+              <label className="block text-gray-700 font-semibold mb-1 flex items-center justify-between">
+                <span>Advance Amount (₹)</span>
+                <span className="text-[10px] text-emerald-700 font-medium">Initial Pay</span>
+              </label>
               <input
-                type="text"
-                value={paymentTerms}
-                onChange={(e) => setPaymentTerms(e.target.value)}
-                placeholder="e.g. Net 30, Advance 20%"
-                className="w-full h-10 px-2.5 border border-gray-300 rounded-lg text-xs focus:border-emerald-600 focus:outline-none"
+                type="number"
+                min="0"
+                step="any"
+                value={advanceAmount}
+                onChange={(e) => {
+                  setAdvanceAmount(e.target.value);
+                  setPendingAmount('');
+                }}
+                placeholder="0.00"
+                className="w-full h-10 px-2.5 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-900 bg-emerald-50/30 focus:border-emerald-600 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-gray-700 font-semibold mb-1 flex items-center justify-between">
+                <span>Pending Balance (₹)</span>
+                <span className="text-[10px] text-amber-700 font-medium">Balance Due</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={pendingAmount !== '' ? pendingAmount : Math.max(0, grandTotal - (Number(advanceAmount) || 0))}
+                onChange={(e) => setPendingAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full h-10 px-2.5 border border-amber-300 rounded-lg text-xs font-bold text-amber-900 bg-amber-50/30 focus:border-amber-600 focus:outline-none"
               />
             </div>
           </div>
@@ -403,6 +432,14 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 <div className="flex justify-between font-bold text-sm text-[#087A3E] border-t border-gray-300 pt-1">
                   <span>Grand Total:</span>
                   <span>₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-xs text-emerald-800 font-semibold">
+                  <span>Advance Amount:</span>
+                  <span>₹{currentAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex justify-between text-xs text-amber-900 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                  <span>Pending Balance:</span>
+                  <span>₹{computedPending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
             </div>

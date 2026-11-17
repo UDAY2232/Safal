@@ -157,6 +157,8 @@ model PurchaseOrder {
   discountTotal        Decimal                       @default(0) @db.Decimal(14, 2)
   taxTotal             Decimal                       @default(0) @db.Decimal(14, 2)
   grandTotal           Decimal                       @default(0) @db.Decimal(14, 2)
+  advanceAmount        Decimal                       @default(0) @db.Decimal(14, 2)
+  pendingAmount        Decimal                       @default(0) @db.Decimal(14, 2)
   status               POStatus                      @default(DRAFT)
   rejectionReason      String?
   items                PurchaseOrderItem[]

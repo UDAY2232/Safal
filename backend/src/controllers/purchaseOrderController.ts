@@ -80,6 +80,8 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         discountTotal: Number(p.discountTotal),
         taxTotal: Number(p.taxTotal),
         grandTotal: Number(p.grandTotal),
+        advanceAmount: Number(p.advanceAmount || 0),
+        pendingAmount: Number(p.pendingAmount || 0),
         status: p.status,
         rejectionReason: p.rejectionReason,
         itemsCount: p.items.length,
@@ -158,6 +160,8 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       expectedDeliveryDate,
       deliveryAddress,
       paymentTerms,
+      advanceAmount,
+      pendingAmount,
       notes,
       items,
       submitForApproval = false,
@@ -211,6 +215,10 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
     });
 
     const grandTotal = subtotal - discountTotal + taxTotal;
+    const advance = Number(advanceAmount) || 0;
+    const pending = pendingAmount !== undefined && pendingAmount !== null && pendingAmount !== ''
+      ? Number(pendingAmount)
+      : Math.max(0, grandTotal - advance);
     const initialStatus = submitForApproval ? 'PENDING_APPROVAL' : 'DRAFT';
 
     const newPO = await prisma.purchaseOrder.create({
@@ -227,6 +235,8 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
         discountTotal,
         taxTotal,
         grandTotal,
+        advanceAmount: advance,
+        pendingAmount: pending,
         status: initialStatus,
         items: {
           create: processedItems,
@@ -612,6 +622,8 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
         createdByName: po.createdBy.name,
         deliveryAddress: po.deliveryAddress,
         paymentTerms: po.paymentTerms,
+        advanceAmount: Number(po.advanceAmount || 0),
+        pendingAmount: Number(po.pendingAmount || 0),
         notes: po.notes,
         subtotal: Number(po.subtotal),
         discountTotal: Number(po.discountTotal),
