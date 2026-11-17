@@ -32,15 +32,15 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
   const [items, setItems] = useState<POItem[]>([
     {
-      fruitName: 'Shimla Royal Apple',
-      category: 'Apples',
-      varietyGrade: 'Export AAA',
-      quantity: 5000,
+      fruitName: '',
+      category: 'Fresh Fruits',
+      varietyGrade: 'Grade A',
+      quantity: 1,
       unit: 'KG',
-      ratePerUnit: 85,
-      discountPercent: 2,
+      ratePerUnit: 0,
+      discountPercent: 0,
       taxPercent: 5,
-      lineTotal: 437325,
+      lineTotal: 0,
     },
   ]);
 

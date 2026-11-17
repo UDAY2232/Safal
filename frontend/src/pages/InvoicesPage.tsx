@@ -64,11 +64,11 @@ export const InvoicesPage: React.FC<InvoicesPageProps> = ({ onNotify }) => {
     notes: '',
     items: [
       {
-        description: 'Shimla Royal Delicious Fresh Apples',
+        description: '',
         hsnCode: '08081000',
-        quantity: 500,
-        unit: 'BOX',
-        rate: 1400,
+        quantity: 1,
+        unit: 'KG',
+        rate: 0,
       },
     ],
   });
