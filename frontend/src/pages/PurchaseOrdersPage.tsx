@@ -373,7 +373,14 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {orders.map((order, index) => {
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={12} className="text-center py-10 text-gray-400 font-medium">
+                      No purchase orders recorded yet. Click "+ Create Purchase Order" to begin.
+                    </td>
+                  </tr>
+                ) : (
+                  orders.map((order, index) => {
                   const profitLoss = order.financial.realizedProfitLoss;
                   return (
                     <tr key={order.id} className="hover:bg-emerald-50/20 text-xs">
@@ -453,8 +460,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
+                })
+              )}
+            </tbody>
             </table>
           </div>
         )}

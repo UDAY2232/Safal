@@ -110,15 +110,15 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
     setItems((prev) => [
       ...prev,
       {
-        fruitName: 'Nagpur Mandarin Orange',
-        category: 'Citrus',
-        varietyGrade: 'Grade A Sweet',
-        quantity: 3000,
+        fruitName: '',
+        category: 'Fresh Fruits',
+        varietyGrade: 'Grade A',
+        quantity: 1,
         unit: 'KG',
-        ratePerUnit: 55,
+        ratePerUnit: 0,
         discountPercent: 0,
         taxPercent: 5,
-        lineTotal: 173250,
+        lineTotal: 0,
       },
     ]);
   };
