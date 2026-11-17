@@ -209,8 +209,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           </div>
         </div>
 
-        {/* Tables */}
-        <div className="dashboard-grid lower-grid">
+        {/* Tables stacked vertically so Expense Claims is down and both tables get full width */}
+        <div className="space-y-6">
           <section className="dashboard-panel">
             <div className="panel-heading">
               <h2>My Recent Purchase Orders</h2>
@@ -224,14 +224,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                   <tr>
                     <th>PO Number</th>
                     <th>Supplier</th>
+                    <th>Order Date</th>
                     <th>Amount</th>
                     <th>Status</th>
+                    <th>Created By</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentPOs.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="text-center py-8 text-gray-400 text-xs">
+                      <td colSpan={6} className="text-center py-8 text-gray-400 text-xs">
                         No purchase orders recorded yet. Click "+ Create New PO" above to begin.
                       </td>
                     </tr>
@@ -240,10 +242,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       <tr key={po.id}>
                         <td className="font-semibold text-emerald-800">{po.number}</td>
                         <td>{po.supplier}</td>
+                        <td className="text-gray-600 text-xs">{new Date(po.date).toLocaleDateString('en-GB')}</td>
                         <td className="font-bold">{formatCurrency(po.amount)}</td>
                         <td>
                           <StatusBadge status={po.status} />
                         </td>
+                        <td className="text-gray-500 text-xs">{po.createdBy}</td>
                       </tr>
                     ))
                   )}
@@ -265,6 +269,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                   <tr>
                     <th>Claim ID</th>
                     <th>Employee</th>
+                    <th>Category</th>
+                    <th>Expense Date</th>
                     <th>Amount</th>
                     <th>Status</th>
                   </tr>
@@ -272,7 +278,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 <tbody>
                   {recentExpenses.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="text-center py-8 text-gray-400 text-xs">
+                      <td colSpan={6} className="text-center py-8 text-gray-400 text-xs">
                         No expense claims submitted for verification yet.
                       </td>
                     </tr>
@@ -281,6 +287,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       <tr key={exp.id}>
                         <td className="font-semibold text-emerald-800">{exp.claim}</td>
                         <td>{exp.employee}</td>
+                        <td className="text-gray-600 text-xs">{exp.category}</td>
+                        <td className="text-gray-600 text-xs">{new Date(exp.date).toLocaleDateString('en-GB')}</td>
                         <td className="font-bold">{formatCurrency(exp.amount)}</td>
                         <td>
                           <StatusBadge status={exp.status} />
