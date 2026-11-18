@@ -290,16 +290,19 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                   <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider w-16 border-r border-[#085A33]">
                     S.No.
                   </th>
-                  <th className="text-center py-3.5 px-6 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                  <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                     PO (Purchase Order)
                   </th>
-                  <th className="text-center py-3.5 px-6 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                  <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                    Order Person &amp; Area
+                  </th>
+                  <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                     Date
                   </th>
-                  <th className="text-center py-3.5 px-6 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                  <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                     PO Amount (₹)
                   </th>
-                  <th className="text-center py-3.5 px-6 font-bold text-xs uppercase tracking-wider">
+                  <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider">
                     Status
                   </th>
                 </tr>
@@ -307,7 +310,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <tbody className="divide-y divide-gray-200">
                 {orders.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-10 text-gray-400 text-xs">
+                    <td colSpan={6} className="text-center py-10 text-gray-400 text-xs">
                       No purchase orders found matching criteria.
                     </td>
                   </tr>
@@ -325,7 +328,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                         <td className="text-center py-3 px-4 text-xs font-bold text-gray-700 border-r border-gray-200">
                           {index + 1}
                         </td>
-                        <td className="text-center py-3 px-6 text-xs font-extrabold text-[#087A3E] border-r border-gray-200">
+                        <td className="text-center py-3 px-5 text-xs font-extrabold text-[#087A3E] border-r border-gray-200">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -336,13 +339,19 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             {order.poNumber}
                           </button>
                         </td>
-                        <td className="text-center py-3 px-6 text-xs font-medium text-gray-700 border-r border-gray-200">
+                        <td className="text-center py-3 px-5 text-xs text-gray-800 border-r border-gray-200">
+                          <span className="font-bold text-gray-900 block truncate">{order.createdByName}</span>
+                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            📍 {order.orderPersonPlace || 'Hyderabad'}
+                          </span>
+                        </td>
+                        <td className="text-center py-3 px-5 text-xs font-medium text-gray-700 border-r border-gray-200">
                           {new Date(order.poDate).toLocaleDateString('en-GB')}
                         </td>
-                        <td className="text-center py-3 px-6 text-xs font-extrabold text-gray-900 border-r border-gray-200">
-                          {order.grandTotal.toLocaleString('en-IN')}
+                        <td className="text-center py-3 px-5 text-xs font-extrabold text-gray-900 border-r border-gray-200">
+                          ₹{order.grandTotal.toLocaleString('en-IN')}
                         </td>
-                        <td className="text-center py-3 px-6 text-xs">
+                        <td className="text-center py-3 px-5 text-xs">
                           {isClosed ? (
                             <span className="inline-block px-5 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
                               Closed

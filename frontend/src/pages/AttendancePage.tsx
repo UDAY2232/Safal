@@ -205,7 +205,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
             Daily Office Attendance System
           </h1>
           <p className="text-xs text-emerald-100 mt-1">
-            Office selfie attendance verification · Official Shift: <strong>09:30 AM – 06:30 PM (8 Total Working Hours)</strong> at Hub 1 Cold Storage, Navi Mumbai.
+            Office selfie attendance verification · Official Shift: <strong>05:30 – 06:00 AM Arrival to 02:00 PM Office Departure</strong> + <strong>2 Extra Hours for Company Growth &amp; Sales</strong> at Hub 1 Cold Storage, Navi Mumbai.
           </p>
         </div>
 

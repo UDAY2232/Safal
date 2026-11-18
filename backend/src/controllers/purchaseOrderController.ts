@@ -4,6 +4,53 @@ import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
 import { generatePurchaseOrderPDF } from '../services/pdfService.js';
 
+/**
+ * Generates a clean, monotonically increasing, collision-safe PO Number:
+ * Format: PO/SF/YYYY/XXX (e.g. PO/SF/2026/001, PO/SF/2026/002)
+ * Queries all existing POs for the current calendar year to find the true numeric maximum,
+ * preventing any race conditions, deletions, or multiple-employee conflicts.
+ */
+async function generateNextPONumber(tx: any): Promise<string> {
+  const currentYear = new Date().getFullYear();
+  const prefix = `PO/SF/${currentYear}/`;
+
+  const existingPOs = await tx.purchaseOrder.findMany({
+    where: {
+      poNumber: {
+        startsWith: prefix,
+      },
+    },
+    select: {
+      poNumber: true,
+    },
+  });
+
+  let maxSeq = 0;
+  for (const po of existingPOs) {
+    const parts = po.poNumber.split('/');
+    const seqStr = parts[parts.length - 1];
+    const seqNum = parseInt(seqStr, 10);
+    if (!isNaN(seqNum) && seqNum > maxSeq) {
+      maxSeq = seqNum;
+    }
+  }
+
+  let nextSeq = maxSeq + 1;
+
+  // Collision guard loop
+  while (true) {
+    const candidate = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+    const exists = await tx.purchaseOrder.findUnique({
+      where: { poNumber: candidate },
+      select: { id: true },
+    });
+    if (!exists) {
+      return candidate;
+    }
+    nextSeq++;
+  }
+}
+
 export async function getPurchaseOrders(req: AuthRequest, res: Response) {
   try {
     const { search, status, financialStatus, supplierId, fromDate, toDate } = req.query;
@@ -73,6 +120,8 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         supplierName: p.supplier.name,
         poDate: p.poDate,
         expectedDeliveryDate: p.expectedDeliveryDate,
+        deliveryAddress: p.deliveryAddress,
+        orderPersonPlace: (p as any).orderPersonPlace || null,
         createdById: p.createdById,
         createdByName: p.createdBy.name,
         approvedById: p.approvedById,
@@ -155,6 +204,7 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       poDate,
       expectedDeliveryDate,
       deliveryAddress,
+      orderPersonPlace,
       paymentTerms,
       advanceAmount,
       pendingAmount,
@@ -168,6 +218,14 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
     if (!supplierId || !String(supplierId).trim()) {
       return res.status(400).json({ error: 'Supplier is required' });
     }
+
+    const personPlace = (
+      orderPersonPlace ||
+      req.body.place ||
+      req.body.region ||
+      req.body.area ||
+      'Hyderabad'
+    ).trim();
 
     // Resolve or auto-create supplier from manual input
     let resolvedSupplierId = String(supplierId).trim();
@@ -195,11 +253,6 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       });
       resolvedSupplierId = createdSupplier.id;
     }
-
-    // Auto-generate PO Number: PO/SF/YYYY/XXX
-    const currentYear = new Date().getFullYear();
-    const count = await prisma.purchaseOrder.count();
-    const poNumber = `PO/SF/${currentYear}/${String(count + 1).padStart(3, '0')}`;
 
     // Determine target grand total
     const enteredGrandTotal =
@@ -283,44 +336,67 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
 
     const effectiveSubtotal = subtotal > 0 ? subtotal : grandTotal;
 
-    const newPO = await prisma.purchaseOrder.create({
-      data: {
-        poNumber,
-        poDate: poDate ? new Date(poDate) : new Date(),
-        expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
-        supplierId: resolvedSupplierId,
-        createdById: req.user!.id,
-        deliveryAddress,
-        paymentTerms,
-        notes,
-        subtotal: effectiveSubtotal,
-        discountTotal,
-        taxTotal,
-        grandTotal,
-        advanceAmount: advance,
-        pendingAmount: pending,
-        status: initialStatus,
-        items: {
-          create: processedItems,
-        },
-        statusHistory: {
-          create: {
-            status: initialStatus,
-            changedById: req.user!.id,
-            comment: submitForApproval ? 'Created and submitted for approval' : 'Saved as draft',
-          },
-        },
-        financialRecord: {
-          create: {
-            financialStatus: 'PENDING_COST_DATA',
-          },
-        },
-      },
-      include: {
-        supplier: true,
-        items: true,
-      },
-    });
+    // Concurrency-safe atomic transaction with unique constraint collision retry loop
+    let newPO: any = null;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (!newPO && attempts < maxAttempts) {
+      attempts++;
+      try {
+        newPO = await prisma.$transaction(async (tx) => {
+          const poNumber = await generateNextPONumber(tx);
+
+          return await tx.purchaseOrder.create({
+            data: {
+              poNumber,
+              poDate: poDate ? new Date(poDate) : new Date(),
+              expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
+              supplierId: resolvedSupplierId,
+              createdById: req.user!.id,
+              deliveryAddress,
+              orderPersonPlace: personPlace || null,
+              paymentTerms,
+              notes: personPlace
+                ? `${notes ? notes + ' | ' : ''}Area: ${personPlace}`
+                : notes,
+              subtotal: effectiveSubtotal,
+              discountTotal,
+              taxTotal,
+              grandTotal,
+              advanceAmount: advance,
+              pendingAmount: pending,
+              status: initialStatus,
+              items: {
+                create: processedItems,
+              },
+              statusHistory: {
+                create: {
+                  status: initialStatus,
+                  changedById: req.user!.id,
+                  comment: submitForApproval ? 'Created and submitted for approval' : 'Saved as draft',
+                },
+              },
+              financialRecord: {
+                create: {
+                  financialStatus: 'PENDING_COST_DATA',
+                },
+              },
+            },
+            include: {
+              supplier: true,
+              items: true,
+            },
+          });
+        });
+      } catch (err: any) {
+        if (err.code === 'P2002' && attempts < maxAttempts) {
+          console.warn(`Concurrent PO numbering collision caught on attempt ${attempts}. Automatically incrementing next PO number...`);
+          continue;
+        }
+        throw err;
+      }
+    }
 
     // Create Notification if submitted for approval
     if (submitForApproval) {

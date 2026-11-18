@@ -14,6 +14,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const [poDate, setPoDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('SAFAL Main Cold Storage, Hub 1, Navi Mumbai');
+  const [orderPersonPlace, setOrderPersonPlace] = useState('Hyderabad');
   const [fruitDescription, setFruitDescription] = useState('');
   const [totalAmount, setTotalAmount] = useState<string>('');
   const [advanceAmount, setAdvanceAmount] = useState<string>('0');
@@ -63,6 +64,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
         poDate: poDate || new Date().toISOString(),
         expectedDeliveryDate: expectedDeliveryDate || null,
         deliveryAddress,
+        orderPersonPlace: orderPersonPlace.trim() || 'Hyderabad',
         grandTotal: currentTotal,
         totalAmount: currentTotal,
         advanceAmount: currentAdvance,
@@ -243,20 +245,37 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             </div>
           </div>
 
-          {/* Row 3: Fruit / Item Description & Delivery Address */}
+          {/* Row 3: Order Person Location & Delivery Destination */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>Fruit / Consignment Description</span>
-                <span className="text-[10px] text-gray-400 font-normal">Optional details</span>
+                <span>Order Person Place / Procurement Area *</span>
+                <span className="text-[10px] text-emerald-700 font-semibold">City / Location</span>
               </label>
               <input
                 type="text"
-                value={fruitDescription}
-                onChange={(e) => setFruitDescription(e.target.value)}
-                placeholder="e.g. Shimla Royal Apples (Export AAA), Nagpur Oranges"
-                className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+                list="popular-places"
+                value={orderPersonPlace}
+                onChange={(e) => setOrderPersonPlace(e.target.value)}
+                placeholder="e.g. Hyderabad, Chennai, Warangal, Vijayawada"
+                className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-semibold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                required
               />
+              <datalist id="popular-places">
+                <option value="Hyderabad" />
+                <option value="Chennai" />
+                <option value="Warangal" />
+                <option value="Vijayawada" />
+                <option value="Visakhapatnam" />
+                <option value="Bengaluru" />
+                <option value="Mumbai" />
+                <option value="Nagpur" />
+                <option value="Pune" />
+                <option value="Kolkata" />
+              </datalist>
+              <span className="text-[10px] text-gray-500 mt-1 block">
+                Region where order is placed (e.g. Hyderabad, Chennai, Warangal)
+              </span>
             </div>
 
             <div>
@@ -268,6 +287,21 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
               />
             </div>
+          </div>
+
+          {/* Row 4: Fruit / Item Description */}
+          <div>
+            <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+              <span>Fruit / Consignment Description</span>
+              <span className="text-[10px] text-gray-400 font-normal">Optional details</span>
+            </label>
+            <input
+              type="text"
+              value={fruitDescription}
+              onChange={(e) => setFruitDescription(e.target.value)}
+              placeholder="e.g. Shimla Royal Apples (Export AAA), Nagpur Oranges"
+              className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
+            />
           </div>
 
           {/* Row 4: Procurement Notes / Instructions */}

@@ -163,7 +163,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
               <MapPin size={11} className="text-emerald-300" />
               <span>SAFAL Hub 1 · Navi Mumbai Cold Storage</span>
               <span className="opacity-60">|</span>
-              <span>Official Shift: <strong>09:30 AM – 06:30 PM (8h Total Work)</strong></span>
+              <span>Official Shift: <strong>05:30 – 06:00 AM to 02:00 PM (Office) + 2h Sales Growth</strong></span>
             </p>
           </div>
         </div>
@@ -256,10 +256,10 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                   className="w-full py-3.5 px-5 bg-gradient-to-r from-[#087A3E] to-[#0A964C] hover:from-[#066533] hover:to-[#087A3E] text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
                 >
                   <Camera size={19} className="text-emerald-200 group-hover:scale-110 transition" />
-                  <span>{actionLoading ? 'Recording Arrival...' : 'Office In: Take Photo & Record Arrival'}</span>
+                  <span>{actionLoading ? 'Recording Arrival...' : 'Office In: Take Photo & Record Arrival (05:30 – 06:00 AM)'}</span>
                 </button>
                 <p className="text-[11px] text-center text-gray-500">
-                  Official Shift: <strong>09:30 AM – 06:30 PM (8 hrs)</strong>. Take live selfie upon arriving at office.
+                  Official Shift: <strong>05:30 – 06:00 AM Arrival to 02:00 PM Office Departure</strong> + <strong>2 Extra Hours</strong> for company growth and sales.
                 </p>
               </>
             ) : !isClockedOut ? (
@@ -280,8 +280,8 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                     />
                   </div>
                   <div className="flex justify-between text-[10px] text-emerald-800 font-semibold">
-                    <span>{progressPercent}% of 8h Completed</span>
-                    <span>{remainingMins > 0 ? `${remainingText} to 8h (Ends 06:30 PM)` : '🎉 8h Target Achieved!'}</span>
+                    <span>{progressPercent}% Office Work Completed</span>
+                    <span>{remainingMins > 0 ? `${remainingText} to 02:00 PM Exit` : '🎉 8h Office Goal Met! (+2h Sales)'}</span>
                   </div>
                 </div>
                 <button
@@ -290,10 +290,10 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                   className="w-full py-3 px-4 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
                 >
                   <Camera size={18} className="text-blue-200 group-hover:scale-110 transition" />
-                  <span>{actionLoading ? 'Recording Departure...' : 'Office Out: Take Photo & Leave Office'}</span>
+                  <span>{actionLoading ? 'Recording Departure...' : 'Office Out: Take Photo & Complete Office Shift (02:00 PM)'}</span>
                 </button>
                 <p className="text-[11px] text-center text-gray-500">
-                  Standard shift concludes at <strong>06:30 PM</strong>. Take a live selfie to verify departure time.
+                  Office concludes at <strong>02:00 PM</strong> followed by <strong>2 extra hours</strong> for company growth, sales, and client visits.
                 </p>
               </>
             ) : (
@@ -304,12 +304,12 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                   Office In: <strong>{formatRecordTime(record?.clockInTime)}</strong> · Office Out: <strong>{formatRecordTime(record?.clockOutTime)}</strong>
                 </p>
                 <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
-                  <span>Total Worked: {elapsedText}</span>
+                  <span>In-Office Duration: {elapsedText}</span>
                   <span>•</span>
-                  <span>{elapsedMinutes >= TARGET_WORK_MINUTES ? '✅ Full 8h Shift Completed' : 'Standard Shift: 8 Hours'}</span>
+                  <span>{elapsedMinutes >= TARGET_WORK_MINUTES ? '✅ 8h Office Completed' : 'Standard Office Shift: 8h'}</span>
                 </div>
                 <div className="mt-1.5 text-[10px] text-emerald-700 font-semibold">
-                  Shift: 09:30 AM – 06:30 PM · Both Photos Verified
+                  Shift: 05:30/06:00 AM – 02:00 PM + 2h Sales &amp; Growth · Both Photos Verified
                 </div>
               </div>
             )}
@@ -318,9 +318,15 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
           {/* Today's Details Column */}
           <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-2 text-xs">
             <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
-              <span className="text-gray-500 font-medium">Shift Timings:</span>
+              <span className="text-gray-500 font-medium">Office Shift:</span>
               <span className="font-bold text-gray-800 font-mono text-[11px]">
-                09:30 AM – 06:30 PM
+                05:30/06:00 AM – 02:00 PM
+              </span>
+            </div>
+            <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
+              <span className="text-emerald-800 font-medium">Growth &amp; Sales:</span>
+              <span className="font-bold text-emerald-950 font-mono text-[11px]">
+                +2 Hours (Till 04:00 PM)
               </span>
             </div>
             <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">

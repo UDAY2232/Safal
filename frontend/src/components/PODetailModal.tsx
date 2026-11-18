@@ -113,7 +113,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
         {/* Scrollable Body */}
         <div className="overflow-y-auto flex-1 py-4 pr-1 space-y-4 text-xs">
           {/* Metadata Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-2.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-2.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
             <div>
               <span className="text-gray-400 font-medium block">Supplier</span>
               <strong className="text-gray-800 text-xs block mt-0.5 truncate">{order.supplierName}</strong>
@@ -125,8 +125,14 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               </strong>
             </div>
             <div>
-              <span className="text-gray-400 font-medium block">Created By</span>
+              <span className="text-gray-400 font-medium block">Order Person</span>
               <strong className="text-gray-800 text-xs block mt-0.5 truncate">{order.createdByName}</strong>
+            </div>
+            <div>
+              <span className="text-emerald-700 font-semibold block">Order Area</span>
+              <strong className="text-emerald-800 text-xs block mt-0.5 font-bold truncate">
+                {order.orderPersonPlace || 'Hyderabad'}
+              </strong>
             </div>
             <div>
               <span className="text-gray-400 font-medium block">Grand Total</span>

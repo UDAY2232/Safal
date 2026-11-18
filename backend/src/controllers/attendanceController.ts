@@ -6,11 +6,13 @@ import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
 
 // Standard Office Shift Configuration (SAFAL Navi Mumbai Hub 1)
-const SHIFT_START_HOUR = 9;
-const SHIFT_START_MINUTE = 30; // 09:30 AM
-const SHIFT_END_HOUR = 18;
-const SHIFT_END_MINUTE = 30; // 06:30 PM
-const FULL_DAY_MINUTES = 480; // 8 Hours (Total standard working hours)
+// Office timings: 05:30 AM – 06:00 AM Arrival to 02:00 PM in office + 2 extra hours for company growth, sales, and client visits
+const SHIFT_START_HOUR = 6;
+const SHIFT_START_MINUTE = 0; // 06:00 AM (Arrival window: 05:30 AM to 06:00 AM)
+const SHIFT_END_HOUR = 14;
+const SHIFT_END_MINUTE = 0; // 02:00 PM (Office conclusion)
+const FULL_DAY_MINUTES = 480; // 8 Hours (Core office shift: 06:00 AM to 02:00 PM)
+const EXTRA_GROWTH_MINUTES = 120; // 2 Extra Hours for company growth & sales
 const HALF_DAY_MINUTES = 240; // 4 Hours
 
 /**
@@ -151,8 +153,8 @@ export async function clockIn(req: AuthRequest, res: Response) {
     const location = req.body.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai';
 
     const notes = isLate
-      ? `Late arrival at ${timeFormatted} (Shift: 09:30 AM – 06:30 PM | 8 hrs)`
-      : `On-time arrival at ${timeFormatted} (Shift: 09:30 AM – 06:30 PM | 8 hrs)`;
+      ? `Late arrival at ${timeFormatted} (Shift: 05:30–06:00 AM to 02:00 PM Office + 2h Growth/Sales)`
+      : `On-time arrival at ${timeFormatted} (Shift: 05:30–06:00 AM to 02:00 PM Office + 2h Growth/Sales)`;
 
     const record = await prisma.attendanceRecord.create({
       data: {
@@ -257,7 +259,7 @@ export async function clockOut(req: AuthRequest, res: Response) {
         totalMinutes,
         status: finalStatus,
         ...(uploadedOutPhoto ? { clockOutPhotoUrl: uploadedOutPhoto } : {}),
-        notes: `${existing.notes ? existing.notes + ' | ' : ''}Office Out at ${timeFormatted} (Worked: ${durationStr} / 8h Shift · 09:30 AM – 06:30 PM)`,
+        notes: `${existing.notes ? existing.notes + ' | ' : ''}Office Out at ${timeFormatted} (Worked: ${durationStr} / 8h Office Shift · 05:30/06:00 AM – 02:00 PM + 2h Sales Growth)`,
       },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },

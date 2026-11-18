@@ -61,6 +61,7 @@ export interface PurchaseOrder {
   approvedById?: string | null;
   approvedByName?: string | null;
   deliveryAddress?: string | null;
+  orderPersonPlace?: string | null;
   paymentTerms?: string | null;
   notes?: string | null;
   subtotal: number;

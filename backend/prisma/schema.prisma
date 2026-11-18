@@ -160,6 +160,7 @@ model PurchaseOrder {
   approvedById         String?
   approvedBy           User?                         @relation("POApprover", fields: [approvedById], references: [id])
   deliveryAddress      String?
+  orderPersonPlace     String?                       // Procurement Territory / Placement City (e.g. Hyderabad, Chennai, Warangal)
   paymentTerms         String?
   notes                String?
   subtotal             Decimal                       @default(0) @db.Decimal(14, 2)

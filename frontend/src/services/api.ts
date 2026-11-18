@@ -29,7 +29,12 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     } catch {
       errorMsg = response.statusText || errorMsg;
     }
-    throw new Error(errorMsg);
+    const error: any = new Error(errorMsg);
+    error.status = response.status;
+    if (response.status === 401) {
+      window.dispatchEvent(new CustomEvent('safal_auth_expired', { detail: { message: errorMsg } }));
+    }
+    throw error;
   }
 
   // Handle CSV/text responses
