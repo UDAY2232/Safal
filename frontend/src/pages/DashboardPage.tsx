@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   CircleDollarSign,
+  Clock,
   Clock3,
   WalletCards,
   ReceiptIndianRupee,
@@ -31,6 +32,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { StatCard } from '../components/StatCard';
 import { StatusBadge } from '../components/StatusBadge';
+import { AttendancePunchWidget } from '../components/AttendancePunchWidget';
 
 interface DashboardPageProps {
   onNavigate: (page: string) => void;
@@ -130,31 +132,46 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   }));
 
   // -------------------------------------------------------------
-  // 1. ACCOUNTANT DASHBOARD VIEW (Section 7 of Master Prompt)
+  // 1. UNIFIED OPERATIONS CONSOLE (Accountants & Employees)
   // -------------------------------------------------------------
-  if (isAccountant) {
+  if (isAccountant || isEmployee) {
+    const roleId = isEmployee
+      ? user?.employee?.employeeId || 'EMP'
+      : user?.accountantProfile?.accountantId || 'ACC';
+
     return (
       <div className="space-y-6">
         <div className="bg-gradient-to-r from-[#064D2B] via-[#086333] to-[#0A7B3E] text-white p-6 rounded-2xl shadow-sm border border-emerald-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Finance &amp; Procurement Desk</span>
+              <span>{isEmployee ? 'Operations & Field Desk' : 'Finance & Procurement Desk'}</span>
             </div>
             <h1 className="text-2xl font-extrabold font-['Manrope']">
-              Accountant Operations Console
+              {isEmployee ? 'Employee Operations Console' : 'Accountant Operations Console'}
             </h1>
             <p className="text-xs text-emerald-100 mt-1">
-              Logged in as <strong>{user?.name}</strong> ({user?.accountantProfile?.accountantId || 'ACC'}) · Maintain fruit POs, review employee expense claims, and track payments.
+              Logged in as <strong>{user?.name}</strong> ({roleId}) · {isEmployee ? 'Track office attendance, manage fruit POs, review expense claims, and track consignments.' : 'Maintain fruit POs, review employee expense claims, and track payments.'}
             </p>
           </div>
-          <button
-            onClick={onCreatePO}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#064D2B] hover:bg-emerald-50 rounded-xl text-xs font-bold transition shadow-sm self-start md:self-auto"
-          >
-            <Plus size={16} /> Create New PO
-          </button>
+          <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
+            <button
+              onClick={() => onNavigate('Attendance')}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-800/80 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition border border-emerald-600/40 shadow-sm"
+            >
+              <Clock size={15} /> My Attendance
+            </button>
+            <button
+              onClick={onCreatePO}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#064D2B] hover:bg-emerald-50 rounded-xl text-xs font-bold transition shadow-sm"
+            >
+              <Plus size={16} /> Create New PO
+            </button>
+          </div>
         </div>
+
+        {/* Priority Biometric Shift & Attendance Punch Tracker */}
+        <AttendancePunchWidget onViewLogs={() => onNavigate('Attendance')} />
 
         {/* Accountant Summary Cards */}
         <section className="stat-grid dashboard-stats">
@@ -201,11 +218,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             <span className="text-[11px] text-gray-400">Consignments fully verified and cleared</span>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <span className="text-xs font-bold text-gray-500 uppercase">Expense Claims Reviewed</span>
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              {isEmployee ? 'Expense Claims Submitted' : 'Expense Claims Reviewed'}
+            </span>
             <p className="text-2xl font-black text-blue-700 mt-1">
-              {recentExpenses.filter((e: any) => e.status !== 'SUBMITTED').length}
+              {isEmployee
+                ? recentExpenses.length
+                : recentExpenses.filter((e: any) => e.status !== 'SUBMITTED').length}
             </p>
-            <span className="text-[11px] text-gray-400">Audit compliance verified</span>
+            <span className="text-[11px] text-gray-400">
+              {isEmployee ? 'Verified status & reimbursements' : 'Audit compliance verified'}
+            </span>
           </div>
         </div>
 
@@ -305,105 +328,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
     );
   }
 
-  // -------------------------------------------------------------
-  // 2. EMPLOYEE DASHBOARD VIEW (Section 4 & 13)
-  // -------------------------------------------------------------
-  if (isEmployee) {
-    return (
-      <div className="space-y-6">
-        <div className="bg-gradient-to-r from-[#064D2B] via-[#086333] to-[#0A7B3E] text-white p-6 rounded-2xl shadow-sm border border-emerald-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Employee Portal</span>
-            </div>
-            <h1 className="text-2xl font-extrabold font-['Manrope']">
-              Employee Expense &amp; Reimbursement Portal
-            </h1>
-            <p className="text-xs text-emerald-100 mt-1">
-              Welcome, <strong>{user?.name}</strong> ({user?.employee?.employeeId || 'EMP'}) · {user?.employee?.department || 'Operations'} · Submit verified spending, upload bills, and track claim reimbursements.
-            </p>
-          </div>
-          <button
-            onClick={() => onNavigate('Employee Expenses')}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#064D2B] hover:bg-emerald-50 rounded-xl text-xs font-bold transition shadow-sm self-start md:self-auto"
-          >
-            <Plus size={16} /> Submit Expense Claim
-          </button>
-        </div>
-
-        <section className="stat-grid dashboard-stats">
-          <StatCard
-            label="Total Submitted"
-            value={formatCurrency(summary.totalExpensesSubmitted)}
-            icon={<ReceiptIndianRupee />}
-            tone="blue"
-            detail="All Filed Claims"
-          />
-          <StatCard
-            label="Approved Expenses"
-            value={formatCurrency(summary.approvedExpenses)}
-            icon={<CheckCircle2 />}
-            tone="green"
-            detail="Authorized by Admin"
-          />
-          <StatCard
-            label="Reimbursed Amount"
-            value={formatCurrency(summary.expensesPaid)}
-            icon={<WalletCards />}
-            tone="gold"
-            detail="Disbursed to Bank"
-          />
-          <StatCard
-            label="Pending Reimbursement"
-            value={formatCurrency(summary.pendingReimbursements)}
-            icon={<Clock3 />}
-            tone="rose"
-            detail="Awaiting Payment"
-          />
-        </section>
-
-        <section className="workspace-card">
-          <div className="panel-heading">
-            <h2>My Expense Claims &amp; Status</h2>
-            <button onClick={() => onNavigate('Employee Expenses')}>
-              View full history <ArrowRight size={14} />
-            </button>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Claim ID</th>
-                  <th>Category</th>
-                  <th>Date</th>
-                  <th>Claimed Amount</th>
-                  <th>Approved Amount</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentExpenses.slice(0, 5).map((exp: any) => (
-                  <tr key={exp.id}>
-                    <td className="font-semibold text-emerald-800">{exp.claim}</td>
-                    <td>{exp.category}</td>
-                    <td>{new Date(exp.date).toLocaleDateString('en-GB')}</td>
-                    <td className="font-bold">{formatCurrency(exp.amount)}</td>
-                    <td className="font-semibold text-gray-700">
-                      {exp.approved > 0 ? formatCurrency(exp.approved) : '—'}
-                    </td>
-                    <td>
-                      <StatusBadge status={exp.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    );
-  }
 
   // -------------------------------------------------------------
   // 3. ADMIN DASHBOARD VIEW (Section 6 & 18 of Master Prompt)
@@ -447,6 +371,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               <Plus size={16} /> Create PO
             </button>
             <button
+              onClick={() => onNavigate('Attendance')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-800/80 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition border border-emerald-600/40"
+            >
+              <Clock size={14} /> Staff Attendance
+            </button>
+            <button
               onClick={() => onNavigate('Employee Expenses')}
               className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-800/80 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition border border-emerald-600/40"
             >
@@ -460,6 +390,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Biometric Office Shift Attendance Tracker */}
+      <div className="mb-6">
+        <AttendancePunchWidget onViewLogs={() => onNavigate('Attendance')} />
       </div>
 
       {/* 14 Core KPI Stat Cards in Clean Grids */}

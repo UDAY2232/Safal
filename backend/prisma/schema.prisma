@@ -56,6 +56,13 @@ enum ExpenseStatus {
   PAID_CLEARED
 }
 
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  HALF_DAY
+  ABSENT
+}
+
 model User {
   id               String             @id @default(cuid())
   email            String             @unique
@@ -76,6 +83,7 @@ model User {
   approvedPOs      PurchaseOrder[]    @relation("POApprover")
   auditLogs        AuditLog[]
   notifications    Notification[]
+  attendanceRecords AttendanceRecord[]
 
   @@map("users")
 }
@@ -113,6 +121,7 @@ model Employee {
   status       String              @default("ACTIVE")
   wageRecords  EmployeeWageRecord[]
   expenseClaims ExpenseClaim[]
+  attendanceRecords AttendanceRecord[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
@@ -414,5 +423,29 @@ model InvoiceItem {
 
   @@map("invoice_items")
 }
+
+model AttendanceRecord {
+  id           String           @id @default(cuid())
+  userId       String
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId   String?
+  employee     Employee?        @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  date         DateTime         @db.Date
+  clockInTime  DateTime         @default(now())
+  clockOutTime DateTime?
+  totalMinutes Int?             @default(0)
+  status       AttendanceStatus @default(PRESENT)
+  clockInIp    String?
+  notes        String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([userId])
+  @@index([status])
+  @@map("attendance_records")
+}
+
 
 

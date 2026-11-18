@@ -10,6 +10,7 @@ import {
   Truck,
   BarChart3,
   BriefcaseBusiness,
+  Clock,
   Clock3,
   Settings,
   Leaf,
@@ -38,13 +39,14 @@ interface NavEntry {
 
 const navItems: NavEntry[] = [
   { label: 'Dashboard', icon: Home, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
-  { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT'] },
-  { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Attendance', icon: Clock, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
+  { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
+  { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Employee Expenses', icon: ReceiptIndianRupee, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Bill Clearance', icon: ClipboardCheck, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Wages & Salary', icon: WalletCards, roles: ['ADMIN'], adminOnly: true },
   { label: 'Employees', icon: Users, roles: ['ADMIN', 'ACCOUNTANT'] },
-  { label: 'Suppliers', icon: Truck, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Suppliers', icon: Truck, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Reports', icon: BarChart3, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Accountant Performance', icon: BriefcaseBusiness, roles: ['ADMIN'], adminOnly: true },
   { label: 'Activity Logs', icon: Clock3, roles: ['ADMIN'], adminOnly: true },
@@ -87,7 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'Full Administrator'
                 : currentRole === 'ACCOUNTANT'
                 ? 'Accountant Console'
-                : 'Employee Self-Service'}
+                : 'Employee Operations Console'}
             </p>
           </div>
           {toggleCollapse && (

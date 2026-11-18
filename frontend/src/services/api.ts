@@ -145,5 +145,12 @@ export const api = {
   recordInvoicePayment: (id: string, data: any) =>
     request<any>(`/invoices/${id}/payment`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteInvoice: (id: string) => request<{ message: string }>(`/invoices/${id}`, { method: 'DELETE' }),
+
+  // Attendance
+  clockInAttendance: () => request<any>('/attendance/clock-in', { method: 'POST' }),
+  clockOutAttendance: () => request<any>('/attendance/clock-out', { method: 'POST' }),
+  getTodayAttendance: () => request<any>('/attendance/today'),
+  getMyAttendanceHistory: () => request<any>('/attendance/my-history'),
+  getAllAttendance: (params: string = '') => request<any>(`/attendance/all${params}`),
 };
 

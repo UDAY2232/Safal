@@ -16,6 +16,7 @@ import { PerformancePage } from './pages/PerformancePage';
 import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { InvoicesPage } from './pages/InvoicesPage';
+import { AttendancePage } from './pages/AttendancePage';
 import { CreatePOModal } from './components/CreatePOModal';
 
 function MainApp() {
@@ -95,7 +96,7 @@ function MainApp() {
       />
 
       <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
-        {activePage !== 'Purchase Order (PO)' && activePage !== 'Dashboard' && (
+        {activePage !== 'Purchase Order (PO)' && activePage !== 'Dashboard' && activePage !== 'Attendance' && (
           <PageHeading
             page={activePage}
             onAction={() => {
@@ -109,6 +110,7 @@ function MainApp() {
         {activePage === 'Dashboard' && (
           <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
         )}
+        {activePage === 'Attendance' && <AttendancePage user={user} />}
         {activePage === 'Purchase Order (PO)' && (
           <PurchaseOrdersPage
             onNotify={notify}

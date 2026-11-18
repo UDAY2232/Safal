@@ -1,0 +1,329 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  LogOut,
+  MapPin,
+  Calendar,
+  Sparkles,
+  ArrowRight,
+  ShieldCheck,
+} from 'lucide-react';
+import { api } from '../services/api';
+
+interface AttendancePunchWidgetProps {
+  onStatusChange?: () => void;
+  onViewLogs?: () => void;
+  compact?: boolean;
+}
+
+export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
+  onStatusChange,
+  onViewLogs,
+  compact = false,
+}) => {
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [todayData, setTodayData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Update clock every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const fetchTodayStatus = async () => {
+    try {
+      setLoading(true);
+      const res = await api.getTodayAttendance();
+      setTodayData(res);
+    } catch (err: any) {
+      console.error('Failed to load today attendance status:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodayStatus();
+  }, []);
+
+  const handleClockIn = async () => {
+    try {
+      setActionLoading(true);
+      setFeedback(null);
+      const res = await api.clockInAttendance();
+      setFeedback({ type: 'success', message: res.message || 'Clocked in successfully!' });
+      await fetchTodayStatus();
+      if (onStatusChange) onStatusChange();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to clock in' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleClockOut = async () => {
+    if (!window.confirm('Are you sure you want to punch out and complete your office shift for today?')) {
+      return;
+    }
+    try {
+      setActionLoading(true);
+      setFeedback(null);
+      const res = await api.clockOutAttendance();
+      setFeedback({ type: 'success', message: res.message || 'Clocked out successfully!' });
+      await fetchTodayStatus();
+      if (onStatusChange) onStatusChange();
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Failed to clock out' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const record = todayData?.record;
+  const isClockedIn = !!record;
+  const isClockedOut = !!record?.clockOutTime;
+
+  // Format digital clock
+  const timeFormatted = currentTime.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  });
+
+  const dateFormatted = currentTime.toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  // Calculate elapsed time if clocked in and not clocked out
+  let elapsedText = '';
+  if (isClockedIn && record?.clockInTime) {
+    const start = new Date(record.clockInTime).getTime();
+    const end = isClockedOut && record?.clockOutTime ? new Date(record.clockOutTime).getTime() : currentTime.getTime();
+    const diffMins = Math.max(0, Math.floor((end - start) / 60000));
+    const h = Math.floor(diffMins / 60);
+    const m = diffMins % 60;
+    elapsedText = `${h}h ${m}m`;
+  }
+
+  const formatRecordTime = (dateStr?: string) => {
+    if (!dateStr) return '--:--';
+    return new Date(dateStr).toLocaleTimeString('en-IN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-emerald-200/80 shadow-sm overflow-hidden">
+      {/* Top Banner Header */}
+      <div className="bg-gradient-to-r from-[#064D2B] via-[#086333] to-[#0A7B3E] text-white px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="p-2 rounded-xl bg-white/10 backdrop-blur-sm">
+            <Clock size={18} className="text-emerald-300" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-bold text-sm tracking-wide">Daily Office Attendance &amp; Shift Punch</h2>
+              <span className="text-[10px] bg-emerald-400/20 text-emerald-200 px-2 py-0.5 rounded-full font-semibold border border-emerald-400/30">
+                Official Biometric Sync
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-100 flex items-center gap-1.5 mt-0.5">
+              <MapPin size={11} className="text-emerald-300" />
+              <span>SAFAL Hub 1 · Navi Mumbai Cold Storage Operations</span>
+              <span className="opacity-60">|</span>
+              <span>Shift starts: 09:30 AM</span>
+            </p>
+          </div>
+        </div>
+
+        {onViewLogs && (
+          <button
+            onClick={onViewLogs}
+            className="text-xs font-semibold text-emerald-100 hover:text-white flex items-center gap-1 hover:underline transition"
+          >
+            Attendance Logs &amp; Monthly Summary <ArrowRight size={13} />
+          </button>
+        )}
+      </div>
+
+      {/* Main Body */}
+      <div className="p-5">
+        {feedback && (
+          <div
+            className={`mb-4 px-4 py-3 rounded-xl text-xs font-medium flex items-center justify-between gap-3 border ${
+              feedback.type === 'success'
+                ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                : 'bg-red-50 text-red-900 border-red-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {feedback.type === 'success' ? (
+                <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle size={16} className="text-red-600 shrink-0" />
+              )}
+              <span>{feedback.message}</span>
+            </div>
+            <button
+              onClick={() => setFeedback(null)}
+              className="text-[11px] font-bold text-gray-500 hover:text-gray-800"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+          {/* Digital Clock & Current Status Column */}
+          <div className="lg:col-span-5 flex flex-col items-center sm:items-start text-center sm:text-left bg-emerald-50/50 p-4 rounded-xl border border-emerald-100">
+            <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+              <Calendar size={13} className="text-emerald-600" />
+              <span>{dateFormatted}</span>
+            </div>
+
+            {/* Live Ticking Time */}
+            <div className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-emerald-950 mb-2">
+              {timeFormatted}
+            </div>
+
+            {/* Current Status Pill */}
+            {loading ? (
+              <div className="text-xs text-gray-500 animate-pulse">Checking attendance status...</div>
+            ) : !isClockedIn ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>Not Clocked In Yet Today</span>
+              </div>
+            ) : !isClockedOut ? (
+              <div
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${
+                  record?.status === 'LATE'
+                    ? 'bg-amber-50 text-amber-900 border-amber-300'
+                    : 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                }`}
+              >
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    record?.status === 'LATE' ? 'bg-amber-500' : 'bg-emerald-500'
+                  } animate-ping`}
+                />
+                <span>
+                  {record?.status === 'LATE' ? 'Clocked In Late' : 'Clocked In (Active Shift)'} · {elapsedText}
+                </span>
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-300">
+                <CheckCircle2 size={14} className="text-blue-600" />
+                <span>Shift Completed · {elapsedText}</span>
+              </div>
+            )}
+
+            <div className="text-[11px] text-gray-500 mt-2">
+              Grace period: arrive before <strong>09:30 AM</strong> to qualify for On-Time bonus.
+            </div>
+          </div>
+
+          {/* Action Punch In / Out Buttons Column */}
+          <div className="lg:col-span-4 flex flex-col gap-2.5">
+            {!isClockedIn ? (
+              <button
+                onClick={handleClockIn}
+                disabled={actionLoading || loading}
+                className="w-full py-3.5 px-5 bg-gradient-to-r from-[#087A3E] to-[#0A964C] hover:from-[#066533] hover:to-[#087A3E] text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
+              >
+                <Sparkles size={18} className="text-emerald-200 group-hover:scale-110 transition" />
+                <span>{actionLoading ? 'Verifying Punch In...' : 'Punch In (Start Shift)'}</span>
+              </button>
+            ) : !isClockedOut ? (
+              <button
+                onClick={handleClockOut}
+                disabled={actionLoading || loading}
+                className="w-full py-3.5 px-5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
+              >
+                <LogOut size={18} className="text-white group-hover:translate-x-0.5 transition" />
+                <span>{actionLoading ? 'Recording Punch Out...' : 'Punch Out (End Shift)'}</span>
+              </button>
+            ) : (
+              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-center text-xs text-gray-600">
+                <ShieldCheck size={20} className="text-emerald-600 mx-auto mb-1" />
+                <span className="font-semibold text-gray-800">Shift Completed for Today</span>
+                <p className="text-[11px] text-gray-500 mt-0.5">Punch-out successfully logged in Neon DB.</p>
+              </div>
+            )}
+
+            {/* Quick helper note */}
+            <p className="text-[11px] text-center text-gray-500">
+              {isClockedIn && !isClockedOut
+                ? 'Your working hours are being logged in real-time.'
+                : !isClockedIn
+                ? 'Press Punch In when you arrive at the office or field hub.'
+                : 'Next shift check-in opens tomorrow at 08:00 AM.'}
+            </p>
+          </div>
+
+          {/* Today's Punch Details Column */}
+          <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-2 text-xs">
+            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Punch In:</span>
+              <span className="font-bold text-emerald-900 font-mono">
+                {formatRecordTime(record?.clockInTime)}
+              </span>
+            </div>
+            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Punch Out:</span>
+              <span className="font-bold text-gray-900 font-mono">
+                {formatRecordTime(record?.clockOutTime)}
+              </span>
+            </div>
+            <div className="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-100 flex items-center justify-between">
+              <span className="text-emerald-800 font-medium">Total Duration:</span>
+              <span className="font-bold text-emerald-950 font-mono">
+                {elapsedText || '0h 0m'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Office Presence Summary Bar */}
+        {todayData?.officeOverview && (
+          <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-600">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Present Today: <strong>{todayData.officeOverview.totalPresent}</strong> staff</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                <span>In Office Now: <strong>{todayData.officeOverview.activeInOffice}</strong></span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                <span>Late Arrivals: <strong>{todayData.officeOverview.lateArrivals}</strong></span>
+              </span>
+            </div>
+
+            {record?.clockInIp && (
+              <div className="text-[11px] text-gray-400 flex items-center gap-1">
+                <ShieldCheck size={12} className="text-emerald-600" />
+                <span>Punch IP: {record.clockInIp}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
