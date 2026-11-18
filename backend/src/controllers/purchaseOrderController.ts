@@ -200,48 +200,71 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       resolvedSupplierId = createdSupplier.id;
     }
 
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: 'At least one fruit/product item is required' });
-    }
-
     // Auto-generate PO Number: PO/SF/YYYY/XXX
     const currentYear = new Date().getFullYear();
     const count = await prisma.purchaseOrder.count();
     const poNumber = `PO/SF/${currentYear}/${String(count + 1).padStart(3, '0')}`;
 
+    // Determine target grand total
+    const enteredGrandTotal =
+      manualGrandTotal !== undefined && manualGrandTotal !== null && manualGrandTotal !== ''
+        ? Number(manualGrandTotal)
+        : totalAmount !== undefined && totalAmount !== null && totalAmount !== ''
+        ? Number(totalAmount)
+        : 0;
+
     // Calculate totals
     let subtotal = 0;
     let discountTotal = 0;
     let taxTotal = 0;
+    let processedItems: any[] = [];
 
-    const processedItems = items.map((item: any) => {
-      const qty = Number(item.quantity) || 0;
-      const rate = Number(item.ratePerUnit) || 0;
-      const discPercent = Number(item.discountPercent) || 0;
-      const taxPercent = Number(item.taxPercent) || 0;
+    if (items && Array.isArray(items) && items.length > 0) {
+      processedItems = items.map((item: any) => {
+        const qty = Number(item.quantity) || 1;
+        const rate = Number(item.ratePerUnit) || 0;
+        const discPercent = Number(item.discountPercent) || 0;
+        const taxPercent = Number(item.taxPercent) || 0;
 
-      const rawTotal = qty * rate;
-      const discount = rawTotal * (discPercent / 100);
-      const afterDiscount = rawTotal - discount;
-      const tax = afterDiscount * (taxPercent / 100);
-      const lineTotal = afterDiscount + tax;
+        const rawTotal = qty * rate;
+        const discount = rawTotal * (discPercent / 100);
+        const afterDiscount = rawTotal - discount;
+        const tax = afterDiscount * (taxPercent / 100);
+        const lineTotal = afterDiscount + tax;
 
-      subtotal += rawTotal;
-      discountTotal += discount;
-      taxTotal += tax;
+        subtotal += rawTotal;
+        discountTotal += discount;
+        taxTotal += tax;
 
-      return {
-        fruitName: item.fruitName || 'Assorted Fruits',
-        category: item.category || 'Fresh Fruits',
-        varietyGrade: item.varietyGrade || 'Grade A',
-        quantity: qty,
-        unit: item.unit || 'KG',
-        ratePerUnit: rate,
-        discountPercent: discPercent,
-        taxPercent: taxPercent,
-        lineTotal: lineTotal,
-      };
-    });
+        return {
+          fruitName: item.fruitName || req.body.fruitName || 'Assorted Fruits',
+          category: item.category || 'Fresh Fruits',
+          varietyGrade: item.varietyGrade || 'Grade A',
+          quantity: qty,
+          unit: item.unit || 'KG',
+          ratePerUnit: rate,
+          discountPercent: discPercent,
+          taxPercent: taxPercent,
+          lineTotal: lineTotal > 0 ? lineTotal : enteredGrandTotal,
+        };
+      });
+    } else {
+      const fruitDesc = req.body.fruitName || req.body.itemDescription || 'Wholesale Fruit Procurement';
+      processedItems = [
+        {
+          fruitName: fruitDesc,
+          category: 'Fresh Fruits',
+          varietyGrade: 'Standard Procurement',
+          quantity: 1,
+          unit: 'CONSIGNMENT',
+          ratePerUnit: enteredGrandTotal,
+          discountPercent: 0,
+          taxPercent: 0,
+          lineTotal: enteredGrandTotal,
+        },
+      ];
+      subtotal = enteredGrandTotal;
+    }
 
     const calculatedGrandTotal = subtotal - discountTotal + taxTotal;
     const grandTotal =
