@@ -471,9 +471,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
 
         <div className="p-3.5 bg-white border border-gray-200 rounded-xl flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-gray-500 font-bold block uppercase">Operations Team</span>
+            <span className="text-[11px] text-gray-500 font-bold block uppercase">Active Workforce</span>
             <strong className="text-purple-700 text-lg font-black block mt-0.5">
-              {(summary.activeEmployees || 0) + (summary.activeAccountants || 0) || 1} Staff
+              {summary.activeEmployees} Active Today
             </strong>
           </div>
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 grid place-items-center">
@@ -557,7 +557,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
       </div>
 
       {/* Lower Tables Grid */}
-      <div className="dashboard-grid lower-grid">
+      {/* Lower Tables Stacked Vertically (Recent POs on top full-width, Expense Claims Needing Attention directly below) */}
+      <div className="space-y-6 mt-6">
         <section className="dashboard-panel">
           <div className="panel-heading">
             <h2>Recent Purchase Orders</h2>
@@ -571,14 +572,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 <tr>
                   <th>PO Number</th>
                   <th>Supplier</th>
+                  <th>Order Date</th>
                   <th>Amount</th>
                   <th>Status</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {recentPOs.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center py-8 text-gray-400 text-xs">
+                    <td colSpan={6} className="text-center py-8 text-gray-400 text-xs">
                       No purchase orders recorded yet.
                     </td>
                   </tr>
@@ -587,9 +590,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                     <tr key={order.id}>
                       <td className="font-semibold text-emerald-800">{order.number}</td>
                       <td>{order.supplier}</td>
+                      <td className="text-gray-600 text-xs">
+                        {order.date ? new Date(order.date).toLocaleDateString('en-GB') : '--'}
+                      </td>
                       <td className="font-bold">{formatCurrency(order.amount)}</td>
                       <td>
                         <StatusBadge status={order.status} />
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => onNavigate('Purchase Order (PO)')}
+                          className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1"
+                        >
+                          View <ArrowRight size={12} />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -612,14 +626,17 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 <tr>
                   <th>Claim ID</th>
                   <th>Employee</th>
+                  <th>Category</th>
+                  <th>Expense Date</th>
                   <th>Amount</th>
                   <th>Status</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {recentExpenses.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center py-8 text-gray-400 text-xs">
+                    <td colSpan={7} className="text-center py-8 text-gray-400 text-xs">
                       No expense claims pending attention.
                     </td>
                   </tr>
@@ -628,9 +645,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                     <tr key={expense.id}>
                       <td className="font-semibold text-emerald-800">{expense.claim}</td>
                       <td>{expense.employee}</td>
+                      <td className="text-gray-600 text-xs">{expense.category || 'Operations'}</td>
+                      <td className="text-gray-600 text-xs">
+                        {expense.date ? new Date(expense.date).toLocaleDateString('en-GB') : '--'}
+                      </td>
                       <td className="font-bold">{formatCurrency(expense.amount)}</td>
                       <td>
                         <StatusBadge status={expense.status} />
+                      </td>
+                      <td>
+                        <button
+                          onClick={() => onNavigate('Employee Expenses')}
+                          className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1"
+                        >
+                          Review <ArrowRight size={12} />
+                        </button>
                       </td>
                     </tr>
                   ))

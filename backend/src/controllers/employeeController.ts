@@ -27,7 +27,10 @@ export async function getEmployees(req: AuthRequest, res: Response) {
       ];
     }
 
-    const [employees, allEmployees] = await Promise.all([
+    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const today = new Date(`${dateStr}T00:00:00.000Z`);
+
+    const [employees, allEmployees, todayAttendances] = await Promise.all([
       prisma.employee.findMany({
         where,
         include: {
@@ -38,41 +41,72 @@ export async function getEmployees(req: AuthRequest, res: Response) {
           expenseClaims: {
             select: { id: true, amountSpent: true, status: true },
           },
+          user: true,
         },
         orderBy: { employeeId: 'asc' },
       }),
-      prisma.employee.findMany(),
+      prisma.employee.findMany({
+        include: { user: true },
+      }),
+      prisma.attendanceRecord.findMany({
+        where: {
+          date: today,
+        },
+        include: {
+          user: true,
+        },
+      }),
     ]);
 
-    // Summary calculations
+    const attendedUserIds = new Set(todayAttendances.map((a) => a.userId));
+    const attendedEmpIds = new Set(todayAttendances.filter((a) => a.employeeId).map((a) => a.employeeId!));
+    const attendedEmails = new Set(
+      todayAttendances
+        .map((a) => a.user?.email?.toLowerCase())
+        .filter(Boolean) as string[]
+    );
+
+    const isEmployeeActiveToday = (e: any) => {
+      if (e.status !== 'ACTIVE') return false;
+      const emailMatch = e.email && attendedEmails.has(e.email.toLowerCase());
+      const idMatch = attendedEmpIds.has(e.id);
+      const userMatch = e.userId && attendedUserIds.has(e.userId);
+      return emailMatch || idMatch || userMatch;
+    };
+
+    // Summary calculations - Active only when attendance submitted today
     const totalEmployees = allEmployees.length;
-    const activeEmployees = allEmployees.filter((e) => e.status === 'ACTIVE').length;
+    const activeEmployees = allEmployees.filter(isEmployeeActiveToday).length;
     const departments = Array.from(new Set(allEmployees.map((e) => e.department))).length;
     const monthlyCommitment = allEmployees
-      .filter((e) => e.status === 'ACTIVE' && e.wageType === 'MONTHLY')
+      .filter((e) => isEmployeeActiveToday(e) && e.wageType === 'MONTHLY')
       .reduce((sum, e) => sum + Number(e.baseWageRate), 0);
 
-    const formatted = employees.map((e) => ({
-      id: e.id,
-      employeeId: e.employeeId,
-      fullName: e.fullName,
-      email: e.email,
-      phone: e.phone,
-      department: e.department,
-      designation: e.designation,
-      joiningDate: e.joiningDate,
-      wageType: e.wageType,
-      baseWageRate: Number(e.baseWageRate),
-      status: e.status,
-      totalClaims: e.expenseClaims.length,
-      latestWageRecord: e.wageRecords[0]
-        ? {
-            payPeriod: e.wageRecords[0].payPeriod,
-            netPayable: Number(e.wageRecords[0].netPayable),
-            status: e.wageRecords[0].status,
-          }
-        : null,
-    }));
+    const formatted = employees.map((e) => {
+      const activeToday = isEmployeeActiveToday(e);
+      return {
+        id: e.id,
+        employeeId: e.employeeId,
+        fullName: e.fullName,
+        email: e.email,
+        phone: e.phone,
+        department: e.department,
+        designation: e.designation,
+        joiningDate: e.joiningDate,
+        wageType: e.wageType,
+        baseWageRate: Number(e.baseWageRate),
+        status: activeToday ? 'ACTIVE' : 'INACTIVE',
+        hasAttendedToday: activeToday,
+        totalClaims: e.expenseClaims.length,
+        latestWageRecord: e.wageRecords[0]
+          ? {
+              payPeriod: e.wageRecords[0].payPeriod,
+              netPayable: Number(e.wageRecords[0].netPayable),
+              status: e.wageRecords[0].status,
+            }
+          : null,
+      };
+    });
 
     return res.json({
       summary: {

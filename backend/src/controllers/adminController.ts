@@ -6,6 +6,9 @@ import { createAuditLog } from '../services/auditService.js';
 
 export async function getAdminDashboard(req: AuthRequest, res: Response) {
   try {
+    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const today = new Date(`${dateStr}T00:00:00.000Z`);
+
     const [
       pos,
       accountants,
@@ -16,6 +19,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       expensePayments,
       financialRecords,
       auditLogs,
+      todayAttendances,
     ] = await Promise.all([
       prisma.purchaseOrder.findMany({
         include: { supplier: true, createdBy: true },
@@ -24,7 +28,9 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       prisma.accountantProfile.findMany({
         include: { user: true },
       }),
-      prisma.employee.findMany(),
+      prisma.employee.findMany({
+        include: { user: true },
+      }),
       prisma.employeeWageRecord.findMany(),
       prisma.expenseClaim.findMany({
         include: { employee: true },
@@ -37,7 +43,27 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         take: 10,
         orderBy: { createdAt: 'desc' },
       }),
+      prisma.attendanceRecord.findMany({
+        where: { date: today },
+        include: { user: true },
+      }),
     ]);
+
+    const attendedUserIds = new Set(todayAttendances.map((a) => a.userId));
+    const attendedEmpIds = new Set(todayAttendances.filter((a) => a.employeeId).map((a) => a.employeeId!));
+    const attendedEmails = new Set(
+      todayAttendances
+        .map((a) => a.user?.email?.toLowerCase())
+        .filter(Boolean) as string[]
+    );
+
+    const isEmployeeActiveToday = (e: any) => {
+      if (e.status !== 'ACTIVE') return false;
+      const emailMatch = e.email && attendedEmails.has(e.email.toLowerCase());
+      const idMatch = attendedEmpIds.has(e.id);
+      const userMatch = e.userId && attendedUserIds.has(e.userId);
+      return emailMatch || idMatch || userMatch;
+    };
 
     // Role-scoped dataset: Employees only see their own created POs and claims
     const isEmp = req.user?.role === 'EMPLOYEE';
@@ -55,9 +81,9 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
     const totalAccountants = accountants.length;
     const activeAccountants = accountants.filter((a) => a.status === 'ACTIVE' && a.user?.isActive).length;
 
-    // Employee & Wage Calculations
+    // Employee & Wage Calculations: Active only when employee submitted attendance today
     const totalEmployees = employees.length;
-    const activeEmployees = employees.filter((e) => e.status === 'ACTIVE').length;
+    const activeEmployees = employees.filter(isEmployeeActiveToday).length;
     const monthlyWageCommitment = employees
       .filter((e) => e.wageType === 'MONTHLY' && e.status === 'ACTIVE')
       .reduce((sum, e) => sum + Number(e.baseWageRate), 0);

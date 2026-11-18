@@ -106,11 +106,34 @@ export async function clockIn(req: AuthRequest, res: Response) {
     const isLate = hour > SHIFT_START_HOUR || (hour === SHIFT_START_HOUR && minute > SHIFT_START_MINUTE);
     const status = isLate ? 'LATE' : 'PRESENT';
 
-    // Get linked employee record if any
+    // Get linked employee record if any (by userId or matching email)
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: { employee: true },
     });
+
+    let linkedEmployee = user?.employee;
+    if (!linkedEmployee && user?.email) {
+      linkedEmployee = await prisma.employee.findFirst({
+        where: {
+          OR: [
+            { userId: user.id },
+            { email: { equals: user.email, mode: 'insensitive' } },
+          ],
+        },
+      });
+      if (linkedEmployee && !linkedEmployee.userId) {
+        await prisma.employee.update({
+          where: { id: linkedEmployee.id },
+          data: { userId: user.id, status: 'ACTIVE' },
+        });
+      }
+    } else if (linkedEmployee) {
+      await prisma.employee.update({
+        where: { id: linkedEmployee.id },
+        data: { status: 'ACTIVE' },
+      });
+    }
 
     const clientIp =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
@@ -131,7 +154,7 @@ export async function clockIn(req: AuthRequest, res: Response) {
     const record = await prisma.attendanceRecord.create({
       data: {
         userId,
-        employeeId: user?.employee?.id || null,
+        employeeId: linkedEmployee?.id || user?.employee?.id || null,
         date: today,
         clockInTime: now,
         status: status as any,
