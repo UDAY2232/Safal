@@ -17,6 +17,7 @@ import {
 import { api } from '../services/api';
 import { AttendancePunchWidget } from '../components/AttendancePunchWidget';
 import { PhotoLightboxModal } from '../components/PhotoLightboxModal';
+import { resolvePhotoUrl } from '../utils/imageUtils';
 
 interface AttendancePageProps {
   user: any;
@@ -380,9 +381,12 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                                   title="View Arrival Photo"
                                 >
                                   <img
-                                    src={rec.photoUrl}
+                                    src={resolvePhotoUrl(rec.photoUrl)}
                                     alt="In"
                                     className="w-6 h-6 rounded object-cover border border-emerald-400"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
                                   />
                                   <span className="text-[10px] font-bold">In</span>
                                 </button>
@@ -403,9 +407,12 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                                   title="View Departure Photo"
                                 >
                                   <img
-                                    src={rec.clockOutPhotoUrl}
+                                    src={resolvePhotoUrl(rec.clockOutPhotoUrl)}
                                     alt="Out"
                                     className="w-6 h-6 rounded object-cover border border-blue-400"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
                                   />
                                   <span className="text-[10px] font-bold">Out</span>
                                 </button>
@@ -616,9 +623,12 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                                   title="Click to verify arrival photo"
                                 >
                                   <img
-                                    src={att.photoUrl}
+                                    src={resolvePhotoUrl(att.photoUrl)}
                                     alt={staff.fullName}
                                     className="w-7 h-7 rounded-lg object-cover border border-emerald-500"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
                                   />
                                   <span className="text-[10px] font-bold">In</span>
                                 </button>
@@ -639,9 +649,12 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                                   title="Click to verify departure photo"
                                 >
                                   <img
-                                    src={att.clockOutPhotoUrl}
+                                    src={resolvePhotoUrl(att.clockOutPhotoUrl)}
                                     alt={staff.fullName}
                                     className="w-7 h-7 rounded-lg object-cover border border-blue-500"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
                                   />
                                   <span className="text-[10px] font-bold">Out</span>
                                 </button>

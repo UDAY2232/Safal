@@ -48,27 +48,29 @@ function getIstTimeDetails(date = new Date()) {
 }
 
 /**
- * Saves base64 encoded photo to the uploads directory
+ * Processes attendance photo (base64 or uploaded file):
+ * Retains the base64 data URI directly for persistent, cloud-resilient photo storage in PostgreSQL
+ * ensuring photos always render seamlessly on Vercel and mobile without disk dependency.
  */
-function saveBase64Photo(dataString?: string, prefix = 'in'): string | null {
-  if (!dataString || typeof dataString !== 'string') return null;
-  try {
-    const matches = dataString.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) return null;
-    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
-    const buffer = Buffer.from(matches[2], 'base64');
-    const uploadDir = path.resolve('uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+function processAttendancePhoto(dataString?: string, file?: Express.Multer.File): string | null {
+  if (file) {
+    try {
+      const buffer = fs.readFileSync(file.path);
+      const mime = file.mimetype || 'image/jpeg';
+      return `data:${mime};base64,${buffer.toString('base64')}`;
+    } catch {
+      return `/uploads/${file.filename}`;
     }
-    const filename = `attendance-${prefix}-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
-    const filePath = path.join(uploadDir, filename);
-    fs.writeFileSync(filePath, buffer);
-    return `/uploads/${filename}`;
-  } catch (err) {
-    console.error('Error saving base64 attendance photo:', err);
-    return null;
   }
+
+  if (!dataString || typeof dataString !== 'string') return null;
+
+  const trimmed = dataString.trim();
+  if (trimmed.startsWith('data:image/')) {
+    return trimmed;
+  }
+
+  return `data:image/jpeg;base64,${trimmed}`;
 }
 
 /**
@@ -144,9 +146,7 @@ export async function clockIn(req: AuthRequest, res: Response) {
       'Office Network';
 
     // Process uploaded photo or base64 selfie
-    const uploadedPhoto = req.file
-      ? `/uploads/${req.file.filename}`
-      : saveBase64Photo(req.body.photo || req.body.image, 'in');
+    const uploadedPhoto = processAttendancePhoto(req.body.photo || req.body.image, req.file);
 
     const location = req.body.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai';
 
@@ -248,9 +248,7 @@ export async function clockOut(req: AuthRequest, res: Response) {
     const mins = totalMinutes % 60;
     const durationStr = `${hours}h ${mins}m`;
 
-    const uploadedOutPhoto = req.file
-      ? `/uploads/${req.file.filename}`
-      : saveBase64Photo(req.body.photo || req.body.image, 'out');
+    const uploadedOutPhoto = processAttendancePhoto(req.body.photo || req.body.image, req.file);
 
     const updated = await prisma.attendanceRecord.update({
       where: { id: existing.id },
