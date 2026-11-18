@@ -145,7 +145,7 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
     const staffId = user?.employee?.employeeId || user?.accountantProfile?.accountantId || 'STAFF';
     ctx.fillStyle = '#F3F4F6';
     ctx.font = '12px sans-serif';
-    ctx.fillText(`👤 ${user?.name || 'Employee'} (${staffId}) · ${type === 'in' ? 'OFFICE IN (ARRIVAL)' : 'OFFICE OUT (DEPARTURE)'}`, 16, height - 16);
+    ctx.fillText(`👤 ${user?.name || 'Employee'} (${staffId}) · ${type === 'in' ? 'OFFICE IN (ARRIVAL)' : 'OFFICE OUT (DEPARTURE)'} · 8h Shift (09:30-18:30)`, 16, height - 16);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#A7F3D0';
@@ -288,6 +288,10 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
               <Clock size={15} className="text-emerald-700" />
               <span className="text-gray-600 font-medium">Timestamp:</span>
               <span className="font-mono font-bold text-emerald-950">{currentTimeStr}</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-emerald-800 font-bold bg-white px-2 py-1 rounded-lg border border-emerald-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+              <span>Shift: 09:30 AM – 06:30 PM (8h Target)</span>
             </div>
             <div className="flex items-center gap-2">
               <MapPin size={15} className="text-emerald-700" />

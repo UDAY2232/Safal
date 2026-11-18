@@ -8,6 +8,9 @@ import { createAuditLog } from '../services/auditService.js';
 // Standard Office Shift Configuration (SAFAL Navi Mumbai Hub 1)
 const SHIFT_START_HOUR = 9;
 const SHIFT_START_MINUTE = 30; // 09:30 AM
+const SHIFT_END_HOUR = 18;
+const SHIFT_END_MINUTE = 30; // 06:30 PM
+const FULL_DAY_MINUTES = 480; // 8 Hours (Total standard working hours)
 const HALF_DAY_MINUTES = 240; // 4 Hours
 
 /**
@@ -148,8 +151,8 @@ export async function clockIn(req: AuthRequest, res: Response) {
     const location = req.body.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai';
 
     const notes = isLate
-      ? `Late arrival at ${timeFormatted} (Shift starts 09:30 AM)`
-      : `On-time arrival at ${timeFormatted}`;
+      ? `Late arrival at ${timeFormatted} (Shift: 09:30 AM – 06:30 PM | 8 hrs)`
+      : `On-time arrival at ${timeFormatted} (Shift: 09:30 AM – 06:30 PM | 8 hrs)`;
 
     const record = await prisma.attendanceRecord.create({
       data: {
@@ -256,7 +259,7 @@ export async function clockOut(req: AuthRequest, res: Response) {
         totalMinutes,
         status: finalStatus,
         ...(uploadedOutPhoto ? { clockOutPhotoUrl: uploadedOutPhoto } : {}),
-        notes: `${existing.notes ? existing.notes + ' | ' : ''}Clocked out at ${timeFormatted} (Duration: ${durationStr})`,
+        notes: `${existing.notes ? existing.notes + ' | ' : ''}Office Out at ${timeFormatted} (Worked: ${durationStr} / 8h Shift · 09:30 AM – 06:30 PM)`,
       },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },

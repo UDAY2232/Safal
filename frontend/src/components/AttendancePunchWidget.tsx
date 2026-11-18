@@ -119,16 +119,21 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     year: 'numeric',
   });
 
-  // Calculate elapsed time if present
+  // Calculate elapsed time and progress towards 8 hours (09:30 AM to 06:30 PM)
+  const TARGET_WORK_MINUTES = 480; // 8 Hours standard working hours
+  let elapsedMinutes = 0;
   let elapsedText = '';
   if (isPresent && record?.clockInTime) {
     const start = new Date(record.clockInTime).getTime();
     const end = record?.clockOutTime ? new Date(record.clockOutTime).getTime() : currentTime.getTime();
-    const diffMins = Math.max(0, Math.floor((end - start) / 60000));
-    const h = Math.floor(diffMins / 60);
-    const m = diffMins % 60;
+    elapsedMinutes = Math.max(0, Math.floor((end - start) / 60000));
+    const h = Math.floor(elapsedMinutes / 60);
+    const m = elapsedMinutes % 60;
     elapsedText = `${h}h ${m}m`;
   }
+  const progressPercent = Math.min(100, Math.round((elapsedMinutes / TARGET_WORK_MINUTES) * 100));
+  const remainingMins = Math.max(0, TARGET_WORK_MINUTES - elapsedMinutes);
+  const remainingText = `${Math.floor(remainingMins / 60)}h ${remainingMins % 60}m`;
 
   const formatRecordTime = (dateStr?: string) => {
     if (!dateStr) return '--:--';
@@ -156,9 +161,9 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
             </div>
             <p className="text-[11px] text-emerald-100 flex items-center gap-1.5 mt-0.5">
               <MapPin size={11} className="text-emerald-300" />
-              <span>SAFAL Hub 1 · Navi Mumbai Cold Storage Operations</span>
+              <span>SAFAL Hub 1 · Navi Mumbai Cold Storage</span>
               <span className="opacity-60">|</span>
-              <span>Reporting Time: 09:30 AM</span>
+              <span>Official Shift: <strong>09:30 AM – 06:30 PM (8h Total Work)</strong></span>
             </p>
           </div>
         </div>
@@ -237,7 +242,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
             )}
 
             <div className="text-[11px] text-gray-500 mt-2">
-              Reporting window: arrive before <strong>09:30 AM</strong> to qualify for On-Time recognition.
+              Official Shift: <strong>09:30 AM – 06:30 PM</strong> (Total 8 Working Hours). Arrive before <strong>09:30 AM</strong> for on-time verification.
             </div>
           </div>
 
@@ -254,17 +259,30 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                   <span>{actionLoading ? 'Recording Arrival...' : 'Office In: Take Photo & Record Arrival'}</span>
                 </button>
                 <p className="text-[11px] text-center text-gray-500">
-                  Take a live selfie upon arriving at the office to record your daily attendance with location &amp; timestamp.
+                  Official Shift: <strong>09:30 AM – 06:30 PM (8 hrs)</strong>. Take live selfie upon arriving at office.
                 </p>
               </>
             ) : !isClockedOut ? (
               <>
-                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-center mb-0.5">
-                  <div className="flex items-center justify-center gap-1.5 text-emerald-950 font-bold text-xs">
-                    <CheckCircle2 size={15} className="text-emerald-600" />
-                    <span>Office In: {formatRecordTime(record?.clockInTime)}</span>
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 mb-0.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-emerald-950 mb-1">
+                    <span className="flex items-center gap-1">
+                      <CheckCircle2 size={14} className="text-emerald-600" />
+                      Office In: {formatRecordTime(record?.clockInTime)}
+                    </span>
+                    <span className="text-emerald-800 font-mono font-bold">{elapsedText} / 8h 00m</span>
                   </div>
-                  <p className="text-[11px] text-emerald-700 mt-0.5">Working in office · Elapsed: {elapsedText}</p>
+                  {/* Visual 8-Hour Shift Progress Bar */}
+                  <div className="w-full bg-emerald-200/70 rounded-full h-2 overflow-hidden my-1.5">
+                    <div
+                      className="bg-emerald-600 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-emerald-800 font-semibold">
+                    <span>{progressPercent}% of 8h Completed</span>
+                    <span>{remainingMins > 0 ? `${remainingText} to 8h (Ends 06:30 PM)` : '🎉 8h Target Achieved!'}</span>
+                  </div>
                 </div>
                 <button
                   onClick={handleStartOfficeOut}
@@ -275,41 +293,58 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                   <span>{actionLoading ? 'Recording Departure...' : 'Office Out: Take Photo & Leave Office'}</span>
                 </button>
                 <p className="text-[11px] text-center text-gray-500">
-                  Take a live selfie before leaving to verify departure time and conclude your shift.
+                  Standard shift concludes at <strong>06:30 PM</strong>. Take a live selfie to verify departure time.
                 </p>
               </>
             ) : (
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
                 <CheckCircle2 size={24} className="text-emerald-600 mx-auto mb-1.5" />
                 <span className="font-bold text-emerald-950 text-sm block">Shift Completed for Today</span>
-                <p className="text-xs text-emerald-700 mt-0.5">
-                  Office In: {formatRecordTime(record?.clockInTime)} · Office Out: {formatRecordTime(record?.clockOutTime)} ({elapsedText})
+                <p className="text-xs text-emerald-800 mt-1">
+                  Office In: <strong>{formatRecordTime(record?.clockInTime)}</strong> · Office Out: <strong>{formatRecordTime(record?.clockOutTime)}</strong>
                 </p>
-                <span className="inline-block mt-2 text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900">
-                  Both In &amp; Out Photos Verified
-                </span>
+                <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                  <span>Total Worked: {elapsedText}</span>
+                  <span>•</span>
+                  <span>{elapsedMinutes >= TARGET_WORK_MINUTES ? '✅ Full 8h Shift Completed' : 'Standard Shift: 8 Hours'}</span>
+                </div>
+                <div className="mt-1.5 text-[10px] text-emerald-700 font-semibold">
+                  Shift: 09:30 AM – 06:30 PM · Both Photos Verified
+                </div>
               </div>
             )}
           </div>
 
           {/* Today's Details Column */}
           <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-2 text-xs">
-            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+            <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Shift Timings:</span>
+              <span className="font-bold text-gray-800 font-mono text-[11px]">
+                09:30 AM – 06:30 PM
+              </span>
+            </div>
+            <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Target Work:</span>
+              <span className="font-bold text-emerald-900 font-mono">
+                8h 00m
+              </span>
+            </div>
+            <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
               <span className="text-gray-500 font-medium">Arrival Time:</span>
               <span className="font-bold text-emerald-900 font-mono">
                 {formatRecordTime(record?.clockInTime)}
               </span>
             </div>
-            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+            <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
               <span className="text-gray-500 font-medium">Departure Time:</span>
               <span className="font-bold text-gray-800 font-mono">
                 {record?.clockOutTime ? formatRecordTime(record?.clockOutTime) : isPresent ? 'In Office' : '--:--'}
               </span>
             </div>
-            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
-              <span className="text-gray-500 font-medium">Status:</span>
-              <span className={`font-bold ${record?.status === 'LATE' ? 'text-amber-800' : 'text-emerald-800'}`}>
-                {record ? (record.status === 'LATE' ? 'Late Arrival' : isClockedOut ? 'Shift Completed' : 'In Office') : 'Pending'}
+            <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Worked Today:</span>
+              <span className="font-bold text-emerald-900 font-mono">
+                {isPresent ? elapsedText : '--:--'}
               </span>
             </div>
             <div className="flex gap-2">
