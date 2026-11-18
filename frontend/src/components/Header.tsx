@@ -128,7 +128,9 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isSidebarCollapsed =
               <span>
                 {user?.role === 'ADMIN'
                   ? 'Managing Director (Admin)'
-                  : 'Employee Operations'}
+                  : user?.role === 'ACCOUNTANT'
+                  ? 'Accountant'
+                  : 'Employee'}
               </span>
             </div>
             <ChevronDown size={15} />
@@ -140,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isSidebarCollapsed =
                 <p className="text-[11px] text-gray-400">Signed in as</p>
                 <p className="text-xs font-bold text-gray-800 truncate">{user?.email}</p>
                 <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
-                  {user?.role === 'ADMIN' ? 'Managing Director' : 'Employee Operations'}
+                  {user?.role === 'ADMIN' ? 'Managing Director' : user?.role === 'ACCOUNTANT' ? 'Accountant' : 'Employee'}
                 </span>
               </div>
               {user?.role === 'ADMIN' && (

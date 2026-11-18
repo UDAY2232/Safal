@@ -10,9 +10,10 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
 
     const where: any = {};
 
-    // Role-based visibility
-    if (req.user?.role === 'ACCOUNTANT') {
-      // Accountants see POs created by them or permitted POs
+    // Role-based visibility:
+    // Field Employees only see their own created purchase orders.
+    // Accountants and Administrators see all company purchase orders.
+    if (req.user?.role === 'EMPLOYEE') {
       where.createdById = req.user.id;
     }
 

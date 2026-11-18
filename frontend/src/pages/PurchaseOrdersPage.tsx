@@ -16,6 +16,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { PurchaseOrder } from '../types';
 import { StatCard } from '../components/StatCard';
 import { StatusBadge } from '../components/StatusBadge';
@@ -34,6 +35,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   showCreateModal,
   setShowCreateModal,
 }) => {
+  const { user } = useAuth();
+  const isEmployee = user?.role === 'EMPLOYEE';
+
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -96,7 +100,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <ShoppingCart size={26} strokeWidth={2.4} />
             </div>
             <h1 className="text-2xl lg:text-3xl font-extrabold text-[#064D2B] font-['Manrope'] tracking-tight">
-              Purchase Order (PO) Management
+              {isEmployee ? 'My Purchase Orders' : 'Purchase Order (PO) Management'}
             </h1>
           </div>
           {/* Green accent underline bar matching reference */}
@@ -118,7 +122,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <FileText size={24} strokeWidth={2.2} />
           </div>
           <div className="min-w-0">
-            <span className="text-xs font-bold text-[#1E293B] block">Total PO</span>
+            <span className="text-xs font-bold text-[#1E293B] block">
+              {isEmployee ? 'My Total POs' : 'Total PO'}
+            </span>
             <strong className="text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block mt-0.5">
               {orders.length}
             </strong>
@@ -131,7 +137,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <Hourglass size={24} strokeWidth={2.2} />
           </div>
           <div className="min-w-0">
-            <span className="text-xs font-bold text-[#1E293B] block">Open PO</span>
+            <span className="text-xs font-bold text-[#1E293B] block">
+              {isEmployee ? 'My Open POs' : 'Open PO'}
+            </span>
             <strong className="text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
               {openCount}
             </strong>
@@ -144,7 +152,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <CheckCircle2 size={24} strokeWidth={2.2} />
           </div>
           <div className="min-w-0">
-            <span className="text-xs font-bold text-[#1E293B] block">Closed PO</span>
+            <span className="text-xs font-bold text-[#1E293B] block">
+              {isEmployee ? 'My Closed POs' : 'Closed PO'}
+            </span>
             <strong className="text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5">
               {closedCount}
             </strong>
@@ -157,7 +167,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <Coins size={24} strokeWidth={2.2} />
           </div>
           <div className="min-w-0">
-            <span className="text-xs font-bold text-[#1E293B] block">Total PO Amount</span>
+            <span className="text-xs font-bold text-[#1E293B] block">
+              {isEmployee ? 'My PO Amount' : 'Total PO Amount'}
+            </span>
             <strong className="text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 truncate">
               ₹ {totalAmount.toLocaleString('en-IN')}
             </strong>

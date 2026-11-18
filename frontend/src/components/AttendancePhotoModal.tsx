@@ -204,13 +204,13 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
           <div>
             <div className="flex items-center gap-2 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">
               <Camera size={15} />
-              <span>Office Biometric Photo Verification</span>
+              <span>Office Photo Verification</span>
             </div>
             <h2 className="text-xl font-extrabold text-gray-900">
-              {type === 'in' ? 'Take Office Punch-In Photo' : 'Take Office Punch-Out Photo'}
+              Take Office Photo for Attendance
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Please take a live selfie/photo at the office. Date, time, and location will be stamped automatically.
+              Take a live photo at the office to submit your daily attendance. Date, time, and location will be stamped automatically.
             </p>
           </div>
           <button

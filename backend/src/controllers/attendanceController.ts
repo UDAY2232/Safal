@@ -97,7 +97,7 @@ export async function clockIn(req: AuthRequest, res: Response) {
     if (existing) {
       const existingIst = getIstTimeDetails(existing.clockInTime);
       return res.status(400).json({
-        message: `Already clocked in today at ${existingIst.timeFormatted}.`,
+        message: `Attendance already recorded today at ${existingIst.timeFormatted}.`,
         attendance: existing,
       });
     }
@@ -159,8 +159,8 @@ export async function clockIn(req: AuthRequest, res: Response) {
 
     return res.status(201).json({
       message: isLate
-        ? `Clocked In at ${timeFormatted}. Marked as LATE (Shift starts 09:30 AM).`
-        : `Clocked In at ${timeFormatted}. You're on time! Have a productive day.`,
+        ? `Attendance photo verified! Recorded at ${timeFormatted} (Late arrival).`
+        : `Attendance photo verified! Recorded at ${timeFormatted}. You're on time!`,
       attendance: record,
     });
   } catch (error: any) {

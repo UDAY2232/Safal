@@ -32,7 +32,6 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [photoModalType, setPhotoModalType] = useState<'in' | 'out'>('in');
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
 
   // Update clock every second
@@ -59,13 +58,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     fetchTodayStatus();
   }, []);
 
-  const handleStartPunchIn = () => {
-    setPhotoModalType('in');
-    setShowPhotoModal(true);
-  };
-
-  const handleStartPunchOut = () => {
-    setPhotoModalType('out');
+  const handleStartAttendance = () => {
     setShowPhotoModal(true);
   };
 
@@ -73,19 +66,11 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     try {
       setActionLoading(true);
       setFeedback(null);
-      if (photoModalType === 'in') {
-        const res = await api.clockInAttendance({ photo: photoBase64, location });
-        setFeedback({
-          type: 'success',
-          message: res.message || 'Office selfie verified! Clocked in successfully.',
-        });
-      } else {
-        const res = await api.clockOutAttendance({ photo: photoBase64, location });
-        setFeedback({
-          type: 'success',
-          message: res.message || 'Punch-out photo verified! Shift completed.',
-        });
-      }
+      const res = await api.clockInAttendance({ photo: photoBase64, location });
+      setFeedback({
+        type: 'success',
+        message: res.message || 'Office photo verified! Attendance recorded successfully.',
+      });
       await fetchTodayStatus();
       if (onStatusChange) onStatusChange();
     } catch (err: any) {
@@ -96,8 +81,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
   };
 
   const record = todayData?.record;
-  const isClockedIn = !!record;
-  const isClockedOut = !!record?.clockOutTime;
+  const isPresent = !!record;
 
   // Format digital clock
   const timeFormatted = currentTime.toLocaleTimeString('en-IN', {
@@ -144,16 +128,16 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="font-bold text-sm tracking-wide">Daily Office Attendance &amp; Shift Punch</h2>
+              <h2 className="font-bold text-sm tracking-wide">Daily Office Attendance</h2>
               <span className="text-[10px] bg-emerald-400/20 text-emerald-200 px-2 py-0.5 rounded-full font-semibold border border-emerald-400/30">
-                Official Biometric Sync
+                Live Photo Verification
               </span>
             </div>
             <p className="text-[11px] text-emerald-100 flex items-center gap-1.5 mt-0.5">
               <MapPin size={11} className="text-emerald-300" />
               <span>SAFAL Hub 1 · Navi Mumbai Cold Storage Operations</span>
               <span className="opacity-60">|</span>
-              <span>Shift starts: 09:30 AM</span>
+              <span>Reporting Time: 09:30 AM</span>
             </p>
           </div>
         </div>
@@ -211,12 +195,12 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
             {/* Current Status Pill */}
             {loading ? (
               <div className="text-xs text-gray-500 animate-pulse">Checking attendance status...</div>
-            ) : !isClockedIn ? (
+            ) : !isPresent ? (
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-                <span>Not Clocked In Yet Today</span>
+                <span>Not Marked Yet Today</span>
               </div>
-            ) : !isClockedOut ? (
+            ) : (
               <div
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${
                   record?.status === 'LATE'
@@ -224,83 +208,57 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                     : 'bg-emerald-100 text-emerald-900 border-emerald-300'
                 }`}
               >
-                <span
-                  className={`w-2.5 h-2.5 rounded-full ${
-                    record?.status === 'LATE' ? 'bg-amber-500' : 'bg-emerald-500'
-                  } animate-ping`}
-                />
+                <CheckCircle2 size={14} className={record?.status === 'LATE' ? 'text-amber-600' : 'text-emerald-600'} />
                 <span>
-                  {record?.status === 'LATE' ? 'Clocked In Late' : 'Clocked In (Active Shift)'} · {elapsedText}
+                  {record?.status === 'LATE' ? 'Late Arrival Marked' : 'Attendance Marked (Present)'}
                 </span>
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-900 border border-blue-300">
-                <CheckCircle2 size={14} className="text-blue-600" />
-                <span>Shift Completed · {elapsedText}</span>
               </div>
             )}
 
             <div className="text-[11px] text-gray-500 mt-2">
-              Grace period: arrive before <strong>09:30 AM</strong> to qualify for On-Time bonus.
+              Reporting window: arrive before <strong>09:30 AM</strong> to qualify for On-Time recognition.
             </div>
           </div>
 
-          {/* Action Punch In / Out Buttons Column */}
+          {/* Action Button Column */}
           <div className="lg:col-span-4 flex flex-col gap-2.5">
-            {!isClockedIn ? (
-              <button
-                onClick={handleStartPunchIn}
-                disabled={actionLoading || loading}
-                className="w-full py-3.5 px-5 bg-gradient-to-r from-[#087A3E] to-[#0A964C] hover:from-[#066533] hover:to-[#087A3E] text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
-              >
-                <Camera size={18} className="text-emerald-200 group-hover:scale-110 transition" />
-                <span>{actionLoading ? 'Recording Attendance...' : 'Take Office Selfie & Punch In'}</span>
-              </button>
-            ) : !isClockedOut ? (
-              <button
-                onClick={handleStartPunchOut}
-                disabled={actionLoading || loading}
-                className="w-full py-3.5 px-5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
-              >
-                <LogOut size={18} className="text-white group-hover:translate-x-0.5 transition" />
-                <span>{actionLoading ? 'Recording Punch Out...' : 'Punch Out (End Shift)'}</span>
-              </button>
+            {!isPresent ? (
+              <>
+                <button
+                  onClick={handleStartAttendance}
+                  disabled={actionLoading || loading}
+                  className="w-full py-3.5 px-5 bg-gradient-to-r from-[#087A3E] to-[#0A964C] hover:from-[#066533] hover:to-[#087A3E] text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
+                >
+                  <Camera size={19} className="text-emerald-200 group-hover:scale-110 transition" />
+                  <span>{actionLoading ? 'Recording Attendance...' : 'Take Office Photo & Submit Attendance'}</span>
+                </button>
+                <p className="text-[11px] text-center text-gray-500">
+                  Take a live selfie at the office to record your daily attendance with location &amp; timestamp.
+                </p>
+              </>
             ) : (
-              <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-center text-xs text-gray-600">
-                <ShieldCheck size={20} className="text-emerald-600 mx-auto mb-1" />
-                <span className="font-semibold text-gray-800">Shift Completed for Today</span>
-                <p className="text-[11px] text-gray-500 mt-0.5">Punch-out successfully logged in Neon DB.</p>
+              <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
+                <CheckCircle2 size={24} className="text-emerald-600 mx-auto mb-1.5" />
+                <span className="font-bold text-emerald-950 text-sm block">Attendance Submitted for Today</span>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  Office arrival recorded at {formatRecordTime(record?.clockInTime)}. Verified with office photo.
+                </p>
               </div>
             )}
-
-            {/* Quick helper note */}
-            <p className="text-[11px] text-center text-gray-500">
-              {isClockedIn && !isClockedOut
-                ? 'Your office arrival and photo verification are logged in real-time.'
-                : !isClockedIn
-                ? 'Click above to capture an office selfie with live date & time stamp.'
-                : 'Next shift check-in opens tomorrow at 08:00 AM.'}
-            </p>
           </div>
 
-          {/* Today's Punch Details Column */}
+          {/* Today's Details Column */}
           <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-2 text-xs">
             <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
-              <span className="text-gray-500 font-medium">Punch In:</span>
+              <span className="text-gray-500 font-medium">Arrival Time:</span>
               <span className="font-bold text-emerald-900 font-mono">
                 {formatRecordTime(record?.clockInTime)}
               </span>
             </div>
             <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
-              <span className="text-gray-500 font-medium">Punch Out:</span>
-              <span className="font-bold text-gray-900 font-mono">
-                {formatRecordTime(record?.clockOutTime)}
-              </span>
-            </div>
-            <div className="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-100 flex items-center justify-between">
-              <span className="text-emerald-800 font-medium">Total Duration:</span>
-              <span className="font-bold text-emerald-950 font-mono">
-                {elapsedText || '0h 0m'}
+              <span className="text-gray-500 font-medium">Status:</span>
+              <span className={`font-bold ${record?.status === 'LATE' ? 'text-amber-800' : 'text-emerald-800'}`}>
+                {record ? (record.status === 'LATE' ? 'Late Arrival' : 'Present (On Time)') : 'Pending'}
               </span>
             </div>
             {record?.photoUrl && (
@@ -311,9 +269,9 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
               >
                 <span className="flex items-center gap-1.5">
                   <Camera size={13} className="text-emerald-700" />
-                  <span>Office Selfie:</span>
+                  <span>Office Photo:</span>
                 </span>
-                <span className="text-[11px] text-emerald-800 underline">View Stamped Photo</span>
+                <span className="text-[11px] text-emerald-800 underline">View Photo</span>
               </button>
             )}
           </div>
@@ -340,7 +298,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
             {record?.clockInIp && (
               <div className="text-[11px] text-gray-400 flex items-center gap-1">
                 <ShieldCheck size={12} className="text-emerald-600" />
-                <span>Punch IP: {record.clockInIp}</span>
+                <span>Office IP: {record.clockInIp}</span>
               </div>
             )}
           </div>
@@ -353,7 +311,6 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
         onClose={() => setShowPhotoModal(false)}
         onSubmit={handlePhotoSubmit}
         isSubmitting={actionLoading}
-        type={photoModalType}
       />
 
       {/* Photo Lightbox Preview */}

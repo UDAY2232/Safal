@@ -112,7 +112,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   const charts = safeData.charts || DEFAULT_DASHBOARD_DATA.charts;
   const recentPOs = safeData.recentPOs || [];
   const recentExpenses = safeData.recentExpenses || [];
-  const isEmployeeOrStaff = user?.role !== 'ADMIN';
+  const isAccountant = user?.role === 'ACCOUNTANT';
+  const isEmployee = user?.role === 'EMPLOYEE';
 
   const formatCurrency = (val: number) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
@@ -131,10 +132,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   }));
 
   // -------------------------------------------------------------
-  // 1. UNIFIED OPERATIONS CONSOLE (Employees & Operations Staff)
+  // 1. OPERATIONS CONSOLE (Accountants & Field Employees)
   // -------------------------------------------------------------
-  if (isEmployeeOrStaff) {
-    const roleId = user?.employee?.employeeId || user?.accountantProfile?.accountantId || 'EMP';
+  if (isAccountant || isEmployee) {
+    const roleId = isAccountant
+      ? user?.accountantProfile?.accountantId || 'SEI-01'
+      : user?.employee?.employeeId || 'EMP';
 
     return (
       <div className="space-y-6">
@@ -142,13 +145,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           <div>
             <div className="flex items-center gap-2 text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Operations & Field Desk</span>
+              <span>{isAccountant ? 'Finance & Procurement Desk' : 'Field Procurement Desk'}</span>
             </div>
             <h1 className="text-2xl font-extrabold font-['Manrope']">
-              Employee Operations Console
+              {isAccountant ? 'Accountant Operations Console' : 'Employee Operations Console'}
             </h1>
             <p className="text-xs text-emerald-100 mt-1">
-              Logged in as <strong>{user?.name}</strong> ({roleId}) · Track office attendance, manage fruit POs, review expense claims, and track consignments.
+              Logged in as <strong>{user?.name}</strong> ({roleId}) · {isAccountant ? 'Maintain fruit POs, review employee expense claims, and track payments.' : 'Initiate fruit POs, submit expense claims, and track daily office attendance.'}
             </p>
           </div>
           <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
@@ -167,31 +170,31 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           </div>
         </div>
 
-        {/* Priority Biometric Shift & Attendance Punch Tracker */}
+        {/* Priority Daily Attendance Tracker */}
         <AttendancePunchWidget onViewLogs={() => onNavigate('Attendance')} />
 
-        {/* Accountant Summary Cards */}
+        {/* Summary Stat Cards */}
         <section className="stat-grid dashboard-stats">
           <StatCard
-            label="My Total PO Amount"
+            label={isAccountant ? 'Total PO Amount' : 'My Total PO Amount'}
             value={formatCurrency(summary.totalPOAmount)}
             icon={<CircleDollarSign />}
             tone="gold"
-            detail="Assigned PO Volume"
+            detail={isAccountant ? 'Company Procurement Volume' : 'My Initiated POs'}
           />
           <StatCard
-            label="Pending PO Approvals"
+            label={isAccountant ? 'Pending Approvals' : 'My Pending Approvals'}
             value={summary.pendingApprovals}
             icon={<Clock3 />}
             tone="blue"
             detail="Awaiting Admin Decision"
           />
           <StatCard
-            label="Total Employee Expenses"
+            label={isAccountant ? 'Total Employee Expenses' : 'My Expenses Submitted'}
             value={formatCurrency(summary.totalExpensesSubmitted)}
             icon={<ReceiptIndianRupee />}
             tone="green"
-            detail="Submitted Claims"
+            detail={isAccountant ? 'All Staff Claims' : 'Submitted Claims'}
           />
           <StatCard
             label="Pending Reimbursements"
@@ -202,27 +205,31 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           />
         </section>
 
-        {/* Accountant PO Workload Breakdown */}
+        {/* Workload Breakdown */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <span className="text-xs font-bold text-gray-500 uppercase">My Open POs</span>
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              {isAccountant ? 'Company Open POs' : 'My Open POs'}
+            </span>
             <p className="text-2xl font-black text-[#087A3E] mt-1">{summary.openPOs}</p>
             <span className="text-[11px] text-gray-400">Goods in transit / active procurement</span>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <span className="text-xs font-bold text-gray-500 uppercase">My Closed POs</span>
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              {isAccountant ? 'Company Closed POs' : 'My Closed POs'}
+            </span>
             <p className="text-2xl font-black text-gray-800 mt-1">{summary.closedPOs}</p>
             <span className="text-[11px] text-gray-400">Consignments fully verified and cleared</span>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <span className="text-xs font-bold text-gray-500 uppercase">
-              Expense Claims Submitted
+              {isAccountant ? 'Expense Claims for Review' : 'My Claims Submitted'}
             </span>
             <p className="text-2xl font-black text-blue-700 mt-1">
               {recentExpenses.length}
             </p>
             <span className="text-[11px] text-gray-400">
-              Verified status &amp; reimbursements
+              {isAccountant ? 'Audit compliance verified' : 'Verified status & reimbursements'}
             </span>
           </div>
         </div>
@@ -231,7 +238,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         <div className="space-y-6">
           <section className="dashboard-panel">
             <div className="panel-heading">
-              <h2>My Recent Purchase Orders</h2>
+              <h2>{isAccountant ? 'Recent Purchase Orders' : 'My Recent Purchase Orders'}</h2>
               <button onClick={() => onNavigate('Purchase Order (PO)')}>
                 See all <ArrowRight size={14} />
               </button>
@@ -276,9 +283,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
 
           <section className="dashboard-panel">
             <div className="panel-heading">
-              <h2>Expense Claims for Verification</h2>
+              <h2>{isAccountant ? 'Expense Claims for Verification' : 'My Recent Expense Claims'}</h2>
               <button onClick={() => onNavigate('Employee Expenses')}>
-                Review expenses <ArrowRight size={14} />
+                {isAccountant ? 'Review expenses' : 'View all'} <ArrowRight size={14} />
               </button>
             </div>
             <div className="table-wrap">

@@ -41,13 +41,13 @@ const navItems: NavEntry[] = [
   { label: 'Dashboard', icon: Home, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Attendance', icon: Clock, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
-  { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
+  { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Employee Expenses', icon: ReceiptIndianRupee, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
-  { label: 'Bill Clearance', icon: ClipboardCheck, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
+  { label: 'Bill Clearance', icon: ClipboardCheck, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Wages & Salary', icon: WalletCards, roles: ['ADMIN'], adminOnly: true },
-  { label: 'Employees', icon: Users, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
-  { label: 'Suppliers', icon: Truck, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
-  { label: 'Reports', icon: BarChart3, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
+  { label: 'Employees', icon: Users, roles: ['ADMIN'], adminOnly: true },
+  { label: 'Suppliers', icon: Truck, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Reports', icon: BarChart3, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Activity Logs', icon: Clock3, roles: ['ADMIN'], adminOnly: true },
   { label: 'Settings', icon: Settings, roles: ['ADMIN'], adminOnly: true },
 ];
@@ -86,7 +86,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <p className="text-xs font-semibold text-white truncate">
               {currentRole === 'ADMIN'
                 ? 'Full Administrator'
-                : 'Employee Operations Console'}
+                : currentRole === 'ACCOUNTANT'
+                ? 'Accountant Console'
+                : 'Employee Operations'}
             </p>
           </div>
           {toggleCollapse && (
@@ -113,7 +115,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
           <span className="text-[9px] font-black text-emerald-300 uppercase tracking-tighter mt-1">
-            {currentRole === 'ADMIN' ? 'ADM' : 'EMP'}
+            {currentRole === 'ADMIN' ? 'ADM' : currentRole === 'ACCOUNTANT' ? 'ACC' : 'EMP'}
           </span>
         </div>
       )}

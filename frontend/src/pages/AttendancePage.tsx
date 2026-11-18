@@ -198,13 +198,13 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
         <div>
           <div className="flex items-center gap-2 text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Safal Workforce &amp; Shift Compliance</span>
+            <span>Safal Workforce Attendance Verification</span>
           </div>
           <h1 className="text-2xl font-extrabold font-['Manrope']">
-            Office Attendance &amp; Shift Punch System
+            Daily Office Attendance System
           </h1>
           <p className="text-xs text-emerald-100 mt-1">
-            Real-time biometric punch-in and clock-out tracking · Standard shift begins <strong>09:30 AM</strong> at Hub 1 Cold Storage, Navi Mumbai.
+            Office selfie attendance verification · Reporting begins <strong>09:30 AM</strong> at Hub 1 Cold Storage, Navi Mumbai.
           </p>
         </div>
 
@@ -217,7 +217,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                   activeTab === 'my' ? 'bg-white text-emerald-900 shadow-sm' : 'text-emerald-200 hover:text-white'
                 }`}
               >
-                My Punch Card
+                My Attendance
               </button>
               <button
                 onClick={() => setActiveTab('roster')}
@@ -225,7 +225,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                   activeTab === 'roster' ? 'bg-white text-emerald-900 shadow-sm' : 'text-emerald-200 hover:text-white'
                 }`}
               >
-                Company Roster (Admin)
+                Company Attendance Roster (Admin)
               </button>
             </div>
           )}
@@ -340,7 +340,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                   ) : !historyData?.records || historyData.records.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="py-10 text-center text-gray-400">
-                        No attendance records found yet. Punch in above to start your shift!
+                        No attendance records found yet. Take an office photo above to mark attendance!
                       </td>
                     </tr>
                   ) : (

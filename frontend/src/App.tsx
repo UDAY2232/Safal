@@ -118,13 +118,13 @@ function MainApp() {
             setShowCreateModal={setShowCreatePO}
           />
         )}
-        {activePage === 'Invoices' && <InvoicesPage onNotify={notify} />}
+        {activePage === 'Invoices' && user?.role !== 'EMPLOYEE' && <InvoicesPage onNotify={notify} />}
         {activePage === 'Employee Expenses' && <ExpensesPage onNotify={notify} />}
-        {activePage === 'Bill Clearance' && <ClearancePage onNotify={notify} />}
+        {activePage === 'Bill Clearance' && user?.role !== 'EMPLOYEE' && <ClearancePage onNotify={notify} />}
         {activePage === 'Wages & Salary' && user?.role === 'ADMIN' && <WagesPage onNotify={notify} />}
-        {activePage === 'Employees' && <EmployeesPage onNotify={notify} />}
-        {activePage === 'Suppliers' && <SuppliersPage onNotify={notify} />}
-        {activePage === 'Reports' && <ReportsPage onNotify={notify} />}
+        {activePage === 'Employees' && user?.role === 'ADMIN' && <EmployeesPage onNotify={notify} />}
+        {activePage === 'Suppliers' && user?.role !== 'EMPLOYEE' && <SuppliersPage onNotify={notify} />}
+        {activePage === 'Reports' && user?.role !== 'EMPLOYEE' && <ReportsPage onNotify={notify} />}
         {activePage === 'Accountant Performance' && <PerformancePage />}
         {activePage === 'Activity Logs' && <ActivityLogsPage />}
         {activePage === 'Settings' && <SettingsPage onNotify={notify} />}

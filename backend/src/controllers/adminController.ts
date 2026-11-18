@@ -39,12 +39,17 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       }),
     ]);
 
+    // Role-scoped dataset: Employees only see their own created POs and claims
+    const isEmp = req.user?.role === 'EMPLOYEE';
+    const displayPOs = isEmp ? pos.filter((p) => p.createdById === req.user?.id) : pos;
+    const displayExpenses = isEmp ? expenses.filter((e) => e.employee?.userId === req.user?.id) : expenses;
+
     // PO Calculations
-    const totalPOs = pos.length;
-    const openPOs = pos.filter((p) => p.status === 'OPEN').length;
-    const closedPOs = pos.filter((p) => p.status === 'CLOSED').length;
-    const pendingApprovalPOs = pos.filter((p) => p.status === 'PENDING_APPROVAL').length;
-    const totalPOAmount = pos.reduce((sum, p) => sum + Number(p.grandTotal), 0);
+    const totalPOs = displayPOs.length;
+    const openPOs = displayPOs.filter((p) => p.status === 'OPEN').length;
+    const closedPOs = displayPOs.filter((p) => p.status === 'CLOSED').length;
+    const pendingApprovalPOs = displayPOs.filter((p) => p.status === 'PENDING_APPROVAL').length;
+    const totalPOAmount = displayPOs.reduce((sum, p) => sum + Number(p.grandTotal), 0);
 
     // Accountant Calculations
     const totalAccountants = accountants.length;
@@ -140,7 +145,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         monthlyData,
         statusCounts,
       },
-      recentPOs: pos.slice(0, 6).map((p) => ({
+      recentPOs: displayPOs.slice(0, 6).map((p) => ({
         id: p.id,
         number: p.poNumber,
         supplier: p.supplier?.name || 'Supplier',
@@ -149,7 +154,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         status: p.status,
         createdBy: p.createdBy?.name || 'User',
       })),
-      pendingPOApprovals: pos
+      pendingPOApprovals: displayPOs
         .filter((p) => p.status === 'PENDING_APPROVAL')
         .slice(0, 6)
         .map((p) => ({
@@ -160,7 +165,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
           amount: Number(p.grandTotal),
           createdBy: p.createdBy?.name || 'User',
         })),
-      recentExpenses: expenses.slice(0, 6).map((e) => ({
+      recentExpenses: displayExpenses.slice(0, 6).map((e) => ({
         id: e.id,
         claim: e.claimNumber,
         employee: e.employee?.fullName || 'Employee',
