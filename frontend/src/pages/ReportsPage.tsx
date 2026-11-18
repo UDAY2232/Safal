@@ -27,6 +27,7 @@ import {
   Cell,
 } from 'recharts';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { StatCard } from '../components/StatCard';
 
 interface ReportsPageProps {
@@ -73,6 +74,9 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [systemStatus, setSystemStatus] = useState<any>(null);
@@ -132,14 +136,18 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
       metric: `${summary.totalPOs} Total Orders · ${formatCurrency(summary.totalPOAmount)}`,
       updated: 'Neon PostgreSQL Synced',
     },
-    {
-      title: 'Employee Wages & Salary Report',
-      type: 'wages',
-      desc: 'Workforce salary disbursements, authorized deductions, net payables, and historical pay run records.',
-      icon: <WalletCards size={22} />,
-      metric: `${summary.activeEmployees} Active Staff · ${formatCurrency(summary.monthlyWageCommitment)}/mo`,
-      updated: 'Live Payroll Sync',
-    },
+    ...(isAdmin
+      ? [
+          {
+            title: 'Employee Wages & Salary Report',
+            type: 'wages',
+            desc: 'Workforce salary disbursements, authorized deductions, net payables, and historical pay run records.',
+            icon: <WalletCards size={22} />,
+            metric: `${summary.activeEmployees} Active Staff · ${formatCurrency(summary.monthlyWageCommitment)}/mo`,
+            updated: 'Live Payroll Sync',
+          },
+        ]
+      : []),
     {
       title: 'Employee Expenses & Reimbursements',
       type: 'expenses',
@@ -207,13 +215,23 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
           tone="green"
           detail={`Profit: +${formatCurrency(summary.realizedProfit)} · Loss: -${formatCurrency(summary.realizedLoss)}`}
         />
-        <StatCard
-          label="Monthly Wage Obligations"
-          value={formatCurrency(summary.monthlyWageCommitment)}
-          icon={<WalletCards />}
-          tone="blue"
-          detail={`${summary.activeEmployees} Active Employees on Payroll`}
-        />
+        {isAdmin ? (
+          <StatCard
+            label="Monthly Wage Obligations"
+            value={formatCurrency(summary.monthlyWageCommitment)}
+            icon={<WalletCards />}
+            tone="blue"
+            detail={`${summary.activeEmployees} Active Employees on Payroll`}
+          />
+        ) : (
+          <StatCard
+            label="Pending PO Approvals"
+            value={String(summary.pendingApprovals)}
+            icon={<Clock3 />}
+            tone="blue"
+            detail="Awaiting Admin Decision"
+          />
+        )}
         <StatCard
           label="Pending Reimbursements"
           value={formatCurrency(summary.pendingReimbursements)}

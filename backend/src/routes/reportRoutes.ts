@@ -14,7 +14,7 @@ router.use(authenticateToken);
 router.use(requireRole('ADMIN', 'ACCOUNTANT'));
 
 router.get('/purchase-orders', getPOReports);
-router.get('/wages', getWageReports);
+router.get('/wages', requireRole('ADMIN'), getWageReports);
 router.get('/expenses', getExpenseReports);
 router.get('/profit-loss', getProfitLossReport);
 

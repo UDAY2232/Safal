@@ -7,6 +7,8 @@ export async function getClearanceBills(req: AuthRequest, res: Response) {
   try {
     const { type = 'ALL', status = 'ALL', search } = req.query;
 
+    const isAccountant = req.user?.role === 'ACCOUNTANT';
+
     const [expenses, wages] = await Promise.all([
       prisma.expenseClaim.findMany({
         where: {
@@ -22,15 +24,17 @@ export async function getClearanceBills(req: AuthRequest, res: Response) {
         },
         orderBy: { updatedAt: 'desc' },
       }),
-      prisma.employeeWageRecord.findMany({
-        include: {
-          employee: true,
-          payments: {
-            orderBy: { paymentDate: 'desc' },
-          },
-        },
-        orderBy: { updatedAt: 'desc' },
-      }),
+      isAccountant
+        ? Promise.resolve([])
+        : prisma.employeeWageRecord.findMany({
+            include: {
+              employee: true,
+              payments: {
+                orderBy: { paymentDate: 'desc' },
+              },
+            },
+            orderBy: { updatedAt: 'desc' },
+          }),
     ]);
 
     // Map into unified clearance items
@@ -225,6 +229,9 @@ export async function clearBillPayment(req: AuthRequest, res: Response) {
 
       return res.status(201).json({ payment, message: 'Expense payment cleared successfully' });
     } else if (billType === 'WAGE_PAYMENT') {
+      if (req.user?.role === 'ACCOUNTANT') {
+        return res.status(403).json({ error: 'Access denied. Wage disbursements are restricted to Administrators.' });
+      }
       const wage = await prisma.employeeWageRecord.findUnique({
         where: { id: recordId },
         include: { employee: true },

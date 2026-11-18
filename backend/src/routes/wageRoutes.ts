@@ -10,10 +10,11 @@ import { requireRole } from '../middleware/rbac.js';
 const router = Router();
 
 router.use(authenticateToken);
+router.use(requireRole('ADMIN'));
 
 router.get('/', getWages);
-router.post('/generate-period', requireRole('ADMIN'), generateWagePeriod);
-router.post('/:id/payments', requireRole('ADMIN', 'ACCOUNTANT'), recordWagePayment);
+router.post('/generate-period', generateWagePeriod);
+router.post('/:id/payments', recordWagePayment);
 
 export default router;
 

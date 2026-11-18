@@ -42,7 +42,7 @@ const navItems: NavEntry[] = [
   { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Employee Expenses', icon: ReceiptIndianRupee, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Bill Clearance', icon: ClipboardCheck, roles: ['ADMIN', 'ACCOUNTANT'] },
-  { label: 'Wages & Salary', icon: WalletCards, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Wages & Salary', icon: WalletCards, roles: ['ADMIN'], adminOnly: true },
   { label: 'Employees', icon: Users, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Suppliers', icon: Truck, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Reports', icon: BarChart3, roles: ['ADMIN', 'ACCOUNTANT'] },

@@ -119,7 +119,7 @@ function MainApp() {
         {activePage === 'Invoices' && <InvoicesPage onNotify={notify} />}
         {activePage === 'Employee Expenses' && <ExpensesPage onNotify={notify} />}
         {activePage === 'Bill Clearance' && <ClearancePage onNotify={notify} />}
-        {activePage === 'Wages & Salary' && <WagesPage onNotify={notify} />}
+        {activePage === 'Wages & Salary' && user?.role === 'ADMIN' && <WagesPage onNotify={notify} />}
         {activePage === 'Employees' && <EmployeesPage onNotify={notify} />}
         {activePage === 'Suppliers' && <SuppliersPage onNotify={notify} />}
         {activePage === 'Reports' && <ReportsPage onNotify={notify} />}
