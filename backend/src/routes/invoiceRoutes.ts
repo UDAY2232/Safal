@@ -16,9 +16,9 @@ router.use(authenticateToken);
 router.get('/', getInvoices);
 router.get('/:id', getInvoiceById);
 
-// Admin & Accountants can manage invoices
-router.post('/', requireRole('ADMIN', 'ACCOUNTANT'), createInvoice);
-router.put('/:id/payment', requireRole('ADMIN', 'ACCOUNTANT'), recordInvoicePayment);
+// Admin & Staff can manage invoices
+router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createInvoice);
+router.put('/:id/payment', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), recordInvoicePayment);
 router.delete('/:id', requireRole('ADMIN'), deleteInvoice);
 
 export default router;

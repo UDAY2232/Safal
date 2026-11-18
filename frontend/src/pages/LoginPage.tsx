@@ -168,7 +168,7 @@ export const LoginPage: React.FC = () => {
                 Operations Sign-In
               </h2>
               <p className="text-xs text-gray-500 mt-1">
-                Access your designated Master Admin, Accountant, or Employee workspace.
+                Access your designated Master Admin or Employee Operations workspace.
               </p>
             </div>
 

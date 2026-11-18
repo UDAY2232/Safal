@@ -13,8 +13,8 @@ const router = Router();
 router.use(authenticateToken);
 router.get('/', getSuppliers);
 router.get('/:id', getSupplierById);
-router.post('/', requireRole('ADMIN', 'ACCOUNTANT'), createSupplier);
-router.put('/:id', requireRole('ADMIN', 'ACCOUNTANT'), updateSupplier);
+router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createSupplier);
+router.put('/:id', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), updateSupplier);
 
 export default router;
 

@@ -22,16 +22,16 @@ router.get('/:id', getPurchaseOrderById);
 router.get('/:id/pdf', downloadPurchaseOrderPDF);
 
 // Creating & submitting POs
-router.post('/', requireRole('ADMIN', 'ACCOUNTANT'), createPurchaseOrder);
-router.post('/:id/submit', requireRole('ADMIN', 'ACCOUNTANT'), submitPurchaseOrder);
+router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createPurchaseOrder);
+router.post('/:id/submit', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), submitPurchaseOrder);
 
 // Admin workflow
 router.post('/:id/approve', requireRole('ADMIN'), approvePurchaseOrder);
 router.post('/:id/reject', requireRole('ADMIN'), rejectPurchaseOrder);
-router.post('/:id/close', requireRole('ADMIN', 'ACCOUNTANT'), closePurchaseOrder);
+router.post('/:id/close', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), closePurchaseOrder);
 
 // Financial Profit & Loss Tracking
-router.post('/:id/financials', requireRole('ADMIN', 'ACCOUNTANT'), updateFinancialRecords);
+router.post('/:id/financials', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), updateFinancialRecords);
 
 export default router;
 

@@ -6,7 +6,7 @@ import { requireRole } from '../middleware/rbac.js';
 const router = Router();
 
 router.use(authenticateToken);
-router.use(requireRole('ADMIN', 'ACCOUNTANT'));
+router.use(requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'));
 
 router.get('/bills', getClearanceBills);
 router.post('/record-payment', clearBillPayment);

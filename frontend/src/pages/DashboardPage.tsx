@@ -112,8 +112,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   const charts = safeData.charts || DEFAULT_DASHBOARD_DATA.charts;
   const recentPOs = safeData.recentPOs || [];
   const recentExpenses = safeData.recentExpenses || [];
-  const isAccountant = user?.role === 'ACCOUNTANT';
-  const isEmployee = user?.role === 'EMPLOYEE';
+  const isEmployeeOrStaff = user?.role !== 'ADMIN';
 
   const formatCurrency = (val: number) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
@@ -132,12 +131,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   }));
 
   // -------------------------------------------------------------
-  // 1. UNIFIED OPERATIONS CONSOLE (Accountants & Employees)
+  // 1. UNIFIED OPERATIONS CONSOLE (Employees & Operations Staff)
   // -------------------------------------------------------------
-  if (isAccountant || isEmployee) {
-    const roleId = isEmployee
-      ? user?.employee?.employeeId || 'EMP'
-      : user?.accountantProfile?.accountantId || 'ACC';
+  if (isEmployeeOrStaff) {
+    const roleId = user?.employee?.employeeId || user?.accountantProfile?.accountantId || 'EMP';
 
     return (
       <div className="space-y-6">
@@ -145,13 +142,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           <div>
             <div className="flex items-center gap-2 text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{isEmployee ? 'Operations & Field Desk' : 'Finance & Procurement Desk'}</span>
+              <span>Operations & Field Desk</span>
             </div>
             <h1 className="text-2xl font-extrabold font-['Manrope']">
-              {isEmployee ? 'Employee Operations Console' : 'Accountant Operations Console'}
+              Employee Operations Console
             </h1>
             <p className="text-xs text-emerald-100 mt-1">
-              Logged in as <strong>{user?.name}</strong> ({roleId}) · {isEmployee ? 'Track office attendance, manage fruit POs, review expense claims, and track consignments.' : 'Maintain fruit POs, review employee expense claims, and track payments.'}
+              Logged in as <strong>{user?.name}</strong> ({roleId}) · Track office attendance, manage fruit POs, review expense claims, and track consignments.
             </p>
           </div>
           <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
@@ -219,15 +216,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <span className="text-xs font-bold text-gray-500 uppercase">
-              {isEmployee ? 'Expense Claims Submitted' : 'Expense Claims Reviewed'}
+              Expense Claims Submitted
             </span>
             <p className="text-2xl font-black text-blue-700 mt-1">
-              {isEmployee
-                ? recentExpenses.length
-                : recentExpenses.filter((e: any) => e.status !== 'SUBMITTED').length}
+              {recentExpenses.length}
             </p>
             <span className="text-[11px] text-gray-400">
-              {isEmployee ? 'Verified status & reimbursements' : 'Audit compliance verified'}
+              Verified status &amp; reimbursements
             </span>
           </div>
         </div>
@@ -469,9 +464,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
 
         <div className="p-3.5 bg-white border border-gray-200 rounded-xl flex items-center justify-between">
           <div>
-            <span className="text-[11px] text-gray-500 font-bold block uppercase">Finance Team</span>
+            <span className="text-[11px] text-gray-500 font-bold block uppercase">Operations Team</span>
             <strong className="text-purple-700 text-lg font-black block mt-0.5">
-              {summary.activeAccountants} Accountants
+              {(summary.activeEmployees || 0) + (summary.activeAccountants || 0) || 1} Staff
             </strong>
           </div>
           <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 grid place-items-center">
@@ -649,7 +644,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             ['Review Expenses', 'Employee Expenses'],
             ['Clear Bills', 'Bill Clearance'],
             ['Wages & Salary', 'Wages & Salary'],
-            ['Accountant Performance', 'Accountant Performance'],
+            ['Staff Attendance', 'Attendance'],
             ['Download Report', 'Reports'],
           ].map(([label, page]) => (
             <button key={label} onClick={() => onNavigate(page)}>

@@ -244,11 +244,6 @@ export async function reviewExpense(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Claim not found' });
     }
 
-    // Employees cannot review
-    if (req.user?.role === 'EMPLOYEE') {
-      return res.status(403).json({ error: 'Employees cannot review expense claims' });
-    }
-
     // Self-review prevention
     if (claim.employee.userId === req.user?.id) {
       return res.status(403).json({ error: 'Cannot review your own expense claim' });

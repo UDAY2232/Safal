@@ -58,7 +58,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
   };
 
   const fetchAdminRoster = async () => {
-    if (!isAdmin && user?.role !== 'ACCOUNTANT') return;
+    if (!isAdmin) return;
     try {
       setRosterLoading(true);
       const params = `?date=${selectedDate}&department=${selectedDept}`;
@@ -73,7 +73,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
 
   useEffect(() => {
     fetchMyHistory();
-    if (isAdmin || user?.role === 'ACCOUNTANT') {
+    if (isAdmin) {
       fetchAdminRoster();
     }
   }, [selectedDate, selectedDept]);
@@ -209,7 +209,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
         </div>
 
         <div className="flex items-center gap-2.5 self-start md:self-auto">
-          {(isAdmin || user?.role === 'ACCOUNTANT') && (
+          {isAdmin && (
             <div className="bg-emerald-900/60 p-1 rounded-xl flex items-center border border-emerald-700">
               <button
                 onClick={() => setActiveTab('my')}
@@ -243,7 +243,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
       <AttendancePunchWidget
         onStatusChange={() => {
           fetchMyHistory();
-          if (isAdmin || user?.role === 'ACCOUNTANT') fetchAdminRoster();
+          if (isAdmin) fetchAdminRoster();
         }}
       />
 
@@ -405,8 +405,8 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
         </div>
       )}
 
-      {/* ----------------- TAB 2: COMPANY ROSTER (ADMIN & ACCOUNTANT) ----------------- */}
-      {activeTab === 'roster' && (isAdmin || user?.role === 'ACCOUNTANT') && (
+      {/* ----------------- TAB 2: COMPANY ROSTER (ADMIN) ----------------- */}
+      {activeTab === 'roster' && isAdmin && (
         <div className="space-y-6">
           {/* Admin Filters & Date Bar */}
           <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm flex flex-wrap items-center justify-between gap-4">

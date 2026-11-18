@@ -22,15 +22,15 @@ router.get('/:id', getExpenseById);
 // Submit (allows upload of receipt)
 router.post('/', upload.single('receipt'), submitExpense);
 
-// Review by accountant or admin
-router.post('/:id/review', requireRole('ADMIN', 'ACCOUNTANT'), reviewExpense);
+// Review by staff or admin
+router.post('/:id/review', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), reviewExpense);
 
 // Admin approval / rejection
 router.post('/:id/approve', requireRole('ADMIN'), approveExpense);
 router.post('/:id/reject', requireRole('ADMIN'), rejectExpense);
 
 // Payment recording
-router.post('/:id/payments', requireRole('ADMIN', 'ACCOUNTANT'), recordExpensePayment);
+router.post('/:id/payments', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), recordExpensePayment);
 
 export default router;
 

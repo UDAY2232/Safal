@@ -141,11 +141,6 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
 
-    // Role check: accountant can view if created by them or admin
-    if (req.user?.role === 'ACCOUNTANT' && po.createdById !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied to this purchase order' });
-    }
-
     return res.json(po);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to fetch purchase order' });
