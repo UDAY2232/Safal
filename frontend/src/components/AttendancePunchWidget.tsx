@@ -82,6 +82,8 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
 
   const record = todayData?.record;
   const isPresent = !!record;
+  const isClockedIn = isPresent;
+  const isClockedOut = !!record?.clockOutTime;
 
   // Format digital clock
   const timeFormatted = currentTime.toLocaleTimeString('en-IN', {
@@ -98,11 +100,11 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     year: 'numeric',
   });
 
-  // Calculate elapsed time if clocked in and not clocked out
+  // Calculate elapsed time if present
   let elapsedText = '';
-  if (isClockedIn && record?.clockInTime) {
+  if (isPresent && record?.clockInTime) {
     const start = new Date(record.clockInTime).getTime();
-    const end = isClockedOut && record?.clockOutTime ? new Date(record.clockOutTime).getTime() : currentTime.getTime();
+    const end = record?.clockOutTime ? new Date(record.clockOutTime).getTime() : currentTime.getTime();
     const diffMins = Math.max(0, Math.floor((end - start) / 60000));
     const h = Math.floor(diffMins / 60);
     const m = diffMins % 60;
