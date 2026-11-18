@@ -430,7 +430,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 <span className="font-semibold text-white">Hub 1:</span> Cold Storage Optimal (-0.5°C)
               </span>
               <span className="inline-flex items-center gap-1.5 bg-black/15 px-3 py-1 rounded-full text-emerald-100 border border-emerald-500/20">
-                <span className="font-semibold text-white">Active POs:</span> 12 Orders (₹ 1.23 Cr)
+                <span className="font-semibold text-white">Active POs:</span>{' '}
+                {summary.totalPOs} {summary.totalPOs === 1 ? 'Order' : 'Orders'} ({formatCurrency(summary.totalPOAmount)})
               </span>
               <span className="inline-flex items-center gap-1.5 bg-black/15 px-3 py-1 rounded-full text-emerald-100 border border-emerald-500/20">
                 <span className="font-semibold text-white">PostgreSQL:</span> Connected &amp; Synced
