@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, ChevronDown, LogOut, ArrowRight, Shield, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, ArrowRight, Shield, PanelLeftClose, PanelLeftOpen, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Notification } from '../types';
@@ -8,9 +8,15 @@ interface HeaderProps {
   onNavigate: (page: string) => void;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
+  onOpenMobileMenu?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onNavigate, isSidebarCollapsed = false, onToggleSidebar }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onNavigate,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
+  onOpenMobileMenu,
+}) => {
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -46,6 +52,18 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isSidebarCollapsed =
 
   return (
     <header className="topbar">
+      {/* Mobile Hamburger Menu Toggle (Mobile Only) */}
+      {onOpenMobileMenu && (
+        <button
+          type="button"
+          onClick={onOpenMobileMenu}
+          className="md:hidden inline-flex items-center justify-center w-10 h-10 mr-1.5 sm:mr-2 rounded-xl bg-[#087a3e] active:bg-[#066131] active:scale-95 text-white flex-shrink-0 shadow-xs transition-transform cursor-pointer"
+          aria-label="Open navigation menu"
+        >
+          <Menu size={22} />
+        </button>
+      )}
+
       {/* Sidebar toggle button (desktop) */}
       {onToggleSidebar && (
         <button
@@ -58,32 +76,32 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isSidebarCollapsed =
         </button>
       )}
 
-      {/* Left: Official Globe Logo (Image 1) & Clean Company Typography (Image 2) */}
+      {/* Left: Official Globe Logo & Company Typography */}
       <div
-        className="brand-lockup flex items-center gap-3.5 cursor-pointer flex-shrink-0"
+        className="brand-lockup flex items-center gap-2 sm:gap-3.5 cursor-pointer flex-shrink-0"
         onClick={() => onNavigate('Dashboard')}
         title="SAFAL Enterprise Workspace"
       >
-        {/* Globe Logo with green leaves & airplane from user's Image 1 */}
+        {/* Globe Logo with green leaves & airplane */}
         <div className="relative flex-shrink-0">
           <img
             src="/safal-globe-logo.png"
             alt="SAFAL Global Logo"
-            className="h-16 lg:h-18 w-auto object-contain rounded-xl shadow-xs"
+            className="h-11 sm:h-14 lg:h-16 w-auto object-contain rounded-xl shadow-xs"
           />
         </div>
 
-        {/* Clean Company Name matching user's Image 2 */}
+        {/* Clean Company Name */}
         <div className="flex flex-col justify-center leading-none">
           <div className="flex items-center">
-            <span className="text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] tracking-tight">
+            <span className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] tracking-tight">
               SAFAL
             </span>
           </div>
-          <span className="text-[11px] lg:text-xs font-black tracking-wider text-[#D32F2F] uppercase mt-0.5 font-['Manrope']">
+          <span className="text-[9px] sm:text-[11px] lg:text-xs font-black tracking-wider text-[#D32F2F] uppercase mt-0.5 font-['Manrope']">
             EXPORT AND IMPORT PVT LTD
           </span>
-          <span className="text-[10px] lg:text-[11px] font-bold text-[#185B30] tracking-wide mt-0.5">
+          <span className="text-[8px] sm:text-[10px] lg:text-[11px] font-bold text-[#185B30] tracking-wide mt-0.5">
             Fruits Import &amp; Export
           </span>
         </div>
@@ -99,8 +117,8 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isSidebarCollapsed =
         </span>
       </div>
 
-      {/* Right Controls: Live status, Notifications, User Profile (NO ROLES SWITCHER) */}
-      <div className="topbar-actions flex items-center gap-3 ml-auto z-20">
+      {/* Right Controls: Live status, Notifications, User Profile */}
+      <div className="topbar-actions flex items-center gap-2 sm:gap-3 ml-auto z-20">
         <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-xs text-[#064D2B] font-semibold">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>Hub 1 Cold Storage · Live</span>
@@ -123,7 +141,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isSidebarCollapsed =
             onClick={() => setShowProfileMenu(!showProfileMenu)}
           >
             <div className="avatar">{getInitials(user?.name)}</div>
-            <div className="profile-text">
+            <div className="profile-text hidden sm:flex">
               <strong>{user?.name || 'Shanker'}</strong>
               <span>
                 {user?.role === 'ADMIN'
@@ -133,7 +151,7 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate, isSidebarCollapsed =
                   : 'Employee'}
               </span>
             </div>
-            <ChevronDown size={15} />
+            <ChevronDown size={15} className="hidden sm:block" />
           </div>
 
           {showProfileMenu && (

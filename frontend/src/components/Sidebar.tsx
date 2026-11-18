@@ -17,6 +17,7 @@ import {
   X,
   PanelLeftClose,
   PanelLeftOpen,
+  LogOut,
   LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -60,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   toggleCollapse,
 }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const currentRole = user?.role || 'EMPLOYEE';
 
   const visibleNav = navItems.filter((item) => item.roles.includes(currentRole));
@@ -71,9 +72,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
       aria-label="Sidebar Navigation"
     >
       {/* Mobile drawer header */}
-      <div className="sidebar-mobile-header">
-        <span>SAFAL Workspace</span>
-        <button onClick={close} aria-label="Close sidebar">
+      <div className="sidebar-mobile-header flex items-center justify-between pb-3 mb-2.5 border-b border-white/15">
+        <div className="flex items-center gap-2.5">
+          <img
+            src="/safal-globe-logo.png"
+            alt="SAFAL Logo"
+            className="w-8 h-8 object-contain rounded-lg bg-white/10 p-0.5"
+          />
+          <div>
+            <h3 className="font-extrabold text-sm text-white tracking-tight leading-none font-['Manrope']">
+              SAFAL
+            </h3>
+            <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider block mt-0.5">
+              Workspace Menu
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close menu"
+          className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition-transform cursor-pointer"
+        >
           <X size={20} />
         </button>
       </div>
@@ -127,6 +147,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <button
               key={label}
+              type="button"
               className={`nav-item ${isActive ? 'active' : ''} ${isCollapsed ? 'collapsed-item' : ''}`}
               onClick={() => onNavigate(label)}
               title={label}
@@ -139,16 +160,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
         })}
       </nav>
 
-      {/* Persistent Footer */}
+      {/* Persistent Footer with User info and Mobile Logout */}
       {!isCollapsed ? (
-        <div className="sidebar-footer relative z-10">
+        <div className="sidebar-footer relative z-10 flex items-center gap-2.5">
           <div className="leaf-badge flex-shrink-0">
             <Leaf size={18} />
           </div>
-          <div className="min-w-0">
-            <strong className="truncate">SAFAL Workspace</strong>
-            <span className="truncate">FY 2026 · Live System</span>
+          <div className="min-w-0 flex-1">
+            <strong className="truncate">{user?.name || 'SAFAL Workspace'}</strong>
+            <span className="truncate block text-[11px] text-emerald-200/80">
+              {user?.role === 'ADMIN'
+                ? 'Full Administrator'
+                : user?.role === 'ACCOUNTANT'
+                ? 'Accountant'
+                : 'Field Operations'}
+            </span>
           </div>
+          {/* Mobile Sign Out Button */}
+          <button
+            type="button"
+            onClick={logout}
+            className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/20 hover:bg-red-500/30 active:scale-90 text-red-200 transition-transform cursor-pointer flex-shrink-0"
+            title="Sign Out"
+            aria-label="Sign Out"
+          >
+            <LogOut size={16} />
+          </button>
         </div>
       ) : (
         <div

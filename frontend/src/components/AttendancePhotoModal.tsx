@@ -198,7 +198,7 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal !w-[680px] max-w-[96vw] max-h-[94vh] flex flex-col p-6 overflow-hidden">
+      <div className="modal !w-[680px] max-w-[96vw] max-h-[94vh] flex flex-col p-4 sm:p-6 overflow-hidden">
         {/* Header */}
         <div className="modal-header pb-3 border-b border-gray-100 flex-shrink-0">
           <div>
@@ -315,10 +315,10 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
             <button
               type="button"
-              className="secondary-button"
+              className="secondary-button !min-h-[40px]"
               onClick={onClose}
               disabled={isSubmitting}
             >
@@ -331,23 +331,23 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
                   type="button"
                   onClick={handleRetake}
                   disabled={isSubmitting}
-                  className="secondary-button flex items-center gap-1.5"
+                  className="secondary-button !min-h-[40px] flex items-center gap-1.5"
                 >
-                  <RotateCcw size={14} /> Retake Photo
+                  <RotateCcw size={14} /> Retake
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmSubmit}
                   disabled={isSubmitting}
-                  className="primary-button !py-2.5 !px-6 flex items-center gap-2 shadow-md hover:shadow-lg"
+                  className="primary-button !min-h-[40px] !py-2 !px-4 flex items-center gap-2 shadow-md hover:shadow-lg"
                 >
                   <CheckCircle2 size={16} />
                   <span>
                     {isSubmitting
-                      ? 'Submitting Verification...'
+                      ? 'Submitting...'
                       : type === 'in'
-                      ? 'Confirm & Submit Office Arrival'
-                      : 'Confirm & Submit Office Departure'}
+                      ? 'Submit Office In'
+                      : 'Submit Office Out'}
                   </span>
                 </button>
               </>
@@ -356,7 +356,7 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
                 type="button"
                 onClick={handleCaptureFromVideo}
                 disabled={!stream}
-                className="primary-button !py-2.5 !px-6 flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer"
+                className="primary-button !min-h-[40px] !py-2.5 !px-6 flex items-center gap-2 shadow-md hover:shadow-lg cursor-pointer"
               >
                 <Camera size={16} />
                 <span>Capture Office Selfie</span>

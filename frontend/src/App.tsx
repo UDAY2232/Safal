@@ -18,6 +18,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { CreatePOModal } from './components/CreatePOModal';
+import { MobileBottomNav } from './components/MobileBottomNav';
 
 function MainApp() {
   const { user, token, isLoading } = useAuth();
@@ -68,21 +69,16 @@ function MainApp() {
         onNavigate={navigate}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={toggleSidebarCollapsed}
+        onOpenMobileMenu={() => setIsSidebarOpen(true)}
       />
 
-      <button
-        className="mobile-menu-button"
-        onClick={() => setIsSidebarOpen(true)}
-        aria-label="Open menu"
-      >
-        <Menu size={22} />
-      </button>
-
       {isSidebarOpen && (
-        <button
+        <div
           className="sidebar-overlay"
           onClick={() => setIsSidebarOpen(false)}
           aria-label="Close menu"
+          role="button"
+          tabIndex={0}
         />
       )}
 
@@ -93,6 +89,12 @@ function MainApp() {
         close={() => setIsSidebarOpen(false)}
         isCollapsed={isSidebarCollapsed}
         toggleCollapse={toggleSidebarCollapsed}
+      />
+
+      <MobileBottomNav
+        activePage={activePage}
+        onNavigate={navigate}
+        onOpenMenu={() => setIsSidebarOpen(true)}
       />
 
       <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
