@@ -145,7 +145,7 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
     const staffId = user?.employee?.employeeId || user?.accountantProfile?.accountantId || 'STAFF';
     ctx.fillStyle = '#F3F4F6';
     ctx.font = '12px sans-serif';
-    ctx.fillText(`👤 ${user?.name || 'Employee'} (${staffId}) · ${type === 'in' ? 'SHIFT PUNCH-IN' : 'SHIFT PUNCH-OUT'}`, 16, height - 16);
+    ctx.fillText(`👤 ${user?.name || 'Employee'} (${staffId}) · ${type === 'in' ? 'OFFICE IN (ARRIVAL)' : 'OFFICE OUT (DEPARTURE)'}`, 16, height - 16);
 
     ctx.textAlign = 'right';
     ctx.fillStyle = '#A7F3D0';
@@ -204,13 +204,15 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
           <div>
             <div className="flex items-center gap-2 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">
               <Camera size={15} />
-              <span>Office Photo Verification</span>
+              <span>{type === 'in' ? 'Office Arrival Verification' : 'Office Departure Verification'}</span>
             </div>
             <h2 className="text-xl font-extrabold text-gray-900">
-              Take Office Photo for Attendance
+              {type === 'in' ? 'Take Office Arrival Photo (Office In)' : 'Take Office Departure Photo (Office Out)'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Take a live photo at the office to submit your daily attendance. Date, time, and location will be stamped automatically.
+              {type === 'in'
+                ? 'Take a live photo upon arriving at the office to submit your daily attendance. Date, time, and location will be stamped automatically.'
+                : 'Take a live photo before leaving the office to verify your departure and complete your shift for today.'}
             </p>
           </div>
           <button
@@ -336,7 +338,13 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
                   className="primary-button !py-2.5 !px-6 flex items-center gap-2 shadow-md hover:shadow-lg"
                 >
                   <CheckCircle2 size={16} />
-                  <span>{isSubmitting ? 'Recording Attendance...' : 'Confirm & Submit Attendance'}</span>
+                  <span>
+                    {isSubmitting
+                      ? 'Submitting Verification...'
+                      : type === 'in'
+                      ? 'Confirm & Submit Office Arrival'
+                      : 'Confirm & Submit Office Departure'}
+                  </span>
                 </button>
               </>
             ) : (

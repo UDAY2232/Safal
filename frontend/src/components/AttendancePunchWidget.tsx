@@ -32,7 +32,12 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const [photoModalType, setPhotoModalType] = useState<'in' | 'out'>('in');
+  const [lightboxData, setLightboxData] = useState<{
+    url: string;
+    title: string;
+    time?: string;
+  } | null>(null);
 
   // Update clock every second
   useEffect(() => {
@@ -58,7 +63,13 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     fetchTodayStatus();
   }, []);
 
-  const handleStartAttendance = () => {
+  const handleStartOfficeIn = () => {
+    setPhotoModalType('in');
+    setShowPhotoModal(true);
+  };
+
+  const handleStartOfficeOut = () => {
+    setPhotoModalType('out');
     setShowPhotoModal(true);
   };
 
@@ -66,11 +77,19 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     try {
       setActionLoading(true);
       setFeedback(null);
-      const res = await api.clockInAttendance({ photo: photoBase64, location });
-      setFeedback({
-        type: 'success',
-        message: res.message || 'Office photo verified! Attendance recorded successfully.',
-      });
+      if (photoModalType === 'in') {
+        const res = await api.clockInAttendance({ photo: photoBase64, location });
+        setFeedback({
+          type: 'success',
+          message: res.message || 'Office arrival photo verified! Attendance recorded successfully.',
+        });
+      } else {
+        const res = await api.clockOutAttendance({ photo: photoBase64, location });
+        setFeedback({
+          type: 'success',
+          message: res.message || 'Office departure photo verified! Shift completed successfully.',
+        });
+      }
       await fetchTodayStatus();
       if (onStatusChange) onStatusChange();
     } catch (err: any) {
@@ -227,24 +246,48 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
             {!isPresent ? (
               <>
                 <button
-                  onClick={handleStartAttendance}
+                  onClick={handleStartOfficeIn}
                   disabled={actionLoading || loading}
                   className="w-full py-3.5 px-5 bg-gradient-to-r from-[#087A3E] to-[#0A964C] hover:from-[#066533] hover:to-[#087A3E] text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
                 >
                   <Camera size={19} className="text-emerald-200 group-hover:scale-110 transition" />
-                  <span>{actionLoading ? 'Recording Attendance...' : 'Take Office Photo & Submit Attendance'}</span>
+                  <span>{actionLoading ? 'Recording Arrival...' : 'Office In: Take Photo & Record Arrival'}</span>
                 </button>
                 <p className="text-[11px] text-center text-gray-500">
-                  Take a live selfie at the office to record your daily attendance with location &amp; timestamp.
+                  Take a live selfie upon arriving at the office to record your daily attendance with location &amp; timestamp.
+                </p>
+              </>
+            ) : !isClockedOut ? (
+              <>
+                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-center mb-0.5">
+                  <div className="flex items-center justify-center gap-1.5 text-emerald-950 font-bold text-xs">
+                    <CheckCircle2 size={15} className="text-emerald-600" />
+                    <span>Office In: {formatRecordTime(record?.clockInTime)}</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-700 mt-0.5">Working in office · Elapsed: {elapsedText}</p>
+                </div>
+                <button
+                  onClick={handleStartOfficeOut}
+                  disabled={actionLoading || loading}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
+                >
+                  <Camera size={18} className="text-blue-200 group-hover:scale-110 transition" />
+                  <span>{actionLoading ? 'Recording Departure...' : 'Office Out: Take Photo & Leave Office'}</span>
+                </button>
+                <p className="text-[11px] text-center text-gray-500">
+                  Take a live selfie before leaving to verify departure time and conclude your shift.
                 </p>
               </>
             ) : (
               <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
                 <CheckCircle2 size={24} className="text-emerald-600 mx-auto mb-1.5" />
-                <span className="font-bold text-emerald-950 text-sm block">Attendance Submitted for Today</span>
+                <span className="font-bold text-emerald-950 text-sm block">Shift Completed for Today</span>
                 <p className="text-xs text-emerald-700 mt-0.5">
-                  Office arrival recorded at {formatRecordTime(record?.clockInTime)}. Verified with office photo.
+                  Office In: {formatRecordTime(record?.clockInTime)} · Office Out: {formatRecordTime(record?.clockOutTime)} ({elapsedText})
                 </p>
+                <span className="inline-block mt-2 text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900">
+                  Both In &amp; Out Photos Verified
+                </span>
               </div>
             )}
           </div>
@@ -258,24 +301,51 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
               </span>
             </div>
             <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
-              <span className="text-gray-500 font-medium">Status:</span>
-              <span className={`font-bold ${record?.status === 'LATE' ? 'text-amber-800' : 'text-emerald-800'}`}>
-                {record ? (record.status === 'LATE' ? 'Late Arrival' : 'Present (On Time)') : 'Pending'}
+              <span className="text-gray-500 font-medium">Departure Time:</span>
+              <span className="font-bold text-gray-800 font-mono">
+                {record?.clockOutTime ? formatRecordTime(record?.clockOutTime) : isPresent ? 'In Office' : '--:--'}
               </span>
             </div>
-            {record?.photoUrl && (
-              <button
-                type="button"
-                onClick={() => setLightboxPhoto(record.photoUrl)}
-                className="p-2 bg-emerald-100/70 hover:bg-emerald-100 rounded-xl border border-emerald-300 flex items-center justify-between transition cursor-pointer text-emerald-950 font-bold"
-              >
-                <span className="flex items-center gap-1.5">
+            <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
+              <span className="text-gray-500 font-medium">Status:</span>
+              <span className={`font-bold ${record?.status === 'LATE' ? 'text-amber-800' : 'text-emerald-800'}`}>
+                {record ? (record.status === 'LATE' ? 'Late Arrival' : isClockedOut ? 'Shift Completed' : 'In Office') : 'Pending'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              {record?.photoUrl && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxData({
+                      url: record.photoUrl,
+                      title: 'Office Arrival (In) Photo',
+                      time: formatRecordTime(record.clockInTime),
+                    })
+                  }
+                  className="flex-1 p-2 bg-emerald-50 hover:bg-emerald-100 rounded-xl border border-emerald-300 flex items-center justify-center gap-1.5 transition cursor-pointer text-emerald-950 font-bold text-xs"
+                >
                   <Camera size={13} className="text-emerald-700" />
-                  <span>Office Photo:</span>
-                </span>
-                <span className="text-[11px] text-emerald-800 underline">View Photo</span>
-              </button>
-            )}
+                  <span>In Photo</span>
+                </button>
+              )}
+              {record?.clockOutPhotoUrl && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLightboxData({
+                      url: record.clockOutPhotoUrl,
+                      title: 'Office Departure (Out) Photo',
+                      time: formatRecordTime(record.clockOutTime),
+                    })
+                  }
+                  className="flex-1 p-2 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-300 flex items-center justify-center gap-1.5 transition cursor-pointer text-blue-950 font-bold text-xs"
+                >
+                  <Camera size={13} className="text-blue-700" />
+                  <span>Out Photo</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -313,13 +383,15 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
         onClose={() => setShowPhotoModal(false)}
         onSubmit={handlePhotoSubmit}
         isSubmitting={actionLoading}
+        type={photoModalType}
       />
 
       {/* Photo Lightbox Preview */}
       <PhotoLightboxModal
-        photoUrl={lightboxPhoto}
-        onClose={() => setLightboxPhoto(null)}
-        time={formatRecordTime(record?.clockInTime)}
+        photoUrl={lightboxData?.url || null}
+        title={lightboxData?.title || 'Verified Office Attendance Photo'}
+        time={lightboxData?.time || formatRecordTime(record?.clockInTime)}
+        onClose={() => setLightboxData(null)}
         location={record?.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai'}
         staffName={record?.user?.name}
       />

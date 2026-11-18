@@ -130,16 +130,45 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       Rejected: pos.filter((p) => p.status === 'REJECTED').length,
     };
 
-    // Monthly aggregation for PO and Expenses
-    const monthNames = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
-    const monthlyData = monthNames.map((month, idx) => {
-      // Aggregate data or provide realistic dynamic proportional figures
-      const factor = (idx + 1) / monthNames.length;
+    // Real monthly aggregation from actual database records (last 6 calendar months)
+    const now = new Date();
+    const last6Months: { name: string; year: number; monthIndex: number }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      last6Months.push({
+        name: d.toLocaleString('en-US', { month: 'short' }),
+        year: d.getFullYear(),
+        monthIndex: d.getMonth(),
+      });
+    }
+
+    const monthlyData = last6Months.map(({ name, year, monthIndex }) => {
+      // 1. PO procurement value in this month
+      const monthPOs = displayPOs.filter((p) => {
+        const d = new Date(p.poDate || p.createdAt);
+        return d.getFullYear() === year && d.getMonth() === monthIndex;
+      });
+      const poVal = monthPOs.reduce((sum, p) => sum + Number(p.grandTotal || 0), 0);
+
+      // 2. Expenses incurred in this month
+      const monthExpenses = displayExpenses.filter((e) => {
+        const d = new Date(e.expenseDate || e.createdAt);
+        return d.getFullYear() === year && d.getMonth() === monthIndex;
+      });
+      const expVal = monthExpenses.reduce((sum, e) => sum + Number(e.amountSpent || 0), 0);
+
+      // 3. Wages paid in this month
+      const monthWages = wagePayments.filter((w) => {
+        const d = new Date(w.paymentDate || w.createdAt);
+        return d.getFullYear() === year && d.getMonth() === monthIndex;
+      });
+      const wageVal = monthWages.reduce((sum, w) => sum + Number(w.amount || 0), 0);
+
       return {
-        month,
-        poValue: Math.round((totalPOAmount * (0.1 + 0.15 * idx)) / 3.5),
-        expenses: Math.round((totalExpensesSubmitted * (0.1 + 0.14 * idx)) / 3.2),
-        wagesPaid: Math.round(monthlyWageCommitment * (0.8 + 0.05 * idx)),
+        month: name,
+        poValue: Math.round(poVal),
+        expenses: Math.round(expVal),
+        wagesPaid: Math.round(wageVal),
       };
     });
 

@@ -134,7 +134,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
 
   const handleExportCSV = () => {
     if (activeTab === 'roster' && rosterData?.roster) {
-      const headers = ['Employee Code', 'Full Name', 'Department', 'Designation', 'Status', 'Punch In', 'Punch Out', 'Duration (Mins)', 'Notes'];
+      const headers = ['Employee Code', 'Full Name', 'Department', 'Designation', 'Status', 'Office In Time', 'Office Out Time', 'Duration (Mins)', 'Notes'];
       const rows = rosterData.roster.map((r: any) => [
         `"${r.employeeCode}"`,
         `"${r.fullName}"`,
@@ -157,7 +157,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
       link.click();
       document.body.removeChild(link);
     } else if (historyData?.records) {
-      const headers = ['Date', 'Punch In', 'Punch Out', 'Duration (Mins)', 'Status', 'IP Address', 'Notes'];
+      const headers = ['Date', 'Office In Time', 'Office Out Time', 'Duration (Mins)', 'Status', 'IP Address', 'Notes'];
       const rows = historyData.records.map((r: any) => [
         `"${formatDate(r.date)}"`,
         `"${formatTime(r.clockInTime)}"`,
@@ -239,7 +239,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
         </div>
       </div>
 
-      {/* Prominent Live Punch Widget */}
+      {/* Prominent Live Attendance Widget */}
       <AttendancePunchWidget
         onStatusChange={() => {
           fetchMyHistory();
@@ -247,7 +247,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
         }}
       />
 
-      {/* ----------------- TAB 1: MY PUNCH CARD & HISTORY ----------------- */}
+      {/* ----------------- TAB 1: MY ATTENDANCE & HISTORY ----------------- */}
       {activeTab === 'my' && (
         <div className="space-y-6">
           {/* Employee KPI Cards */}
@@ -305,8 +305,8 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h2 className="text-base font-bold text-gray-900">My Shift &amp; Punch Records</h2>
-                <p className="text-xs text-gray-500">Chronological list of all verified check-ins and check-outs.</p>
+                <h2 className="text-base font-bold text-gray-900">My Daily Shift &amp; Attendance Records</h2>
+                <p className="text-xs text-gray-500">Chronological list of all verified office arrivals and departures.</p>
               </div>
               <button
                 onClick={fetchMyHistory}
@@ -321,8 +321,8 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                 <thead className="bg-[#087A3E] text-white uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4">Clock-In Time</th>
-                    <th className="py-3 px-4">Clock-Out Time</th>
+                    <th className="py-3 px-4">Office In (Arrival)</th>
+                    <th className="py-3 px-4">Office Out (Departure)</th>
                     <th className="py-3 px-4">Duration</th>
                     <th className="py-3 px-4">Shift Status</th>
                     <th className="py-3 px-3 text-center">Office Photo</th>
@@ -334,7 +334,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                   {historyLoading ? (
                     <tr>
                       <td colSpan={8} className="py-10 text-center text-gray-400">
-                        Loading punch records...
+                        Loading attendance records...
                       </td>
                     </tr>
                   ) : !historyData?.records || historyData.records.length === 0 ? (
@@ -363,30 +363,57 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                           </td>
                           <td className="py-3 px-4">{getStatusBadge(rec.status)}</td>
                           <td className="py-3 px-3 text-center">
-                            {rec.photoUrl ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setLightboxData({
-                                    photoUrl: rec.photoUrl,
-                                    time: formatTime(rec.clockInTime),
-                                    location: rec.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
-                                    staffName: user?.name,
-                                  })
-                                }
-                                className="inline-flex items-center gap-1.5 p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-300 transition shadow-xs cursor-pointer"
-                                title="Click to view verified stamped office selfie"
-                              >
-                                <img
-                                  src={rec.photoUrl}
-                                  alt="Selfie"
-                                  className="w-7 h-7 rounded object-cover border border-emerald-400"
-                                />
-                                <span className="text-[10px] font-bold">View</span>
-                              </button>
-                            ) : (
-                              <span className="text-gray-400 text-[10px]">—</span>
-                            )}
+                            <div className="flex items-center justify-center gap-1.5">
+                              {rec.photoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setLightboxData({
+                                      photoUrl: rec.photoUrl,
+                                      title: 'Office Arrival (In) Photo',
+                                      time: formatTime(rec.clockInTime),
+                                      location: rec.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                      staffName: user?.name,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-300 transition shadow-xs cursor-pointer"
+                                  title="View Arrival Photo"
+                                >
+                                  <img
+                                    src={rec.photoUrl}
+                                    alt="In"
+                                    className="w-6 h-6 rounded object-cover border border-emerald-400"
+                                  />
+                                  <span className="text-[10px] font-bold">In</span>
+                                </button>
+                              )}
+                              {rec.clockOutPhotoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setLightboxData({
+                                      photoUrl: rec.clockOutPhotoUrl,
+                                      title: 'Office Departure (Out) Photo',
+                                      time: formatTime(rec.clockOutTime),
+                                      location: rec.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                      staffName: user?.name,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 p-1 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-lg border border-blue-300 transition shadow-xs cursor-pointer"
+                                  title="View Departure Photo"
+                                >
+                                  <img
+                                    src={rec.clockOutPhotoUrl}
+                                    alt="Out"
+                                    className="w-6 h-6 rounded object-cover border border-blue-400"
+                                  />
+                                  <span className="text-[10px] font-bold">Out</span>
+                                </button>
+                              )}
+                              {!rec.photoUrl && !rec.clockOutPhotoUrl && (
+                                <span className="text-gray-400 text-[10px]">—</span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-4 font-mono text-[11px] text-gray-500">
                             {rec.clockInIp || 'Office Network'}
@@ -516,8 +543,8 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                     <th className="py-3 px-4">Staff Member</th>
                     <th className="py-3 px-4">Employee ID</th>
                     <th className="py-3 px-4">Department &amp; Role</th>
-                    <th className="py-3 px-4">Arrival (Punch-In)</th>
-                    <th className="py-3 px-4">Departure (Punch-Out)</th>
+                    <th className="py-3 px-4">Office In (Arrival)</th>
+                    <th className="py-3 px-4">Office Out (Departure)</th>
                     <th className="py-3 px-4">Total Time</th>
                     <th className="py-3 px-4">Attendance Status</th>
                     <th className="py-3 px-3 text-center">Photo Verification</th>
@@ -572,30 +599,57 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                           </td>
                           <td className="py-3 px-4">{getStatusBadge(staff.displayStatus)}</td>
                           <td className="py-3 px-3 text-center">
-                            {att?.photoUrl ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setLightboxData({
-                                    photoUrl: att.photoUrl,
-                                    time: formatTime(att.clockInTime),
-                                    location: att.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
-                                    staffName: staff.fullName,
-                                  })
-                                }
-                                className="inline-flex items-center gap-1.5 p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-300 transition shadow-xs cursor-pointer"
-                                title="Click to verify staff office selfie"
-                              >
-                                <img
-                                  src={att.photoUrl}
-                                  alt={staff.fullName}
-                                  className="w-8 h-8 rounded-lg object-cover border border-emerald-500"
-                                />
-                                <span className="text-[10px] font-bold">Verified</span>
-                              </button>
-                            ) : (
-                              <span className="text-gray-400 text-[10px] italic">Not Uploaded</span>
-                            )}
+                            <div className="flex items-center justify-center gap-1.5">
+                              {att?.photoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setLightboxData({
+                                      photoUrl: att.photoUrl,
+                                      title: 'Office Arrival (In) Photo',
+                                      time: formatTime(att.clockInTime),
+                                      location: att.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                      staffName: staff.fullName,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-300 transition shadow-xs cursor-pointer"
+                                  title="Click to verify arrival photo"
+                                >
+                                  <img
+                                    src={att.photoUrl}
+                                    alt={staff.fullName}
+                                    className="w-7 h-7 rounded-lg object-cover border border-emerald-500"
+                                  />
+                                  <span className="text-[10px] font-bold">In</span>
+                                </button>
+                              )}
+                              {att?.clockOutPhotoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setLightboxData({
+                                      photoUrl: att.clockOutPhotoUrl,
+                                      title: 'Office Departure (Out) Photo',
+                                      time: formatTime(att.clockOutTime),
+                                      location: att.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                      staffName: staff.fullName,
+                                    })
+                                  }
+                                  className="inline-flex items-center gap-1 p-1 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-lg border border-blue-300 transition shadow-xs cursor-pointer"
+                                  title="Click to verify departure photo"
+                                >
+                                  <img
+                                    src={att.clockOutPhotoUrl}
+                                    alt={staff.fullName}
+                                    className="w-7 h-7 rounded-lg object-cover border border-blue-500"
+                                  />
+                                  <span className="text-[10px] font-bold">Out</span>
+                                </button>
+                              )}
+                              {!att?.photoUrl && !att?.clockOutPhotoUrl && (
+                                <span className="text-gray-400 text-[10px] italic">Not Uploaded</span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-4 text-gray-600 text-[11px] max-w-xs truncate">
                             {att?.notes || (staff.displayStatus === 'ABSENT' ? 'Not clocked in yet' : '')}

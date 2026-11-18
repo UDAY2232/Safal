@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Plus, ArrowRight, Check } from 'lucide-react';
+import { Users, Search, Plus, ArrowRight, Check, UserMinus } from 'lucide-react';
 import { api } from '../services/api';
 import { Employee } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { AddEmployeeModal } from '../components/AddEmployeeModal';
+import { useAuth } from '../context/AuthContext';
 
 interface EmployeesPageProps {
   onNotify: (msg: string) => void;
 }
 
 export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -39,6 +43,27 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
       loadEmployees();
     } catch {
       onNotify('Failed to update status');
+    }
+  };
+
+  const handleDeleteEmployee = async (emp: any) => {
+    const confirmed = window.confirm(
+      `Are you sure you want to relieve and remove employee ${emp.fullName} (${emp.employeeId})?\n\nThis will permanently delete their login credentials and employee profile. They will not be able to log in again unless re-added by an Admin.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      const res = await api.deleteEmployee(emp.id);
+      onNotify(res.message || `Employee ${emp.fullName} relieved and credentials removed.`);
+      if (selectedEmployee?.id === emp.id) {
+        setSelectedEmployee(null);
+      }
+      await loadEmployees();
+    } catch (err: any) {
+      onNotify(err.message || 'Failed to relieve employee');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -128,12 +153,24 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
                       </button>
                     </td>
                     <td className="text-center">
-                      <button
-                        className="view-button"
-                        onClick={() => openProfile(e.id)}
-                      >
-                        Profile <ArrowRight size={13} />
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          className="view-button"
+                          onClick={() => openProfile(e.id)}
+                        >
+                          Profile <ArrowRight size={13} />
+                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteEmployee(e)}
+                            className="p-1.5 rounded-lg text-red-500 hover:text-red-700 hover:bg-red-50 transition cursor-pointer"
+                            title={`Relieve / Remove ${e.fullName} and delete login credentials`}
+                          >
+                            <UserMinus size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -223,7 +260,16 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
                 </div>
               </div>
             </div>
-            <div className="modal-actions pt-3 border-t border-gray-100 flex justify-end">
+            <div className="modal-actions pt-3 border-t border-gray-100 flex items-center justify-between">
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteEmployee(selectedEmployee)}
+                  className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <UserMinus size={14} /> Relieve / Remove Employee
+                </button>
+              ) : <div />}
               <button
                 type="button"
                 className="secondary-button"

@@ -325,3 +325,82 @@ export async function toggleEmployeeStatus(req: AuthRequest, res: Response) {
   }
 }
 
+/**
+ * DELETE /api/employees/:id
+ * Relieve/remove an employee and permanently revoke/delete their login credentials
+ */
+export async function deleteEmployee(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?.id;
+
+    // Find employee by id or employeeId
+    const employee = await prisma.employee.findFirst({
+      where: {
+        OR: [{ id }, { employeeId: id }],
+      },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    // Find linked user credentials record
+    let linkedUser = employee.user;
+    if (!linkedUser && employee.email) {
+      linkedUser = await prisma.user.findFirst({
+        where: { email: { equals: employee.email, mode: 'insensitive' } },
+      });
+    }
+
+    const empName = employee.fullName;
+    const empCode = employee.employeeId;
+    const empEmail = linkedUser?.email || employee.email;
+
+    // 1. Reassign POs created or approved by this user to current Admin to preserve FK integrity
+    if (linkedUser && adminId) {
+      await prisma.purchaseOrder.updateMany({
+        where: { createdById: linkedUser.id },
+        data: { createdById: adminId },
+      });
+      await prisma.purchaseOrder.updateMany({
+        where: { approvedById: linkedUser.id },
+        data: { approvedById: adminId },
+      });
+    }
+
+    // 2. Delete the employee record (cascades wage records and expense claims)
+    await prisma.employee.delete({
+      where: { id: employee.id },
+    });
+
+    // 3. Delete linked user credentials completely so they cannot log in again
+    if (linkedUser) {
+      await prisma.user.delete({
+        where: { id: linkedUser.id },
+      });
+    }
+
+    // 4. Create audit log
+    await createAuditLog({
+      userId: adminId,
+      userName: req.user?.name || 'Admin',
+      userRole: req.user?.role || 'ADMIN',
+      action: 'EMPLOYEE_REMOVED',
+      entityType: 'EMPLOYEE',
+      entityId: employee.id,
+      details: `Relieved / Removed employee ${empCode} (${empName}, Email: ${empEmail}) and permanently deleted login credentials.`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      message: `Employee ${empName} (${empCode}) relieved and login credentials permanently removed.`,
+      deletedId: employee.id,
+    });
+  } catch (error: any) {
+    console.error('Failed to relieve/delete employee:', error);
+    return res.status(500).json({ error: 'Failed to relieve employee', details: error.message });
+  }
+}
+

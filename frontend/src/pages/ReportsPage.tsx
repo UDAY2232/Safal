@@ -343,9 +343,9 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
               <button
                 onClick={() => downloadReport(item.type, item.title)}
                 title="Download CSV"
-                className="hover:bg-emerald-100 transition flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-50 text-[#087A3E] font-bold text-xs border border-emerald-200"
+                className="hover:bg-emerald-100 transition inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-50 text-[#087A3E] font-bold text-xs border border-emerald-200 cursor-pointer shadow-xs shrink-0 self-center"
               >
-                <ArrowDownToLine size={16} />
+                <ArrowDownToLine size={15} className="shrink-0" />
                 <span>Export</span>
               </button>
             </article>
