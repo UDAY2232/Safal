@@ -147,8 +147,24 @@ export const api = {
   deleteInvoice: (id: string) => request<{ message: string }>(`/invoices/${id}`, { method: 'DELETE' }),
 
   // Attendance
-  clockInAttendance: () => request<any>('/attendance/clock-in', { method: 'POST' }),
-  clockOutAttendance: () => request<any>('/attendance/clock-out', { method: 'POST' }),
+  clockInAttendance: (data?: any) => {
+    if (data instanceof FormData) {
+      return request<any>('/attendance/clock-in', { method: 'POST', body: data });
+    }
+    return request<any>('/attendance/clock-in', {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : JSON.stringify({}),
+    });
+  },
+  clockOutAttendance: (data?: any) => {
+    if (data instanceof FormData) {
+      return request<any>('/attendance/clock-out', { method: 'POST', body: data });
+    }
+    return request<any>('/attendance/clock-out', {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : JSON.stringify({}),
+    });
+  },
   getTodayAttendance: () => request<any>('/attendance/today'),
   getMyAttendanceHistory: () => request<any>('/attendance/my-history'),
   getAllAttendance: (params: string = '') => request<any>(`/attendance/all${params}`),

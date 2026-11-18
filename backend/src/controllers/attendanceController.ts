@@ -1,4 +1,6 @@
 import { Response } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
@@ -40,6 +42,30 @@ function getIstTimeDetails(date = new Date()) {
     hour12: true,
   });
   return { hour, minute, timeFormatted };
+}
+
+/**
+ * Saves base64 encoded photo to the uploads directory
+ */
+function saveBase64Photo(dataString?: string, prefix = 'in'): string | null {
+  if (!dataString || typeof dataString !== 'string') return null;
+  try {
+    const matches = dataString.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) return null;
+    const ext = matches[1] === 'jpeg' ? 'jpg' : matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    const uploadDir = path.resolve('uploads');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    const filename = `attendance-${prefix}-${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+    const filePath = path.join(uploadDir, filename);
+    fs.writeFileSync(filePath, buffer);
+    return `/uploads/${filename}`;
+  } catch (err) {
+    console.error('Error saving base64 attendance photo:', err);
+    return null;
+  }
 }
 
 /**
@@ -91,6 +117,13 @@ export async function clockIn(req: AuthRequest, res: Response) {
       req.socket.remoteAddress ||
       'Office Network';
 
+    // Process uploaded photo or base64 selfie
+    const uploadedPhoto = req.file
+      ? `/uploads/${req.file.filename}`
+      : saveBase64Photo(req.body.photo || req.body.image, 'in');
+
+    const location = req.body.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai';
+
     const notes = isLate
       ? `Late arrival at ${timeFormatted} (Shift starts 09:30 AM)`
       : `On-time arrival at ${timeFormatted}`;
@@ -102,6 +135,8 @@ export async function clockIn(req: AuthRequest, res: Response) {
         date: today,
         clockInTime: now,
         status: status as any,
+        photoUrl: uploadedPhoto,
+        location,
         clockInIp: clientIp,
         notes,
       },
@@ -187,12 +222,17 @@ export async function clockOut(req: AuthRequest, res: Response) {
     const mins = totalMinutes % 60;
     const durationStr = `${hours}h ${mins}m`;
 
+    const uploadedOutPhoto = req.file
+      ? `/uploads/${req.file.filename}`
+      : saveBase64Photo(req.body.photo || req.body.image, 'out');
+
     const updated = await prisma.attendanceRecord.update({
       where: { id: existing.id },
       data: {
         clockOutTime: now,
         totalMinutes,
         status: finalStatus,
+        ...(uploadedOutPhoto ? { clockOutPhotoUrl: uploadedOutPhoto } : {}),
         notes: `${existing.notes ? existing.notes + ' | ' : ''}Clocked out at ${timeFormatted} (Duration: ${durationStr})`,
       },
       include: {
@@ -380,6 +420,9 @@ export async function getAllAttendanceRecords(req: AuthRequest, res: Response) {
               clockOutTime: record.clockOutTime,
               totalMinutes: record.totalMinutes,
               status: record.status,
+              photoUrl: record.photoUrl,
+              clockOutPhotoUrl: record.clockOutPhotoUrl,
+              location: record.location,
               clockInIp: record.clockInIp,
               notes: record.notes,
             }

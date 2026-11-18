@@ -431,12 +431,15 @@ model AttendanceRecord {
   employeeId   String?
   employee     Employee?        @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   date         DateTime         @db.Date
-  clockInTime  DateTime         @default(now())
-  clockOutTime DateTime?
-  totalMinutes Int?             @default(0)
-  status       AttendanceStatus @default(PRESENT)
-  clockInIp    String?
-  notes        String?
+  clockInTime      DateTime         @default(now())
+  clockOutTime     DateTime?
+  totalMinutes     Int?             @default(0)
+  status           AttendanceStatus @default(PRESENT)
+  photoUrl         String?
+  clockOutPhotoUrl String?
+  location         String?          @default("SAFAL Hub 1 Cold Storage, Navi Mumbai")
+  clockInIp        String?
+  notes            String?
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
 

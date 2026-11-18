@@ -8,14 +8,15 @@ import {
 } from '../controllers/attendanceController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
+import { upload } from '../middleware/upload.js';
 
 const router = Router();
 
 router.use(authenticateToken);
 
-// Individual attendance actions (available to all logged-in staff)
-router.post('/clock-in', clockIn);
-router.post('/clock-out', clockOut);
+// Individual attendance actions with photo upload
+router.post('/clock-in', upload.single('photo'), clockIn);
+router.post('/clock-out', upload.single('photo'), clockOut);
 router.get('/today', getTodayStatus);
 router.get('/my-history', getMyHistory);
 

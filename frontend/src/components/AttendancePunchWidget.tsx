@@ -9,8 +9,11 @@ import {
   Sparkles,
   ArrowRight,
   ShieldCheck,
+  Camera,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { AttendancePhotoModal } from './AttendancePhotoModal';
+import { PhotoLightboxModal } from './PhotoLightboxModal';
 
 interface AttendancePunchWidgetProps {
   onStatusChange?: () => void;
@@ -28,6 +31,9 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoModalType, setPhotoModalType] = useState<'in' | 'out'>('in');
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
 
   // Update clock every second
   useEffect(() => {
@@ -53,34 +59,37 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     fetchTodayStatus();
   }, []);
 
-  const handleClockIn = async () => {
-    try {
-      setActionLoading(true);
-      setFeedback(null);
-      const res = await api.clockInAttendance();
-      setFeedback({ type: 'success', message: res.message || 'Clocked in successfully!' });
-      await fetchTodayStatus();
-      if (onStatusChange) onStatusChange();
-    } catch (err: any) {
-      setFeedback({ type: 'error', message: err.message || 'Failed to clock in' });
-    } finally {
-      setActionLoading(false);
-    }
+  const handleStartPunchIn = () => {
+    setPhotoModalType('in');
+    setShowPhotoModal(true);
   };
 
-  const handleClockOut = async () => {
-    if (!window.confirm('Are you sure you want to punch out and complete your office shift for today?')) {
-      return;
-    }
+  const handleStartPunchOut = () => {
+    setPhotoModalType('out');
+    setShowPhotoModal(true);
+  };
+
+  const handlePhotoSubmit = async (photoBase64: string, location: string) => {
     try {
       setActionLoading(true);
       setFeedback(null);
-      const res = await api.clockOutAttendance();
-      setFeedback({ type: 'success', message: res.message || 'Clocked out successfully!' });
+      if (photoModalType === 'in') {
+        const res = await api.clockInAttendance({ photo: photoBase64, location });
+        setFeedback({
+          type: 'success',
+          message: res.message || 'Office selfie verified! Clocked in successfully.',
+        });
+      } else {
+        const res = await api.clockOutAttendance({ photo: photoBase64, location });
+        setFeedback({
+          type: 'success',
+          message: res.message || 'Punch-out photo verified! Shift completed.',
+        });
+      }
       await fetchTodayStatus();
       if (onStatusChange) onStatusChange();
     } catch (err: any) {
-      setFeedback({ type: 'error', message: err.message || 'Failed to clock out' });
+      setFeedback({ type: 'error', message: err.message || 'Failed to submit attendance photo' });
     } finally {
       setActionLoading(false);
     }
@@ -240,16 +249,16 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
           <div className="lg:col-span-4 flex flex-col gap-2.5">
             {!isClockedIn ? (
               <button
-                onClick={handleClockIn}
+                onClick={handleStartPunchIn}
                 disabled={actionLoading || loading}
                 className="w-full py-3.5 px-5 bg-gradient-to-r from-[#087A3E] to-[#0A964C] hover:from-[#066533] hover:to-[#087A3E] text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
               >
-                <Sparkles size={18} className="text-emerald-200 group-hover:scale-110 transition" />
-                <span>{actionLoading ? 'Verifying Punch In...' : 'Punch In (Start Shift)'}</span>
+                <Camera size={18} className="text-emerald-200 group-hover:scale-110 transition" />
+                <span>{actionLoading ? 'Recording Attendance...' : 'Take Office Selfie & Punch In'}</span>
               </button>
             ) : !isClockedOut ? (
               <button
-                onClick={handleClockOut}
+                onClick={handleStartPunchOut}
                 disabled={actionLoading || loading}
                 className="w-full py-3.5 px-5 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
               >
@@ -267,9 +276,9 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
             {/* Quick helper note */}
             <p className="text-[11px] text-center text-gray-500">
               {isClockedIn && !isClockedOut
-                ? 'Your working hours are being logged in real-time.'
+                ? 'Your office arrival and photo verification are logged in real-time.'
                 : !isClockedIn
-                ? 'Press Punch In when you arrive at the office or field hub.'
+                ? 'Click above to capture an office selfie with live date & time stamp.'
                 : 'Next shift check-in opens tomorrow at 08:00 AM.'}
             </p>
           </div>
@@ -294,6 +303,19 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                 {elapsedText || '0h 0m'}
               </span>
             </div>
+            {record?.photoUrl && (
+              <button
+                type="button"
+                onClick={() => setLightboxPhoto(record.photoUrl)}
+                className="p-2 bg-emerald-100/70 hover:bg-emerald-100 rounded-xl border border-emerald-300 flex items-center justify-between transition cursor-pointer text-emerald-950 font-bold"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Camera size={13} className="text-emerald-700" />
+                  <span>Office Selfie:</span>
+                </span>
+                <span className="text-[11px] text-emerald-800 underline">View Stamped Photo</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -324,6 +346,24 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
           </div>
         )}
       </div>
+
+      {/* Live Camera Office Selfie Modal */}
+      <AttendancePhotoModal
+        isOpen={showPhotoModal}
+        onClose={() => setShowPhotoModal(false)}
+        onSubmit={handlePhotoSubmit}
+        isSubmitting={actionLoading}
+        type={photoModalType}
+      />
+
+      {/* Photo Lightbox Preview */}
+      <PhotoLightboxModal
+        photoUrl={lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+        time={formatRecordTime(record?.clockInTime)}
+        location={record?.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai'}
+        staffName={record?.user?.name}
+      />
     </div>
   );
 };

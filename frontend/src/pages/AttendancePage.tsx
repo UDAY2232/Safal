@@ -12,9 +12,11 @@ import {
   TrendingUp,
   MapPin,
   RefreshCw,
+  Camera,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { AttendancePunchWidget } from '../components/AttendancePunchWidget';
+import { PhotoLightboxModal } from '../components/PhotoLightboxModal';
 
 interface AttendancePageProps {
   user: any;
@@ -27,6 +29,12 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
   // Employee history states
   const [historyData, setHistoryData] = useState<any>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [lightboxData, setLightboxData] = useState<{
+    photoUrl: string;
+    time?: string;
+    location?: string;
+    staffName?: string;
+  } | null>(null);
 
   // Admin roster states
   const [selectedDate, setSelectedDate] = useState<string>(
@@ -317,6 +325,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                     <th className="py-3 px-4">Clock-Out Time</th>
                     <th className="py-3 px-4">Duration</th>
                     <th className="py-3 px-4">Shift Status</th>
+                    <th className="py-3 px-3 text-center">Office Photo</th>
                     <th className="py-3 px-4">Network / IP</th>
                     <th className="py-3 px-4">Remarks</th>
                   </tr>
@@ -324,13 +333,13 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                 <tbody className="divide-y divide-gray-100">
                   {historyLoading ? (
                     <tr>
-                      <td colSpan={7} className="py-10 text-center text-gray-400">
+                      <td colSpan={8} className="py-10 text-center text-gray-400">
                         Loading punch records...
                       </td>
                     </tr>
                   ) : !historyData?.records || historyData.records.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-10 text-center text-gray-400">
+                      <td colSpan={8} className="py-10 text-center text-gray-400">
                         No attendance records found yet. Punch in above to start your shift!
                       </td>
                     </tr>
@@ -353,6 +362,32 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                             {rec.totalMinutes ? `${h}h ${m}m` : '--'}
                           </td>
                           <td className="py-3 px-4">{getStatusBadge(rec.status)}</td>
+                          <td className="py-3 px-3 text-center">
+                            {rec.photoUrl ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setLightboxData({
+                                    photoUrl: rec.photoUrl,
+                                    time: formatTime(rec.clockInTime),
+                                    location: rec.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                    staffName: user?.name,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1.5 p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-300 transition shadow-xs cursor-pointer"
+                                title="Click to view verified stamped office selfie"
+                              >
+                                <img
+                                  src={rec.photoUrl}
+                                  alt="Selfie"
+                                  className="w-7 h-7 rounded object-cover border border-emerald-400"
+                                />
+                                <span className="text-[10px] font-bold">View</span>
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-[10px]">—</span>
+                            )}
+                          </td>
                           <td className="py-3 px-4 font-mono text-[11px] text-gray-500">
                             {rec.clockInIp || 'Office Network'}
                           </td>
@@ -485,19 +520,20 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                     <th className="py-3 px-4">Departure (Punch-Out)</th>
                     <th className="py-3 px-4">Total Time</th>
                     <th className="py-3 px-4">Attendance Status</th>
+                    <th className="py-3 px-3 text-center">Photo Verification</th>
                     <th className="py-3 px-4">Remarks</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {rosterLoading ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-gray-400">
+                      <td colSpan={9} className="py-10 text-center text-gray-400">
                         Loading daily attendance roster...
                       </td>
                     </tr>
                   ) : filteredRoster.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-10 text-center text-gray-400">
+                      <td colSpan={9} className="py-10 text-center text-gray-400">
                         No staff records matched your filters.
                       </td>
                     </tr>
@@ -535,6 +571,32 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                             {att?.totalMinutes ? `${h}h ${m}m` : '--'}
                           </td>
                           <td className="py-3 px-4">{getStatusBadge(staff.displayStatus)}</td>
+                          <td className="py-3 px-3 text-center">
+                            {att?.photoUrl ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setLightboxData({
+                                    photoUrl: att.photoUrl,
+                                    time: formatTime(att.clockInTime),
+                                    location: att.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                    staffName: staff.fullName,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1.5 p-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-300 transition shadow-xs cursor-pointer"
+                                title="Click to verify staff office selfie"
+                              >
+                                <img
+                                  src={att.photoUrl}
+                                  alt={staff.fullName}
+                                  className="w-8 h-8 rounded-lg object-cover border border-emerald-500"
+                                />
+                                <span className="text-[10px] font-bold">Verified</span>
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-[10px] italic">Not Uploaded</span>
+                            )}
+                          </td>
                           <td className="py-3 px-4 text-gray-600 text-[11px] max-w-xs truncate">
                             {att?.notes || (staff.displayStatus === 'ABSENT' ? 'Not clocked in yet' : '')}
                           </td>
@@ -548,6 +610,15 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* Photo Lightbox Popup */}
+      <PhotoLightboxModal
+        photoUrl={lightboxData?.photoUrl || null}
+        onClose={() => setLightboxData(null)}
+        time={lightboxData?.time}
+        location={lightboxData?.location}
+        staffName={lightboxData?.staffName}
+      />
     </div>
   );
 };
