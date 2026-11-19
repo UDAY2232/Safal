@@ -55,137 +55,147 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="topbar">
-      {/* Mobile Hamburger Menu Toggle (Mobile Only) */}
-      {onOpenMobileMenu && (
-        <button
-          type="button"
-          onClick={onOpenMobileMenu}
-          className="md:hidden inline-flex items-center justify-center w-10 h-10 mr-1.5 sm:mr-2 rounded-xl bg-[#087a3e] active:bg-[#066131] active:scale-95 text-white flex-shrink-0 shadow-xs transition-transform cursor-pointer"
-          aria-label="Open navigation menu"
-        >
-          <Menu size={22} />
-        </button>
-      )}
+      {/* Top Utility / Controls Bar */}
+      <div className="w-full h-10 sm:h-11 px-3 sm:px-5 bg-[#064D2B] text-white flex items-center justify-between border-b border-[#086137] shadow-xs select-none relative z-40">
+        {/* Left Side: Mobile Menu / Desktop Sidebar Toggle + Brand / Status */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Mobile Hamburger Menu Toggle (Mobile Only) */}
+          {onOpenMobileMenu && (
+            <button
+              type="button"
+              onClick={onOpenMobileMenu}
+              className="md:hidden inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-800/80 active:bg-emerald-900 text-white flex-shrink-0 cursor-pointer transition hover:bg-emerald-700"
+              aria-label="Open navigation menu"
+            >
+              <Menu size={18} />
+            </button>
+          )}
 
-      {/* Sidebar toggle button (desktop) */}
-      {onToggleSidebar && (
-        <button
-          onClick={onToggleSidebar}
-          className="hidden md:inline-flex items-center justify-center w-9 h-9 mr-3 rounded-xl border border-emerald-200/80 bg-white/90 backdrop-blur-xs text-[#064D2B] hover:bg-emerald-100 hover:text-[#087A3E] transition shadow-xs flex-shrink-0 z-10 cursor-pointer"
-          title={isSidebarCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
-          aria-label="Toggle navigation sidebar"
-        >
-          {isSidebarCollapsed ? <PanelLeftOpen size={19} /> : <PanelLeftClose size={19} />}
-        </button>
-      )}
+          {/* Desktop Sidebar Toggle */}
+          {onToggleSidebar && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              className="hidden md:inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-800/70 hover:bg-emerald-700 text-white transition flex-shrink-0 cursor-pointer"
+              title={isSidebarCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
+              aria-label="Toggle navigation sidebar"
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+            </button>
+          )}
 
-      {/* Left: Official Globe Logo & Company Typography */}
-      <div
-        className="brand-lockup flex items-center gap-2 sm:gap-3.5 cursor-pointer flex-shrink-0 z-10 bg-white/85 backdrop-blur-xs px-2.5 py-1.5 rounded-xl border border-emerald-100 shadow-2xs"
-        onClick={() => onNavigate('Dashboard')}
-        title="SAFAL Enterprise Workspace"
-      >
-        {/* Globe Logo with green leaves & airplane */}
-        <div className="relative flex-shrink-0">
-          <img
-            src="/safal-globe-logo.png"
-            alt="SAFAL Global Logo"
-            className="h-11 sm:h-14 lg:h-16 w-auto object-contain rounded-xl shadow-xs"
-          />
-        </div>
-
-        {/* Clean Company Name */}
-        <div className="flex flex-col justify-center leading-none">
-          <div className="flex items-center">
-            <span className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] tracking-tight">
-              SAFAL
+          {/* System Title & Live Cold Storage Badge */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="font-bold tracking-wider text-emerald-100 uppercase hidden sm:inline">
+              SAFAL ENTERPRISE ERP
             </span>
-          </div>
-          <span className="text-[9px] sm:text-[11px] lg:text-xs font-black tracking-wider text-[#D32F2F] uppercase mt-0.5 font-['Manrope']">
-            EXPORT AND IMPORT PVT LTD
-          </span>
-          <span className="text-[8px] sm:text-[10px] lg:text-[11px] font-bold text-[#185B30] tracking-wide mt-0.5">
-            Fruits Import &amp; Export
-          </span>
-        </div>
-      </div>
-
-      {/* Center Subtitle */}
-      <div className="header-company-center text-center flex-1 hidden xl:flex flex-col items-center justify-center px-4 z-10">
-        <span className="text-xs font-bold text-gray-700 uppercase tracking-widest bg-white/80 backdrop-blur-xs px-2.5 py-0.5 rounded-md border border-gray-200/60 shadow-2xs">
-          Freshness Beyond Borders
-        </span>
-        <span className="text-[11px] font-semibold text-emerald-900 mt-0.5 bg-white/80 backdrop-blur-xs px-2.5 py-0.5 rounded-md border border-gray-200/60 shadow-2xs">
-          Consignment Tracking · Workforce · P&amp;L Financial Audit
-        </span>
-      </div>
-
-      {/* Right Controls: Live status, Notifications, User Profile */}
-      <div className="topbar-actions flex items-center gap-2 sm:gap-3 ml-auto z-10 bg-white/85 backdrop-blur-xs px-2.5 py-1.5 rounded-xl border border-emerald-100 shadow-2xs">
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-xs text-[#064D2B] font-semibold">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span>Hub 1 Cold Storage · Live</span>
-        </div>
-
-        {/* Notifications */}
-        <button
-          className="icon-button notification-button bg-white/90 backdrop-blur-xs"
-          onClick={() => setShowNotifications(!showNotifications)}
-          aria-label="Notifications"
-        >
-          <Bell size={19} />
-          {unreadCount > 0 && <span className="notification-dot">{unreadCount}</span>}
-        </button>
-
-        {/* User Profile */}
-        <div className="relative">
-          <div
-            className="profile cursor-pointer"
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
-          >
-            <div className="avatar">{getInitials(user?.name)}</div>
-            <div className="profile-text hidden sm:flex">
-              <strong>{user?.name || 'Shanker'}</strong>
-              <span>
-                {user?.role === 'ADMIN'
-                  ? 'Managing Director (Admin)'
-                  : user?.role === 'ACCOUNTANT'
-                  ? 'Accountant'
-                  : 'Employee'}
-              </span>
+            <span className="hidden sm:inline text-emerald-500/70">|</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-900/70 rounded-full border border-emerald-500/30 text-[11px] text-emerald-200 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Hub 1 Cold Storage · Live</span>
             </div>
-            <ChevronDown size={15} className="hidden sm:block" />
+          </div>
+        </div>
+
+        {/* Right Side: Notice Broadcaster + Notifications + Profile */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Admin / Accountant Notice Broadcaster */}
+          {(user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
+            <button
+              type="button"
+              onClick={() => setShowNoticeModal(true)}
+              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-bold transition cursor-pointer shadow-xs"
+              title="Broadcast notice to employees"
+            >
+              <Megaphone size={12} /> Send Notice
+            </button>
+          )}
+
+          {/* Notifications Bell */}
+          <div className="relative">
+            <button
+              type="button"
+              className="relative w-8 h-8 rounded-lg bg-emerald-800/70 hover:bg-emerald-700 text-white flex items-center justify-center transition cursor-pointer"
+              onClick={() => setShowNotifications(!showNotifications)}
+              aria-label="Notifications"
+            >
+              <Bell size={16} />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[17px] h-[17px] px-1 bg-red-500 text-white text-[10px] font-extrabold rounded-full border-2 border-[#064D2B]">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
           </div>
 
-          {showProfileMenu && (
-            <div className="absolute right-0 top-12 w-60 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-30">
-              <div className="px-3 py-2 border-b border-gray-100">
-                <p className="text-[11px] text-gray-400">Signed in as</p>
-                <p className="text-xs font-bold text-gray-800 truncate">{user?.email}</p>
-                <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
-                  {user?.role === 'ADMIN' ? 'Managing Director' : user?.role === 'ACCOUNTANT' ? 'Accountant' : 'Employee'}
+          {/* User Profile */}
+          <div className="relative">
+            <div
+              className="flex items-center gap-2 cursor-pointer py-0.5 px-1.5 rounded-lg hover:bg-emerald-800/60 transition"
+              onClick={() => setShowProfileMenu(!showProfileMenu)}
+            >
+              <div className="w-7 h-7 rounded-full bg-emerald-500 text-[#064D2B] font-bold text-xs flex items-center justify-center border border-emerald-300">
+                {getInitials(user?.name)}
+              </div>
+              <div className="hidden sm:flex flex-col text-left leading-tight">
+                <strong className="text-xs text-white font-semibold truncate max-w-[120px]">
+                  {user?.name || 'User'}
+                </strong>
+                <span className="text-[10px] text-emerald-300">
+                  {user?.role === 'ADMIN'
+                    ? 'Admin'
+                    : user?.role === 'ACCOUNTANT'
+                    ? 'Accountant'
+                    : 'Employee'}
                 </span>
               </div>
-              {user?.role === 'ADMIN' && (
-                <button
-                  onClick={() => {
-                    setShowProfileMenu(false);
-                    onNavigate('Settings');
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg text-left"
-                >
-                  <Shield size={14} /> Application Settings
-                </button>
-              )}
-              <button
-                onClick={logout}
-                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg text-left mt-1"
-              >
-                <LogOut size={14} /> Sign Out
-              </button>
+              <ChevronDown size={13} className="text-emerald-300 hidden sm:block" />
             </div>
-          )}
+
+            {/* Profile Dropdown Menu */}
+            {showProfileMenu && (
+              <div className="absolute right-0 top-10 w-56 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 text-gray-800">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <p className="text-[10px] text-gray-400 uppercase font-semibold">Signed in as</p>
+                  <p className="text-xs font-bold text-gray-800 truncate">{user?.email}</p>
+                  <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
+                    {user?.role === 'ADMIN' ? 'Managing Director' : user?.role === 'ACCOUNTANT' ? 'Accountant' : 'Employee'}
+                  </span>
+                </div>
+                {user?.role === 'ADMIN' && (
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      onNavigate('Settings');
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg text-left cursor-pointer"
+                  >
+                    <Shield size={14} /> Application Settings
+                  </button>
+                )}
+                <button
+                  onClick={logout}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg text-left mt-1 cursor-pointer"
+                >
+                  <LogOut size={14} /> Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+
+      {/* Row 2: Official Complete SAFAL Billboard Banner */}
+      <div
+        className="w-full bg-white flex items-center justify-center py-1 sm:py-1.5 px-2 sm:px-4 cursor-pointer overflow-hidden border-b-2 border-emerald-100 shadow-2xs hover:bg-emerald-50/20 transition-colors"
+        onClick={() => onNavigate('Dashboard')}
+        title="SAFAL EXPORT AND IMPORT PVT LTD · Click to return to Dashboard"
+      >
+        <img
+          src="/safal-header-banner.jpg"
+          alt="SAFAL EXPORT AND IMPORT PVT LTD - Freshness Beyond Borders"
+          className="h-14 sm:h-18 md:h-22 lg:h-[94px] xl:h-[100px] w-auto max-w-full object-contain mx-auto block filter drop-shadow-2xs select-none"
+        />
       </div>
 
       {/* Notifications Panel */}
