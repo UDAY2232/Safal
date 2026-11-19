@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import bcrypt from 'bcryptjs';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
@@ -123,21 +124,81 @@ export async function sendNotification(req: AuthRequest, res: Response) {
     const trimmedMessage = String(message).trim();
 
     if (target === 'USER') {
-      if (!targetUserId) {
+      const recipientKey = targetUserId || req.body.targetEmployeeId;
+      if (!recipientKey) {
         return res.status(400).json({ error: 'Target employee is required' });
       }
 
-      const targetUser = await prisma.user.findUnique({
-        where: { id: targetUserId },
+      let targetUser: any = null;
+
+      // 1. Try finding by direct User.id
+      targetUser = await prisma.user.findUnique({
+        where: { id: recipientKey },
       });
 
+      // 2. If not found by direct userId, search Employee by id, employeeId, or email
       if (!targetUser) {
-        return res.status(404).json({ error: 'Target recipient not found' });
+        const emp = await prisma.employee.findFirst({
+          where: {
+            OR: [
+              { id: recipientKey },
+              { employeeId: recipientKey },
+              { userId: recipientKey },
+              { email: { equals: String(recipientKey).trim().toLowerCase(), mode: 'insensitive' } },
+            ],
+          },
+          include: { user: true },
+        });
+
+        if (emp) {
+          if (emp.user) {
+            targetUser = emp.user;
+          } else if (emp.userId) {
+            targetUser = await prisma.user.findUnique({ where: { id: emp.userId } });
+          }
+
+          // Check if a User exists with this employee's email
+          if (!targetUser && emp.email) {
+            targetUser = await prisma.user.findFirst({
+              where: { email: { equals: emp.email.trim().toLowerCase(), mode: 'insensitive' } },
+            });
+            if (targetUser) {
+              await prisma.employee.update({
+                where: { id: emp.id },
+                data: { userId: targetUser.id },
+              });
+            }
+          }
+
+          // If still no user account exists, auto-provision user login credentials so the notice arrives in their bell!
+          if (!targetUser) {
+            const defaultPasswordHash = await bcrypt.hash('safal@123', 10);
+            targetUser = await prisma.user.create({
+              data: {
+                name: emp.fullName,
+                email: emp.email.trim().toLowerCase(),
+                passwordHash: defaultPasswordHash,
+                role: 'EMPLOYEE',
+                department: emp.department,
+                designation: emp.designation,
+                isActive: true,
+              },
+            });
+            await prisma.employee.update({
+              where: { id: emp.id },
+              data: { userId: targetUser.id },
+            });
+          }
+        }
+      }
+
+      if (!targetUser) {
+        return res.status(404).json({ error: 'Target employee recipient not found' });
       }
 
       const notification = await prisma.notification.create({
         data: {
-          userId: targetUserId,
+          userId: targetUser.id,
           title: formattedTitle,
           message: trimmedMessage,
           type: type || 'INFO',

@@ -74,12 +74,12 @@ export async function getEmployees(req: AuthRequest, res: Response) {
       return emailMatch || idMatch || userMatch;
     };
 
-    // Summary calculations - Active only when attendance submitted today
+    // Summary calculations
     const totalEmployees = allEmployees.length;
-    const activeEmployees = allEmployees.filter(isEmployeeActiveToday).length;
+    const activeEmployees = allEmployees.filter((e) => e.status === 'ACTIVE').length;
     const departments = Array.from(new Set(allEmployees.map((e) => e.department))).length;
     const monthlyCommitment = allEmployees
-      .filter((e) => isEmployeeActiveToday(e) && e.wageType === 'MONTHLY')
+      .filter((e) => e.status === 'ACTIVE' && e.wageType === 'MONTHLY')
       .reduce((sum, e) => sum + Number(e.baseWageRate), 0);
 
     const formatted = employees.map((e) => {
@@ -87,6 +87,7 @@ export async function getEmployees(req: AuthRequest, res: Response) {
       return {
         id: e.id,
         employeeId: e.employeeId,
+        userId: e.userId || e.user?.id || null,
         fullName: e.fullName,
         email: e.email,
         phone: e.phone,
@@ -95,8 +96,9 @@ export async function getEmployees(req: AuthRequest, res: Response) {
         joiningDate: e.joiningDate,
         wageType: e.wageType,
         baseWageRate: Number(e.baseWageRate),
-        status: activeToday ? 'ACTIVE' : 'INACTIVE',
+        status: e.status, // preserve real employment status stored in DB
         hasAttendedToday: activeToday,
+        attendanceToday: activeToday ? 'PRESENT' : 'NOT_MARKED',
         totalClaims: e.expenseClaims.length,
         latestWageRecord: e.wageRecords[0]
           ? {
@@ -264,21 +266,39 @@ export async function updateEmployee(req: AuthRequest, res: Response) {
       password,
     } = req.body;
 
-    const existing = await prisma.employee.findUnique({ where: { id } });
+    const existing = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true },
+    });
     if (!existing) {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
     const cleanEmail = email ? email.toLowerCase().trim() : undefined;
 
+    // Check if new email is already used by another employee
+    if (cleanEmail && cleanEmail !== existing.email.toLowerCase()) {
+      const duplicateEmp = await prisma.employee.findFirst({
+        where: {
+          email: { equals: cleanEmail, mode: 'insensitive' },
+          id: { not: id },
+        },
+      });
+      if (duplicateEmp) {
+        return res.status(400).json({
+          error: `Email ${cleanEmail} is already used by employee ${duplicateEmp.fullName} (${duplicateEmp.employeeId})`,
+        });
+      }
+    }
+
     const updated = await prisma.employee.update({
       where: { id },
       data: {
-        fullName: fullName || undefined,
+        fullName: fullName ? String(fullName).trim() : undefined,
         email: cleanEmail,
-        phone: phone !== undefined ? phone : undefined,
+        phone: phone !== undefined ? (phone ? String(phone).trim() : null) : undefined,
         department: department || undefined,
-        designation: designation || undefined,
+        designation: designation ? String(designation).trim() : undefined,
         wageType: wageType || undefined,
         baseWageRate: baseWageRate !== undefined && baseWageRate !== '' ? Number(baseWageRate) : undefined,
         status: status || undefined,
@@ -293,18 +313,26 @@ export async function updateEmployee(req: AuthRequest, res: Response) {
           orderBy: { createdAt: 'desc' },
           include: { payments: true },
         },
+        user: true,
       },
     });
 
-    // Also sync User if linked
+    // Sync or Provision login User account
+    const targetEmail = cleanEmail || existing.email.toLowerCase().trim();
+    const hasPassword = Boolean(password && String(password).trim().length >= 6);
+
+    // 1. If employee already has a linked user
     if (existing.userId) {
       const userData: any = {};
-      if (fullName) userData.name = fullName;
+      if (fullName) userData.name = String(fullName).trim();
       if (cleanEmail) userData.email = cleanEmail;
       if (department) userData.department = department;
-      if (designation) userData.designation = designation;
-      if (password && String(password).trim().length >= 6) {
+      if (designation) userData.designation = String(designation).trim();
+      if (hasPassword) {
         userData.passwordHash = await bcrypt.hash(String(password).trim(), 10);
+      }
+      if (status) {
+        userData.isActive = status === 'ACTIVE';
       }
       if (Object.keys(userData).length > 0) {
         await prisma.user.update({
@@ -312,22 +340,53 @@ export async function updateEmployee(req: AuthRequest, res: Response) {
           data: userData,
         });
       }
-    } else if (password && String(password).trim().length >= 6 && cleanEmail) {
-      const passwordHash = await bcrypt.hash(String(password).trim(), 10);
-      const newUser = await prisma.user.create({
-        data: {
+    } else {
+      // 2. Employee does not have userId set. Check if a User with targetEmail already exists.
+      const existingUser = await prisma.user.findFirst({
+        where: { email: { equals: targetEmail, mode: 'insensitive' } },
+      });
+
+      if (existingUser) {
+        // Link employee to this existing user!
+        await prisma.employee.update({
+          where: { id },
+          data: { userId: existingUser.id },
+        });
+
+        const userData: any = {
           name: updated.fullName,
-          email: updated.email,
-          passwordHash,
-          role: 'EMPLOYEE',
           department: updated.department,
           designation: updated.designation,
-        },
-      });
-      await prisma.employee.update({
-        where: { id },
-        data: { userId: newUser.id },
-      });
+        };
+        if (hasPassword) {
+          userData.passwordHash = await bcrypt.hash(String(password).trim(), 10);
+        }
+        if (status) {
+          userData.isActive = status === 'ACTIVE';
+        }
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: userData,
+        });
+      } else if (hasPassword) {
+        // Create new user account and link to employee
+        const passwordHash = await bcrypt.hash(String(password).trim(), 10);
+        const newUser = await prisma.user.create({
+          data: {
+            name: updated.fullName,
+            email: targetEmail,
+            passwordHash,
+            role: 'EMPLOYEE',
+            department: updated.department,
+            designation: updated.designation,
+            isActive: status !== 'INACTIVE',
+          },
+        });
+        await prisma.employee.update({
+          where: { id },
+          data: { userId: newUser.id },
+        });
+      }
     }
 
     await createAuditLog({
@@ -342,9 +401,9 @@ export async function updateEmployee(req: AuthRequest, res: Response) {
     });
 
     return res.json(updated);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating employee:', error);
-    return res.status(500).json({ error: 'Failed to update employee' });
+    return res.status(500).json({ error: error.message || 'Failed to update employee' });
   }
 }
 

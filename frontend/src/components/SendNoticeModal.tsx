@@ -19,11 +19,11 @@ export const SendNoticeModal: React.FC<SendNoticeModalProps> = ({ onClose, onSuc
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    // Fetch employees for direct targeting
+    // Fetch all employees for direct targeting
     api.getEmployees()
       .then((data: any) => {
         const list = Array.isArray(data) ? data : data?.employees || [];
-        setEmployees(list.filter((e: any) => e.userId));
+        setEmployees(list);
       })
       .catch(() => {});
   }, []);
@@ -157,13 +157,15 @@ export const SendNoticeModal: React.FC<SendNoticeModalProps> = ({ onClose, onSuc
               <select
                 value={targetUserId}
                 onChange={(e) => setTargetUserId(e.target.value)}
-                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white"
+                className="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-emerald-500 bg-white font-medium text-gray-800"
                 required
               >
-                <option value="">-- Choose Employee --</option>
+                <option value="">
+                  {employees.length === 0 ? '-- Loading Employees... --' : `-- Choose Employee (${employees.length} available) --`}
+                </option>
                 {employees.map((emp) => (
-                  <option key={emp.id} value={emp.userId}>
-                    {emp.fullName} ({emp.employeeId} · {emp.department} - {emp.email})
+                  <option key={emp.id} value={emp.userId || emp.id}>
+                    {emp.fullName} ({emp.employeeId} · {emp.department} · {emp.email})
                   </option>
                 ))}
               </select>
