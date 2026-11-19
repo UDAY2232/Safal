@@ -109,7 +109,7 @@ export async function clockIn(req: AuthRequest, res: Response) {
       });
     }
 
-    // Determine status (Late if after 09:30 AM)
+    // Determine status (Late if after 06:00 AM - Shift starts 05:30 - 06:00 AM)
     const isLate = hour > SHIFT_START_HOUR || (hour === SHIFT_START_HOUR && minute > SHIFT_START_MINUTE);
     const status = isLate ? 'LATE' : 'PRESENT';
 

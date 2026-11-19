@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Bell, ChevronDown, LogOut, ArrowRight, Shield, PanelLeftClose, PanelLeftOpen, Menu } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Bell, ChevronDown, LogOut, ArrowRight, Shield, PanelLeftClose, PanelLeftOpen, Menu, Megaphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Notification } from '../types';
+import { SendNoticeModal } from './SendNoticeModal';
 
 interface HeaderProps {
   onNavigate: (page: string) => void;
@@ -20,21 +21,23 @@ export const Header: React.FC<HeaderProps> = ({
   const { user, logout } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [showNoticeModal, setShowNoticeModal] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  const loadNotifications = useCallback(async () => {
+    try {
+      const res = await api.getNotifications();
+      setNotifications(res.notifications || []);
+      setUnreadCount(res.unreadCount || 0);
+    } catch {}
+  }, []);
+
   useEffect(() => {
-    async function loadNotifications() {
-      try {
-        const res = await api.getNotifications();
-        setNotifications(res.notifications || []);
-        setUnreadCount(res.unreadCount || 0);
-      } catch {}
-    }
     loadNotifications();
     const interval = setInterval(loadNotifications, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadNotifications]);
 
   const markAllRead = async () => {
     try {
@@ -188,8 +191,20 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Notifications Panel */}
       {showNotifications && (
         <div className="notification-panel">
-          <div className="notification-panel-head">
-            <strong>System Notifications</strong>
+          <div className="notification-panel-head flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <strong>System Notifications</strong>
+              {(user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
+                <button
+                  type="button"
+                  onClick={() => setShowNoticeModal(true)}
+                  className="px-2 py-0.5 rounded-md bg-[#087a3e] hover:bg-[#066131] text-white text-[10px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                  title="Send Notice to Staff"
+                >
+                  <Megaphone size={10} /> Send Notice
+                </button>
+              )}
+            </div>
             {unreadCount > 0 && (
               <button onClick={markAllRead} className="text-[11px] text-[#087a3e] font-semibold hover:underline">
                 Mark all read
@@ -230,6 +245,16 @@ export const Header: React.FC<HeaderProps> = ({
             View all audit logs <ArrowRight size={14} />
           </button>
         </div>
+      )}
+
+      {/* Admin / Accountant Send Notice Modal */}
+      {showNoticeModal && (
+        <SendNoticeModal
+          onClose={() => setShowNoticeModal(false)}
+          onSuccess={() => {
+            loadNotifications();
+          }}
+        />
       )}
     </header>
   );

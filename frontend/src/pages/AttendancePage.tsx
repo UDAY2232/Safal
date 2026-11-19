@@ -285,7 +285,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                 {historyData?.stats?.lateDays ?? 0} <span className="text-xs font-normal text-gray-500">Days</span>
               </div>
               <div className="text-[11px] text-amber-700 font-medium mt-1 flex items-center gap-1">
-                <AlertTriangle size={12} /> Shift starts 09:30 AM
+                <AlertTriangle size={12} /> Shift starts 05:30 – 06:00 AM
               </div>
             </div>
 
@@ -297,7 +297,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                 {historyData?.stats?.totalHours ?? '0'} <span className="text-xs font-normal text-gray-500">Hours</span>
               </div>
               <div className="text-[11px] text-blue-700 font-medium mt-1 flex items-center gap-1">
-                <Clock size={12} /> Target: 8h / Day (09:30 – 18:30)
+                <Clock size={12} /> Target: 8h / Day (06:00 – 14:00 + 2h Sales)
               </div>
             </div>
           </div>

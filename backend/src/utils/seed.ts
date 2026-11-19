@@ -23,6 +23,7 @@ async function seed() {
 
   const hashedAdminPassword = await bcrypt.hash('shenkar@palthya', 10);
   const hashedAccountantPassword = await bcrypt.hash('accountant123', 10);
+  const hashedUdayAccountantPassword = await bcrypt.hash('uday@0211', 10);
   const hashedEmployeePassword = await bcrypt.hash('employee123', 10);
 
   // 1. Create Admin User (Shanker)
@@ -82,6 +83,44 @@ async function seed() {
           canReviewExpenses: true,
           canViewWages: false,
           canRecordPayments: false,
+          status: 'ACTIVE',
+        },
+      },
+    },
+  });
+
+  const accountantUday = await prisma.user.create({
+    data: {
+      name: 'Uday Chirra',
+      email: 'chirrauday44@gmail.com',
+      passwordHash: hashedUdayAccountantPassword,
+      role: 'ACCOUNTANT',
+      department: 'Accounts & Finance',
+      designation: 'Senior Accountant',
+      phone: '+91 98765 43210',
+      isActive: true,
+      accountantProfile: {
+        create: {
+          accountantId: 'ACC-044',
+          canCreatePO: true,
+          canSubmitPO: true,
+          canReviewExpenses: true,
+          canViewWages: true,
+          canRecordPayments: true,
+          status: 'ACTIVE',
+        },
+      },
+      employee: {
+        create: {
+          employeeId: 'EMP-044',
+          fullName: 'Uday Chirra',
+          email: 'chirrauday44@gmail.com',
+          phone: '+91 98765 43210',
+          department: 'Accounts & Finance',
+          designation: 'Senior Accountant',
+          wageType: 'MONTHLY',
+          baseWageRate: 65000,
+          joiningDate: new Date('2026-11-19'),
           status: 'ACTIVE',
         },
       },

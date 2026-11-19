@@ -138,6 +138,8 @@ export const api = {
   getNotifications: () => request<any>('/notifications'),
   markNotificationRead: (id: string) => request<any>(`/notifications/${id}/read`, { method: 'PATCH' }),
   markAllNotificationsRead: () => request<any>('/notifications/mark-all-read', { method: 'POST' }),
+  sendNotice: (data: { target: 'ALL' | 'EMPLOYEES' | 'USER'; targetUserId?: string; title: string; message: string; type?: string }) =>
+    request<any>('/notifications/send', { method: 'POST', body: JSON.stringify(data) }),
 
   // Settings & System
   getSettings: () => request<any>('/settings'),

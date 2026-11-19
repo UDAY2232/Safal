@@ -119,7 +119,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     year: 'numeric',
   });
 
-  // Calculate elapsed time and progress towards 8 hours (09:30 AM to 06:30 PM)
+  // Calculate elapsed time and progress towards 8 hours (06:00 AM to 02:00 PM + 2h Sales Growth)
   const TARGET_WORK_MINUTES = 480; // 8 Hours standard working hours
   let elapsedMinutes = 0;
   let elapsedText = '';
@@ -242,7 +242,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
             )}
 
             <div className="text-[11px] text-gray-500 mt-2">
-              Official Shift: <strong>09:30 AM – 06:30 PM</strong> (Total 8 Working Hours). Arrive before <strong>09:30 AM</strong> for on-time verification.
+              Official Shift: <strong>05:30 – 06:00 AM to 02:00 PM (+2h Sales Growth)</strong> (Total 8 Working Hours). Arrive before <strong>06:00 AM</strong> for on-time verification.
             </div>
           </div>
 
