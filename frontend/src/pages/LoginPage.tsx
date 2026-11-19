@@ -40,8 +40,8 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#edf5ef] flex flex-col justify-between">
       {/* Top Brand Bar */}
-      <header className="w-full bg-white border-b border-[#d8e6db] px-6 lg:px-12 py-3.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3.5">
+      <header className="w-full bg-white bg-[url('/safal-header-banner.jpg')] bg-cover bg-center border-b border-[#d8e6db] px-6 lg:px-12 py-3.5 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3.5 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-emerald-100 shadow-2xs">
           <img
             src="/safal-globe-logo.png"
             alt="SAFAL Global Logo"
@@ -62,7 +62,7 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-2 text-xs text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+        <div className="hidden sm:flex items-center gap-2 text-xs text-emerald-800 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-full border border-emerald-200 shadow-2xs">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-bold">Enterprise Internal Operations Portal</span>
         </div>
@@ -84,15 +84,6 @@ export const LoginPage: React.FC = () => {
           <p className="text-sm text-gray-600 leading-relaxed max-w-xl">
             Centralized internal operations platform for <strong>SAFAL EXPORT AND IMPORT PVT LTD</strong>. Seamlessly managing wholesale fruit procurement contracts, temperature-regulated cold storage, real-time GST tax invoicing, and audited workforce financial disbursements.
           </p>
-
-          {/* Official Billboard Banner Preview */}
-          <div className="rounded-2xl overflow-hidden shadow-sm border border-blue-200/90 bg-white p-1.5">
-            <img
-              src="/safal-header-banner.jpg"
-              alt="SAFAL EXPORT AND IMPORT PVT LTD · Freshness Beyond Borders"
-              className="w-full h-auto max-h-40 object-contain rounded-xl mx-auto block"
-            />
-          </div>
 
           {/* 4 Core Pillars Showcase */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-2">

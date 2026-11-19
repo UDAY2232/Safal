@@ -71,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
       {onToggleSidebar && (
         <button
           onClick={onToggleSidebar}
-          className="hidden md:inline-flex items-center justify-center w-9 h-9 mr-3 rounded-xl border border-emerald-200/80 bg-emerald-50 text-[#064D2B] hover:bg-emerald-100 hover:text-[#087A3E] transition shadow-xs flex-shrink-0"
+          className="hidden md:inline-flex items-center justify-center w-9 h-9 mr-3 rounded-xl border border-emerald-200/80 bg-white/90 backdrop-blur-xs text-[#064D2B] hover:bg-emerald-100 hover:text-[#087A3E] transition shadow-xs flex-shrink-0 z-10 cursor-pointer"
           title={isSidebarCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
           aria-label="Toggle navigation sidebar"
         >
@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Left: Official Globe Logo & Company Typography */}
       <div
-        className="brand-lockup flex items-center gap-2 sm:gap-3.5 cursor-pointer flex-shrink-0"
+        className="brand-lockup flex items-center gap-2 sm:gap-3.5 cursor-pointer flex-shrink-0 z-10 bg-white/85 backdrop-blur-xs px-2.5 py-1.5 rounded-xl border border-emerald-100 shadow-2xs"
         onClick={() => onNavigate('Dashboard')}
         title="SAFAL Enterprise Workspace"
       >
@@ -111,17 +111,17 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Center Subtitle */}
-      <div className="header-company-center text-center flex-1 hidden xl:flex flex-col items-center justify-center px-4">
-        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+      <div className="header-company-center text-center flex-1 hidden xl:flex flex-col items-center justify-center px-4 z-10">
+        <span className="text-xs font-bold text-gray-700 uppercase tracking-widest bg-white/80 backdrop-blur-xs px-2.5 py-0.5 rounded-md border border-gray-200/60 shadow-2xs">
           Freshness Beyond Borders
         </span>
-        <span className="text-[11px] font-semibold text-emerald-800 mt-0.5">
+        <span className="text-[11px] font-semibold text-emerald-900 mt-0.5 bg-white/80 backdrop-blur-xs px-2.5 py-0.5 rounded-md border border-gray-200/60 shadow-2xs">
           Consignment Tracking · Workforce · P&amp;L Financial Audit
         </span>
       </div>
 
       {/* Right Controls: Live status, Notifications, User Profile */}
-      <div className="topbar-actions flex items-center gap-2 sm:gap-3 ml-auto z-20">
+      <div className="topbar-actions flex items-center gap-2 sm:gap-3 ml-auto z-10 bg-white/85 backdrop-blur-xs px-2.5 py-1.5 rounded-xl border border-emerald-100 shadow-2xs">
         <div className="hidden lg:flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-xs text-[#064D2B] font-semibold">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>Hub 1 Cold Storage · Live</span>
@@ -129,7 +129,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Notifications */}
         <button
-          className="icon-button notification-button"
+          className="icon-button notification-button bg-white/90 backdrop-blur-xs"
           onClick={() => setShowNotifications(!showNotifications)}
           aria-label="Notifications"
         >

@@ -98,15 +98,6 @@ function MainApp() {
       />
 
       <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
-        {/* Official SAFAL Full Billboard Header Banner Across Entire Application */}
-        <div className="w-full mb-6 rounded-2xl overflow-hidden shadow-sm border border-blue-200/90 bg-white p-1 sm:p-2">
-          <img
-            src="/safal-header-banner.jpg"
-            alt="SAFAL EXPORT AND IMPORT PVT LTD · Freshness Beyond Borders"
-            className="w-full h-auto max-h-52 sm:max-h-64 lg:max-h-72 object-contain bg-white mx-auto block rounded-xl"
-          />
-        </div>
-
         {activePage !== 'Purchase Order (PO)' && activePage !== 'Dashboard' && activePage !== 'Attendance' && (
           <PageHeading
             page={activePage}
