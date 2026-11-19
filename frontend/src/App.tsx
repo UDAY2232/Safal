@@ -25,7 +25,9 @@ function MainApp() {
   const [activePage, setActivePage] = useState('Dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    return localStorage.getItem('safal_sidebar_collapsed') === 'true';
+    const saved = localStorage.getItem('safal_sidebar_collapsed');
+    if (saved !== null) return saved === 'true';
+    return typeof window !== 'undefined' && window.innerWidth < 1100;
   });
   const [showCreatePO, setShowCreatePO] = useState(false);
   const [toast, setToast] = useState('');
