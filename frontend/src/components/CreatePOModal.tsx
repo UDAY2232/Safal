@@ -13,7 +13,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const [supplierName, setSupplierName] = useState('');
   const [poDate, setPoDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('SAFAL Main Cold Storage, Hub 1, Navi Mumbai');
+  const [deliveryAddress, setDeliveryAddress] = useState('3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011');
   const [orderPersonPlace, setOrderPersonPlace] = useState('Hyderabad');
   const [fruitDescription, setFruitDescription] = useState('');
   const [totalAmount, setTotalAmount] = useState<string>('');

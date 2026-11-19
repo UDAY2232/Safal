@@ -160,8 +160,13 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-emerald-100 flex items-center gap-1.5 mt-0.5">
-              <MapPin size={11} className="text-emerald-300" />
-              <span>SAFAL Hub 1 · Navi Mumbai Cold Storage</span>
+              <MapPin size={11} className="text-emerald-300 flex-shrink-0" />
+              <span
+                className="font-semibold text-white/95"
+                title="Complete Office Address: 3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011"
+              >
+                Raipura, Kakatiya colony, Hanamkonda, Telangana
+              </span>
               <span className="opacity-60">|</span>
               <span>Official Shift: <strong>05:30 – 06:00 AM to 02:00 PM (Office) + 2h Sales Growth</strong></span>
             </p>
@@ -433,7 +438,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
         title={lightboxData?.title || 'Verified Office Attendance Photo'}
         time={lightboxData?.time || formatRecordTime(record?.clockInTime)}
         onClose={() => setLightboxData(null)}
-        location={record?.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai'}
+        location={record?.location || '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011'}
         staffName={record?.user?.name}
       />
     </div>

@@ -18,7 +18,7 @@ export const PhotoLightboxModal: React.FC<PhotoLightboxModalProps> = ({
   title = 'Verified Office Attendance Photo',
   subtitle,
   time,
-  location = 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+  location = '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011',
   staffName,
 }) => {
   const [imgError, setImgError] = useState(false);

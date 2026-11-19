@@ -438,7 +438,7 @@ model AttendanceRecord {
   status           AttendanceStatus @default(PRESENT)
   photoUrl         String?
   clockOutPhotoUrl String?
-  location         String?          @default("SAFAL Hub 1 Cold Storage, Navi Mumbai")
+  location         String?          @default("3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011")
   clockInIp        String?
   notes            String?
   createdAt    DateTime         @default(now())

@@ -205,7 +205,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
             Daily Office Attendance System
           </h1>
           <p className="text-xs text-emerald-100 mt-1">
-            Office selfie attendance verification · Official Shift: <strong>05:30 – 06:00 AM Arrival to 02:00 PM Office Departure</strong> + <strong>2 Extra Hours for Company Growth &amp; Sales</strong> at Hub 1 Cold Storage, Navi Mumbai.
+            Office selfie attendance verification · Official Shift: <strong>05:30 – 06:00 AM Arrival to 02:00 PM Office Departure</strong> + <strong>2 Extra Hours for Company Growth &amp; Sales</strong> at SAFAL Office, Raipura, Kakatiya colony, Hanamkonda, Telangana.
           </p>
         </div>
 
@@ -373,7 +373,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                                       photoUrl: rec.photoUrl,
                                       title: 'Office Arrival (In) Photo',
                                       time: formatTime(rec.clockInTime),
-                                      location: rec.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                      location: rec.location || '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011',
                                       staffName: user?.name,
                                     })
                                   }
@@ -399,7 +399,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                                       photoUrl: rec.clockOutPhotoUrl,
                                       title: 'Office Departure (Out) Photo',
                                       time: formatTime(rec.clockOutTime),
-                                      location: rec.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                      location: rec.location || '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011',
                                       staffName: user?.name,
                                     })
                                   }
@@ -615,7 +615,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                                       photoUrl: att.photoUrl,
                                       title: 'Office Arrival (In) Photo',
                                       time: formatTime(att.clockInTime),
-                                      location: att.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                      location: att.location || '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011',
                                       staffName: staff.fullName,
                                     })
                                   }
@@ -641,7 +641,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                                       photoUrl: att.clockOutPhotoUrl,
                                       title: 'Office Departure (Out) Photo',
                                       time: formatTime(att.clockOutTime),
-                                      location: att.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai',
+                                      location: att.location || '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011',
                                       staffName: staff.fullName,
                                     })
                                   }

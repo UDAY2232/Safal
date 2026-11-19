@@ -32,7 +32,7 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
-  const [locationName, setLocationName] = useState('SAFAL Hub 1 Cold Storage, Navi Mumbai');
+  const [locationName, setLocationName] = useState('3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011');
   const [currentTimeStr, setCurrentTimeStr] = useState('');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -150,7 +150,7 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
     ctx.textAlign = 'right';
     ctx.fillStyle = '#A7F3D0';
     ctx.font = 'bold 11px sans-serif';
-    ctx.fillText(`📍 Hub 1 Navi Mumbai`, width - 16, height - 48);
+    ctx.fillText(`📍 Raipura, Hanamkonda (Telangana)`, width - 16, height - 48);
 
     ctx.fillStyle = '#FCD34D';
     ctx.font = 'bold 11px sans-serif';

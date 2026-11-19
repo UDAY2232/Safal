@@ -225,7 +225,7 @@ export const LoginPage: React.FC = () => {
       {/* Footer */}
       <footer className="w-full border-t border-[#d8e6db] bg-white py-4 px-6 text-center text-xs text-gray-500">
         <p>
-          © 2026 <strong>SAFAL EXPORT AND IMPORT PVT LTD</strong> · Registered Fruit Export &amp; Cold-Chain Enterprise · Hub 1 Navi Mumbai.
+          © 2026 <strong>SAFAL EXPORT AND IMPORT PVT LTD</strong> · Registered Office: 3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011.
         </p>
       </footer>
     </div>

@@ -5,7 +5,7 @@ import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
 
-// Standard Office Shift Configuration (SAFAL Navi Mumbai Hub 1)
+// Standard Office Shift Configuration (SAFAL Office - Raipura, Kakatiya colony, Hanamkonda, Telangana)
 // Office timings: 05:30 AM – 06:00 AM Arrival to 02:00 PM in office + 2 extra hours for company growth, sales, and client visits
 const SHIFT_START_HOUR = 6;
 const SHIFT_START_MINUTE = 0; // 06:00 AM (Arrival window: 05:30 AM to 06:00 AM)
@@ -150,7 +150,9 @@ export async function clockIn(req: AuthRequest, res: Response) {
     // Process uploaded photo or base64 selfie
     const uploadedPhoto = processAttendancePhoto(req.body.photo || req.body.image, req.file);
 
-    const location = req.body.location || 'SAFAL Hub 1 Cold Storage, Navi Mumbai';
+    const location =
+      req.body.location ||
+      '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011';
 
     const notes = isLate
       ? `Late arrival at ${timeFormatted} (Shift: 05:30–06:00 AM to 02:00 PM Office + 2h Growth/Sales)`
