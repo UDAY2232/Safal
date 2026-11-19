@@ -55,147 +55,133 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="topbar">
-      {/* Top Utility / Controls Bar */}
-      <div className="w-full h-10 sm:h-11 px-3 sm:px-5 bg-[#064D2B] text-white flex items-center justify-between border-b border-[#086137] shadow-xs select-none relative z-40">
-        {/* Left Side: Mobile Menu / Desktop Sidebar Toggle + Brand / Status */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Mobile Hamburger Menu Toggle (Mobile Only) */}
-          {onOpenMobileMenu && (
-            <button
-              type="button"
-              onClick={onOpenMobileMenu}
-              className="md:hidden inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-800/80 active:bg-emerald-900 text-white flex-shrink-0 cursor-pointer transition hover:bg-emerald-700"
-              aria-label="Open navigation menu"
-            >
-              <Menu size={18} />
-            </button>
-          )}
+      {/* Left Floating Controls: Mobile Hamburger & Desktop Sidebar Toggle */}
+      <div className="flex items-center gap-2 z-20">
+        {/* Mobile Hamburger Menu Toggle */}
+        {onOpenMobileMenu && (
+          <button
+            type="button"
+            onClick={onOpenMobileMenu}
+            className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/90 hover:bg-white text-[#064D2B] border border-white/80 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+            aria-label="Open navigation menu"
+            title="Open navigation menu"
+          >
+            <Menu size={20} />
+          </button>
+        )}
 
-          {/* Desktop Sidebar Toggle */}
-          {onToggleSidebar && (
-            <button
-              type="button"
-              onClick={onToggleSidebar}
-              className="hidden md:inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-800/70 hover:bg-emerald-700 text-white transition flex-shrink-0 cursor-pointer"
-              title={isSidebarCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
-              aria-label="Toggle navigation sidebar"
-            >
-              {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-            </button>
-          )}
-
-          {/* System Title & Live Cold Storage Badge */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-bold tracking-wider text-emerald-100 uppercase hidden sm:inline">
-              SAFAL ENTERPRISE ERP
-            </span>
-            <span className="hidden sm:inline text-emerald-500/70">|</span>
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-900/70 rounded-full border border-emerald-500/30 text-[11px] text-emerald-200 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Hub 1 Cold Storage · Live</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side: Notice Broadcaster + Notifications + Profile */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Admin / Accountant Notice Broadcaster */}
-          {(user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
-            <button
-              type="button"
-              onClick={() => setShowNoticeModal(true)}
-              className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-bold transition cursor-pointer shadow-xs"
-              title="Broadcast notice to employees"
-            >
-              <Megaphone size={12} /> Send Notice
-            </button>
-          )}
-
-          {/* Notifications Bell */}
-          <div className="relative">
-            <button
-              type="button"
-              className="relative w-8 h-8 rounded-lg bg-emerald-800/70 hover:bg-emerald-700 text-white flex items-center justify-center transition cursor-pointer"
-              onClick={() => setShowNotifications(!showNotifications)}
-              aria-label="Notifications"
-            >
-              <Bell size={16} />
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[17px] h-[17px] px-1 bg-red-500 text-white text-[10px] font-extrabold rounded-full border-2 border-[#064D2B]">
-                  {unreadCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* User Profile */}
-          <div className="relative">
-            <div
-              className="flex items-center gap-2 cursor-pointer py-0.5 px-1.5 rounded-lg hover:bg-emerald-800/60 transition"
-              onClick={() => setShowProfileMenu(!showProfileMenu)}
-            >
-              <div className="w-7 h-7 rounded-full bg-emerald-500 text-[#064D2B] font-bold text-xs flex items-center justify-center border border-emerald-300">
-                {getInitials(user?.name)}
-              </div>
-              <div className="hidden sm:flex flex-col text-left leading-tight">
-                <strong className="text-xs text-white font-semibold truncate max-w-[120px]">
-                  {user?.name || 'User'}
-                </strong>
-                <span className="text-[10px] text-emerald-300">
-                  {user?.role === 'ADMIN'
-                    ? 'Admin'
-                    : user?.role === 'ACCOUNTANT'
-                    ? 'Accountant'
-                    : 'Employee'}
-                </span>
-              </div>
-              <ChevronDown size={13} className="text-emerald-300 hidden sm:block" />
-            </div>
-
-            {/* Profile Dropdown Menu */}
-            {showProfileMenu && (
-              <div className="absolute right-0 top-10 w-56 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 text-gray-800">
-                <div className="px-3 py-2 border-b border-gray-100">
-                  <p className="text-[10px] text-gray-400 uppercase font-semibold">Signed in as</p>
-                  <p className="text-xs font-bold text-gray-800 truncate">{user?.email}</p>
-                  <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
-                    {user?.role === 'ADMIN' ? 'Managing Director' : user?.role === 'ACCOUNTANT' ? 'Accountant' : 'Employee'}
-                  </span>
-                </div>
-                {user?.role === 'ADMIN' && (
-                  <button
-                    onClick={() => {
-                      setShowProfileMenu(false);
-                      onNavigate('Settings');
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg text-left cursor-pointer"
-                  >
-                    <Shield size={14} /> Application Settings
-                  </button>
-                )}
-                <button
-                  onClick={logout}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg text-left mt-1 cursor-pointer"
-                >
-                  <LogOut size={14} /> Sign Out
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Sidebar toggle button (desktop) */}
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            className="hidden md:inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/90 hover:bg-white text-[#064D2B] border border-white/80 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+            title={isSidebarCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
+            aria-label="Toggle navigation sidebar"
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        )}
       </div>
 
-      {/* Row 2: Official Complete SAFAL Billboard Banner */}
+      {/* Center Transparent Clickable Area (Navigates to Dashboard) */}
       <div
-        className="w-full bg-white flex items-center justify-center py-1 sm:py-1.5 px-2 sm:px-4 cursor-pointer overflow-hidden border-b-2 border-emerald-100 shadow-2xs hover:bg-emerald-50/20 transition-colors"
+        className="flex-1 h-full cursor-pointer z-10"
         onClick={() => onNavigate('Dashboard')}
         title="SAFAL EXPORT AND IMPORT PVT LTD · Click to return to Dashboard"
-      >
-        <img
-          src="/safal-header-banner.jpg"
-          alt="SAFAL EXPORT AND IMPORT PVT LTD - Freshness Beyond Borders"
-          className="h-14 sm:h-18 md:h-22 lg:h-[94px] xl:h-[100px] w-auto max-w-full object-contain mx-auto block filter drop-shadow-2xs select-none"
-        />
+      />
+
+      {/* Right Floating Controls: Live Badge, Notice Dispatcher, Bell, Profile */}
+      <div className="flex items-center gap-2 sm:gap-2.5 z-20 bg-white/90 hover:bg-white/95 backdrop-blur-md px-2.5 sm:px-3 py-1.5 rounded-2xl border border-white/80 shadow-md transition-all">
+        {/* Hub 1 Live Status */}
+        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 rounded-full border border-emerald-200 text-[11px] text-[#064D2B] font-bold">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span>Hub 1 Live</span>
+        </div>
+
+        {/* Admin / Accountant Send Notice */}
+        {(user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
+          <button
+            type="button"
+            onClick={() => setShowNoticeModal(true)}
+            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#087a3e] hover:bg-[#066131] text-white text-[10px] font-bold transition cursor-pointer shadow-xs"
+            title="Broadcast notice to employees"
+          >
+            <Megaphone size={11} /> Send Notice
+          </button>
+        )}
+
+        {/* Notifications Bell */}
+        <div className="relative">
+          <button
+            type="button"
+            className="relative w-8 h-8 rounded-xl bg-emerald-50/80 hover:bg-emerald-100 text-[#064D2B] flex items-center justify-center transition cursor-pointer"
+            onClick={() => setShowNotifications(!showNotifications)}
+            aria-label="Notifications"
+          >
+            <Bell size={16} />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[17px] h-[17px] px-1 bg-red-500 text-white text-[10px] font-extrabold rounded-full border-2 border-white shadow-xs">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* User Profile */}
+        <div className="relative">
+          <div
+            className="flex items-center gap-2 cursor-pointer py-0.5 px-1 rounded-lg hover:bg-emerald-50/70 transition"
+            onClick={() => setShowProfileMenu(!showProfileMenu)}
+          >
+            <div className="w-7 h-7 rounded-full bg-[#087a3e] text-white font-bold text-xs flex items-center justify-center border-2 border-emerald-200 shadow-xs">
+              {getInitials(user?.name)}
+            </div>
+            <div className="hidden sm:flex flex-col text-left leading-tight">
+              <strong className="text-xs text-[#173126] font-bold truncate max-w-[110px]">
+                {user?.name || 'User'}
+              </strong>
+              <span className="text-[10px] text-gray-500">
+                {user?.role === 'ADMIN'
+                  ? 'Admin'
+                  : user?.role === 'ACCOUNTANT'
+                  ? 'Accountant'
+                  : 'Employee'}
+              </span>
+            </div>
+            <ChevronDown size={13} className="text-gray-500 hidden sm:block" />
+          </div>
+
+          {/* Profile Dropdown Menu */}
+          {showProfileMenu && (
+            <div className="absolute right-0 top-11 w-56 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 text-gray-800">
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-[10px] text-gray-400 uppercase font-semibold">Signed in as</p>
+                <p className="text-xs font-bold text-gray-800 truncate">{user?.email}</p>
+                <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
+                  {user?.role === 'ADMIN' ? 'Managing Director' : user?.role === 'ACCOUNTANT' ? 'Accountant' : 'Employee'}
+                </span>
+              </div>
+              {user?.role === 'ADMIN' && (
+                <button
+                  onClick={() => {
+                    setShowProfileMenu(false);
+                    onNavigate('Settings');
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 rounded-lg text-left cursor-pointer"
+                >
+                  <Shield size={14} /> Application Settings
+                </button>
+              )}
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-600 hover:bg-red-50 rounded-lg text-left mt-1 cursor-pointer"
+              >
+                <LogOut size={14} /> Sign Out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Notifications Panel */}

@@ -39,30 +39,10 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#edf5ef] flex flex-col justify-between">
-      {/* Top Brand Bar */}
-      <header className="w-full bg-white bg-[url('/safal-header-banner.jpg')] bg-cover bg-center border-b border-[#d8e6db] px-6 lg:px-12 py-3.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3.5 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-xl border border-emerald-100 shadow-2xs">
-          <img
-            src="/safal-globe-logo.png"
-            alt="SAFAL Global Logo"
-            className="h-11 w-auto object-contain rounded-xl p-1 bg-emerald-50/50 border border-emerald-100 shadow-xs"
-          />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-black text-[#064D2B] font-['Manrope'] tracking-tight">
-                SAFAL
-              </span>
-              <span className="text-xs font-black tracking-wider text-[#D32F2F] uppercase font-['Manrope']">
-                EXPORT AND IMPORT PVT LTD
-              </span>
-            </div>
-            <p className="text-[11px] font-semibold text-[#185B30] tracking-wide">
-              Fruits Import &amp; Export · Freshness Beyond Borders
-            </p>
-          </div>
-        </div>
-
-        <div className="hidden sm:flex items-center gap-2 text-xs text-emerald-800 bg-white/90 backdrop-blur-xs px-3 py-1.5 rounded-full border border-emerald-200 shadow-2xs">
+      {/* Top Brand Bar with complete banner background */}
+      <header className="w-full h-24 sm:h-28 bg-white bg-[url('/safal-header-banner.jpg')] bg-no-repeat bg-center [background-size:100%_100%] border-b-2 border-[#0d4e90] px-4 sm:px-8 flex items-center justify-between shadow-xs">
+        <div className="flex-1" />
+        <div className="hidden sm:flex items-center gap-2 text-xs text-[#064D2B] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/80 shadow-md">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-bold">Enterprise Internal Operations Portal</span>
         </div>
