@@ -40,26 +40,13 @@ export const LoginPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#edf5ef] flex flex-col justify-between">
       {/* Top Brand Bar */}
-      <header className="w-full bg-white border-b border-[#d8e6db] px-6 lg:px-12 py-3.5 flex items-center justify-between shadow-xs">
+      <header className="w-full bg-white border-b border-[#d8e6db] px-4 sm:px-6 lg:px-12 py-2 sm:py-3 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-3.5">
           <img
-            src="/safal-globe-logo.png"
-            alt="SAFAL Global Logo"
-            className="h-11 w-auto object-contain rounded-xl p-1 bg-emerald-50/50 border border-emerald-100 shadow-xs"
+            src="/safal-header-banner.jpg"
+            alt="SAFAL EXPORT AND IMPORT PVT LTD"
+            className="h-11 sm:h-14 lg:h-16 w-auto max-w-[240px] sm:max-w-[420px] md:max-w-[560px] object-contain rounded-xl shadow-xs border border-blue-200/60"
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-black text-[#064D2B] font-['Manrope'] tracking-tight">
-                SAFAL
-              </span>
-              <span className="text-xs font-black tracking-wider text-[#D32F2F] uppercase font-['Manrope']">
-                EXPORT AND IMPORT PVT LTD
-              </span>
-            </div>
-            <p className="text-[11px] font-semibold text-[#185B30] tracking-wide">
-              Fruits Import &amp; Export · Freshness Beyond Borders
-            </p>
-          </div>
         </div>
 
         <div className="hidden sm:flex items-center gap-2 text-xs text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
