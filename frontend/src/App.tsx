@@ -82,55 +82,57 @@ function MainApp() {
         />
       )}
 
-      <Sidebar
-        activePage={activePage}
-        onNavigate={navigate}
-        isOpen={isSidebarOpen}
-        close={() => setIsSidebarOpen(false)}
-        isCollapsed={isSidebarCollapsed}
-        toggleCollapse={toggleSidebarCollapsed}
-      />
+      <div className="app-body">
+        <Sidebar
+          activePage={activePage}
+          onNavigate={navigate}
+          isOpen={isSidebarOpen}
+          close={() => setIsSidebarOpen(false)}
+          isCollapsed={isSidebarCollapsed}
+          toggleCollapse={toggleSidebarCollapsed}
+        />
+
+        <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
+          {activePage !== 'Purchase Order (PO)' && activePage !== 'Dashboard' && activePage !== 'Attendance' && (
+            <PageHeading
+              page={activePage}
+              onAction={() => {
+                if (activePage === 'Dashboard') {
+                  setShowCreatePO(true);
+                }
+              }}
+            />
+          )}
+
+          {activePage === 'Dashboard' && (
+            <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
+          )}
+          {activePage === 'Attendance' && <AttendancePage user={user} />}
+          {activePage === 'Purchase Order (PO)' && (
+            <PurchaseOrdersPage
+              onNotify={notify}
+              showCreateModal={showCreatePO}
+              setShowCreateModal={setShowCreatePO}
+            />
+          )}
+          {activePage === 'Invoices' && user?.role !== 'EMPLOYEE' && <InvoicesPage onNotify={notify} />}
+          {activePage === 'Employee Expenses' && <ExpensesPage onNotify={notify} />}
+          {activePage === 'Bill Clearance' && user?.role !== 'EMPLOYEE' && <ClearancePage onNotify={notify} />}
+          {activePage === 'Wages & Salary' && user?.role === 'ADMIN' && <WagesPage onNotify={notify} />}
+          {activePage === 'Employees' && user?.role === 'ADMIN' && <EmployeesPage onNotify={notify} />}
+          {activePage === 'Suppliers' && user?.role !== 'EMPLOYEE' && <SuppliersPage onNotify={notify} />}
+          {activePage === 'Reports' && user?.role !== 'EMPLOYEE' && <ReportsPage onNotify={notify} />}
+          {activePage === 'Accountant Performance' && <PerformancePage />}
+          {activePage === 'Activity Logs' && <ActivityLogsPage />}
+          {activePage === 'Settings' && <SettingsPage onNotify={notify} />}
+        </main>
+      </div>
 
       <MobileBottomNav
         activePage={activePage}
         onNavigate={navigate}
         onOpenMenu={() => setIsSidebarOpen(true)}
       />
-
-      <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
-        {activePage !== 'Purchase Order (PO)' && activePage !== 'Dashboard' && activePage !== 'Attendance' && (
-          <PageHeading
-            page={activePage}
-            onAction={() => {
-              if (activePage === 'Dashboard') {
-                setShowCreatePO(true);
-              }
-            }}
-          />
-        )}
-
-        {activePage === 'Dashboard' && (
-          <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
-        )}
-        {activePage === 'Attendance' && <AttendancePage user={user} />}
-        {activePage === 'Purchase Order (PO)' && (
-          <PurchaseOrdersPage
-            onNotify={notify}
-            showCreateModal={showCreatePO}
-            setShowCreateModal={setShowCreatePO}
-          />
-        )}
-        {activePage === 'Invoices' && user?.role !== 'EMPLOYEE' && <InvoicesPage onNotify={notify} />}
-        {activePage === 'Employee Expenses' && <ExpensesPage onNotify={notify} />}
-        {activePage === 'Bill Clearance' && user?.role !== 'EMPLOYEE' && <ClearancePage onNotify={notify} />}
-        {activePage === 'Wages & Salary' && user?.role === 'ADMIN' && <WagesPage onNotify={notify} />}
-        {activePage === 'Employees' && user?.role === 'ADMIN' && <EmployeesPage onNotify={notify} />}
-        {activePage === 'Suppliers' && user?.role !== 'EMPLOYEE' && <SuppliersPage onNotify={notify} />}
-        {activePage === 'Reports' && user?.role !== 'EMPLOYEE' && <ReportsPage onNotify={notify} />}
-        {activePage === 'Accountant Performance' && <PerformancePage />}
-        {activePage === 'Activity Logs' && <ActivityLogsPage />}
-        {activePage === 'Settings' && <SettingsPage onNotify={notify} />}
-      </main>
 
       {/* Global Create PO Modal - opens instantly from any page (Dashboard, PO, etc.) */}
       {showCreatePO && (
