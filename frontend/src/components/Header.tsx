@@ -54,19 +54,19 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="topbar">
-      {/* Left Floating Controls: Mobile Hamburger & Desktop Sidebar Toggle */}
-      <div className="flex items-center gap-2 z-20">
+    <header className="topbar relative">
+      {/* Top-Left Floating Controls: Mobile Hamburger & Desktop Sidebar Toggle */}
+      <div className="absolute top-2.5 left-3 sm:left-4 z-20 flex items-center gap-2">
         {/* Mobile Hamburger Menu Toggle */}
         {onOpenMobileMenu && (
           <button
             type="button"
             onClick={onOpenMobileMenu}
-            className="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/90 hover:bg-white text-[#064D2B] border border-white/80 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+            className="md:hidden inline-flex items-center justify-center w-8 h-8 rounded-xl bg-white/90 hover:bg-white text-[#064D2B] border border-white/80 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer"
             aria-label="Open navigation menu"
             title="Open navigation menu"
           >
-            <Menu size={20} />
+            <Menu size={18} />
           </button>
         )}
 
@@ -75,24 +75,24 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="hidden md:inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/90 hover:bg-white text-[#064D2B] border border-white/80 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+            className="hidden md:inline-flex items-center justify-center w-8 h-8 rounded-xl bg-white/90 hover:bg-white text-[#064D2B] border border-white/80 shadow-md backdrop-blur-md transition-all active:scale-95 cursor-pointer"
             title={isSidebarCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
             aria-label="Toggle navigation sidebar"
           >
-            {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+            {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
           </button>
         )}
       </div>
 
       {/* Center Transparent Clickable Area (Navigates to Dashboard) */}
       <div
-        className="flex-1 h-full cursor-pointer z-10"
+        className="w-full h-full cursor-pointer z-10"
         onClick={() => onNavigate('Dashboard')}
         title="SAFAL EXPORT AND IMPORT PVT LTD · Click to return to Dashboard"
       />
 
-      {/* Right Floating Controls: Live Badge, Notice Dispatcher, Bell, Profile */}
-      <div className="flex items-center gap-2 sm:gap-2.5 z-20 bg-white/90 hover:bg-white/95 backdrop-blur-md px-2.5 sm:px-3 py-1.5 rounded-2xl border border-white/80 shadow-md transition-all">
+      {/* Top-Right Floating Controls: Live Badge, Notice Dispatcher, Bell, Profile */}
+      <div className="absolute top-2.5 right-3 sm:right-4 z-20 flex items-center gap-1.5 sm:gap-2.5 bg-white/92 hover:bg-white backdrop-blur-md px-2.5 sm:px-3 py-1 rounded-2xl border border-white/80 shadow-md transition-all">
         {/* Hub 1 Live Status */}
         <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-0.5 bg-emerald-50 rounded-full border border-emerald-200 text-[11px] text-[#064D2B] font-bold">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -104,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             type="button"
             onClick={() => setShowNoticeModal(true)}
-            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#087a3e] hover:bg-[#066131] text-white text-[10px] font-bold transition cursor-pointer shadow-xs"
+            className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-[#087a3e] hover:bg-[#066131] text-white text-[10px] font-bold transition cursor-pointer shadow-xs"
             title="Broadcast notice to employees"
           >
             <Megaphone size={11} /> Send Notice
@@ -115,13 +115,13 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="relative">
           <button
             type="button"
-            className="relative w-8 h-8 rounded-xl bg-emerald-50/80 hover:bg-emerald-100 text-[#064D2B] flex items-center justify-center transition cursor-pointer"
+            className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-emerald-50/80 hover:bg-emerald-100 text-[#064D2B] flex items-center justify-center transition cursor-pointer"
             onClick={() => setShowNotifications(!showNotifications)}
             aria-label="Notifications"
           >
-            <Bell size={16} />
+            <Bell size={15} />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[17px] h-[17px] px-1 bg-red-500 text-white text-[10px] font-extrabold rounded-full border-2 border-white shadow-xs">
+              <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[16px] h-[16px] px-0.5 bg-red-500 text-white text-[9px] font-extrabold rounded-full border border-white shadow-xs">
                 {unreadCount}
               </span>
             )}
@@ -131,17 +131,17 @@ export const Header: React.FC<HeaderProps> = ({
         {/* User Profile */}
         <div className="relative">
           <div
-            className="flex items-center gap-2 cursor-pointer py-0.5 px-1 rounded-lg hover:bg-emerald-50/70 transition"
+            className="flex items-center gap-1.5 cursor-pointer py-0.5 px-1 rounded-lg hover:bg-emerald-50/70 transition"
             onClick={() => setShowProfileMenu(!showProfileMenu)}
           >
-            <div className="w-7 h-7 rounded-full bg-[#087a3e] text-white font-bold text-xs flex items-center justify-center border-2 border-emerald-200 shadow-xs">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-[#087a3e] text-white font-bold text-[11px] flex items-center justify-center border border-emerald-200 shadow-xs">
               {getInitials(user?.name)}
             </div>
             <div className="hidden sm:flex flex-col text-left leading-tight">
-              <strong className="text-xs text-[#173126] font-bold truncate max-w-[110px]">
+              <strong className="text-xs text-[#173126] font-bold truncate max-w-[100px]">
                 {user?.name || 'User'}
               </strong>
-              <span className="text-[10px] text-gray-500">
+              <span className="text-[9px] text-gray-500">
                 {user?.role === 'ADMIN'
                   ? 'Admin'
                   : user?.role === 'ACCOUNTANT'
@@ -149,12 +149,12 @@ export const Header: React.FC<HeaderProps> = ({
                   : 'Employee'}
               </span>
             </div>
-            <ChevronDown size={13} className="text-gray-500 hidden sm:block" />
+            <ChevronDown size={12} className="text-gray-500 hidden sm:block" />
           </div>
 
           {/* Profile Dropdown Menu */}
           {showProfileMenu && (
-            <div className="absolute right-0 top-11 w-56 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 text-gray-800">
+            <div className="absolute right-0 top-10 w-56 bg-white border border-gray-200 rounded-xl shadow-xl p-2 z-50 text-gray-800">
               <div className="px-3 py-2 border-b border-gray-100">
                 <p className="text-[10px] text-gray-400 uppercase font-semibold">Signed in as</p>
                 <p className="text-xs font-bold text-gray-800 truncate">{user?.email}</p>
