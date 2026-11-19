@@ -11,6 +11,7 @@ import {
   FileText,
   DollarSign,
   CreditCard,
+  Trash2,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { StatusBadge } from './StatusBadge';
@@ -41,6 +42,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN';
+  const canDelete = isAdmin || (Boolean(user?.id) && order.createdById === user?.id);
 
   const handleApprove = async () => {
     try {
@@ -83,6 +85,25 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
       onClose();
     } catch (err: any) {
       onNotify(err.message || 'Failed to close PO');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeletePO = async () => {
+    const confirmed = window.confirm(
+      `Are you sure you want to permanently delete Purchase Order "${order.poNumber}"? This action cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setIsProcessing(true);
+      await api.deletePurchaseOrder(order.id);
+      onNotify(`Purchase Order ${order.poNumber} deleted successfully`);
+      onRefresh();
+      onClose();
+    } catch (err: any) {
+      onNotify(err.message || 'Failed to delete Purchase Order');
     } finally {
       setIsProcessing(false);
     }
@@ -359,6 +380,18 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 className="primary-button inline-flex items-center gap-1.5 !bg-gray-800"
               >
                 <CheckCircle size={14} /> Mark as Closed
+              </button>
+            )}
+
+            {canDelete && (
+              <button
+                type="button"
+                onClick={handleDeletePO}
+                disabled={isProcessing}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-xs transition disabled:opacity-50 cursor-pointer"
+                title="Permanently delete this Purchase Order"
+              >
+                <Trash2 size={14} /> Delete PO
               </button>
             )}
 

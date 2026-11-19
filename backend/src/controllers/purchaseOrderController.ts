@@ -1067,5 +1067,42 @@ export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
   }
 }
 
+export async function deletePurchaseOrder(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: { supplier: true, createdBy: true },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    // Role check: Only ADMIN, or the creator can delete it
+    if (req.user?.role !== 'ADMIN' && po.createdById !== req.user?.id) {
+      return res.status(403).json({ error: 'Access denied: You can only delete your own purchase orders' });
+    }
+
+    await prisma.purchaseOrder.delete({ where: { id } });
+
+    await createAuditLog({
+      userId: req.user?.id,
+      userName: req.user?.name || 'User',
+      userRole: req.user?.role || 'UNKNOWN',
+      action: 'PO_DELETED',
+      entityType: 'PURCHASE_ORDER',
+      entityId: id,
+      details: `Purchase Order ${po.poNumber} (Supplier: ${po.supplier.name}) was deleted by ${req.user?.name || 'User'}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ message: `Purchase Order ${po.poNumber} deleted successfully` });
+  } catch (error: any) {
+    console.error('Error deleting purchase order:', error);
+    return res.status(500).json({ error: error.message || 'Failed to delete purchase order' });
+  }
+}
+
 
 

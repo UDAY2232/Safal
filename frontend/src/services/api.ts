@@ -82,6 +82,7 @@ export const api = {
   rejectPurchaseOrder: (id: string, reason: string) =>
     request<any>(`/purchase-orders/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
   closePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${id}/close`, { method: 'POST' }),
+  deletePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${id}`, { method: 'DELETE' }),
   createDuePurchaseOrder: (data: any) =>
     request<any>('/purchase-orders/due-orders', { method: 'POST', body: JSON.stringify(data) }),
   updatePOFinancials: (id: string, data: any) =>

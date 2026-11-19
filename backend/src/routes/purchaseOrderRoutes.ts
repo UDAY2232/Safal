@@ -11,6 +11,7 @@ import {
   downloadPurchaseOrderPDF,
   recordDuePayment,
   createDuePurchaseOrder,
+  deletePurchaseOrder,
 } from '../controllers/purchaseOrderController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
@@ -22,6 +23,7 @@ router.use(authenticateToken);
 router.get('/', getPurchaseOrders);
 router.get('/:id', getPurchaseOrderById);
 router.get('/:id/pdf', downloadPurchaseOrderPDF);
+router.delete('/:id', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), deletePurchaseOrder);
 
 // Creating & submitting POs
 router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createPurchaseOrder);
