@@ -68,9 +68,11 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       if (search) query += `search=${encodeURIComponent(search)}&`;
       if (fromDate) query += `fromDate=${encodeURIComponent(fromDate)}&`;
       if (toDate) query += `toDate=${encodeURIComponent(toDate)}&`;
+      if (isEmployee) query += `myOrders=true&`;
 
       const list = await api.getPurchaseOrders(query);
-      setOrders(list);
+      const scopedList = isEmployee ? list.filter((o: any) => o.createdById === user?.id) : list;
+      setOrders(scopedList);
     } catch (err: any) {
       onNotify(err.message || 'Failed to fetch purchase orders');
     } finally {
@@ -143,9 +145,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               setShowAddDueModal(true);
             }}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-700 hover:bg-rose-800 text-white text-sm font-bold rounded-xl shadow-md transition"
-            title="Enter an existing / pre-software PO with pending dues"
+            title="Record an existing / pre-software PO with pending dues"
           >
-            <Plus size={18} /> Enter Due PO (పాత బాకీ)
+            <Plus size={18} /> Record Due PO
           </button>
 
           {/* Direct Settle Due POs Button */}
@@ -205,7 +207,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
             }`}
           >
-            <CreditCard size={15} /> Due POs Section (బాకీ ఉన్న POలు)
+            <CreditCard size={15} /> Due POs Section
             {dueOrders.length > 0 && (
               <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-rose-500 text-white">
                 {dueOrders.length}
@@ -299,13 +301,13 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
           </div>
 
-          {/* Card 2: Antha Pending Undhi (Total Due Balance) */}
+          {/* Card 2: Total Due Balance */}
           <div className="stat-card rose flex items-center gap-3.5 p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5]">
             <div className="w-12 h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
               <AlertCircle size={24} strokeWidth={2.2} />
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-bold text-red-900 block">Due Antha Undhi (Pending)</span>
+              <span className="text-xs font-bold text-red-900 block">Pending Due Balance</span>
               <strong className="text-xl lg:text-2xl font-black text-red-700 font-['Manrope'] block mt-0.5 truncate">
                 ₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </strong>
@@ -313,13 +315,13 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
           </div>
 
-          {/* Card 3: Antha Complete Chesaru (Advance Paid) */}
+          {/* Card 3: Advance Paid */}
           <div className="stat-card green flex items-center gap-3.5 p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
             <div className="w-12 h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
               <CheckCircle2 size={24} strokeWidth={2.2} />
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-bold text-emerald-900 block">Antha Complete Chesaru</span>
+              <span className="text-xs font-bold text-emerald-900 block">Advance Paid / Cleared</span>
               <strong className="text-xl lg:text-2xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5 truncate">
                 ₹{totalCompletedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </strong>
@@ -447,21 +449,21 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
       {/* 4. Main Tables: Either Due POs Section OR All POs Table */}
       {activeSection === 'due' ? (
-        /* DEDICATED DUE POs SECTION (Avaru thiskunaru, Due antha undhi, Antha complete chesaru, Submit Due Payment) */
+        /* DEDICATED DUE POs SECTION (Supplier, Due Balance, Advance Paid, Submit Due Payment) */
         <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
           <div className="p-4 bg-gradient-to-r from-rose-50/80 via-amber-50/50 to-emerald-50/40 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
                 <CreditCard className="text-rose-700" size={20} />
                 <h2 className="text-base font-black text-gray-900">
-                  Due POs Settlement Tracker (బాకీ ఉన్న POల నిర్వహణ)
+                  Due POs Settlement Tracker
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
                   {dueOrders.length} Dues
                 </span>
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                Avaru thiskunaru (Supplier &amp; Order Person), antha complete chesaru (Advance paid), due antha undhi (Pending balance), and click <strong>Submit Due Payment</strong> to record settlements.
+                Supplier &amp; staff details, advance paid, and pending balance. Click <strong>Submit Due Payment</strong> to record settlements.
               </p>
             </div>
 
@@ -474,7 +476,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 onClick={() => setShowAddDueModal(true)}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-bold shadow-xs transition"
               >
-                <Plus size={14} /> + Add / Enter Due PO (పాత బాకీ)
+                <Plus size={14} /> + Record Due PO
               </button>
             </div>
           </div>
@@ -485,11 +487,11 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 <tr className="bg-[#064D2B] text-white">
                   <th className="py-3 px-3 text-center text-xs font-bold w-12 border-r border-[#085A33]">S.No.</th>
                   <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">PO Number</th>
-                  <th className="py-3 px-5 text-left text-xs font-bold border-r border-[#085A33]">Avaru Thiskunaru (Supplier &amp; Staff)</th>
+                  <th className="py-3 px-5 text-left text-xs font-bold border-r border-[#085A33]">Supplier &amp; Staff</th>
                   <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">Order Date</th>
                   <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">Total PO Value</th>
-                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">Antha Complete Chesaru (Paid)</th>
-                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">Due Antha Undhi (Pending)</th>
+                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">Advance Paid</th>
+                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">Pending Due Balance</th>
                   <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">Status</th>
                   <th className="py-3 px-4 text-center text-xs font-bold">Action</th>
                 </tr>
@@ -501,14 +503,14 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       <CreditCard size={38} className="mx-auto text-rose-500 mb-2" />
                       <p className="font-bold text-gray-800 text-sm">No Pending Dues Recorded Yet</p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Already unna pre-existing due POs ni ikkada enter cheyandi (Enter offline / past due POs).
+                        Record pre-existing or offline due purchase orders into the tracker.
                       </p>
                       <button
                         type="button"
                         onClick={() => setShowAddDueModal(true)}
                         className="mt-3.5 inline-flex items-center gap-2 px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md transition"
                       >
-                        <Plus size={15} /> + Add / Enter Due PO (పాత బాకీ PO నమోదు)
+                        <Plus size={15} /> + Record Due PO
                       </button>
                     </td>
                   </tr>

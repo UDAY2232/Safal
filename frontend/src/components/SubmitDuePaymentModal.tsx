@@ -135,7 +135,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
             </div>
           )}
 
-          {/* PO Context Card: Avaru Thiskunaru, Antha Complete Chesaru, Due Antha Undhi */}
+          {/* PO Context Card: Supplier & Staff, Advance Paid, Pending Due */}
           <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/40 border border-emerald-200/80 rounded-2xl p-4 space-y-3.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-bold text-[#064D2B] flex items-center gap-1.5 uppercase tracking-wide">
@@ -146,14 +146,14 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </span>
             </div>
 
-            {/* Avaru Thiskunaru Section */}
+            {/* Supplier & Staff Details */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-white p-3 rounded-xl border border-emerald-100 shadow-xs">
               <div className="flex items-start gap-2">
                 <div className="p-1.5 bg-emerald-50 text-emerald-800 rounded-lg mt-0.5">
                   <User size={14} />
                 </div>
                 <div>
-                  <span className="text-[11px] text-gray-400 font-semibold block">Avaru Thiskunaru (Supplier)</span>
+                  <span className="text-[11px] text-gray-400 font-semibold block">Supplier Name</span>
                   <strong className="text-gray-900 font-bold text-xs">{order.supplierName}</strong>
                 </div>
               </div>
@@ -172,7 +172,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </div>
             </div>
 
-            {/* 3 Metrics: Grand Total | Antha Complete Chesaru | Due Antha Undhi */}
+            {/* 3 Metrics: Grand Total | Advance Paid | Pending Due */}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-white p-2.5 rounded-xl border border-gray-100 shadow-xs">
                 <span className="text-[10px] font-bold text-gray-500 uppercase block">Total PO Value</span>
@@ -182,7 +182,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </div>
 
               <div className="bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200 shadow-xs">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase block">Complete Chesaru</span>
+                <span className="text-[10px] font-bold text-emerald-800 uppercase block">Advance Paid</span>
                 <strong className="text-[#087A3E] font-black text-sm block mt-0.5">
                   ₹{currentAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </strong>
@@ -192,7 +192,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </div>
 
               <div className="bg-rose-50/90 p-2.5 rounded-xl border border-rose-200 shadow-xs">
-                <span className="text-[10px] font-bold text-rose-800 uppercase block">Due Antha Undhi</span>
+                <span className="text-[10px] font-bold text-rose-800 uppercase block">Pending Due</span>
                 <strong className="text-rose-700 font-black text-sm block mt-0.5">
                   ₹{currentPending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </strong>

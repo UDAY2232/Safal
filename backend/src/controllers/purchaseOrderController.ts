@@ -57,10 +57,12 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
 
     const where: any = {};
 
-    // Role-based visibility:
-    // If explicitly requested with myOrders=true, filter by creator.
-    // Otherwise, all authorized operations staff, accountants, and administrators can view company purchase orders and due tracking.
-    if (req.query.myOrders === 'true' && req.user?.id) {
+    // Strict Role-based visibility:
+    // Whichever PO an employee created, ONLY that PO must be visible to that employee.
+    // ALL POs are visible ONLY to ADMIN and ACCOUNTANT.
+    if (req.user?.role === 'EMPLOYEE') {
+      where.createdById = req.user.id;
+    } else if (req.query.myOrders === 'true' && req.user?.id) {
       where.createdById = req.user.id;
     }
 
@@ -189,6 +191,10 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
 
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
     return res.json(po);
@@ -441,6 +447,10 @@ export async function submitPurchaseOrder(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
 
+    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
+    }
+
     if (po.status !== 'DRAFT' && po.status !== 'REJECTED') {
       return res.status(400).json({ error: `Cannot submit PO in '${po.status}' status` });
     }
@@ -493,6 +503,10 @@ export async function approvePurchaseOrder(req: AuthRequest, res: Response) {
 
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
     if (po.status !== 'PENDING_APPROVAL') {
@@ -556,6 +570,10 @@ export async function rejectPurchaseOrder(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
 
+    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
+    }
+
     const updated = await prisma.purchaseOrder.update({
       where: { id },
       data: {
@@ -605,6 +623,10 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
 
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
     const updated = await prisma.purchaseOrder.update({
@@ -657,6 +679,10 @@ export async function updateFinancialRecords(req: AuthRequest, res: Response) {
 
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
     const cost = verifiedCost !== undefined && verifiedCost !== null ? Number(verifiedCost) : null;
@@ -747,6 +773,10 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
 
+    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
+    }
+
     generatePurchaseOrderPDF(
       {
         poNumber: po.poNumber,
@@ -808,6 +838,10 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
 
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
     const grandTotal = Number(po.grandTotal);

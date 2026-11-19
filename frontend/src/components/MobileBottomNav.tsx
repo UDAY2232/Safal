@@ -24,9 +24,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
   const items = [
     { label: 'Dashboard', icon: Home, page: 'Dashboard' },
-    { label: 'Attendance', icon: Clock, page: 'Attendance' },
     { label: 'PO', icon: ShoppingCart, page: 'Purchase Order (PO)' },
-    { label: 'Expenses', icon: ReceiptIndianRupee, page: 'Employee Expenses' },
+    { label: 'Attendance', icon: Clock, page: 'Attendance' },
   ];
 
   return (

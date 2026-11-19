@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   X,
   PlusCircle,
@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Supplier } from '../types';
 
 interface AddDuePOModalProps {
   onClose: () => void;
@@ -26,8 +25,6 @@ interface AddDuePOModalProps {
 export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess }) => {
   const { user } = useAuth();
 
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string>('custom');
   const [supplierName, setSupplierName] = useState('');
   const [supplierContact, setSupplierContact] = useState('');
   const [customPONumber, setCustomPONumber] = useState('');
@@ -50,35 +47,6 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-
-  // Fetch existing suppliers for easy selection
-  useEffect(() => {
-    api
-      .getSuppliers()
-      .then((data) => {
-        setSuppliers(data || []);
-        if (data && data.length > 0) {
-          setSelectedSupplierId(data[0].id);
-          setSupplierName(data[0].name);
-          setSupplierContact(data[0].phone || '');
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  const handleSupplierChange = (val: string) => {
-    setSelectedSupplierId(val);
-    if (val === 'custom') {
-      setSupplierName('');
-      setSupplierContact('');
-    } else {
-      const found = suppliers.find((s) => s.id === val);
-      if (found) {
-        setSupplierName(found.name);
-        setSupplierContact(found.phone || found.email || '');
-      }
-    }
-  };
 
   // Live calculation of due balance
   const numTotal = Number(grandTotal) || 0;
@@ -110,7 +78,6 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
         poNumber: customPONumber.trim() || undefined,
         poDate: orderDate ? new Date(orderDate).toISOString() : new Date().toISOString(),
         supplierName: supplierName.trim(),
-        supplierId: selectedSupplierId !== 'custom' ? selectedSupplierId : undefined,
         supplierContact: supplierContact.trim() || undefined,
         orderPersonName: orderPersonName.trim() || user?.name || 'Staff',
         orderPersonPlace: orderPersonPlace.trim() || 'Hyderabad',
@@ -152,7 +119,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
                 <Sparkles size={13} /> PRE-EXISTING DUE PO ONBOARDING
               </span>
               <h2 className="text-xl font-black text-gray-900 mt-0.5">
-                Enter Existing / Legacy Due PO (పాత బాకీ PO నమోదు)
+                Record Pre-Existing / Due Purchase Order
               </h2>
             </div>
           </div>
@@ -175,32 +142,14 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
         {/* Scrollable Form Body */}
         <div className="overflow-y-auto flex-1 py-3 space-y-4 text-xs pr-1">
-          {/* Section 1: Avaru Thiskunaru (Supplier & Order Person) */}
+          {/* Section 1: Supplier & Procurement Details */}
           <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-3">
             <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5 uppercase tracking-wide">
-              <User size={14} className="text-[#087A3E]" /> Avaru Thiskunaru (Supplier &amp; Staff Details)
+              <User size={14} className="text-[#087A3E]" /> Supplier &amp; Procurement Details
             </h3>
 
-            {/* Supplier Selection / Typing */}
+            {/* Manual Supplier Entry */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-gray-700 font-bold mb-1">
-                  Choose Supplier <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={selectedSupplierId}
-                  onChange={(e) => handleSupplierChange(e.target.value)}
-                  className="w-full h-9 px-2.5 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 bg-white focus:outline-none focus:border-[#087A3E]"
-                >
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.supplierCode})
-                    </option>
-                  ))}
-                  <option value="custom">➕ Enter New / Other Supplier</option>
-                </select>
-              </div>
-
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
                   Supplier Name <span className="text-red-500">*</span>
@@ -208,22 +157,16 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
                 <input
                   type="text"
                   value={supplierName}
-                  onChange={(e) => {
-                    setSupplierName(e.target.value);
-                    if (selectedSupplierId !== 'custom') setSelectedSupplierId('custom');
-                  }}
+                  onChange={(e) => setSupplierName(e.target.value)}
                   placeholder="e.g. Kashmir Apple Farms, Safal"
                   className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#087A3E]"
                   required
                 />
               </div>
-            </div>
 
-            {/* Supplier Contact, Order Person & Area */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
-                  <Phone size={11} className="text-gray-400" /> Supplier Phone
+                  <Phone size={11} className="text-gray-400" /> Supplier Phone / Contact
                 </label>
                 <input
                   type="text"
@@ -233,7 +176,10 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
                   className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs text-gray-800 focus:outline-none focus:border-[#087A3E]"
                 />
               </div>
+            </div>
 
+            {/* Order Person & Area */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
                   Order Person (Staff) <span className="text-red-500">*</span>
@@ -293,7 +239,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
             </div>
           </div>
 
-          {/* Section 3: Financials (Total, Antha Complete Chesaru, Due Antha Undhi) */}
+          {/* Section 3: Financials (Total, Advance Paid, Pending Due) */}
           <div className="p-4 bg-gradient-to-br from-rose-50/60 to-amber-50/40 border border-rose-200 rounded-2xl space-y-3">
             <h3 className="font-bold text-rose-950 text-xs flex items-center gap-1.5 uppercase tracking-wide">
               <IndianRupee size={14} className="text-rose-700" /> Financial Settlement Breakdown
@@ -321,7 +267,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
               <div>
                 <label className="block text-gray-800 font-bold mb-1 flex items-center justify-between">
-                  <span>Antha Complete Chesaru (Advance Paid ₹)</span>
+                  <span>Advance Paid / Cleared Amount (₹)</span>
                   <span className="text-[10px] text-emerald-700 font-bold">Paid upfront</span>
                 </label>
                 <div className="relative">
@@ -350,7 +296,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
               <ArrowRight size={16} className="text-gray-400" />
               <div className="text-right">
                 <span className="text-[10px] font-bold text-rose-800 uppercase block">
-                  Due Antha Undhi (Pending Balance)
+                  Pending Due Balance
                 </span>
                 <strong className="text-sm font-black text-rose-700 block">
                   ₹{currentPending.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
