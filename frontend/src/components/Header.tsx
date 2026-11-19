@@ -84,11 +84,10 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
 
-      {/* Center Transparent Clickable Area (Navigates to Dashboard) */}
+      {/* Center Transparent Clickable Area (Navigates to Dashboard without popup tooltip) */}
       <div
         className="w-full h-full cursor-pointer z-10"
         onClick={() => onNavigate('Dashboard')}
-        title="SAFAL EXPORT AND IMPORT PVT LTD · Click to return to Dashboard"
       />
 
       {/* Top-Right Floating Controls: Live Badge, Notice Dispatcher, Bell, Profile */}
