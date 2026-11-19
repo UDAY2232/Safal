@@ -296,20 +296,15 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. Designer Brand Billboard Banner (Unobstructed, True-Aspect Ratio, Zero Distortion) */}
+      {/* 2. Full-Bleed Edge-to-Edge SAFAL Brand Banner (Background Cover across entire width) */}
       <div
         className="safal-brand-banner-wrap group"
         onClick={() => onNavigate('Dashboard')}
         title="SAFAL EXPORT AND IMPORT PVT LTD - Click to return to Dashboard"
-      >
-        <div className="w-full max-w-[1800px] mx-auto flex items-center justify-center relative">
-          <img
-            src="/safal-header-banner.png"
-            alt="SAFAL EXPORT AND IMPORT PVT LTD - Freshness Beyond Borders"
-            className="safal-brand-banner-img"
-          />
-        </div>
-      </div>
+        role="button"
+        tabIndex={0}
+        aria-label="SAFAL EXPORT AND IMPORT PVT LTD - Go to Dashboard"
+      />
 
       {/* Admin / Accountant Send Notice Modal */}
       {showNoticeModal && (
