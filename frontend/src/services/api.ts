@@ -84,7 +84,40 @@ export const api = {
   closePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${id}/close`, { method: 'POST' }),
   updatePOFinancials: (id: string, data: any) =>
     request<any>(`/purchase-orders/${id}/financials`, { method: 'POST', body: JSON.stringify(data) }),
-  downloadPOPDFUrl: (id: string) => `/api/purchase-orders/${id}/pdf`,
+  downloadPOPDFUrl: (id: string) => {
+    const token = localStorage.getItem('safal_token') || '';
+    return `${API_BASE}/purchase-orders/${id}/pdf?token=${encodeURIComponent(token)}`;
+  },
+  downloadPurchaseOrderPDF: async (id: string, poNumber?: string): Promise<void> => {
+    const token = localStorage.getItem('safal_token');
+    const res = await fetch(`${API_BASE}/purchase-orders/${id}/pdf`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
+
+    if (!res.ok) {
+      let errorMsg = 'Failed to download Purchase Order PDF';
+      try {
+        const data = await res.json();
+        errorMsg = data.error || data.message || errorMsg;
+      } catch {
+        errorMsg = `${res.status} ${res.statusText}`;
+      }
+      throw new Error(errorMsg);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const cleanNumber = (poNumber || id).replace(/[\/\\]/g, '_');
+    a.download = `PurchaseOrder-${cleanNumber}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+  },
 
   // Employees
   getEmployees: (params: string = '') => request<any>(`/employees${params}`),

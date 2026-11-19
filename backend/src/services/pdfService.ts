@@ -68,8 +68,8 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
   doc.font('Helvetica-Bold').fontSize(10).text('Financial & Payment Details:', 300, topY);
   doc.font('Helvetica').fontSize(9);
   doc.text(`Supplier: ${data.supplierName}`, 300, topY + 16);
-  doc.text(`Advance Paid: ₹${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 30);
-  doc.text(`Pending Due: ₹${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 44);
+  doc.text(`Advance Paid: Rs. ${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 30);
+  doc.text(`Pending Due: Rs. ${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 44);
   if (data.supplierContact) doc.text(`Contact: ${data.supplierContact}`, 300, topY + 58);
 
   // Table header
@@ -79,9 +79,9 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
   doc.text('Item / Fruit', 45, tableY + 6);
   doc.text('Variety / Grade', 145, tableY + 6);
   doc.text('Qty & Unit', 255, tableY + 6);
-  doc.text('Rate (₹)', 330, tableY + 6);
+  doc.text('Rate (Rs.)', 330, tableY + 6);
   doc.text('Disc/Tax', 400, tableY + 6);
-  doc.text('Line Total (₹)', 480, tableY + 6, { align: 'right' });
+  doc.text('Line Total (Rs.)', 480, tableY + 6, { align: 'right' });
 
   // Items
   let currentY = tableY + 24;
@@ -97,9 +97,9 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
     doc.text(item.fruitName, 45, currentY + 3);
     doc.text(`${item.varietyGrade} (${item.category})`, 145, currentY + 3);
     doc.text(`${item.quantity} ${item.unit}`, 255, currentY + 3);
-    doc.text(`₹${Number(item.ratePerUnit).toLocaleString('en-IN')}`, 330, currentY + 3);
+    doc.text(`Rs. ${Number(item.ratePerUnit).toLocaleString('en-IN')}`, 330, currentY + 3);
     doc.text(`-${item.discountPercent}% / +${item.taxPercent}%`, 400, currentY + 3);
-    doc.text(`₹${Number(item.lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 480, currentY + 3, { align: 'right' });
+    doc.text(`Rs. ${Number(item.lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 480, currentY + 3, { align: 'right' });
 
     currentY += 20;
   });
@@ -109,25 +109,25 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
   doc.rect(340, currentY, 215, 110).stroke('#CBD9CE');
   doc.font('Helvetica').fontSize(9);
   doc.text('Subtotal:', 350, currentY + 8);
-  doc.text(`₹${Number(data.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 8, { align: 'right' });
+  doc.text(`Rs. ${Number(data.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 8, { align: 'right' });
 
   doc.text('Discount Total:', 350, currentY + 24);
-  doc.text(`- ₹${Number(data.discountTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 24, { align: 'right' });
+  doc.text(`- Rs. ${Number(data.discountTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 24, { align: 'right' });
 
   doc.text('Tax Total:', 350, currentY + 40);
-  doc.text(`+ ₹${Number(data.taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 40, { align: 'right' });
+  doc.text(`+ Rs. ${Number(data.taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 40, { align: 'right' });
 
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#064D2B');
   doc.text('Grand Total:', 350, currentY + 56);
-  doc.text(`₹${Number(data.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 56, { align: 'right' });
+  doc.text(`Rs. ${Number(data.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 56, { align: 'right' });
 
   doc.font('Helvetica').fontSize(9).fillColor('#0369A1');
   doc.text('Advance Paid:', 350, currentY + 74);
-  doc.text(`₹${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 74, { align: 'right' });
+  doc.text(`Rs. ${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 74, { align: 'right' });
 
   doc.font('Helvetica-Bold').fontSize(9).fillColor('#B91C1C');
   doc.text('Pending Balance:', 350, currentY + 90);
-  doc.text(`₹${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 90, { align: 'right' });
+  doc.text(`Rs. ${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 90, { align: 'right' });
 
   // Notes & Signatures
   doc.fillColor('#1B2B21').font('Helvetica').fontSize(9);

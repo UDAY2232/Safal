@@ -754,10 +754,10 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
         expectedDeliveryDate: po.expectedDeliveryDate
           ? new Date(po.expectedDeliveryDate).toLocaleDateString('en-GB')
           : null,
-        supplierName: po.supplier.name,
-        supplierAddress: po.supplier.address,
-        supplierContact: po.supplier.phone || po.supplier.email,
-        createdByName: po.createdBy.name,
+        supplierName: po.supplier?.name || 'Supplier Record',
+        supplierAddress: po.supplier?.address || null,
+        supplierContact: po.supplier?.phone || po.supplier?.email || null,
+        createdByName: po.createdBy?.name || 'Authorized Staff',
         deliveryAddress: po.deliveryAddress,
         paymentTerms: po.paymentTerms,
         advanceAmount: Number(po.advanceAmount || 0),

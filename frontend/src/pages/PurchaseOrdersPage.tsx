@@ -468,15 +468,28 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           >
                             <TrendingUp size={15} />
                           </button>
-                          <a
-                            href={api.downloadPOPDFUrl(order.id)}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="p-1 text-gray-500 hover:text-gray-800"
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                onNotify(`Downloading PDF for ${order.poNumber}...`);
+                                await api.downloadPurchaseOrderPDF(order.id, order.poNumber);
+                                onNotify(`Purchase Order ${order.poNumber} PDF downloaded successfully!`);
+                              } catch (err: any) {
+                                console.error('Download error:', err);
+                                try {
+                                  window.open(api.downloadPOPDFUrl(order.id), '_blank');
+                                } catch {
+                                  onNotify(err.message || 'Failed to download PDF');
+                                }
+                              }
+                            }}
+                            className="p-1 text-gray-500 hover:text-emerald-700 transition"
                             title="Download PDF"
                           >
                             <Download size={15} />
-                          </a>
+                          </button>
                         </div>
                       </td>
                     </tr>
