@@ -58,9 +58,9 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
     const where: any = {};
 
     // Role-based visibility:
-    // Field Employees only see their own created purchase orders.
-    // Accountants and Administrators see all company purchase orders.
-    if (req.user?.role === 'EMPLOYEE') {
+    // If explicitly requested with myOrders=true, filter by creator.
+    // Otherwise, all authorized operations staff, accountants, and administrators can view company purchase orders and due tracking.
+    if (req.query.myOrders === 'true' && req.user?.id) {
       where.createdById = req.user.id;
     }
 
@@ -881,5 +881,157 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
     return res.status(500).json({ error: 'Failed to record due payment' });
   }
 }
+
+export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
+  try {
+    const {
+      poNumber: customPONumber,
+      poDate,
+      supplierName,
+      supplierId,
+      supplierContact,
+      orderPersonName,
+      orderPersonPlace = 'Hyderabad',
+      grandTotal,
+      advanceAmount = 0,
+      pendingAmount,
+      fruitName = 'Assorted Fruits Consignment',
+      varietyGrade = 'Grade A',
+      quantity = 1,
+      unit = 'LOT',
+      notes = '',
+    } = req.body;
+
+    if (!supplierName?.trim() && !supplierId) {
+      return res.status(400).json({ error: 'Supplier name or ID is required' });
+    }
+
+    const total = Number(grandTotal);
+    if (isNaN(total) || total <= 0) {
+      return res.status(400).json({ error: 'Valid total PO amount greater than zero is required' });
+    }
+
+    const advance = Number(advanceAmount) || 0;
+    const pending =
+      pendingAmount !== undefined && pendingAmount !== null && pendingAmount !== ''
+        ? Number(pendingAmount)
+        : Math.max(0, total - advance);
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Resolve Supplier
+      let resolvedSupplier = null;
+      if (supplierId) {
+        resolvedSupplier = await tx.supplier.findUnique({ where: { id: supplierId } });
+      }
+      if (!resolvedSupplier && supplierName?.trim()) {
+        resolvedSupplier = await tx.supplier.findFirst({
+          where: { name: { equals: supplierName.trim(), mode: 'insensitive' } },
+        });
+      }
+      if (!resolvedSupplier) {
+        const count = await tx.supplier.count();
+        const code = `SUP-${String(count + 1).padStart(3, '0')}`;
+        resolvedSupplier = await tx.supplier.create({
+          data: {
+            supplierCode: code,
+            name: supplierName.trim(),
+            phone: supplierContact || null,
+            category: 'DOMESTIC',
+            paymentTerms: 'NET_30',
+          },
+        });
+      }
+
+      // 2. Resolve PO Number
+      let finalPONumber = customPONumber?.trim();
+      if (finalPONumber) {
+        const existing = await tx.purchaseOrder.findUnique({ where: { poNumber: finalPONumber } });
+        if (existing) {
+          throw new Error(
+            `PO Number "${finalPONumber}" is already in use. Please enter a different PO number or leave blank to auto-generate.`
+          );
+        }
+      } else {
+        finalPONumber = await generateNextPONumber(tx);
+      }
+
+      const orderDateObj = poDate ? new Date(poDate) : new Date();
+      const status = pending > 0 ? 'OPEN' : 'CLOSED';
+      const numQty = Number(quantity) || 1;
+      const rate = total / numQty;
+
+      // 3. Create PO
+      const po = await tx.purchaseOrder.create({
+        data: {
+          poNumber: finalPONumber,
+          poDate: orderDateObj,
+          supplierId: resolvedSupplier.id,
+          createdById: req.user!.id,
+          orderPersonPlace: orderPersonPlace || 'Hyderabad',
+          grandTotal: total,
+          subtotal: total,
+          advanceAmount: advance,
+          pendingAmount: pending,
+          status,
+          notes: notes
+            ? `${notes} (Legacy Due PO)`
+            : 'Legacy Due PO recorded directly into Due Tracker',
+          items: {
+            create: [
+              {
+                fruitName: fruitName || 'Assorted Fruits Consignment',
+                category: 'Fresh Fruits',
+                varietyGrade: varietyGrade || 'Grade A',
+                quantity: numQty,
+                unit: unit || 'LOT',
+                ratePerUnit: rate,
+                discountPercent: 0,
+                taxPercent: 0,
+                lineTotal: total,
+              },
+            ],
+          },
+          statusHistory: {
+            create: {
+              status,
+              changedById: req.user!.id,
+              comment: `Legacy Due PO entered into system. Total: ₹${total.toLocaleString('en-IN')}, Cleared: ₹${advance.toLocaleString('en-IN')}, Pending Due: ₹${pending.toLocaleString('en-IN')}.${orderPersonName ? ` Handled by: ${orderPersonName}.` : ''}`,
+            },
+          },
+          financialRecord: {
+            create: {
+              financialStatus: 'NOT_CALCULATED',
+            },
+          },
+        },
+        include: {
+          supplier: true,
+          createdBy: true,
+          items: true,
+          financialRecord: true,
+        },
+      });
+
+      return po;
+    });
+
+    await createAuditLog({
+      userId: req.user?.id,
+      userName: req.user?.name || 'User',
+      userRole: req.user?.role || 'UNKNOWN',
+      action: 'LEGACY_DUE_PO_CREATED',
+      entityType: 'PURCHASE_ORDER',
+      entityId: result.id,
+      details: `Recorded legacy due purchase order ${result.poNumber} for supplier ${result.supplier.name}. Total: ₹${total.toLocaleString('en-IN')}, Due: ₹${pending.toLocaleString('en-IN')}`,
+      ipAddress: req.ip,
+    });
+
+    return res.status(201).json(result);
+  } catch (error: any) {
+    console.error('Error creating due purchase order:', error);
+    return res.status(500).json({ error: error.message || 'Failed to create due purchase order' });
+  }
+}
+
 
 

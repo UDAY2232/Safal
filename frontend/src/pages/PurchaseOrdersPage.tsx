@@ -29,6 +29,7 @@ import { PODetailModal } from '../components/PODetailModal';
 import { POFinancialsModal } from '../components/POFinancialsModal';
 import { CreatePOModal } from '../components/CreatePOModal';
 import { SubmitDuePaymentModal } from '../components/SubmitDuePaymentModal';
+import { AddDuePOModal } from '../components/AddDuePOModal';
 
 interface PurchaseOrdersPageProps {
   onNotify: (msg: string) => void;
@@ -56,6 +57,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [financialPO, setFinancialPO] = useState<PurchaseOrder | null>(null);
   const [duePaymentPO, setDuePaymentPO] = useState<PurchaseOrder | null>(null);
+  const [showAddDueModal, setShowAddDueModal] = useState(false);
 
   const loadOrders = async () => {
     try {
@@ -133,6 +135,19 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+          {/* Enter Due PO Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveSection('due');
+              setShowAddDueModal(true);
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-700 hover:bg-rose-800 text-white text-sm font-bold rounded-xl shadow-md transition"
+            title="Enter an existing / pre-software PO with pending dues"
+          >
+            <Plus size={18} /> Enter Due PO (పాత బాకీ)
+          </button>
+
           {/* Direct Settle Due POs Button */}
           <button
             onClick={() => {
@@ -143,12 +158,12 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             }}
             className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold shadow-xs transition border ${
               activeSection === 'due'
-                ? 'bg-rose-700 text-white border-rose-800 ring-2 ring-rose-200'
-                : 'bg-rose-50 text-rose-800 border-rose-200 hover:bg-rose-100'
+                ? 'bg-rose-50 text-rose-800 border-rose-300 ring-2 ring-rose-200'
+                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
             }`}
           >
             <CreditCard size={17} />
-            <span>Due Settlements</span>
+            <span>Due Tracker</span>
             {dueOrders.length > 0 && (
               <span className="px-1.5 py-0.5 rounded-full text-xs bg-rose-600 text-white font-extrabold ml-0.5">
                 {dueOrders.length}
@@ -450,10 +465,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-auto">
+            <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
               <span className="px-3.5 py-1.5 bg-rose-700 text-white rounded-xl text-xs font-black shadow-xs">
                 Total Due: ₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
+              <button
+                type="button"
+                onClick={() => setShowAddDueModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-bold shadow-xs transition"
+              >
+                <Plus size={14} /> + Add / Enter Due PO (పాత బాకీ)
+              </button>
             </div>
           </div>
 
@@ -476,9 +498,18 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 {dueOrders.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="text-center py-14 text-gray-500">
-                      <CheckCircle2 size={36} className="mx-auto text-green-500 mb-2" />
-                      <p className="font-bold text-gray-800 text-sm">No Pending Dues!</p>
-                      <p className="text-xs text-gray-400 mt-0.5">All purchase orders are fully settled and cleared.</p>
+                      <CreditCard size={38} className="mx-auto text-rose-500 mb-2" />
+                      <p className="font-bold text-gray-800 text-sm">No Pending Dues Recorded Yet</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Already unna pre-existing due POs ni ikkada enter cheyandi (Enter offline / past due POs).
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddDueModal(true)}
+                        className="mt-3.5 inline-flex items-center gap-2 px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md transition"
+                      >
+                        <Plus size={15} /> + Add / Enter Due PO (పాత బాకీ PO నమోదు)
+                      </button>
                     </td>
                   </tr>
                 ) : (
@@ -880,6 +911,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         <SubmitDuePaymentModal
           order={duePaymentPO}
           onClose={() => setDuePaymentPO(null)}
+          onSuccess={(msg) => {
+            onNotify(msg);
+            loadOrders();
+          }}
+        />
+      )}
+
+      {/* Enter / Add Pre-Existing Due PO Modal */}
+      {showAddDueModal && (
+        <AddDuePOModal
+          onClose={() => setShowAddDueModal(false)}
           onSuccess={(msg) => {
             onNotify(msg);
             loadOrders();

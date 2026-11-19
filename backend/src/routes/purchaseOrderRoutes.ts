@@ -10,6 +10,7 @@ import {
   updateFinancialRecords,
   downloadPurchaseOrderPDF,
   recordDuePayment,
+  createDuePurchaseOrder,
 } from '../controllers/purchaseOrderController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
@@ -24,6 +25,8 @@ router.get('/:id/pdf', downloadPurchaseOrderPDF);
 
 // Creating & submitting POs
 router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createPurchaseOrder);
+router.post('/due-orders', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createDuePurchaseOrder);
+router.post('/legacy-due', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createDuePurchaseOrder);
 router.post('/:id/submit', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), submitPurchaseOrder);
 
 // Admin workflow
