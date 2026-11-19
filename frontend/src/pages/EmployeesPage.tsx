@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Plus, ArrowRight, Check, UserMinus } from 'lucide-react';
+import { Users, Search, Plus, ArrowRight, Check, UserMinus, Edit } from 'lucide-react';
 import { api } from '../services/api';
 import { Employee } from '../types';
 import { StatusBadge } from '../components/StatusBadge';
 import { AddEmployeeModal } from '../components/AddEmployeeModal';
+import { EditEmployeeModal } from '../components/EditEmployeeModal';
+import { EmployeeProfileModal } from '../components/EmployeeProfileModal';
 import { useAuth } from '../context/AuthContext';
 
 interface EmployeesPageProps {
@@ -19,6 +21,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any | null>(null);
+  const [editingEmployee, setEditingEmployee] = useState<any | null>(null);
 
   const loadEmployees = async () => {
     try {
@@ -40,6 +43,11 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
     try {
       await api.toggleEmployeeStatus(id);
       onNotify('Employee status updated');
+      if (selectedEmployee?.id === id) {
+        setSelectedEmployee((prev: any) =>
+          prev ? { ...prev, status: prev.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' } : null
+        );
+      }
       loadEmployees();
     } catch {
       onNotify('Failed to update status');
@@ -68,11 +76,15 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
   };
 
   const openProfile = async (id: string) => {
+    const local = employees.find((e) => e.id === id);
+    if (local) {
+      setSelectedEmployee(local);
+    }
     try {
       const details = await api.getEmployeeById(id);
       setSelectedEmployee(details);
-    } catch {
-      onNotify('Failed to load employee details');
+    } catch (err) {
+      if (!local) onNotify('Failed to load employee details');
     }
   };
 
@@ -85,6 +97,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && loadEmployees()}
               placeholder="Search employee ID, name, designation..."
             />
           </div>
@@ -102,7 +115,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
           </span>
         </div>
 
-        <div className="table-wrap">
+        <div className="table-wrap table-scroll-wrap">
           <table>
             <thead>
               <tr>
@@ -126,7 +139,12 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
                 </tr>
               ) : (
                 employees.map((e) => (
-                  <tr key={e.id} className="hover:bg-emerald-50/20">
+                  <tr
+                    key={e.id}
+                    onClick={() => openProfile(e.id)}
+                    className="hover:bg-emerald-50/25 transition cursor-pointer"
+                    title="Click row to view profile"
+                  >
                     <td className="font-semibold text-emerald-800">{e.employeeId}</td>
                     <td>
                       <span className="font-bold text-gray-900">{e.fullName}</span>
@@ -140,12 +158,16 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
                       </span>
                     </td>
                     <td className="font-bold text-gray-900">
-                      ₹{e.baseWageRate.toLocaleString('en-IN')}
+                      ₹{Number(e.baseWageRate).toLocaleString('en-IN')}
                     </td>
                     <td>{new Date(e.joiningDate).toLocaleDateString('en-GB')}</td>
                     <td>
                       <button
-                        onClick={() => toggleStatus(e.id)}
+                        type="button"
+                        onClick={(evt) => {
+                          evt.stopPropagation();
+                          toggleStatus(e.id);
+                        }}
                         title="Click to toggle active/inactive status"
                         className="cursor-pointer"
                       >
@@ -153,13 +175,30 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
                       </button>
                     </td>
                     <td className="text-center">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div
+                        className="flex items-center justify-center gap-1.5"
+                        onClick={(evt) => evt.stopPropagation()}
+                      >
                         <button
+                          type="button"
                           className="view-button"
                           onClick={() => openProfile(e.id)}
+                          title="View Employee Profile"
                         >
                           Profile <ArrowRight size={13} />
                         </button>
+
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingEmployee(e)}
+                            className="p-1.5 rounded-lg text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 transition cursor-pointer"
+                            title={`Edit details for ${e.fullName}`}
+                          >
+                            <Edit size={14} />
+                          </button>
+                        )}
+
                         {isAdmin && (
                           <button
                             type="button"
@@ -180,6 +219,7 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
         </div>
       </section>
 
+      {/* Add Employee Modal */}
       {showAddModal && (
         <AddEmployeeModal
           onClose={() => setShowAddModal(false)}
@@ -190,98 +230,34 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
         />
       )}
 
+      {/* View Employee Profile Modal */}
       {selectedEmployee && (
-        <div className="modal-backdrop">
-          <div className="modal !w-[680px] max-w-[94vw] p-6 max-h-[90vh] overflow-y-auto">
-            <div className="modal-header pb-3 border-b border-gray-100">
-              <div>
-                <span className="eyebrow text-emerald-800 font-bold">EMPLOYEE DOSSIER</span>
-                <h2 className="text-xl font-bold text-gray-900 mt-1">{selectedEmployee.fullName}</h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedEmployee(null)}
-                className="text-gray-400 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="py-4 space-y-4 text-xs">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <div>
-                  <span className="text-gray-400">Employee ID</span>
-                  <p className="font-bold text-gray-800">{selectedEmployee.employeeId}</p>
-                </div>
-                <div>
-                  <span className="text-gray-400">Department</span>
-                  <p className="font-bold text-gray-800">{selectedEmployee.department}</p>
-                </div>
-                <div>
-                  <span className="text-gray-400">Designation</span>
-                  <p className="font-bold text-gray-800">{selectedEmployee.designation}</p>
-                </div>
-                <div>
-                  <span className="text-gray-400">Base Wage Rate</span>
-                  <p className="font-bold text-emerald-800">
-                    ₹{Number(selectedEmployee.baseWageRate).toLocaleString('en-IN')}
-                  </p>
-                </div>
-              </div>
+        <EmployeeProfileModal
+          employee={selectedEmployee}
+          isAdmin={isAdmin}
+          onClose={() => setSelectedEmployee(null)}
+          onEdit={(emp) => {
+            setEditingEmployee(emp);
+            setSelectedEmployee(null);
+          }}
+          onToggleStatus={(id) => toggleStatus(id)}
+          onDelete={(emp) => {
+            handleDeleteEmployee(emp);
+          }}
+        />
+      )}
 
-              <div>
-                <span className="font-bold text-gray-700 block mb-1">
-                  Salary History ({selectedEmployee.wageRecords?.length || 0})
-                </span>
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-xs">
-                    <thead className="bg-[#E7F5E9] text-[#064D2B] font-bold">
-                      <tr>
-                        <th className="p-2">Period</th>
-                        <th className="p-2">Net Payable</th>
-                        <th className="p-2">Paid</th>
-                        <th className="p-2">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {selectedEmployee.wageRecords?.map((w: any) => (
-                        <tr key={w.id}>
-                          <td className="p-2 font-bold">{w.payPeriod}</td>
-                          <td className="p-2">₹{Number(w.netPayable).toLocaleString('en-IN')}</td>
-                          <td className="p-2 text-emerald-700">
-                            ₹{Number(w.amountPaid).toLocaleString('en-IN')}
-                          </td>
-                          <td className="p-2">
-                            <StatusBadge status={w.status} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-            <div className="modal-actions pt-3 border-t border-gray-100 flex items-center justify-between">
-              {isAdmin ? (
-                <button
-                  type="button"
-                  onClick={() => handleDeleteEmployee(selectedEmployee)}
-                  className="px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
-                >
-                  <UserMinus size={14} /> Relieve / Remove Employee
-                </button>
-              ) : <div />}
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setSelectedEmployee(null)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Edit Employee Modal */}
+      {editingEmployee && (
+        <EditEmployeeModal
+          employee={editingEmployee}
+          onClose={() => setEditingEmployee(null)}
+          onSuccess={(updated, msg) => {
+            onNotify(msg);
+            loadEmployees();
+          }}
+        />
       )}
     </>
   );
 };
-

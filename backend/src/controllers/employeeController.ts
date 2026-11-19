@@ -260,21 +260,75 @@ export async function updateEmployee(req: AuthRequest, res: Response) {
       wageType,
       baseWageRate,
       status,
+      joiningDate,
+      password,
     } = req.body;
+
+    const existing = await prisma.employee.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    const cleanEmail = email ? email.toLowerCase().trim() : undefined;
 
     const updated = await prisma.employee.update({
       where: { id },
       data: {
-        fullName,
-        email: email ? email.toLowerCase().trim() : undefined,
-        phone,
-        department,
-        designation,
-        wageType,
-        baseWageRate: baseWageRate !== undefined ? Number(baseWageRate) : undefined,
-        status,
+        fullName: fullName || undefined,
+        email: cleanEmail,
+        phone: phone !== undefined ? phone : undefined,
+        department: department || undefined,
+        designation: designation || undefined,
+        wageType: wageType || undefined,
+        baseWageRate: baseWageRate !== undefined && baseWageRate !== '' ? Number(baseWageRate) : undefined,
+        status: status || undefined,
+        joiningDate: joiningDate ? new Date(joiningDate) : undefined,
+      },
+      include: {
+        wageRecords: {
+          orderBy: { createdAt: 'desc' },
+          include: { payments: true },
+        },
+        expenseClaims: {
+          orderBy: { createdAt: 'desc' },
+          include: { payments: true },
+        },
       },
     });
+
+    // Also sync User if linked
+    if (existing.userId) {
+      const userData: any = {};
+      if (fullName) userData.name = fullName;
+      if (cleanEmail) userData.email = cleanEmail;
+      if (department) userData.department = department;
+      if (designation) userData.designation = designation;
+      if (password && String(password).trim().length >= 6) {
+        userData.passwordHash = await bcrypt.hash(String(password).trim(), 10);
+      }
+      if (Object.keys(userData).length > 0) {
+        await prisma.user.update({
+          where: { id: existing.userId },
+          data: userData,
+        });
+      }
+    } else if (password && String(password).trim().length >= 6 && cleanEmail) {
+      const passwordHash = await bcrypt.hash(String(password).trim(), 10);
+      const newUser = await prisma.user.create({
+        data: {
+          name: updated.fullName,
+          email: updated.email,
+          passwordHash,
+          role: 'EMPLOYEE',
+          department: updated.department,
+          designation: updated.designation,
+        },
+      });
+      await prisma.employee.update({
+        where: { id },
+        data: { userId: newUser.id },
+      });
+    }
 
     await createAuditLog({
       userId: req.user?.id,
@@ -289,6 +343,7 @@ export async function updateEmployee(req: AuthRequest, res: Response) {
 
     return res.json(updated);
   } catch (error) {
+    console.error('Error updating employee:', error);
     return res.status(500).json({ error: 'Failed to update employee' });
   }
 }
