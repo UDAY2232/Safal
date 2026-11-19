@@ -788,3 +788,98 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
   }
 }
 
+export async function recordDuePayment(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const {
+      amount,
+      paymentMode = 'BANK_TRANSFER',
+      reference = '',
+      notes = '',
+      markClosed = false,
+      newAdvanceAmount,
+      newPendingAmount,
+    } = req.body;
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: { supplier: true, createdBy: true },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    const grandTotal = Number(po.grandTotal);
+    const currentAdvance = Number(po.advanceAmount || 0);
+    const currentPending = Number(po.pendingAmount ?? Math.max(0, grandTotal - currentAdvance));
+
+    let finalAdvance = currentAdvance;
+    let finalPending = currentPending;
+    let paymentAmount = 0;
+
+    if (newAdvanceAmount !== undefined && newPendingAmount !== undefined) {
+      finalAdvance = Number(newAdvanceAmount);
+      finalPending = Math.max(0, Number(newPendingAmount));
+      paymentAmount = Math.max(0, finalAdvance - currentAdvance);
+    } else {
+      paymentAmount = Number(amount);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        return res.status(400).json({ error: 'A valid payment amount greater than zero is required' });
+      }
+      finalAdvance = currentAdvance + paymentAmount;
+      finalPending = Math.max(0, grandTotal - finalAdvance);
+    }
+
+    // Determine status: if pending is 0 or user explicitly selected markClosed, close the PO
+    let newStatus = po.status;
+    if (finalPending <= 0 || (markClosed && po.status === 'OPEN')) {
+      newStatus = 'CLOSED';
+    }
+
+    const comment = `Due Payment of ₹${paymentAmount.toLocaleString('en-IN')} received via ${paymentMode}.${reference ? ` Ref: ${reference}.` : ''} Remaining Due: ₹${finalPending.toLocaleString('en-IN')}.${notes ? ` Note: ${notes}` : ''}`;
+
+    const updated = await prisma.purchaseOrder.update({
+      where: { id },
+      data: {
+        advanceAmount: finalAdvance,
+        pendingAmount: finalPending,
+        status: newStatus,
+        statusHistory: {
+          create: {
+            status: newStatus,
+            changedById: req.user!.id,
+            comment,
+          },
+        },
+      },
+      include: {
+        supplier: true,
+        createdBy: true,
+        items: true,
+        financialRecord: true,
+        statusHistory: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    await createAuditLog({
+      userId: req.user?.id,
+      userName: req.user?.name || 'User',
+      userRole: req.user?.role || 'UNKNOWN',
+      action: 'PO_DUE_PAYMENT',
+      entityType: 'PURCHASE_ORDER',
+      entityId: id,
+      details: `Recorded ₹${paymentAmount.toLocaleString('en-IN')} due payment on ${po.poNumber}. Completed: ₹${finalAdvance.toLocaleString('en-IN')}, Remaining Due: ₹${finalPending.toLocaleString('en-IN')}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json(updated);
+  } catch (error) {
+    console.error('Error recording due payment:', error);
+    return res.status(500).json({ error: 'Failed to record due payment' });
+  }
+}
+
+

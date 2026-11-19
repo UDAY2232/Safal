@@ -84,6 +84,15 @@ export const api = {
   closePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${id}/close`, { method: 'POST' }),
   updatePOFinancials: (id: string, data: any) =>
     request<any>(`/purchase-orders/${id}/financials`, { method: 'POST', body: JSON.stringify(data) }),
+  recordDuePayment: (id: string, data: {
+    amount?: number;
+    paymentMode?: string;
+    reference?: string;
+    notes?: string;
+    markClosed?: boolean;
+    newAdvanceAmount?: number;
+    newPendingAmount?: number;
+  }) => request<any>(`/purchase-orders/${id}/due-payment`, { method: 'POST', body: JSON.stringify(data) }),
   downloadPOPDFUrl: (id: string) => {
     const token = localStorage.getItem('safal_token') || '';
     return `${API_BASE}/purchase-orders/${id}/pdf?token=${encodeURIComponent(token)}`;

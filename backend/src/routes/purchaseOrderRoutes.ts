@@ -9,6 +9,7 @@ import {
   closePurchaseOrder,
   updateFinancialRecords,
   downloadPurchaseOrderPDF,
+  recordDuePayment,
 } from '../controllers/purchaseOrderController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
@@ -29,6 +30,10 @@ router.post('/:id/submit', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), submi
 router.post('/:id/approve', requireRole('ADMIN'), approvePurchaseOrder);
 router.post('/:id/reject', requireRole('ADMIN'), rejectPurchaseOrder);
 router.post('/:id/close', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), closePurchaseOrder);
+
+// Due Settlement & Payment Recording
+router.post('/:id/payments', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), recordDuePayment);
+router.post('/:id/due-payment', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), recordDuePayment);
 
 // Financial Profit & Loss Tracking
 router.post('/:id/financials', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), updateFinancialRecords);

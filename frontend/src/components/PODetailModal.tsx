@@ -10,6 +10,7 @@ import {
   TrendingUp,
   FileText,
   DollarSign,
+  CreditCard,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { StatusBadge } from './StatusBadge';
@@ -22,6 +23,7 @@ interface PODetailModalProps {
   onClose: () => void;
   onRefresh: () => void;
   onNotify: (msg: string) => void;
+  onOpenDuePayment?: (order: PurchaseOrder) => void;
 }
 
 export const PODetailModal: React.FC<PODetailModalProps> = ({
@@ -29,6 +31,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   onClose,
   onRefresh,
   onNotify,
+  onOpenDuePayment,
 }) => {
   const { user } = useAuth();
   const [showRejectInput, setShowRejectInput] = useState(false);
@@ -330,6 +333,23 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 </button>
               </>
             )}
+
+            {onOpenDuePayment &&
+              Number(
+                order.pendingAmount ??
+                  Math.max(0, order.grandTotal - (order.advanceAmount || 0))
+              ) > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenDuePayment(order);
+                  }}
+                  className="secondary-button !border-rose-400 !text-rose-800 hover:!bg-rose-50 inline-flex items-center gap-1.5 transition"
+                >
+                  <CreditCard size={14} /> Submit Due Payment
+                </button>
+              )}
 
             {order.status === 'OPEN' && (
               <button
