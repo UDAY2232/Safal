@@ -79,17 +79,45 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
       )}
 
-      {/* Official SAFAL Billboard Header Banner */}
+      {/* Left: Official Globe Logo & Company Typography */}
       <div
-        className="brand-lockup flex items-center cursor-pointer flex-shrink min-w-0"
+        className="brand-lockup flex items-center gap-2 sm:gap-3.5 cursor-pointer flex-shrink-0"
         onClick={() => onNavigate('Dashboard')}
-        title="SAFAL EXPORT AND IMPORT PVT LTD - Go to Dashboard"
+        title="SAFAL Enterprise Workspace"
       >
-        <img
-          src="/safal-header-banner.jpg"
-          alt="SAFAL EXPORT AND IMPORT PVT LTD · Freshness Beyond Borders"
-          className="h-11 sm:h-14 md:h-18 lg:h-[86px] w-auto max-w-[220px] xs:max-w-[260px] sm:max-w-[360px] md:max-w-[500px] lg:max-w-[620px] xl:max-w-[750px] object-contain rounded-xl shadow-xs border border-blue-200/70 hover:brightness-105 transition"
-        />
+        {/* Globe Logo with green leaves & airplane */}
+        <div className="relative flex-shrink-0">
+          <img
+            src="/safal-globe-logo.png"
+            alt="SAFAL Global Logo"
+            className="h-11 sm:h-14 lg:h-16 w-auto object-contain rounded-xl shadow-xs"
+          />
+        </div>
+
+        {/* Clean Company Name */}
+        <div className="flex flex-col justify-center leading-none">
+          <div className="flex items-center">
+            <span className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] tracking-tight">
+              SAFAL
+            </span>
+          </div>
+          <span className="text-[9px] sm:text-[11px] lg:text-xs font-black tracking-wider text-[#D32F2F] uppercase mt-0.5 font-['Manrope']">
+            EXPORT AND IMPORT PVT LTD
+          </span>
+          <span className="text-[8px] sm:text-[10px] lg:text-[11px] font-bold text-[#185B30] tracking-wide mt-0.5">
+            Fruits Import &amp; Export
+          </span>
+        </div>
+      </div>
+
+      {/* Center Subtitle */}
+      <div className="header-company-center text-center flex-1 hidden xl:flex flex-col items-center justify-center px-4">
+        <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+          Freshness Beyond Borders
+        </span>
+        <span className="text-[11px] font-semibold text-emerald-800 mt-0.5">
+          Consignment Tracking · Workforce · P&amp;L Financial Audit
+        </span>
       </div>
 
       {/* Right Controls: Live status, Notifications, User Profile */}
