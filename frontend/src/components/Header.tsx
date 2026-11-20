@@ -14,7 +14,6 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Notification } from '../types';
 import { SendNoticeModal } from './SendNoticeModal';
-import { CorporateHeaderBanner } from './CorporateHeaderBanner';
 
 interface HeaderProps {
   onNavigate: (page: string) => void;
@@ -297,8 +296,22 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. Full-Bleed Corporate ERP Header Banner (Pure React Component & SVG trade composition) */}
-      <CorporateHeaderBanner onNavigate={onNavigate} />
+      {/* 2. Full-Bleed Corporate ERP Header Banner (Single High-Resolution Designer Image Asset) */}
+      <div
+        className="safal-corporate-banner-wrap group"
+        onClick={() => onNavigate('Dashboard')}
+        role="banner"
+        tabIndex={0}
+        aria-label="SAFAL EXPORT & IMPORT PVT LTD - Go to Dashboard"
+        title="SAFAL EXPORT & IMPORT PVT LTD - Click to navigate to Dashboard"
+      >
+        <img
+          src="/safal-corporate-banner.png"
+          alt="SAFAL EXPORT & IMPORT PVT LTD - Freshness Beyond Borders"
+          className="safal-corporate-banner-img"
+          loading="eager"
+        />
+      </div>
 
       {/* Admin / Accountant Send Notice Modal */}
       {showNoticeModal && (
