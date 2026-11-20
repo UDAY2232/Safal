@@ -98,10 +98,18 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     }
   };
 
-  // Calculations for All POs
+  // Calculations for All POs (Strict Rule: If due is pending > 0, status is OPEN!)
   const totalAmount = orders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
-  const openCount = orders.filter((o) => o.status === 'OPEN').length;
-  const closedCount = orders.filter((o) => o.status === 'CLOSED').length;
+  const openCount = orders.filter((o) => {
+    const adv = Number(o.advanceAmount || 0);
+    const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    return pend > 0 || o.status === 'OPEN';
+  }).length;
+  const closedCount = orders.filter((o) => {
+    const adv = Number(o.advanceAmount || 0);
+    const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    return pend <= 0 && o.status === 'CLOSED';
+  }).length;
 
   // Calculations for Due POs: avaru thiskunaru, antha pending undhi, antha complete chesaru
   const dueOrders = orders.filter((o) => {
@@ -644,10 +652,11 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                     </tr>
                   ) : (
                     orders.map((order, index) => {
-                      const isClosed = order.status === 'CLOSED';
                       const isPending = order.status === 'PENDING_APPROVAL' || order.status === 'DRAFT';
                       const adv = Number(order.advanceAmount || 0);
                       const pendingDue = Number(order.pendingAmount ?? Math.max(0, Number(order.grandTotal) - adv));
+                      // Strict Business Rule: Closed ONLY when pendingDue <= 0. If even 1 rupee is pending, status MUST BE OPEN!
+                      const isClosed = !isPending && pendingDue <= 0 && order.status === 'CLOSED';
 
                       return (
                         <tr
@@ -819,7 +828,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             <StatusBadge status={order.financial.financialStatus} />
                           </td>
                           <td className="py-3 px-3">
-                            <StatusBadge status={order.status} />
+                            <StatusBadge status={pendingDue > 0 ? 'OPEN' : order.status} />
                           </td>
                           <td className="py-3 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">

@@ -41,7 +41,6 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
     new Date().toISOString().split('T')[0]
   );
   const [notes, setNotes] = useState('');
-  const [markClosed, setMarkClosed] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -78,12 +77,13 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
       setIsSubmitting(true);
       setError('');
 
+      // Strict Rule: Closed ONLY when newPending === 0 (₹0 remaining due).
       await api.recordDuePayment(order.id, {
         amount: numPayment,
         paymentMode,
         reference: reference.trim(),
         notes: notes.trim(),
-        markClosed: newPending === 0 || markClosed,
+        markClosed: newPending === 0,
       });
 
       onSuccess(
@@ -367,21 +367,20 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </div>
             </div>
 
-            {/* Checkbox: Mark as Closed */}
+            {/* Status Preview: Strict rule (₹0 Due = Closed, >0 Due = Open) */}
             <div className="pt-2 border-t border-gray-100">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={newPending === 0 || markClosed}
-                  onChange={(e) => setMarkClosed(e.target.checked)}
-                  disabled={newPending === 0}
-                  className="w-4 h-4 text-[#087A3E] rounded border-gray-300 focus:ring-emerald-500 cursor-pointer"
-                />
-                <span className="text-xs text-gray-700 font-medium">
-                  Mark Purchase Order as <strong>Closed</strong>{' '}
-                  {newPending === 0 ? '(Automatic - Zero Balance Remaining)' : 'if balance settled'}
-                </span>
-              </label>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-200">
+                <span className="text-xs font-semibold text-gray-700">Status After Payment:</span>
+                {newPending <= 0 ? (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
+                    ✓ Closed (₹0 Due Remaining)
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#FFE0DF] text-[#C53030] border border-[#FDC4C4] shadow-xs">
+                    ● Open (₹{newPending.toLocaleString('en-IN')} Due Pending)
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

@@ -44,6 +44,10 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   const isAdmin = user?.role === 'ADMIN';
   const canDelete = isAdmin || (Boolean(user?.id) && order.createdById === user?.id);
 
+  const grandTotal = Number(order.grandTotal || 0);
+  const adv = Number(order.advanceAmount || 0);
+  const pendingDue = Number(order.pendingAmount ?? Math.max(0, grandTotal - adv));
+
   const handleApprove = async () => {
     try {
       setIsProcessing(true);
@@ -77,6 +81,10 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   };
 
   const handleClosePO = async () => {
+    if (pendingDue > 0) {
+      onNotify(`Cannot close PO: Due of ₹${pendingDue.toLocaleString('en-IN')} is still pending. Status must remain Open until Due is ₹0.`);
+      return;
+    }
     try {
       setIsProcessing(true);
       await api.closePurchaseOrder(order.id);
@@ -376,8 +384,17 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               <button
                 type="button"
                 onClick={handleClosePO}
-                disabled={isProcessing}
-                className="primary-button inline-flex items-center gap-1.5 !bg-gray-800"
+                disabled={isProcessing || pendingDue > 0}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs transition ${
+                  pendingDue > 0
+                    ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-60'
+                    : 'primary-button !bg-gray-800 cursor-pointer'
+                }`}
+                title={
+                  pendingDue > 0
+                    ? `Cannot close: Due of ₹${pendingDue.toLocaleString('en-IN')} is still pending. Settle full due to close.`
+                    : 'Mark as Closed'
+                }
               >
                 <CheckCircle size={14} /> Mark as Closed
               </button>

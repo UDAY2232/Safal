@@ -110,10 +110,28 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
       orderBy: { createdAt: 'desc' },
     });
 
+    // Auto-heal: Ensure any PO with pendingAmount > 0 has status OPEN in the database
+    prisma.purchaseOrder
+      .updateMany({
+        where: {
+          status: 'CLOSED',
+          pendingAmount: { gt: 0 },
+        },
+        data: {
+          status: 'OPEN',
+        },
+      })
+      .catch(() => {});
+
     const formatted = pos.map((p) => {
       const fin = p.financialRecord;
       const profitLoss = fin?.realizedProfitLoss ? Number(fin.realizedProfitLoss) : null;
       let finStatus = fin?.financialStatus || 'PENDING_COST_DATA';
+
+      const advance = Number(p.advanceAmount || 0);
+      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - advance));
+      // Strict Business Rule: If due is pending (> 0), status can NEVER be CLOSED! It must be OPEN.
+      const effectiveStatus = (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status;
 
       return {
         id: p.id,
@@ -132,9 +150,9 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         discountTotal: Number(p.discountTotal),
         taxTotal: Number(p.taxTotal),
         grandTotal: Number(p.grandTotal),
-        advanceAmount: Number(p.advanceAmount || 0),
-        pendingAmount: Number(p.pendingAmount || 0),
-        status: p.status,
+        advanceAmount: advance,
+        pendingAmount: pending,
+        status: effectiveStatus,
         rejectionReason: p.rejectionReason,
         itemsCount: p.items.length,
         items: p.items.map((i) => ({
@@ -195,6 +213,13 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
 
     if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
       return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
+    }
+
+    const grand = Number(po.grandTotal);
+    const advance = Number(po.advanceAmount || 0);
+    const pending = Number(po.pendingAmount ?? Math.max(0, grand - advance));
+    if (pending > 0 && po.status === 'CLOSED') {
+      po.status = 'OPEN';
     }
 
     return res.json(po);
@@ -629,6 +654,17 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
       return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
+    const grandTotal = Number(po.grandTotal);
+    const advance = Number(po.advanceAmount || 0);
+    const pending = Number(po.pendingAmount ?? Math.max(0, grandTotal - advance));
+
+    // Strict Rule: A PO can only be CLOSED if due is ₹0
+    if (pending > 0) {
+      return res.status(400).json({
+        error: `Cannot close PO: Due of ₹${pending.toLocaleString('en-IN')} is still pending. Status must remain Open until Due is ₹0.`,
+      });
+    }
+
     const updated = await prisma.purchaseOrder.update({
       where: { id },
       data: {
@@ -865,10 +901,13 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       finalPending = Math.max(0, grandTotal - finalAdvance);
     }
 
-    // Determine status: if pending is 0 or user explicitly selected markClosed, close the PO
+    // Strict Business Rule: A PO can ONLY be CLOSED when finalPending <= 0 (Due is 0).
+    // Even if 1 rupee due is pending (finalPending > 0), status MUST BE OPEN!
     let newStatus = po.status;
-    if (finalPending <= 0 || (markClosed && po.status === 'OPEN')) {
+    if (finalPending <= 0) {
       newStatus = 'CLOSED';
+    } else {
+      newStatus = 'OPEN';
     }
 
     const comment = `Due Payment of ₹${paymentAmount.toLocaleString('en-IN')} received via ${paymentMode}.${reference ? ` Ref: ${reference}.` : ''} Remaining Due: ₹${finalPending.toLocaleString('en-IN')}.${notes ? ` Note: ${notes}` : ''}`;
