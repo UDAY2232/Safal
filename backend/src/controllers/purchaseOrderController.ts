@@ -650,8 +650,9 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
 
-    if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
+    // Strict Role Check: Closing a CD/PO requires ADMIN approval. Employees cannot close records directly.
+    if (req.user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Admin approval is required to close Customer Due / Purchase Order records' });
     }
 
     const grandTotal = Number(po.grandTotal);
@@ -877,7 +878,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
     }
 
     if (req.user?.role === 'EMPLOYEE' && po.createdById !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
+      return res.status(403).json({ error: 'Access denied: You can only record payments for your own orders' });
     }
 
     const grandTotal = Number(po.grandTotal);
@@ -901,10 +902,10 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       finalPending = Math.max(0, grandTotal - finalAdvance);
     }
 
-    // Strict Business Rule: A PO can ONLY be CLOSED when finalPending <= 0 (Due is 0).
-    // Even if 1 rupee due is pending (finalPending > 0), status MUST BE OPEN!
+    // Strict Business Rule: A CD/PO can ONLY be formally CLOSED with ADMIN approval when pending <= 0.
+    // If pending > 0 or if not closed by ADMIN, status remains OPEN.
     let newStatus = po.status;
-    if (finalPending <= 0) {
+    if (finalPending <= 0 && req.user?.role === 'ADMIN') {
       newStatus = 'CLOSED';
     } else {
       newStatus = 'OPEN';
@@ -1118,9 +1119,9 @@ export async function deletePurchaseOrder(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Purchase Order not found' });
     }
 
-    // Role check: Only ADMIN, or the creator can delete it
-    if (req.user?.role !== 'ADMIN' && po.createdById !== req.user?.id) {
-      return res.status(403).json({ error: 'Access denied: You can only delete your own purchase orders' });
+    // Strict Role Check: ONLY ADMIN can delete records. Employees cannot delete.
+    if (req.user?.role !== 'ADMIN') {
+      return res.status(403).json({ error: 'Access denied: Only Administrators have permission to delete records' });
     }
 
     await prisma.purchaseOrder.delete({ where: { id } });

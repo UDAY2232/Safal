@@ -39,10 +39,14 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#edf5ef] flex flex-col justify-between">
-      {/* Top Brand Bar with complete HD banner background */}
-      <header className="w-full h-36 sm:h-56 bg-white bg-[url('/safal-header-banner.jpg')] bg-no-repeat bg-center [background-size:100%_100%] border-b-2 border-[#0d4e90] px-4 sm:px-8 flex items-start justify-between pt-2.5 shadow-xs">
-        <div className="flex-1" />
-        <div className="hidden sm:flex items-center gap-2 text-xs text-[#064D2B] bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/80 shadow-md">
+      {/* Top Brand Bar with complete HD banner */}
+      <header className="w-full bg-[#f7faf7] border-b-2 border-[#064d2b] shadow-xs relative flex items-center justify-center overflow-hidden">
+        <img
+          src="/safal-header-banner.png"
+          alt="SAFAL EXPORT & IMPORT PVT LTD - Freshness Beyond Borders"
+          className="w-full h-32 sm:h-44 md:h-52 object-contain object-center"
+        />
+        <div className="absolute top-3 right-4 sm:right-8 hidden sm:flex items-center gap-2 text-xs text-[#064D2B] bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-emerald-200/80 shadow-md">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-bold">Enterprise Internal Operations Portal</span>
         </div>

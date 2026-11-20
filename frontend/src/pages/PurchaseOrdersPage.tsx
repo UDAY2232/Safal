@@ -137,7 +137,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <ShoppingCart size={26} strokeWidth={2.4} />
             </div>
             <h1 className="text-2xl lg:text-3xl font-extrabold text-[#064D2B] font-['Manrope'] tracking-tight">
-              {isEmployee ? 'My Purchase Orders' : 'Purchase Order (PO) Management'}
+              {isEmployee ? 'Customer Dues (CD) Management' : 'Purchase Order (PO) Management'}
             </h1>
           </div>
           {/* Green accent underline bar */}
@@ -145,7 +145,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-          {/* Enter Due PO Button */}
+          {/* Enter Due PO / CD Button */}
           <button
             type="button"
             onClick={() => {
@@ -153,12 +153,12 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               setShowAddDueModal(true);
             }}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-700 hover:bg-rose-800 text-white text-sm font-bold rounded-xl shadow-md transition"
-            title="Record an existing / pre-software PO with pending dues"
+            title={isEmployee ? 'Record an existing customer due record' : 'Record an existing / pre-software PO with pending dues'}
           >
-            <Plus size={18} /> Record Due PO
+            <Plus size={18} /> {isEmployee ? 'Record Due CD' : 'Record Due PO'}
           </button>
 
-          {/* Direct Settle Due POs Button */}
+          {/* Direct Settle Due POs / CDs Button */}
           <button
             onClick={() => {
               setActiveSection('due');
@@ -173,7 +173,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             }`}
           >
             <CreditCard size={17} />
-            <span>Due Tracker</span>
+            <span>{isEmployee ? 'Due CD Tracker' : 'Due Tracker'}</span>
             {dueOrders.length > 0 && (
               <span className="px-1.5 py-0.5 rounded-full text-xs bg-rose-600 text-white font-extrabold ml-0.5">
                 {dueOrders.length}
@@ -181,17 +181,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             )}
           </button>
 
-          {/* Create PO Button */}
+          {/* Create CD / PO Button */}
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-sm font-bold rounded-xl shadow-md transition"
           >
-            <Plus size={18} /> Create PO
+            <Plus size={18} /> {isEmployee ? 'Create CD [Customer Due]' : 'Create PO'}
           </button>
         </div>
       </div>
 
-      {/* Primary Section Switcher Tabs: All POs vs Due POs Tracker */}
+      {/* Primary Section Switcher Tabs: All POs / CDs vs Due Tracker */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs">
         <div className="flex items-center gap-2">
           <button
@@ -203,7 +203,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <ShoppingCart size={15} /> All Purchase Orders ({orders.length})
+            <ShoppingCart size={15} /> {isEmployee ? `All Customer Dues (${orders.length})` : `All Purchase Orders (${orders.length})`}
           </button>
 
           <button
@@ -215,7 +215,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
             }`}
           >
-            <CreditCard size={15} /> Due POs Section
+            <CreditCard size={15} /> {isEmployee ? 'Due CDs Section' : 'Due POs Section'}
             {dueOrders.length > 0 && (
               <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-rose-500 text-white">
                 {dueOrders.length}
@@ -242,7 +242,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isEmployee ? 'My Total POs' : 'Total PO'}
+                {isEmployee ? 'My Total CDs' : 'Total PO'}
               </span>
               <strong className="text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block mt-0.5">
                 {orders.length}
@@ -256,7 +256,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isEmployee ? 'My Open POs' : 'Open PO'}
+                {isEmployee ? 'My Open CDs' : 'Open PO'}
               </span>
               <strong className="text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
                 {openCount}
@@ -270,7 +270,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isEmployee ? 'My Closed POs' : 'Closed PO'}
+                {isEmployee ? 'My Settled CDs' : 'Closed PO'}
               </span>
               <strong className="text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5">
                 {closedCount}
@@ -284,7 +284,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isEmployee ? 'My PO Amount' : 'Total PO Amount'}
+                {isEmployee ? 'My Total CD Amount' : 'Total PO Amount'}
               </span>
               <strong className="text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 truncate">
                 ₹ {totalAmount.toLocaleString('en-IN')}
@@ -494,12 +494,22 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <thead>
                 <tr className="bg-[#064D2B] text-white">
                   <th className="py-3 px-3 text-center text-xs font-bold w-12 border-r border-[#085A33]">S.No.</th>
-                  <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">PO Number</th>
-                  <th className="py-3 px-5 text-left text-xs font-bold border-r border-[#085A33]">Supplier &amp; Staff</th>
+                  <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">
+                    {isEmployee ? 'CD Number' : 'PO Number'}
+                  </th>
+                  <th className="py-3 px-5 text-left text-xs font-bold border-r border-[#085A33]">
+                    {isEmployee ? 'Customer & Staff' : 'Supplier & Staff'}
+                  </th>
                   <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">Order Date</th>
-                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">Total PO Value</th>
-                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">Advance Paid</th>
-                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">Pending Due Balance</th>
+                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">
+                    {isEmployee ? 'Total CD Value' : 'Total PO Value'}
+                  </th>
+                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">
+                    {isEmployee ? 'Payed Amount' : 'Advance Paid'}
+                  </th>
+                  <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">
+                    {isEmployee ? 'Pending CD Balance' : 'Pending Due Balance'}
+                  </th>
                   <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">Status</th>
                   <th className="py-3 px-4 text-center text-xs font-bold">Action</th>
                 </tr>
@@ -624,7 +634,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       S.No.
                     </th>
                     <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
-                      PO (Purchase Order)
+                      {isEmployee ? 'CD (Customer Due)' : 'PO (Purchase Order)'}
                     </th>
                     <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       Order Person &amp; Area
@@ -633,7 +643,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       Date
                     </th>
                     <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
-                      PO Amount (₹)
+                      {isEmployee ? 'CD Amount (₹)' : 'PO Amount (₹)'}
                     </th>
                     <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       Status
@@ -647,7 +657,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                   {orders.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="text-center py-10 text-gray-400 text-xs">
-                        No purchase orders found matching criteria.
+                        {isEmployee ? 'No customer dues (CD) found matching criteria.' : 'No purchase orders found matching criteria.'}
                       </td>
                     </tr>
                   ) : (

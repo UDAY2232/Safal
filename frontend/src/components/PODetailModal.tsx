@@ -42,7 +42,9 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN';
-  const canDelete = isAdmin || (Boolean(user?.id) && order.createdById === user?.id);
+  const isEmployee = user?.role === 'EMPLOYEE';
+  // Strict Role Check: ONLY ADMIN can delete records. Employees cannot delete.
+  const canDelete = isAdmin;
 
   const grandTotal = Number(order.grandTotal || 0);
   const adv = Number(order.advanceAmount || 0);
@@ -145,7 +147,9 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               <ShoppingCart size={22} />
             </div>
             <div>
-              <span className="eyebrow text-emerald-800 font-bold">PURCHASE ORDER DETAILS</span>
+              <span className="eyebrow text-emerald-800 font-bold">
+                {isEmployee ? 'CUSTOMER DUE (CD) DETAILS' : 'PURCHASE ORDER DETAILS'}
+              </span>
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-gray-900">{order.poNumber}</h2>
                 <StatusBadge status={order.status} />
@@ -380,7 +384,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 </button>
               )}
 
-            {order.status === 'OPEN' && (
+            {order.status === 'OPEN' && isAdmin && (
               <button
                 type="button"
                 onClick={handleClosePO}
@@ -396,8 +400,14 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                     : 'Mark as Closed'
                 }
               >
-                <CheckCircle size={14} /> Mark as Closed
+                <CheckCircle size={14} /> {isEmployee ? 'Mark CD as Closed' : 'Mark as Closed'}
               </button>
+            )}
+
+            {order.status === 'OPEN' && !isAdmin && (
+              <span className="text-[11px] text-gray-600 font-medium px-2.5 py-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-flex items-center gap-1">
+                🔒 Admin approval required to close
+              </span>
             )}
 
             {canDelete && (
@@ -406,9 +416,9 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 onClick={handleDeletePO}
                 disabled={isProcessing}
                 className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-xs transition disabled:opacity-50 cursor-pointer"
-                title="Permanently delete this Purchase Order"
+                title="Permanently delete this record"
               >
-                <Trash2 size={14} /> Delete PO
+                <Trash2 size={14} /> Delete
               </button>
             )}
 

@@ -151,7 +151,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               {isAccountant ? 'Accountant Operations Console' : 'Employee Operations Console'}
             </h1>
             <p className="text-xs text-emerald-100 mt-1">
-              Logged in as <strong>{user?.name}</strong> ({roleId}) · {isAccountant ? 'Maintain fruit POs, review employee expense claims, and track payments.' : 'Initiate fruit POs, submit expense claims, and track daily office attendance.'}
+              Logged in as <strong>{user?.name}</strong> ({roleId}) · {isAccountant ? 'Maintain fruit POs, review employee expense claims, and track payments.' : isEmployee ? 'Record Customer Dues (CD), submit expense claims, and track daily office attendance.' : 'Initiate fruit POs, submit expense claims, and track daily office attendance.'}
             </p>
           </div>
           <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
@@ -165,7 +165,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               onClick={onCreatePO}
               className="inline-flex items-center gap-2 px-5 py-2.5 bg-white text-[#064D2B] hover:bg-emerald-50 rounded-xl text-xs font-bold transition shadow-sm"
             >
-              <Plus size={16} /> Create New PO
+              <Plus size={16} /> {isEmployee ? 'Create CD [Customer Due]' : 'Create New PO'}
             </button>
           </div>
         </div>
@@ -176,11 +176,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         {/* Summary Stat Cards */}
         <section className="stat-grid dashboard-stats">
           <StatCard
-            label={isAccountant ? 'Total PO Amount' : 'My Total PO Amount'}
+            label={isAccountant ? 'Total PO Amount' : isEmployee ? 'My Total Customer Dues (CD)' : 'My Total PO Amount'}
             value={formatCurrency(summary.totalPOAmount)}
             icon={<CircleDollarSign />}
             tone="gold"
-            detail={isAccountant ? 'Company Procurement Volume' : 'My Initiated POs'}
+            detail={isAccountant ? 'Company Procurement Volume' : isEmployee ? 'Recorded Customer Orders' : 'My Initiated POs'}
           />
           <StatCard
             label={isAccountant ? 'Pending Approvals' : 'My Pending Approvals'}
@@ -209,17 +209,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <span className="text-xs font-bold text-gray-500 uppercase">
-              {isAccountant ? 'Company Open POs' : 'My Open POs'}
+              {isAccountant ? 'Company Open POs' : isEmployee ? 'My Open CDs' : 'My Open POs'}
             </span>
             <p className="text-2xl font-black text-[#087A3E] mt-1">{summary.openPOs}</p>
-            <span className="text-[11px] text-gray-400">Goods in transit / active procurement</span>
+            <span className="text-[11px] text-gray-400">
+              {isEmployee ? 'Active customer dues pending clearance' : 'Goods in transit / active procurement'}
+            </span>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <span className="text-xs font-bold text-gray-500 uppercase">
-              {isAccountant ? 'Company Closed POs' : 'My Closed POs'}
+              {isAccountant ? 'Company Closed POs' : isEmployee ? 'My Settled CDs' : 'My Closed POs'}
             </span>
             <p className="text-2xl font-black text-gray-800 mt-1">{summary.closedPOs}</p>
-            <span className="text-[11px] text-gray-400">Consignments fully verified and cleared</span>
+            <span className="text-[11px] text-gray-400">
+              {isEmployee ? 'Fully settled & approved customer dues' : 'Consignments fully verified and cleared'}
+            </span>
           </div>
           <div className="bg-white p-4 rounded-xl border border-gray-200">
             <span className="text-xs font-bold text-gray-500 uppercase">
@@ -238,7 +242,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         <div className="space-y-6">
           <section className="dashboard-panel">
             <div className="panel-heading">
-              <h2>{isAccountant ? 'Recent Purchase Orders' : 'My Recent Purchase Orders'}</h2>
+              <h2>{isAccountant ? 'Recent Purchase Orders' : isEmployee ? 'My Recent Customer Dues (CD)' : 'My Recent Purchase Orders'}</h2>
               <button onClick={() => onNavigate('Purchase Order (PO)')}>
                 See all <ArrowRight size={14} />
               </button>
@@ -247,8 +251,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               <table>
                 <thead>
                   <tr>
-                    <th>PO Number</th>
-                    <th>Supplier</th>
+                    <th>{isEmployee ? 'CD Number' : 'PO Number'}</th>
+                    <th>{isEmployee ? 'Customer' : 'Supplier'}</th>
                     <th>Order Date</th>
                     <th>Amount</th>
                     <th>Status</th>
@@ -259,7 +263,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                   {recentPOs.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="text-center py-8 text-gray-400 text-xs">
-                        No purchase orders recorded yet. Click "+ Create New PO" above to begin.
+                        {isEmployee ? 'No customer dues recorded yet. Click "+ Create CD [Customer Due]" above to begin.' : 'No purchase orders recorded yet. Click "+ Create New PO" above to begin.'}
                       </td>
                     </tr>
                   ) : (

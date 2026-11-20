@@ -23,7 +23,7 @@ router.use(authenticateToken);
 router.get('/', getPurchaseOrders);
 router.get('/:id', getPurchaseOrderById);
 router.get('/:id/pdf', downloadPurchaseOrderPDF);
-router.delete('/:id', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), deletePurchaseOrder);
+router.delete('/:id', requireRole('ADMIN'), deletePurchaseOrder);
 
 // Creating & submitting POs
 router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createPurchaseOrder);
@@ -34,7 +34,7 @@ router.post('/:id/submit', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), submi
 // Admin workflow
 router.post('/:id/approve', requireRole('ADMIN'), approvePurchaseOrder);
 router.post('/:id/reject', requireRole('ADMIN'), rejectPurchaseOrder);
-router.post('/:id/close', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), closePurchaseOrder);
+router.post('/:id/close', requireRole('ADMIN'), closePurchaseOrder);
 
 // Due Settlement & Payment Recording
 router.post('/:id/payments', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), recordDuePayment);

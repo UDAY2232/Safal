@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, ArrowRight, ShoppingCart, DollarSign, Calendar, Truck, FileText } from 'lucide-react';
 import { api } from '../services/api';
 import { Supplier } from '../types';
+import { useAuth } from '../context/AuthContext';
 
 interface CreatePOModalProps {
   onClose: () => void;
@@ -9,6 +10,9 @@ interface CreatePOModalProps {
 }
 
 export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess }) => {
+  const { user } = useAuth();
+  const isEmployee = user?.role === 'EMPLOYEE';
+
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierName, setSupplierName] = useState('');
   const [poDate, setPoDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -28,11 +32,11 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       try {
         const list = await api.getSuppliers();
         setSuppliers(list);
-        if (list.length > 0 && !supplierName) setSupplierName(list[0].name);
+        if (list.length > 0 && !supplierName && !isEmployee) setSupplierName(list[0].name);
       } catch {}
     }
     loadSuppliers();
-  }, []);
+  }, [isEmployee]);
 
   const currentTotal = Number(totalAmount) || 0;
   const currentAdvance = Number(advanceAmount) || 0;
@@ -41,11 +45,11 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
   const handleSubmit = async (submitForApproval: boolean) => {
     if (!supplierName.trim()) {
-      setError('Please enter or select a supplier name');
+      setError(isEmployee ? 'Please enter Customer Name' : 'Please enter or select a supplier name');
       return;
     }
     if (!totalAmount || Number(totalAmount) <= 0) {
-      setError('Please enter a valid Total PO Amount greater than 0');
+      setError(isEmployee ? 'Please enter a valid Total CD Amount greater than 0' : 'Please enter a valid Total PO Amount greater than 0');
       return;
     }
 
@@ -89,7 +93,11 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
       onSuccess(
         submitForApproval
-          ? 'Purchase order submitted for approval successfully'
+          ? isEmployee
+            ? 'Customer Due (CD) submitted for approval successfully'
+            : 'Purchase order submitted for approval successfully'
+          : isEmployee
+          ? 'Customer Due (CD) draft saved successfully'
           : 'Purchase order draft saved successfully'
       );
       onClose();
@@ -107,9 +115,11 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
         <div className="modal-header pb-3 border-b border-gray-100 flex-shrink-0">
           <div>
             <span className="eyebrow flex items-center gap-1.5 text-emerald-700 font-bold">
-              <ShoppingCart size={14} /> NEW PURCHASE ORDER
+              <ShoppingCart size={14} /> {isEmployee ? 'NEW CUSTOMER DUE (CD)' : 'NEW PURCHASE ORDER'}
             </span>
-            <h2 className="text-xl font-bold text-gray-900 mt-1">Create Fruit Procurement Order</h2>
+            <h2 className="text-xl font-bold text-gray-900 mt-1">
+              {isEmployee ? 'Create Customer Due (CD)' : 'Create Fruit Procurement Order'}
+            </h2>
           </div>
           <button
             type="button"
@@ -128,34 +138,35 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
         )}
 
         <div className="overflow-y-auto flex-1 pr-1 py-3 space-y-4 text-xs">
-          {/* Row 1: Supplier Name, PO Initiation Date, Expected Delivery Date */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {/* Row 1: Customer/Supplier Name, CD/PO Date, Expected Delivery Date (omitted for employee CD) */}
+          <div className={`grid grid-cols-1 ${isEmployee ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-3`}>
             <div>
               <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>Supplier Name *</span>
-                <span className="text-[10px] text-gray-400 font-normal">Manual type or pick</span>
+                <span>{isEmployee ? 'Customer Name *' : 'Supplier Name *'}</span>
               </label>
               <input
                 type="text"
-                list="suppliers-datalist"
+                {...(!isEmployee ? { list: 'suppliers-datalist' } : {})}
                 value={supplierName}
                 onChange={(e) => setSupplierName(e.target.value)}
-                placeholder="e.g. Royal Fruit Traders"
+                placeholder={isEmployee ? 'e.g. Balaji Fruit Shop' : 'e.g. Royal Fruit Traders'}
                 className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
                 required
               />
-              <datalist id="suppliers-datalist">
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.name}>
-                    {s.category}
-                  </option>
-                ))}
-              </datalist>
+              {!isEmployee && (
+                <datalist id="suppliers-datalist">
+                  {suppliers.map((s) => (
+                    <option key={s.id} value={s.name}>
+                      {s.category}
+                    </option>
+                  ))}
+                </datalist>
+              )}
             </div>
 
             <div>
               <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>PO Initiation Date *</span>
+                <span>{isEmployee ? 'CD Date *' : 'PO Initiation Date *'}</span>
                 <span className="text-[10px] text-emerald-700 font-semibold">Order Date</span>
               </label>
               <input
@@ -167,22 +178,24 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               />
             </div>
 
-            <div>
-              <label className="block text-gray-700 font-bold mb-1">Expected Delivery Date</label>
-              <input
-                type="date"
-                value={expectedDeliveryDate}
-                onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
-              />
-            </div>
+            {!isEmployee && (
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">Expected Delivery Date</label>
+                <input
+                  type="date"
+                  value={expectedDeliveryDate}
+                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                  className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+            )}
           </div>
 
-          {/* Row 2: Financial Amounts (Total Amount, Advance, Pending) */}
+          {/* Row 2: Financial Amounts (Total Amount, Payed/Advance, Pending) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
             <div>
               <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>TOTAL PO AMOUNT (₹) *</span>
+                <span>{isEmployee ? 'TOTAL CD AMOUNT (₹) *' : 'TOTAL PO AMOUNT (₹) *'}</span>
                 <span className="text-[10px] text-emerald-800 font-bold">Total payable</span>
               </label>
               <input
@@ -199,14 +212,20 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 required
               />
               <span className="text-[10px] text-gray-500 mt-1 block">
-                {currentTotal > 0 ? `₹${currentTotal.toLocaleString('en-IN')}` : 'Enter procurement contract amount'}
+                {currentTotal > 0
+                  ? `₹${currentTotal.toLocaleString('en-IN')}`
+                  : isEmployee
+                  ? 'Enter customer due contract amount'
+                  : 'Enter procurement contract amount'}
               </span>
             </div>
 
             <div>
               <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>Advance Amount (₹)</span>
-                <span className="text-[10px] text-emerald-700 font-semibold">Initial Advance</span>
+                <span>{isEmployee ? 'Payed Amount (₹)' : 'Advance Amount (₹)'}</span>
+                <span className="text-[10px] text-emerald-700 font-semibold">
+                  {isEmployee ? 'Initial Payment' : 'Initial Advance'}
+                </span>
               </label>
               <input
                 type="number"
@@ -221,7 +240,11 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 className="w-full h-11 px-3 border border-emerald-400 rounded-xl text-sm font-bold text-emerald-900 bg-white focus:border-emerald-600 focus:outline-none shadow-xs"
               />
               <span className="text-[10px] text-gray-500 mt-1 block">
-                {currentAdvance > 0 ? `₹${currentAdvance.toLocaleString('en-IN')} paid upfront` : 'No initial advance'}
+                {currentAdvance > 0
+                  ? `₹${currentAdvance.toLocaleString('en-IN')} paid upfront`
+                  : isEmployee
+                  ? 'No initial payment'
+                  : 'No initial advance'}
               </span>
             </div>
 
@@ -240,12 +263,12 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 className="w-full h-11 px-3 border-2 border-amber-400 rounded-xl text-sm font-black text-amber-900 bg-white focus:border-amber-600 focus:outline-none shadow-xs"
               />
               <span className="text-[10px] text-amber-800 font-semibold mt-1 block">
-                ₹{computedPending.toLocaleString('en-IN')} due upon delivery clearance
+                ₹{computedPending.toLocaleString('en-IN')} {isEmployee ? 'pending customer due' : 'due upon delivery clearance'}
               </span>
             </div>
           </div>
 
-          {/* Row 3: Order Person Location & Delivery Destination */}
+          {/* Row 3: Order Person Location & Delivery / Shop Address */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
@@ -279,11 +302,14 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             </div>
 
             <div>
-              <label className="block text-gray-700 font-bold mb-1">Delivery Destination Address</label>
+              <label className="block text-gray-700 font-bold mb-1">
+                {isEmployee ? 'Shop Address' : 'Delivery Destination Address'}
+              </label>
               <input
                 type="text"
                 value={deliveryAddress}
                 onChange={(e) => setDeliveryAddress(e.target.value)}
+                placeholder={isEmployee ? 'Enter retail shop address / area' : 'Delivery destination address'}
                 className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
               />
             </div>
@@ -304,14 +330,20 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             />
           </div>
 
-          {/* Row 4: Procurement Notes / Instructions */}
+          {/* Row 5: Procurement Notes or Customer Due Notes */}
           <div>
-            <label className="block text-gray-700 font-bold mb-1">Procurement Notes / Quality Instructions</label>
+            <label className="block text-gray-700 font-bold mb-1">
+              {isEmployee ? 'Customer Due Notes' : 'Procurement Notes / Quality Instructions'}
+            </label>
             <textarea
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Temperature must be kept at 2-4°C; Pre-shipment batch inspection certificate required; Cold chain verified."
+              placeholder={
+                isEmployee
+                  ? 'e.g. Customer due terms, payment schedule, or retailer contact notes.'
+                  : 'e.g. Temperature must be kept at 2-4°C; Pre-shipment batch inspection certificate required; Cold chain verified.'
+              }
               className="w-full p-3 border border-gray-300 rounded-xl text-xs focus:border-emerald-600 focus:outline-none"
             />
           </div>

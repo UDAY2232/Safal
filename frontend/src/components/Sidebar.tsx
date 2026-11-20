@@ -144,16 +144,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className="sidebar-nav">
         {visibleNav.map(({ label, icon: Icon, adminOnly }) => {
           const isActive = activePage === label;
+          const displayLabel = label === 'Purchase Order (PO)' && currentRole === 'EMPLOYEE' ? 'Customer Due (CD)' : label;
           return (
             <button
               key={label}
               type="button"
               className={`nav-item ${isActive ? 'active' : ''} ${isCollapsed ? 'collapsed-item' : ''}`}
               onClick={() => onNavigate(label)}
-              title={label}
+              title={displayLabel}
             >
               <Icon size={19} className="flex-shrink-0" />
-              {!isCollapsed && <span className="truncate flex-1">{label}</span>}
+              {!isCollapsed && <span className="truncate flex-1">{displayLabel}</span>}
               {!isCollapsed && adminOnly && <span className="admin-dot flex-shrink-0">A</span>}
             </button>
           );

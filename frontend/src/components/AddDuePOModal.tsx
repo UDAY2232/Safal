@@ -24,6 +24,7 @@ interface AddDuePOModalProps {
 
 export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess }) => {
   const { user } = useAuth();
+  const isEmployee = user?.role === 'EMPLOYEE';
 
   const [supplierName, setSupplierName] = useState('');
   const [supplierContact, setSupplierContact] = useState('');
@@ -116,10 +117,10 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
             </div>
             <div>
               <span className="eyebrow text-rose-800 font-bold flex items-center gap-1">
-                <Sparkles size={13} /> PRE-EXISTING DUE PO ONBOARDING
+                <Sparkles size={13} /> {isEmployee ? 'PRE-EXISTING CUSTOMER DUE (CD) ONBOARDING' : 'PRE-EXISTING DUE PO ONBOARDING'}
               </span>
               <h2 className="text-xl font-black text-gray-900 mt-0.5">
-                Record Pre-Existing / Due Purchase Order
+                {isEmployee ? 'Record Pre-Existing Customer Due (CD)' : 'Record Pre-Existing / Due Purchase Order'}
               </h2>
             </div>
           </div>
@@ -142,23 +143,23 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
         {/* Scrollable Form Body */}
         <div className="overflow-y-auto flex-1 py-3 space-y-4 text-xs pr-1">
-          {/* Section 1: Supplier & Procurement Details */}
+          {/* Section 1: Customer / Supplier Details */}
           <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-3">
             <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5 uppercase tracking-wide">
-              <User size={14} className="text-[#087A3E]" /> Supplier &amp; Procurement Details
+              <User size={14} className="text-[#087A3E]" /> {isEmployee ? 'Customer & Shop Details' : 'Supplier & Procurement Details'}
             </h3>
 
-            {/* Manual Supplier Entry */}
+            {/* Manual Supplier / Customer Entry */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
-                  Supplier Name <span className="text-red-500">*</span>
+                  {isEmployee ? 'Customer / Shop Name' : 'Supplier Name'} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={supplierName}
                   onChange={(e) => setSupplierName(e.target.value)}
-                  placeholder="e.g. Kashmir Apple Farms, Safal"
+                  placeholder={isEmployee ? 'e.g. Balaji Fruit Shop / Retailer' : 'e.g. Kashmir Apple Farms, Safal'}
                   className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#087A3E]"
                   required
                 />
@@ -166,7 +167,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
-                  <Phone size={11} className="text-gray-400" /> Supplier Phone / Contact
+                  <Phone size={11} className="text-gray-400" /> {isEmployee ? 'Customer Phone / Contact' : 'Supplier Phone / Contact'}
                 </label>
                 <input
                   type="text"
@@ -213,14 +214,14 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-white border border-gray-200 rounded-2xl">
             <div>
               <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>PO / Bill Slip Number</span>
-                <span className="text-[10px] text-gray-400">Leave blank for auto-PO#</span>
+                <span>{isEmployee ? 'CD / Receipt Slip Number' : 'PO / Bill Slip Number'}</span>
+                <span className="text-[10px] text-gray-400">Leave blank for auto-number</span>
               </label>
               <input
                 type="text"
                 value={customPONumber}
                 onChange={(e) => setCustomPONumber(e.target.value)}
-                placeholder="Auto (or enter e.g. PO/SF/2026/002)"
+                placeholder={isEmployee ? 'Auto (or enter e.g. CD/SF/2026/002)' : 'Auto (or enter e.g. PO/SF/2026/002)'}
                 className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#087A3E]"
               />
             </div>
@@ -248,7 +249,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-gray-800 font-bold mb-1">
-                  Total PO Value (₹) <span className="text-red-500">*</span>
+                  {isEmployee ? 'Total CD Value (₹)' : 'Total PO Value (₹)'} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
@@ -267,7 +268,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
               <div>
                 <label className="block text-gray-800 font-bold mb-1 flex items-center justify-between">
-                  <span>Advance Paid / Cleared Amount (₹)</span>
+                  <span>{isEmployee ? 'Payed Amount (₹)' : 'Advance Paid / Cleared Amount (₹)'}</span>
                   <span className="text-[10px] text-emerald-700 font-bold">Paid upfront</span>
                 </label>
                 <div className="relative">
