@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { Notification } from '../types';
 import { SendNoticeModal } from './SendNoticeModal';
+import { CorporateHeaderBanner } from './CorporateHeaderBanner';
 
 interface HeaderProps {
   onNavigate: (page: string) => void;
@@ -296,15 +297,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. Full-Bleed Edge-to-Edge SAFAL Brand Banner (Background Cover across entire width) */}
-      <div
-        className="safal-brand-banner-wrap group"
-        onClick={() => onNavigate('Dashboard')}
-        title="SAFAL EXPORT AND IMPORT PVT LTD - Click to return to Dashboard"
-        role="button"
-        tabIndex={0}
-        aria-label="SAFAL EXPORT AND IMPORT PVT LTD - Go to Dashboard"
-      />
+      {/* 2. Full-Bleed Corporate ERP Header Banner (Pure React Component & SVG trade composition) */}
+      <CorporateHeaderBanner onNavigate={onNavigate} />
 
       {/* Admin / Accountant Send Notice Modal */}
       {showNoticeModal && (
