@@ -296,22 +296,15 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* 2. Full-Bleed Corporate ERP Header Banner (Single High-Resolution Designer Image Asset) */}
+      {/* 2. Full-Bleed Edge-to-Edge SAFAL Brand Banner (Matching Reference Design 2) */}
       <div
         className="safal-corporate-banner-wrap group"
         onClick={() => onNavigate('Dashboard')}
-        role="banner"
+        role="button"
         tabIndex={0}
-        aria-label="SAFAL EXPORT & IMPORT PVT LTD - Go to Dashboard"
-        title="SAFAL EXPORT & IMPORT PVT LTD - Click to navigate to Dashboard"
-      >
-        <img
-          src="/safal-corporate-banner.png"
-          alt="SAFAL EXPORT & IMPORT PVT LTD - Freshness Beyond Borders"
-          className="safal-corporate-banner-img"
-          loading="eager"
-        />
-      </div>
+        aria-label="SAFAL EXPORT AND IMPORT PVT LTD - Go to Dashboard"
+        title="SAFAL EXPORT AND IMPORT PVT LTD - Click to return to Dashboard"
+      />
 
       {/* Admin / Accountant Send Notice Modal */}
       {showNoticeModal && (
