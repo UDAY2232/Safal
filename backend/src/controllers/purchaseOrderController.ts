@@ -348,14 +348,23 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       },
     });
 
+    const contactPhone = req.body.customerPhone || req.body.phone || req.body.supplierContact || null;
+
     if (existingSupplier) {
       resolvedSupplierId = existingSupplier.id;
+      if (contactPhone && !existingSupplier.phone) {
+        await prisma.supplier.update({
+          where: { id: existingSupplier.id },
+          data: { phone: contactPhone },
+        });
+      }
     } else {
       const sCount = await prisma.supplier.count();
       const createdSupplier = await prisma.supplier.create({
         data: {
           supplierCode: `SUP-${String(sCount + 1).padStart(3, '0')}`,
           name: resolvedSupplierId,
+          phone: contactPhone,
           category: 'Wholesale Fruits',
           paymentTerms: 'Custom',
           status: 'ACTIVE',

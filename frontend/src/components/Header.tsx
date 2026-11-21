@@ -138,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
             <img
               src="/safal-globe-logo.png"
               alt="SAFAL"
-              className="w-7 h-7 object-contain rounded-md flex-shrink-0 group-hover:scale-105 transition-transform"
+              className="w-10 h-10 sm:w-11 sm:h-11 object-contain rounded-lg flex-shrink-0 group-hover:scale-105 transition-transform shadow-xs"
             />
             <div className="flex flex-col text-left leading-none min-w-0">
               <span className="font-extrabold text-xs sm:text-sm text-[#064D2B] tracking-tight group-hover:text-[#087a3e] transition truncate">

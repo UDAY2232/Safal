@@ -79,7 +79,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <img
             src="/safal-globe-logo.png"
             alt="SAFAL Logo"
-            className="w-8 h-8 object-contain rounded-lg bg-white/10 p-0.5"
+            className="w-11 h-11 object-contain rounded-xl bg-white/10 p-1 shadow-sm"
           />
           <div>
             <h3 className="font-extrabold text-sm text-white tracking-tight leading-none font-['Manrope']">

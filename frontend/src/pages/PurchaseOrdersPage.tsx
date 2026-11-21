@@ -120,12 +120,31 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     return pend <= 0 && o.status === 'CLOSED';
   }).length;
 
-  // Calculations for Due POs: avaru thiskunaru, antha pending undhi, antha complete chesaru
+  // 1-Day Window Grace Period for Customer Dues (CD):
+  // Employee creates CD with 1-day time to settle. If not closed within 1 day (24 hours), it automatically moves into Due CD Tracker!
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
   const dueOrders = orders.filter((o) => {
     const adv = Number(o.advanceAmount || 0);
     const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
-    return pend > 0;
+    if (pend <= 0) return false;
+
+    if (isCD) {
+      const orderTime = new Date(o.poDate || o.createdAt).getTime();
+      const isOverOneDay = (Date.now() - orderTime) >= ONE_DAY_MS;
+      return isOverOneDay;
+    }
+    return true;
   });
+
+  // Active CDs still within the 1-day grace period
+  const activeGraceCDs = isCD ? orders.filter((o) => {
+    const adv = Number(o.advanceAmount || 0);
+    const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    if (pend <= 0) return false;
+    const orderTime = new Date(o.poDate || o.createdAt).getTime();
+    return (Date.now() - orderTime) < ONE_DAY_MS;
+  }) : [];
 
   const totalDueAmount = dueOrders.reduce((sum, o) => {
     const adv = Number(o.advanceAmount || 0);
@@ -154,18 +173,20 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-          {/* Enter Due PO / CD Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setActiveSection('due');
-              setShowAddDueModal(true);
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-700 hover:bg-rose-800 text-white text-sm font-bold rounded-xl shadow-md transition"
-            title={isCD ? 'Record an existing customer due record' : 'Record an existing / pre-software PO with pending dues'}
-          >
-            <Plus size={18} /> {isCD ? 'Record Due CD' : 'Record Due PO'}
-          </button>
+          {/* Enter Due PO / CD Button: REMOVED for CD as requested */}
+          {!isCD && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSection('due');
+                setShowAddDueModal(true);
+              }}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-700 hover:bg-rose-800 text-white text-sm font-bold rounded-xl shadow-md transition"
+              title="Record an existing / pre-software PO with pending dues"
+            >
+              <Plus size={18} /> Record Due PO
+            </button>
+          )}
 
           {/* Direct Settle Due POs / CDs Button */}
           <button
@@ -265,24 +286,24 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isCD ? (isEmployee ? 'My Open CDs' : 'Open Customer Dues') : 'Open PO'}
+                {isCD ? (isEmployee ? 'Within 1-Day Window' : 'Due Today (<1 Day Grace)') : 'Open PO'}
               </span>
               <strong className="text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
-                {openCount}
+                {isCD ? activeGraceCDs.length : openCount}
               </strong>
             </div>
           </div>
 
           <div className="stat-card rose flex items-center gap-3.5 p-4 rounded-2xl bg-[#FEEFEF] border border-[#FCD8D8]">
             <div className="w-12 h-12 rounded-xl bg-[#FFDADA] flex items-center justify-center text-[#D32F2F] flex-shrink-0">
-              <CheckCircle2 size={24} strokeWidth={2.2} />
+              <CreditCard size={24} strokeWidth={2.2} />
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isCD ? (isEmployee ? 'My Settled CDs' : 'Settled Customer Dues') : 'Closed PO'}
+                {isCD ? (isEmployee ? 'Due CD Tracker (>1 Day)' : 'Due Tracker (>1 Day Overdue)') : 'Closed PO'}
               </span>
               <strong className="text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5">
-                {closedCount}
+                {isCD ? dueOrders.length : closedCount}
               </strong>
             </div>
           </div>
@@ -492,13 +513,15 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <span className="px-3.5 py-1.5 bg-rose-700 text-white rounded-xl text-xs font-black shadow-xs">
                 Total Due: ₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
-              <button
-                type="button"
-                onClick={() => setShowAddDueModal(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-bold shadow-xs transition"
-              >
-                <Plus size={14} /> {isCD ? '+ Record Due CD' : '+ Record Due PO'}
-              </button>
+              {!isCD && (
+                <button
+                  type="button"
+                  onClick={() => setShowAddDueModal(true)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-bold shadow-xs transition"
+                >
+                  <Plus size={14} /> + Record Due PO
+                </button>
+              )}
             </div>
           </div>
 
@@ -533,20 +556,22 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                     <td colSpan={9} className="text-center py-14 text-gray-500">
                       <CreditCard size={38} className="mx-auto text-rose-500 mb-2" />
                       <p className="font-bold text-gray-800 text-sm">
-                        {isCD ? 'No Pending Customer Dues Recorded Yet' : 'No Pending Dues Recorded Yet'}
+                        {isCD ? 'No Overdue Customer Dues (>1 Day)' : 'No Pending Dues Recorded Yet'}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         {isCD
-                          ? 'Record customer due records into the tracker.'
+                          ? 'Customer Dues exceeding the 1-day settlement period will appear here automatically.'
                           : 'Record pre-existing or offline due purchase orders into the tracker.'}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddDueModal(true)}
-                        className="mt-3.5 inline-flex items-center gap-2 px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md transition"
-                      >
-                        <Plus size={15} /> {isCD ? '+ Record Due CD' : '+ Record Due PO'}
-                      </button>
+                      {!isCD && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAddDueModal(true)}
+                          className="mt-3.5 inline-flex items-center gap-2 px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md transition"
+                        >
+                          <Plus size={15} /> + Record Due PO
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -737,6 +762,26 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                               <span className="inline-block px-5 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
                                 Closed
                               </span>
+                            ) : isCD ? (
+                              (() => {
+                                const orderTime = new Date(order.poDate || order.createdAt).getTime();
+                                const isOverOneDay = (Date.now() - orderTime) >= ONE_DAY_MS;
+                                return isOverOneDay ? (
+                                  <div className="inline-flex flex-col items-center">
+                                    <span className="px-3 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
+                                      Due Tracker
+                                    </span>
+                                    <span className="text-[10px] text-rose-600 font-bold">&gt;1 Day Overdue</span>
+                                  </div>
+                                ) : (
+                                  <div className="inline-flex flex-col items-center">
+                                    <span className="px-3 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">
+                                      Due Today
+                                    </span>
+                                    <span className="text-[10px] text-emerald-700 font-semibold">1-Day Window</span>
+                                  </div>
+                                );
+                              })()
                             ) : isPending ? (
                               <span className="inline-block px-4 py-1 rounded-full text-xs font-bold bg-[#FFF2C9] text-[#986B0C] border border-[#FBE39A]">
                                 Pending

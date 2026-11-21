@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowRight, ShoppingCart, DollarSign, Calendar, Truck, FileText } from 'lucide-react';
+import {
+  X,
+  ArrowRight,
+  ShoppingCart,
+  DollarSign,
+  Calendar,
+  Truck,
+  FileText,
+  Plus,
+  Trash2,
+  Phone,
+  User,
+  MapPin,
+  Sparkles,
+} from 'lucide-react';
 import { api } from '../services/api';
 import { Supplier } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +24,16 @@ interface CreatePOModalProps {
   mode?: 'PO' | 'CD';
 }
 
+export interface CDLineItem {
+  id: string;
+  fruitName: string;
+  varietyGrade: string;
+  quantity: string | number;
+  unit: string;
+  ratePerUnit: string | number;
+  lineTotal: number;
+}
+
 export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess, mode }) => {
   const { user } = useAuth();
   const isEmployee = user?.role === 'EMPLOYEE';
@@ -17,17 +41,26 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierName, setSupplierName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [orderPersonName] = useState(user?.name || 'Staff');
   const [poDate, setPoDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderPersonPlace, setOrderPersonPlace] = useState('');
-  const [fruitDescription, setFruitDescription] = useState('');
   const [totalAmount, setTotalAmount] = useState<string>('');
   const [advanceAmount, setAdvanceAmount] = useState<string>('0');
   const [pendingAmount, setPendingAmount] = useState<string>('');
+  const [manualTotalOverride, setManualTotalOverride] = useState(false);
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // 3-4 Multi-Item rows support for employee CD creation
+  const [items, setItems] = useState<CDLineItem[]>([
+    { id: '1', fruitName: '', varietyGrade: 'Grade A', quantity: '', unit: 'BOX', ratePerUnit: '', lineTotal: 0 },
+    { id: '2', fruitName: '', varietyGrade: 'Grade A', quantity: '', unit: 'BOX', ratePerUnit: '', lineTotal: 0 },
+    { id: '3', fruitName: '', varietyGrade: 'Grade A', quantity: '', unit: 'BOX', ratePerUnit: '', lineTotal: 0 },
+  ]);
 
   useEffect(() => {
     async function loadSuppliers() {
@@ -40,6 +73,47 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
     loadSuppliers();
   }, [isCD]);
 
+  // Handle item updates and auto-compute line totals and totalAmount
+  const handleItemChange = (index: number, field: keyof CDLineItem, val: any) => {
+    setItems((prev) => {
+      const updated = [...prev];
+      const item = { ...updated[index], [field]: val };
+
+      const qty = Number(item.quantity) || 0;
+      const rate = Number(item.ratePerUnit) || 0;
+      item.lineTotal = qty * rate;
+      updated[index] = item;
+
+      // Auto-compute totalAmount from items sum unless manually overridden
+      const itemsSum = updated.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
+      if (!manualTotalOverride && itemsSum > 0) {
+        setTotalAmount(String(itemsSum));
+      }
+
+      return updated;
+    });
+  };
+
+  const addItemRow = () => {
+    const nextId = String(items.length + 1);
+    setItems((prev) => [
+      ...prev,
+      { id: nextId, fruitName: '', varietyGrade: 'Grade A', quantity: '', unit: 'BOX', ratePerUnit: '', lineTotal: 0 },
+    ]);
+  };
+
+  const removeItemRow = (index: number) => {
+    if (items.length <= 1) return;
+    setItems((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      const itemsSum = updated.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
+      if (!manualTotalOverride && itemsSum > 0) {
+        setTotalAmount(String(itemsSum));
+      }
+      return updated;
+    });
+  };
+
   const currentTotal = Number(totalAmount) || 0;
   const currentAdvance = Number(advanceAmount) || 0;
   const computedPending =
@@ -47,11 +121,17 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
   const handleSubmit = async (submitForApproval: boolean) => {
     if (!supplierName.trim()) {
-      setError(isCD ? 'Please enter Customer Name' : 'Please enter or select a supplier name');
+      setError(isCD ? 'Please enter Customer / Shop Name' : 'Please enter or select a supplier name');
       return;
     }
-    if (!totalAmount || Number(totalAmount) <= 0) {
-      setError(isCD ? 'Please enter a valid Total CD Amount greater than 0' : 'Please enter a valid Total PO Amount greater than 0');
+
+    // Filter valid items
+    const validItems = items.filter((it) => it.fruitName.trim().length > 0);
+    const finalItemsTotal = validItems.reduce((sum, it) => sum + it.lineTotal, 0);
+    const finalGrandTotal = currentTotal > 0 ? currentTotal : finalItemsTotal;
+
+    if (finalGrandTotal <= 0) {
+      setError(isCD ? 'Please enter fruit items or a valid Total CD Value greater than 0' : 'Please enter a valid Total PO Amount greater than 0');
       return;
     }
 
@@ -65,48 +145,70 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       );
       const finalSupplierId = matched ? matched.id : supplierName.trim();
 
+      // Format payload items
+      const payloadItems =
+        validItems.length > 0
+          ? validItems.map((it) => ({
+              fruitName: it.fruitName.trim(),
+              category: 'Fresh Fruits',
+              varietyGrade: it.varietyGrade || 'Grade A',
+              quantity: Number(it.quantity) || 1,
+              unit: it.unit || 'BOX',
+              ratePerUnit: Number(it.ratePerUnit) || (finalGrandTotal / (Number(it.quantity) || 1)),
+              discountPercent: 0,
+              taxPercent: 0,
+              lineTotal: it.lineTotal > 0 ? it.lineTotal : finalGrandTotal,
+            }))
+          : [
+              {
+                fruitName: 'Assorted Fruits Consignment',
+                category: 'Fresh Fruits',
+                varietyGrade: 'Grade A',
+                quantity: 1,
+                unit: 'LOT',
+                ratePerUnit: finalGrandTotal,
+                discountPercent: 0,
+                taxPercent: 0,
+                lineTotal: finalGrandTotal,
+              },
+            ];
+
+      const fruitSummary =
+        validItems.length > 0
+          ? validItems.map((it) => `${it.fruitName} (${it.quantity} ${it.unit})`).join(', ')
+          : 'Wholesale Fruit Procurement';
+
       await api.createPurchaseOrder({
         supplierId: finalSupplierId,
+        customerPhone: customerPhone.trim(),
         poDate: poDate || new Date().toISOString(),
         expectedDeliveryDate: expectedDeliveryDate || null,
-        deliveryAddress,
-        orderPersonPlace: orderPersonPlace.trim() || 'Hyderabad',
-        grandTotal: currentTotal,
-        totalAmount: currentTotal,
+        deliveryAddress: deliveryAddress.trim(),
+        orderPersonPlace: orderPersonPlace.trim() || 'Hanamkonda',
+        grandTotal: finalGrandTotal,
+        totalAmount: finalGrandTotal,
         advanceAmount: currentAdvance,
         pendingAmount: computedPending,
-        fruitName: fruitDescription.trim() || 'Wholesale Fruit Procurement',
-        notes,
+        fruitName: fruitSummary,
+        notes: notes.trim(),
         isCD: isCD,
         type: isCD ? 'CD' : 'PO',
-        items: [
-          {
-            fruitName: fruitDescription.trim() || 'Wholesale Fruit Procurement',
-            category: 'Fresh Fruits',
-            varietyGrade: 'Standard Procurement',
-            quantity: 1,
-            unit: 'CONSIGNMENT',
-            ratePerUnit: currentTotal,
-            discountPercent: 0,
-            taxPercent: 0,
-            lineTotal: currentTotal,
-          },
-        ],
+        items: payloadItems,
         submitForApproval,
       });
 
       onSuccess(
         submitForApproval
           ? isCD
-            ? 'Customer Due (CD) submitted for approval successfully'
-            : 'Purchase order submitted for approval successfully'
+            ? 'Customer Due (CD) created and submitted successfully!'
+            : 'Purchase order submitted for approval successfully!'
           : isCD
-          ? 'Customer Due (CD) draft saved successfully'
-          : 'Purchase order draft saved successfully'
+          ? 'Customer Due (CD) draft saved successfully!'
+          : 'Purchase order draft saved successfully!'
       );
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to create purchase order');
+      setError(err.message || 'Failed to create customer due record');
     } finally {
       setIsSubmitting(false);
     }
@@ -114,22 +216,27 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
   return (
     <div className="modal-backdrop">
-      <div className="modal !w-[820px] max-w-[96vw] max-h-[92vh] flex flex-col p-6 overflow-hidden">
+      <div className="modal !w-[920px] max-w-[98vw] max-h-[94vh] flex flex-col p-5 sm:p-6 overflow-hidden rounded-3xl shadow-2xl">
         {/* Modal Header */}
         <div className="modal-header pb-3 border-b border-gray-100 flex-shrink-0">
           <div>
-            <span className="eyebrow flex items-center gap-1.5 text-emerald-700 font-bold">
-              <ShoppingCart size={14} /> {isCD ? 'NEW CUSTOMER DUE (CD)' : 'NEW PURCHASE ORDER'}
+            <span className="eyebrow flex items-center gap-1.5 text-emerald-700 font-bold uppercase tracking-wider text-xs">
+              <ShoppingCart size={15} /> {isCD ? 'NEW CUSTOMER DUE (CD)' : 'NEW PURCHASE ORDER'}
             </span>
-            <h2 className="text-xl font-bold text-gray-900 mt-1">
-              {isCD ? 'Create Customer Due (CD)' : 'Create Fruit Procurement Order'}
+            <h2 className="text-xl sm:text-2xl font-black text-gray-900 mt-1 font-['Manrope']">
+              {isCD ? 'Create CD [Customer Due]' : 'Create Fruit Procurement Order'}
             </h2>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              {isCD
+                ? 'Enter customer details, order fruit items (3-4 items), and upfront payment. Due is given 1-day settlement window.'
+                : 'Procurement details and supplier order items.'}
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100 transition"
+            className="text-gray-400 hover:text-gray-700 p-1.5 rounded-xl hover:bg-gray-100 transition"
           >
             <X size={20} />
           </button>
@@ -142,210 +249,373 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
         )}
 
         <div className="overflow-y-auto flex-1 pr-1 py-3 space-y-4 text-xs">
-          {/* Row 1: Customer/Supplier Name, CD/PO Date, Expected Delivery Date (omitted for customer due CD) */}
-          <div className={`grid grid-cols-1 ${isCD ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-3`}>
-            <div>
-              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>{isCD ? 'Customer Name *' : 'Supplier Name *'}</span>
-              </label>
-              <input
-                type="text"
-                autoComplete="off"
-                {...(!isCD ? { list: 'suppliers-datalist' } : {})}
-                value={supplierName}
-                onChange={(e) => setSupplierName(e.target.value)}
-                placeholder={isCD ? 'e.g. Balaji Fruit Shop' : 'e.g. Royal Fruit Traders'}
-                className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
-                required
-              />
-              {!isCD && (
-                <datalist id="suppliers-datalist">
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.name}>
-                      {s.category}
-                    </option>
-                  ))}
-                </datalist>
-              )}
-            </div>
+          {/* Section 1: Customer & Shop Details */}
+          <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl space-y-3">
+            <h3 className="font-extrabold text-xs text-[#064D2B] uppercase tracking-wider flex items-center gap-2">
+              <User size={15} /> Customer &amp; Shop Details
+            </h3>
 
-            <div>
-              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>{isCD ? 'CD Date *' : 'PO Initiation Date *'}</span>
-                <span className="text-[10px] text-emerald-700 font-semibold">Order Date</span>
-              </label>
-              <input
-                type="date"
-                value={poDate}
-                onChange={(e) => setPoDate(e.target.value)}
-                className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
-                required
-              />
-            </div>
-
-            {!isCD && (
-              <div>
-                <label className="block text-gray-700 font-bold mb-1">Expected Delivery Date</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+              {/* Customer / Shop Name */}
+              <div className="md:col-span-2">
+                <label className="block text-gray-700 font-bold mb-1">
+                  {isCD ? 'Customer / Shop Name *' : 'Supplier Name *'}
+                </label>
                 <input
-                  type="date"
-                  value={expectedDeliveryDate}
-                  onChange={(e) => setExpectedDeliveryDate(e.target.value)}
-                  className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 focus:border-emerald-600 focus:outline-none"
+                  type="text"
+                  autoComplete="off"
+                  {...(!isCD ? { list: 'suppliers-datalist' } : {})}
+                  value={supplierName}
+                  onChange={(e) => setSupplierName(e.target.value)}
+                  placeholder={isCD ? 'e.g. Balaji Fruit Shop / Retailer' : 'e.g. Royal Fruit Traders'}
+                  className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none shadow-2xs"
+                  required
+                />
+                {!isCD && (
+                  <datalist id="suppliers-datalist">
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.category}
+                      </option>
+                    ))}
+                  </datalist>
+                )}
+              </div>
+
+              {/* Customer Phone */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
+                  <Phone size={12} className="text-emerald-700" />
+                  <span>Customer Phone / Contact</span>
+                </label>
+                <input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="+91 98..."
+                  className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none shadow-2xs"
                 />
               </div>
-            )}
-          </div>
 
-          {/* Row 2: Financial Amounts (Total Amount, Payed/Advance, Pending) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
-            <div>
-              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>{isCD ? 'TOTAL CD AMOUNT (₹) *' : 'TOTAL PO AMOUNT (₹) *'}</span>
-                <span className="text-[10px] text-emerald-800 font-bold">Total payable</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={totalAmount}
-                onChange={(e) => {
-                  setTotalAmount(e.target.value);
-                  setPendingAmount('');
-                }}
-                placeholder="0.00"
-                className="w-full h-11 px-3 border-2 border-emerald-500 rounded-xl text-base font-black text-emerald-950 bg-white focus:border-emerald-700 focus:outline-none shadow-xs"
-                required
-              />
-              <span className="text-[10px] text-gray-500 mt-1 block">
-                {currentTotal > 0
-                  ? `₹${currentTotal.toLocaleString('en-IN')}`
-                  : isCD
-                  ? 'Enter customer due contract amount'
-                  : 'Enter procurement contract amount'}
-              </span>
+              {/* Order Date */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
+                  <Calendar size={12} className="text-emerald-700" />
+                  <span>{isCD ? 'CD Order Date *' : 'PO Date *'}</span>
+                </label>
+                <input
+                  type="date"
+                  value={poDate}
+                  onChange={(e) => setPoDate(e.target.value)}
+                  className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none shadow-2xs"
+                  required
+                />
+              </div>
             </div>
 
-            <div>
-              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>{isCD ? 'Payed Amount (₹)' : 'Advance Amount (₹)'}</span>
-                <span className="text-[10px] text-emerald-700 font-semibold">
-                  {isCD ? 'Initial Payment' : 'Initial Advance'}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Order Person (Staff) */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">
+                  Order Person (Staff) *
+                </label>
+                <input
+                  type="text"
+                  value={orderPersonName}
+                  disabled
+                  className="w-full h-10 px-3 border border-gray-200 bg-gray-100 rounded-xl text-xs font-bold text-gray-700 cursor-not-allowed uppercase"
+                />
+              </div>
+
+              {/* Customer Area / City */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
+                  <MapPin size={12} className="text-emerald-700" />
+                  <span>{isCD ? 'Customer Area / City *' : 'Placement City *'}</span>
+                </label>
+                <input
+                  type="text"
+                  value={orderPersonPlace}
+                  onChange={(e) => setOrderPersonPlace(e.target.value)}
+                  placeholder="e.g. Warangal, Hanamkonda, Hyderabad"
+                  className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-semibold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none shadow-2xs"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Order Fruit Items (3-4 Items Entry) */}
+          <div className="p-4 bg-white border-2 border-emerald-500/30 rounded-2xl space-y-3 shadow-xs">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-xs text-[#064D2B] uppercase tracking-wider flex items-center gap-2">
+                  <ShoppingCart size={15} /> Order Fruit Items ({items.length} Items)
+                </h3>
+                <p className="text-[10px] text-gray-500">
+                  Enter details for each fruit item (e.g. 3, 4 items: Fruit name, variety, quantity, rate).
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={addItemRow}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs font-bold rounded-xl shadow-xs transition"
+              >
+                <Plus size={14} /> + Add Item
+              </button>
+            </div>
+
+            {/* Datalist for fast fruit suggestions */}
+            <datalist id="popular-fruits-list">
+              <option value="Shimla Royal Apples" />
+              <option value="Kashmir Golden Apples" />
+              <option value="Nagpur Oranges" />
+              <option value="Bhagwa Pomegranate" />
+              <option value="Alphonso Mango" />
+              <option value="Banganapalli Mango" />
+              <option value="Robusta Banana" />
+              <option value="Yelakki Banana" />
+              <option value="Anab-e-Shahi Grapes" />
+              <option value="Sonaka Seedless Grapes" />
+              <option value="Taiwan Red Papaya" />
+              <option value="Queen Pineapple" />
+              <option value="Dragon Fruit" />
+              <option value="Mosambi (Sweet Lime)" />
+              <option value="Custard Apple (Sitaphal)" />
+              <option value="Watermelon" />
+            </datalist>
+
+            {/* Items Table / Responsive Rows */}
+            <div className="space-y-2.5">
+              {items.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className="p-3 bg-gray-50/80 hover:bg-emerald-50/40 border border-gray-200 rounded-xl transition flex flex-col md:flex-row items-stretch md:items-center gap-2.5"
+                >
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-extrabold text-[11px] grid place-items-center flex-shrink-0">
+                    {idx + 1}
+                  </div>
+
+                  {/* Fruit Name */}
+                  <div className="flex-1 min-w-[150px]">
+                    <label className="block text-[10px] font-bold text-gray-600 mb-0.5 md:hidden">
+                      Fruit Name
+                    </label>
+                    <input
+                      type="text"
+                      list="popular-fruits-list"
+                      value={item.fruitName}
+                      onChange={(e) => handleItemChange(idx, 'fruitName', e.target.value)}
+                      placeholder={`Fruit #${idx + 1} (e.g. Apples, Oranges)`}
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Variety / Grade */}
+                  <div className="w-full md:w-32 flex-shrink-0">
+                    <label className="block text-[10px] font-bold text-gray-600 mb-0.5 md:hidden">
+                      Variety / Grade
+                    </label>
+                    <input
+                      type="text"
+                      value={item.varietyGrade}
+                      onChange={(e) => handleItemChange(idx, 'varietyGrade', e.target.value)}
+                      placeholder="Grade A / Box 10kg"
+                      className="w-full h-9 px-2 border border-gray-300 rounded-lg text-xs text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Quantity & Unit */}
+                  <div className="flex items-center gap-1.5 w-full md:w-36 flex-shrink-0">
+                    <div className="flex-1">
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5 md:hidden">
+                        Qty
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="any"
+                        value={item.quantity}
+                        onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                        placeholder="Qty"
+                        className="w-full h-9 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none"
+                      />
+                    </div>
+                    <div className="w-16">
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5 md:hidden">
+                        Unit
+                      </label>
+                      <select
+                        value={item.unit}
+                        onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
+                        className="w-full h-9 px-1 border border-gray-300 rounded-lg text-[11px] font-bold text-gray-700 bg-white focus:border-emerald-600 focus:outline-none"
+                      >
+                        <option value="BOX">BOX</option>
+                        <option value="KG">KG</option>
+                        <option value="CRATE">CRATE</option>
+                        <option value="TON">TON</option>
+                        <option value="LOT">LOT</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Rate Per Unit */}
+                  <div className="w-full md:w-28 flex-shrink-0">
+                    <label className="block text-[10px] font-bold text-gray-600 mb-0.5 md:hidden">
+                      Rate (₹)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={item.ratePerUnit}
+                      onChange={(e) => handleItemChange(idx, 'ratePerUnit', e.target.value)}
+                      placeholder="Rate ₹"
+                      className="w-full h-9 px-2 border border-gray-300 rounded-lg text-xs font-bold text-emerald-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Item Line Total */}
+                  <div className="w-full md:w-28 flex-shrink-0 text-right">
+                    <label className="block text-[10px] font-bold text-gray-600 mb-0.5 md:hidden">
+                      Total
+                    </label>
+                    <div className="h-9 px-2 bg-emerald-100/60 rounded-lg flex items-center justify-end font-black text-xs text-emerald-950 border border-emerald-200">
+                      ₹{item.lineTotal.toLocaleString('en-IN')}
+                    </div>
+                  </div>
+
+                  {/* Delete button */}
+                  {items.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeItemRow(idx)}
+                      className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition self-end md:self-auto"
+                      title="Remove Item"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center pt-2">
+              <button
+                type="button"
+                onClick={addItemRow}
+                className="text-xs font-bold text-[#064D2B] hover:text-[#087A3E] flex items-center gap-1"
+              >
+                <Plus size={14} /> + Add Another Item (Item #{items.length + 1})
+              </button>
+              <span className="text-xs font-bold text-gray-600">
+                Items Total:{' '}
+                <strong className="text-sm font-black text-emerald-900">
+                  ₹{items.reduce((s, it) => s + it.lineTotal, 0).toLocaleString('en-IN')}
+                </strong>
+              </span>
+            </div>
+          </div>
+
+          {/* Section 3: Financial Settlement Breakdown */}
+          <div className="p-4 bg-emerald-50/80 border-2 border-emerald-400/50 rounded-2xl space-y-3">
+            <h3 className="font-extrabold text-xs text-[#064D2B] uppercase tracking-wider flex items-center gap-2">
+              <DollarSign size={15} /> Financial Settlement Breakdown
+            </h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {/* Total CD Value */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                  <span>{isCD ? 'Total CD Value (₹) *' : 'Total PO Value (₹) *'}</span>
+                  <span className="text-[10px] text-emerald-800 font-bold">Total Order</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={totalAmount}
+                  onChange={(e) => {
+                    setTotalAmount(e.target.value);
+                    setManualTotalOverride(true);
+                    setPendingAmount('');
+                  }}
+                  placeholder="0.00"
+                  className="w-full h-11 px-3 border-2 border-emerald-500 rounded-xl text-base font-black text-emerald-950 bg-white focus:border-emerald-700 focus:outline-none shadow-xs"
+                  required
+                />
+                <span className="text-[10px] text-gray-500 mt-1 block font-semibold">
+                  {currentTotal > 0 ? `₹${currentTotal.toLocaleString('en-IN')}` : 'Enter or auto-calculated from items'}
                 </span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={advanceAmount}
-                onChange={(e) => {
-                  setAdvanceAmount(e.target.value);
-                  setPendingAmount('');
-                }}
-                placeholder="0.00"
-                className="w-full h-11 px-3 border border-emerald-400 rounded-xl text-sm font-bold text-emerald-900 bg-white focus:border-emerald-600 focus:outline-none shadow-xs"
-              />
-              <span className="text-[10px] text-gray-500 mt-1 block">
-                {currentAdvance > 0
-                  ? `₹${currentAdvance.toLocaleString('en-IN')} paid upfront`
-                  : isCD
-                  ? 'No initial payment'
-                  : 'No initial advance'}
-              </span>
-            </div>
+              </div>
 
-            <div>
-              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>Pending Balance (₹)</span>
-                <span className="text-[10px] text-amber-700 font-bold">Remaining Due</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={pendingAmount !== '' ? pendingAmount : Math.max(0, currentTotal - currentAdvance)}
-                onChange={(e) => setPendingAmount(e.target.value)}
-                placeholder="0.00"
-                className="w-full h-11 px-3 border-2 border-amber-400 rounded-xl text-sm font-black text-amber-900 bg-white focus:border-amber-600 focus:outline-none shadow-xs"
-              />
-              <span className="text-[10px] text-amber-800 font-semibold mt-1 block">
-                ₹{computedPending.toLocaleString('en-IN')} {isCD ? 'pending customer due' : 'due upon delivery clearance'}
-              </span>
-            </div>
-          </div>
+              {/* Payed Amount Upfront */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                  <span>{isCD ? 'Payed Amount (₹)' : 'Advance Amount (₹)'}</span>
+                  <span className="text-[10px] text-emerald-700 font-bold">Paid upfront</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={advanceAmount}
+                  onChange={(e) => {
+                    setAdvanceAmount(e.target.value);
+                    setPendingAmount('');
+                  }}
+                  placeholder="0.00"
+                  className="w-full h-11 px-3 border border-emerald-400 rounded-xl text-sm font-bold text-emerald-900 bg-white focus:border-emerald-600 focus:outline-none shadow-xs"
+                />
+                <span className="text-[10px] text-gray-500 mt-1 block">
+                  {currentAdvance > 0 ? `₹${currentAdvance.toLocaleString('en-IN')} collected today` : '₹0 (No upfront payment)'}
+                </span>
+              </div>
 
-          {/* Row 3: Order Person Location & Delivery / Shop Address */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>{isCD ? 'Customer Area / City *' : 'Order Person Place / City *'}</span>
-                <span className="text-[10px] text-emerald-700 font-semibold">City / Location</span>
-              </label>
-              <input
-                type="text"
-                autoComplete="off"
-                value={orderPersonPlace}
-                onChange={(e) => setOrderPersonPlace(e.target.value)}
-                placeholder="Enter Area / City (e.g. Warangal, Hyderabad)"
-                className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-semibold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
-                required
-              />
-              <span className="text-[10px] text-gray-500 mt-1 block">
-                Region where order is placed (manual entry)
-              </span>
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-bold mb-1">
-                {isCD ? 'Shop Address' : 'Delivery Destination Address'}
-              </label>
-              <input
-                type="text"
-                autoComplete="off"
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
-                placeholder={isCD ? 'Enter retail shop address / location' : 'Enter delivery destination address'}
-                className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
-              />
+              {/* Pending Due Balance */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                  <span>Pending Due Balance (₹)</span>
+                  <span className="text-[10px] text-rose-700 font-bold">1-Day Window</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={pendingAmount !== '' ? pendingAmount : Math.max(0, currentTotal - currentAdvance)}
+                  onChange={(e) => setPendingAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full h-11 px-3 border-2 border-rose-400 rounded-xl text-sm font-black text-rose-900 bg-white focus:border-rose-600 focus:outline-none shadow-xs"
+                />
+                <span className="text-[10px] text-rose-800 font-bold mt-1 block">
+                  ₹{computedPending.toLocaleString('en-IN')} pending · 1-day grace period
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Row 4: Fruit / Item Description */}
-          <div>
-            <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-              <span>Fruit / Consignment Description</span>
-              <span className="text-[10px] text-gray-400 font-normal">Optional details</span>
-            </label>
-            <input
-              type="text"
-              autoComplete="off"
-              value={fruitDescription}
-              onChange={(e) => setFruitDescription(e.target.value)}
-              placeholder="e.g. Shimla Royal Apples (Export AAA), Nagpur Oranges"
-              className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
-            />
-          </div>
-
-          {/* Row 5: Procurement Notes or Customer Due Notes */}
+          {/* Section 4: Notes / Remarks */}
           <div>
             <label className="block text-gray-700 font-bold mb-1">
-              {isCD ? 'Customer Due Notes' : 'Procurement Notes / Quality Instructions'}
+              {isCD ? 'Customer Due Notes / Remarks' : 'Procurement Instructions'}
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder={
                 isCD
-                  ? 'e.g. Customer due terms, payment schedule, or retailer contact notes.'
-                  : 'e.g. Temperature must be kept at 2-4°C; Pre-shipment batch inspection certificate required; Cold chain verified.'
+                  ? 'e.g. Retailer promises settlement by tomorrow evening; shop located near main chowrasta.'
+                  : 'Quality guidelines or delivery details.'
               }
-              className="w-full p-3 border border-gray-300 rounded-xl text-xs focus:border-emerald-600 focus:outline-none"
+              className="w-full p-2.5 border border-gray-300 rounded-xl text-xs focus:border-emerald-600 focus:outline-none"
             />
           </div>
         </div>
 
         {/* Modal Actions */}
-        <div className="modal-actions pt-4 border-t border-gray-100 flex items-center justify-end gap-2.5 flex-shrink-0">
+        <div className="modal-actions pt-3 border-t border-gray-100 flex items-center justify-end gap-2.5 flex-shrink-0">
           <button
             type="button"
             className="secondary-button"
@@ -364,11 +634,11 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
           </button>
           <button
             type="button"
-            className="primary-button !py-2.5 !px-5"
+            className="primary-button !py-2.5 !px-6"
             onClick={() => handleSubmit(true)}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Submitting...' : 'Submit for Approval'} <ArrowRight size={15} />
+            {isSubmitting ? 'Submitting CD...' : isCD ? 'Create & Submit CD' : 'Submit for Approval'} <ArrowRight size={15} />
           </button>
         </div>
       </div>
