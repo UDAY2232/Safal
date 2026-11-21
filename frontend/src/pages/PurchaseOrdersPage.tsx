@@ -757,15 +757,15 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   try {
                                     onNotify(`Downloading ${order.poNumber} PDF...`);
                                     await api.downloadPurchaseOrderPDF(order.id, order.poNumber);
-                                    onNotify(`Purchase Order ${order.poNumber} PDF downloaded!`);
+                                    onNotify(`Order ${order.poNumber} PDF downloaded!`);
                                   } catch (err: any) {
                                     window.open(api.downloadPOPDFUrl(order.id), '_blank');
                                   }
                                 }}
-                                className="p-1 text-gray-500 hover:text-emerald-700 transition"
+                                className="px-2 py-1 bg-gray-50 hover:bg-emerald-50 text-gray-700 hover:text-emerald-800 border border-gray-200 hover:border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
                                 title="Download PDF"
                               >
-                                <Download size={14} />
+                                <Download size={13} /> PDF
                               </button>
                             </div>
                           </td>
@@ -864,18 +864,18 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setDuePaymentPO(order)}
-                                  className="p-1 text-rose-700 hover:text-rose-900 hover:bg-rose-50 rounded"
+                                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
                                   title="Submit Due Payment"
                                 >
-                                  <CreditCard size={15} />
+                                  <CreditCard size={12} /> Pay Due
                                 </button>
                               )}
                               <button
-                                className="p-1 text-emerald-700 hover:text-emerald-900 hover:bg-emerald-50 rounded"
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
                                 onClick={() => setFinancialPO(order)}
                                 title="Update Verified Profit / Loss"
                               >
-                                <TrendingUp size={15} />
+                                <TrendingUp size={12} /> P&amp;L
                               </button>
                               <button
                                 type="button"
@@ -884,20 +884,15 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   try {
                                     onNotify(`Downloading PDF for ${order.poNumber}...`);
                                     await api.downloadPurchaseOrderPDF(order.id, order.poNumber);
-                                    onNotify(`Purchase Order ${order.poNumber} PDF downloaded successfully!`);
+                                    onNotify(`Order ${order.poNumber} PDF downloaded successfully!`);
                                   } catch (err: any) {
-                                    console.error('Download error:', err);
-                                    try {
-                                      window.open(api.downloadPOPDFUrl(order.id), '_blank');
-                                    } catch {
-                                      onNotify(err.message || 'Failed to download PDF');
-                                    }
+                                    window.open(api.downloadPOPDFUrl(order.id), '_blank');
                                   }
                                 }}
-                                className="p-1 text-gray-500 hover:text-emerald-700 transition"
+                                className="px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-700 border border-gray-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
                                 title="Download PDF"
                               >
-                                <Download size={15} />
+                                <Download size={12} /> PDF
                               </button>
                             </div>
                           </td>

@@ -21,10 +21,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
+  const isEmployee = user?.role === 'EMPLOYEE';
 
   const items = [
     { label: 'Dashboard', icon: Home, page: 'Dashboard' },
-    { label: 'PO', icon: ShoppingCart, page: 'Purchase Order (PO)' },
+    isEmployee
+      ? { label: 'CD (Due)', icon: ShoppingCart, page: 'Customer Due (CD)' }
+      : { label: 'PO', icon: ShoppingCart, page: 'Purchase Order (PO)' },
     { label: 'Attendance', icon: Clock, page: 'Attendance' },
     { label: 'Expenses', icon: ReceiptIndianRupee, page: 'Employee Expenses' },
   ];

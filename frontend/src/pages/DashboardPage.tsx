@@ -243,7 +243,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           <section className="dashboard-panel">
             <div className="panel-heading">
               <h2>{isAccountant ? 'Recent Purchase Orders' : isEmployee ? 'My Recent Customer Dues (CD)' : 'My Recent Purchase Orders'}</h2>
-              <button onClick={() => onNavigate('Purchase Order (PO)')}>
+              <button onClick={() => onNavigate(isEmployee ? 'Customer Due (CD)' : 'Purchase Order (PO)')}>
                 See all <ArrowRight size={14} />
               </button>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Menu, CheckCircle2, Home, ShoppingCart, Users, Truck, ReceiptIndianRupee, WalletCards } from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginPage } from './pages/LoginPage';
@@ -21,8 +21,9 @@ import { CreatePOModal } from './components/CreatePOModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 
 function MainApp() {
-  const { user, token, isLoading } = useAuth();
+  const { user, token, isLoading, logout } = useAuth();
   const [activePage, setActivePage] = useState('Dashboard');
+  const [pageHistory, setPageHistory] = useState<string[]>(['Dashboard']);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const saved = localStorage.getItem('safal_sidebar_collapsed');
@@ -46,9 +47,89 @@ function MainApp() {
   };
 
   const navigate = (page: string) => {
-    setActivePage(page);
+    // If an employee attempts to navigate to 'Purchase Order (PO)', reroute to 'Customer Due (CD)'
+    const targetPage = (user?.role === 'EMPLOYEE' && page === 'Purchase Order (PO)') ? 'Customer Due (CD)' : page;
+    setPageHistory((prev) => (prev[prev.length - 1] === targetPage ? prev : [...prev, targetPage]));
+    try {
+      window.history.pushState({ page: targetPage }, '', window.location.pathname);
+    } catch {}
+    setActivePage(targetPage);
     setIsSidebarOpen(false);
   };
+
+  const goBack = () => {
+    if (isSidebarOpen) {
+      setIsSidebarOpen(false);
+      return;
+    }
+    if (showCreatePO) {
+      setShowCreatePO(false);
+      return;
+    }
+    if (pageHistory.length > 1) {
+      const updated = [...pageHistory];
+      updated.pop();
+      const prevPage = updated[updated.length - 1] || 'Dashboard';
+      setPageHistory(updated);
+      setActivePage(prevPage);
+    } else if (activePage !== 'Dashboard') {
+      setPageHistory(['Dashboard']);
+      setActivePage('Dashboard');
+    } else {
+      // User is on Dashboard and pressed Back: ask confirmation to return to login screen
+      if (window.confirm('Do you want to log out and return to the login screen?')) {
+        logout();
+      }
+    }
+  };
+
+  // Browser physical / swipe Back button handler (popstate)
+  useEffect(() => {
+    try {
+      if (!window.history.state || !window.history.state.page) {
+        window.history.replaceState({ page: 'Dashboard' }, '', window.location.pathname);
+      }
+    } catch {}
+
+    const handlePopState = () => {
+      if (isSidebarOpen) {
+        setIsSidebarOpen(false);
+        try {
+          window.history.pushState({ page: activePage }, '', window.location.pathname);
+        } catch {}
+        return;
+      }
+      if (showCreatePO) {
+        setShowCreatePO(false);
+        try {
+          window.history.pushState({ page: activePage }, '', window.location.pathname);
+        } catch {}
+        return;
+      }
+
+      if (pageHistory.length > 1) {
+        const updated = [...pageHistory];
+        updated.pop();
+        const prevPage = updated[updated.length - 1] || 'Dashboard';
+        setPageHistory(updated);
+        setActivePage(prevPage);
+      } else if (activePage !== 'Dashboard') {
+        setPageHistory(['Dashboard']);
+        setActivePage('Dashboard');
+      } else {
+        if (window.confirm('Do you want to log out and return to the login screen?')) {
+          logout();
+        } else {
+          try {
+            window.history.pushState({ page: 'Dashboard' }, '', window.location.pathname);
+          } catch {}
+        }
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isSidebarOpen, showCreatePO, pageHistory, activePage, logout]);
 
   if (isLoading) {
     return (
@@ -69,6 +150,9 @@ function MainApp() {
     <div className="app-shell">
       <Header
         onNavigate={navigate}
+        onGoBack={goBack}
+        canGoBack={true}
+        activePage={activePage}
         isSidebarCollapsed={isSidebarCollapsed}
         onToggleSidebar={toggleSidebarCollapsed}
         onOpenMobileMenu={() => setIsSidebarOpen(true)}
@@ -110,19 +194,11 @@ function MainApp() {
             <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
           )}
           {activePage === 'Attendance' && <AttendancePage user={user} />}
-          {activePage === 'Purchase Order (PO)' && user?.role !== 'EMPLOYEE' && (
+          {/* Purchase Order (PO) and Customer Due (CD) Management */}
+          {(activePage === 'Purchase Order (PO)' || activePage === 'Customer Due (CD)') && (
             <PurchaseOrdersPage
-              key="po-page"
-              mode="PO"
-              onNotify={notify}
-              showCreateModal={showCreatePO}
-              setShowCreateModal={setShowCreatePO}
-            />
-          )}
-          {activePage === 'Customer Due (CD)' && (
-            <PurchaseOrdersPage
-              key="cd-page"
-              mode="CD"
+              key={user?.role === 'EMPLOYEE' || activePage === 'Customer Due (CD)' ? 'cd-page' : 'po-page'}
+              mode={user?.role === 'EMPLOYEE' || activePage === 'Customer Due (CD)' ? 'CD' : 'PO'}
               onNotify={notify}
               showCreateModal={showCreatePO}
               setShowCreateModal={setShowCreatePO}

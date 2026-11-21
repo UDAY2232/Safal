@@ -4,6 +4,7 @@ import {
   ChevronDown,
   LogOut,
   ArrowRight,
+  ArrowLeft,
   Shield,
   PanelLeftClose,
   PanelLeftOpen,
@@ -17,6 +18,9 @@ import { SendNoticeModal } from './SendNoticeModal';
 
 interface HeaderProps {
   onNavigate: (page: string) => void;
+  onGoBack?: () => void;
+  canGoBack?: boolean;
+  activePage?: string;
   isSidebarCollapsed?: boolean;
   onToggleSidebar?: () => void;
   onOpenMobileMenu?: () => void;
@@ -24,6 +28,9 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   onNavigate,
+  onGoBack,
+  canGoBack = true,
+  activePage = 'Dashboard',
   isSidebarCollapsed = false,
   onToggleSidebar,
   onOpenMobileMenu,
@@ -81,17 +88,32 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="topbar">
       {/* 1. Executive Top App Navigation Bar */}
       <div ref={navRef} className="safal-top-nav">
-        {/* Left: Mobile Menu / Desktop Sidebar Toggle + Brand Identity */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        {/* Left: Back Navigation + Mobile Menu / Desktop Sidebar Toggle + Brand Identity */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+          {/* Back Arrow Button */}
+          {onGoBack && canGoBack && (
+            <button
+              type="button"
+              onClick={onGoBack}
+              className="h-8 px-2 sm:px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#064D2B] flex items-center gap-1 transition active:scale-95 cursor-pointer flex-shrink-0 font-extrabold text-xs border border-emerald-300 shadow-xs"
+              title={activePage === 'Dashboard' ? 'Log out to Login screen' : 'Go back to previous page'}
+              aria-label="Go Back"
+            >
+              <ArrowLeft size={16} strokeWidth={2.8} />
+              <span className="text-[11px] font-extrabold">Back</span>
+            </button>
+          )}
+
           {/* Mobile Drawer Button */}
           {onOpenMobileMenu && (
             <button
               type="button"
               onClick={onOpenMobileMenu}
-              className="md:hidden w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#064D2B] flex items-center justify-center transition active:scale-95 cursor-pointer flex-shrink-0"
+              className="md:hidden h-8 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#064D2B] flex items-center gap-1 transition active:scale-95 cursor-pointer flex-shrink-0 font-bold text-xs border border-emerald-200"
               aria-label="Open menu"
             >
-              <Menu size={18} />
+              <Menu size={16} />
+              <span className="text-[11px] font-bold hidden xs:inline">Menu</span>
             </button>
           )}
 
@@ -248,13 +270,13 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="w-7 h-7 rounded-full bg-[#087a3e] text-white font-bold text-xs flex items-center justify-center shadow-xs flex-shrink-0">
                 {getInitials(user?.name)}
               </div>
-              <div className="hidden sm:flex flex-col text-left leading-tight">
-                <strong className="text-xs text-gray-800 font-bold truncate max-w-[110px]">
-                  {user?.name || 'User'}
+              <div className="flex flex-col text-left leading-tight">
+                <strong className="text-[11px] sm:text-xs text-gray-800 font-extrabold truncate max-w-[80px] xs:max-w-[120px]">
+                  {user?.name ? user.name.split(' ')[0] : 'User'}
                 </strong>
-                <span className="text-[10px] text-gray-500 font-medium">
+                <span className="text-[9px] sm:text-[10px] text-emerald-800 font-semibold truncate max-w-[80px] xs:max-w-[120px]">
                   {user?.role === 'ADMIN'
-                    ? 'Administrator'
+                    ? 'Admin'
                     : user?.role === 'ACCOUNTANT'
                     ? 'Accountant'
                     : 'Employee'}
