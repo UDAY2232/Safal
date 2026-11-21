@@ -39,16 +39,27 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#edf5ef] flex flex-col justify-between">
-      {/* Top Brand Bar with complete HD banner */}
-      <header className="w-full bg-[#f7faf7] border-b-2 border-[#064d2b] shadow-xs relative flex items-center justify-center overflow-hidden">
-        <img
-          src="/safal-header-banner.png"
-          alt="SAFAL EXPORT & IMPORT PVT LTD - Freshness Beyond Borders"
-          className="w-full h-32 sm:h-44 md:h-52 object-contain object-center"
-        />
-        <div className="absolute top-3 right-4 sm:right-8 hidden sm:flex items-center gap-2 text-xs text-[#064D2B] bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-emerald-200/80 shadow-md">
+      {/* Corporate Brand Header (Clean component layout - No static banner image) */}
+      <header className="w-full bg-white border-b border-[#d5e3d8] shadow-xs px-4 sm:px-8 py-3.5 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <img
+            src="/safal-globe-logo.png"
+            alt="SAFAL Logo"
+            className="w-9 h-9 object-contain rounded-xl bg-emerald-50 p-1 border border-emerald-200 shadow-xs"
+          />
+          <div>
+            <h1 className="font-extrabold text-base sm:text-lg text-[#064D2B] font-['Manrope'] tracking-tight leading-tight">
+              SAFAL EXPORT &amp; IMPORT PVT LTD
+            </h1>
+            <p className="text-[10px] sm:text-xs text-emerald-800 font-semibold tracking-wide">
+              Freshness Beyond Borders · Enterprise ERP Platform
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-xs text-[#064D2B] bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200 shadow-xs">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-bold">Enterprise Internal Operations Portal</span>
+          <span className="font-bold text-[11px] sm:text-xs">Hub 1 Live · FY 2026–27</span>
         </div>
       </header>
 

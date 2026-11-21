@@ -19,8 +19,8 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const [supplierName, setSupplierName] = useState('');
   const [poDate, setPoDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011');
-  const [orderPersonPlace, setOrderPersonPlace] = useState('Hyderabad');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [orderPersonPlace, setOrderPersonPlace] = useState('');
   const [fruitDescription, setFruitDescription] = useState('');
   const [totalAmount, setTotalAmount] = useState<string>('');
   const [advanceAmount, setAdvanceAmount] = useState<string>('0');
@@ -285,12 +285,12 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 autoComplete="off"
                 value={orderPersonPlace}
                 onChange={(e) => setOrderPersonPlace(e.target.value)}
-                placeholder="e.g. Hyderabad, Warangal, Vijayawada"
+                placeholder="Enter Area / City (e.g. Warangal, Hyderabad)"
                 className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-semibold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
                 required
               />
               <span className="text-[10px] text-gray-500 mt-1 block">
-                Region where order is placed (e.g. Hyderabad, Warangal)
+                Region where order is placed (manual entry)
               </span>
             </div>
 
@@ -303,7 +303,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 autoComplete="off"
                 value={deliveryAddress}
                 onChange={(e) => setDeliveryAddress(e.target.value)}
-                placeholder={isCD ? 'Enter retail shop address / area' : 'Delivery destination address'}
+                placeholder={isCD ? 'Enter retail shop address / location' : 'Enter delivery destination address'}
                 className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 focus:border-emerald-600 focus:outline-none"
               />
             </div>

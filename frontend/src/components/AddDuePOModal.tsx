@@ -35,7 +35,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
     new Date().toISOString().split('T')[0]
   );
   const [orderPersonName, setOrderPersonName] = useState<string>(user?.name || '');
-  const [orderPersonPlace, setOrderPersonPlace] = useState('Hyderabad');
+  const [orderPersonPlace, setOrderPersonPlace] = useState('');
 
   const [grandTotal, setGrandTotal] = useState('');
   const [advanceAmount, setAdvanceAmount] = useState('');
@@ -83,7 +83,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
         supplierName: supplierName.trim(),
         supplierContact: supplierContact.trim() || undefined,
         orderPersonName: orderPersonName.trim() || user?.name || 'Staff',
-        orderPersonPlace: orderPersonPlace.trim() || 'Hyderabad',
+        orderPersonPlace: orderPersonPlace.trim(),
         grandTotal: numTotal,
         advanceAmount: numAdvance,
         pendingAmount: currentPending,

@@ -334,7 +334,7 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       req.body.place ||
       req.body.region ||
       req.body.area ||
-      'Hyderabad'
+      ''
     ).trim();
 
     // Resolve or auto-create supplier from manual input
@@ -1046,7 +1046,7 @@ export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
       supplierId,
       supplierContact,
       orderPersonName,
-      orderPersonPlace = 'Hyderabad',
+      orderPersonPlace = '',
       grandTotal,
       advanceAmount = 0,
       pendingAmount,
@@ -1124,7 +1124,7 @@ export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
           poDate: orderDateObj,
           supplierId: resolvedSupplier.id,
           createdById: req.user!.id,
-          orderPersonPlace: orderPersonPlace || 'Hyderabad',
+          orderPersonPlace: orderPersonPlace ? String(orderPersonPlace).trim() : null,
           grandTotal: total,
           subtotal: total,
           advanceAmount: advance,
