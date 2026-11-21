@@ -280,7 +280,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                               {formatCurrency(po.pendingAmount)}
                             </span>
                           ) : (
-                            <span className="text-emerald-700 font-bold">₹0</span>
+                            <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
                           )}
                         </td>
                         <td>
@@ -615,7 +615,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                             {formatCurrency(order.pendingAmount)}
                           </span>
                         ) : (
-                          <span className="text-emerald-700 font-bold">₹0</span>
+                          <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
                         )}
                       </td>
                       <td>

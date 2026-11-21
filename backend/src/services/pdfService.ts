@@ -35,53 +35,58 @@ interface POPDFData {
 }
 
 export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
+  const isCD = String(data.poNumber || '').startsWith('CD/');
   const doc = new PDFDocument({ margin: 40, size: 'A4' });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
     'Content-Disposition',
-    `attachment; filename="PurchaseOrder-${data.poNumber.replace(/\//g, '_')}.pdf"`
+    `attachment; filename="${isCD ? 'CustomerDue' : 'PurchaseOrder'}-${data.poNumber.replace(/\//g, '_')}.pdf"`
   );
 
   doc.pipe(res);
 
-  // Header
+  // Header Banner
   doc.rect(40, 40, 515, 65).fill('#064D2B');
   doc.fillColor('#FFFFFF').fontSize(20).font('Helvetica-Bold').text('SAFAL APP', 55, 52);
   doc.fontSize(11).font('Helvetica').text('SAFAL EXPORT AND IMPORT PVT LTD', 55, 76);
   doc.fontSize(9).text('Premium Fruits Import & Export Management', 55, 90);
 
-  doc.fontSize(16).font('Helvetica-Bold').text('PURCHASE ORDER', 390, 55, { align: 'right' });
-  doc.fontSize(10).font('Helvetica').text(`Status: ${data.status}`, 390, 78, { align: 'right' });
+  doc.fontSize(15).font('Helvetica-Bold').text(isCD ? 'CUSTOMER DUE (CD)' : 'PURCHASE ORDER', 340, 54, { align: 'right', width: 205 });
+  doc.fontSize(10).font('Helvetica').text(`Status: ${data.status}`, 340, 78, { align: 'right', width: 205 });
 
   doc.fillColor('#1B2B21');
 
   // Metadata block
   const topY = 120;
-  doc.fontSize(10).font('Helvetica-Bold').text('PO Details:', 40, topY);
+  doc.fontSize(10).font('Helvetica-Bold').text(isCD ? 'Customer Due Details:' : 'PO Details:', 40, topY);
   doc.font('Helvetica').fontSize(9);
-  doc.text(`PO Number: ${data.poNumber}`, 40, topY + 16);
-  doc.text(`PO Date: ${data.poDate}`, 40, topY + 30);
-  doc.text(`Expected Delivery: ${data.expectedDeliveryDate || 'N/A'}`, 40, topY + 44);
-  doc.text(`Created By: ${data.createdByName}`, 40, topY + 58);
+  doc.text(`${isCD ? 'CD Number' : 'PO Number'}: ${data.poNumber}`, 40, topY + 16, { width: 240 });
+  doc.text(`${isCD ? 'Order Date' : 'PO Date'}: ${data.poDate}`, 40, topY + 30, { width: 240 });
+  if (!isCD) {
+    doc.text(`Expected Delivery: ${data.expectedDeliveryDate || 'N/A'}`, 40, topY + 44, { width: 240 });
+    doc.text(`Created By: ${data.createdByName}`, 40, topY + 58, { width: 240 });
+  } else {
+    doc.text(`Created By: ${data.createdByName}`, 40, topY + 44, { width: 240 });
+  }
 
-  doc.font('Helvetica-Bold').fontSize(10).text('Financial & Payment Details:', 300, topY);
+  doc.font('Helvetica-Bold').fontSize(10).text(isCD ? 'Customer & Payment Details:' : 'Financial & Payment Details:', 300, topY);
   doc.font('Helvetica').fontSize(9);
-  doc.text(`Supplier: ${data.supplierName}`, 300, topY + 16);
-  doc.text(`Advance Paid: Rs. ${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 30);
-  doc.text(`Pending Due: Rs. ${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 44);
-  if (data.supplierContact) doc.text(`Contact: ${data.supplierContact}`, 300, topY + 58);
+  doc.text(`${isCD ? 'Customer / Shop' : 'Supplier'}: ${data.supplierName}`, 300, topY + 16, { width: 250 });
+  doc.text(`${isCD ? 'Payed Amount' : 'Advance Paid'}: Rs. ${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 30, { width: 250 });
+  doc.text(`${isCD ? 'Pending CD Balance' : 'Pending Due'}: Rs. ${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 300, topY + 44, { width: 250 });
+  if (data.supplierContact) doc.text(`Contact: ${data.supplierContact}`, 300, topY + 58, { width: 250 });
 
   // Table header
   const tableY = 205;
   doc.rect(40, tableY, 515, 22).fill('#E7F5E9');
   doc.fillColor('#064D2B').font('Helvetica-Bold').fontSize(8);
-  doc.text('Item / Fruit', 45, tableY + 6);
-  doc.text('Variety / Grade', 145, tableY + 6);
-  doc.text('Qty & Unit', 255, tableY + 6);
-  doc.text('Rate (Rs.)', 330, tableY + 6);
-  doc.text('Disc/Tax', 400, tableY + 6);
-  doc.text('Line Total (Rs.)', 480, tableY + 6, { align: 'right' });
+  doc.text('Item / Fruit', 45, tableY + 6, { width: 120 });
+  doc.text('Variety / Grade', 170, tableY + 6, { width: 95 });
+  doc.text('Qty & Unit', 270, tableY + 6, { width: 65 });
+  doc.text('Rate (Rs.)', 340, tableY + 6, { width: 60, align: 'right' });
+  doc.text('Disc/Tax', 405, tableY + 6, { width: 60, align: 'center' });
+  doc.text('Line Total (Rs.)', 470, tableY + 6, { width: 80, align: 'right' });
 
   // Items
   let currentY = tableY + 24;
@@ -94,48 +99,48 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
       doc.fillColor('#1B2B21');
     }
 
-    doc.text(item.fruitName, 45, currentY + 3);
-    doc.text(`${item.varietyGrade} (${item.category})`, 145, currentY + 3);
-    doc.text(`${item.quantity} ${item.unit}`, 255, currentY + 3);
-    doc.text(`Rs. ${Number(item.ratePerUnit).toLocaleString('en-IN')}`, 330, currentY + 3);
-    doc.text(`-${item.discountPercent}% / +${item.taxPercent}%`, 400, currentY + 3);
-    doc.text(`Rs. ${Number(item.lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 480, currentY + 3, { align: 'right' });
+    doc.text(String(item.fruitName || ''), 45, currentY + 3, { width: 120, ellipsis: true });
+    doc.text(`${item.varietyGrade || ''} (${item.category || ''})`, 170, currentY + 3, { width: 95, ellipsis: true });
+    doc.text(`${item.quantity} ${item.unit}`, 270, currentY + 3, { width: 65, ellipsis: true });
+    doc.text(`Rs. ${Number(item.ratePerUnit).toLocaleString('en-IN')}`, 340, currentY + 3, { width: 60, align: 'right' });
+    doc.text(`-${item.discountPercent}% / +${item.taxPercent}%`, 405, currentY + 3, { width: 60, align: 'center' });
+    doc.text(`Rs. ${Number(item.lineTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 3, { width: 80, align: 'right' });
 
     currentY += 20;
   });
 
-  // Totals
+  // Totals Box
   currentY += 15;
-  doc.rect(340, currentY, 215, 110).stroke('#CBD9CE');
+  doc.rect(330, currentY, 225, 110).stroke('#CBD9CE');
   doc.font('Helvetica').fontSize(9);
-  doc.text('Subtotal:', 350, currentY + 8);
-  doc.text(`Rs. ${Number(data.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 8, { align: 'right' });
+  doc.text('Subtotal:', 340, currentY + 8, { width: 100 });
+  doc.text(`Rs. ${Number(data.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 440, currentY + 8, { align: 'right', width: 105 });
 
-  doc.text('Discount Total:', 350, currentY + 24);
-  doc.text(`- Rs. ${Number(data.discountTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 24, { align: 'right' });
+  doc.text('Discount Total:', 340, currentY + 24, { width: 100 });
+  doc.text(`- Rs. ${Number(data.discountTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 440, currentY + 24, { align: 'right', width: 105 });
 
-  doc.text('Tax Total:', 350, currentY + 40);
-  doc.text(`+ Rs. ${Number(data.taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 40, { align: 'right' });
+  doc.text('Tax Total:', 340, currentY + 40, { width: 100 });
+  doc.text(`+ Rs. ${Number(data.taxTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 440, currentY + 40, { align: 'right', width: 105 });
 
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#064D2B');
-  doc.text('Grand Total:', 350, currentY + 56);
-  doc.text(`Rs. ${Number(data.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 56, { align: 'right' });
+  doc.text(isCD ? 'Total CD Value:' : 'Grand Total:', 340, currentY + 56, { width: 110 });
+  doc.text(`Rs. ${Number(data.grandTotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 440, currentY + 56, { align: 'right', width: 105 });
 
   doc.font('Helvetica').fontSize(9).fillColor('#0369A1');
-  doc.text('Advance Paid:', 350, currentY + 74);
-  doc.text(`Rs. ${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 74, { align: 'right' });
+  doc.text(isCD ? 'Payed Amount:' : 'Advance Paid:', 340, currentY + 74, { width: 110 });
+  doc.text(`Rs. ${Number(data.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 440, currentY + 74, { align: 'right', width: 105 });
 
   doc.font('Helvetica-Bold').fontSize(9).fillColor('#B91C1C');
-  doc.text('Pending Balance:', 350, currentY + 90);
-  doc.text(`Rs. ${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 470, currentY + 90, { align: 'right' });
+  doc.text(isCD ? 'Pending CD Balance:' : 'Pending Balance:', 340, currentY + 90, { width: 110 });
+  doc.text(`Rs. ${Number(data.pendingAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 440, currentY + 90, { align: 'right', width: 105 });
 
-  // Notes & Signatures
+  // Notes & Address
   doc.fillColor('#1B2B21').font('Helvetica').fontSize(9);
-  doc.text('Delivery Address:', 40, currentY);
-  doc.text(data.deliveryAddress || 'Standard Warehouse Receiving, SAFAL Cold Storage Facility', 40, currentY + 14, { width: 280 });
+  doc.text(isCD ? 'Shop Address:' : 'Delivery Address:', 40, currentY);
+  doc.text(data.deliveryAddress || (isCD ? 'Shop address on record' : 'Standard Warehouse Receiving, SAFAL Cold Storage Facility'), 40, currentY + 14, { width: 270 });
 
   if (data.notes) {
-    doc.text(`Notes: ${data.notes}`, 40, currentY + 40, { width: 280 });
+    doc.text(`${isCD ? 'Customer Due Notes' : 'Notes'}: ${data.notes}`, 40, currentY + 44, { width: 270 });
   }
 
   // Footer
@@ -143,8 +148,7 @@ export function generatePurchaseOrderPDF(data: POPDFData, res: Response) {
   doc.strokeColor('#CBD9CE').moveTo(40, footerY).lineTo(555, footerY).stroke();
   doc.fontSize(8).fillColor('#64746A');
   doc.text('Authorized Signatory - SAFAL EXPORT AND IMPORT PVT LTD', 40, footerY + 12);
-  doc.text('Generated via SAFAL APP Enterprise Management System', 320, footerY + 12, { align: 'right' });
+  doc.text(`Generated via SAFAL APP Enterprise Management System (${isCD ? 'CD Dossier' : 'PO Dossier'})`, 260, footerY + 12, { align: 'right', width: 295 });
 
   doc.end();
 }
-

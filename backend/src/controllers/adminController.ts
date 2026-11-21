@@ -72,8 +72,16 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
 
     // PO Calculations
     const totalPOs = displayPOs.length;
-    const openPOs = displayPOs.filter((p) => p.status === 'OPEN').length;
-    const closedPOs = displayPOs.filter((p) => p.status === 'CLOSED').length;
+    const openPOs = displayPOs.filter((p) => {
+      const adv = Number(p.advanceAmount || 0);
+      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+      return p.status === 'OPEN' || (pending > 0 && p.status === 'CLOSED');
+    }).length;
+    const closedPOs = displayPOs.filter((p) => {
+      const adv = Number(p.advanceAmount || 0);
+      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+      return p.status === 'CLOSED' && pending <= 0;
+    }).length;
     const pendingApprovalPOs = displayPOs.filter((p) => p.status === 'PENDING_APPROVAL').length;
     const totalPOAmount = displayPOs.reduce((sum, p) => sum + Number(p.grandTotal), 0);
 
@@ -200,26 +208,38 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         monthlyData,
         statusCounts,
       },
-      recentPOs: displayPOs.slice(0, 6).map((p) => ({
-        id: p.id,
-        number: p.poNumber,
-        supplier: p.supplier?.name || 'Supplier',
-        date: p.poDate,
-        amount: Number(p.grandTotal),
-        status: p.status,
-        createdBy: p.createdBy?.name || 'User',
-      })),
+      recentPOs: displayPOs.slice(0, 6).map((p) => {
+        const adv = Number(p.advanceAmount || 0);
+        const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+        return {
+          id: p.id,
+          number: p.poNumber,
+          supplier: p.supplier?.name || 'Customer / Supplier',
+          date: p.poDate,
+          amount: Number(p.grandTotal),
+          advanceAmount: adv,
+          pendingAmount: pending,
+          status: (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status,
+          createdBy: p.createdBy?.name || 'User',
+        };
+      }),
       pendingPOApprovals: displayPOs
         .filter((p) => p.status === 'PENDING_APPROVAL')
         .slice(0, 6)
-        .map((p) => ({
-          id: p.id,
-          number: p.poNumber,
-          supplier: p.supplier?.name || 'Supplier',
-          date: p.poDate,
-          amount: Number(p.grandTotal),
-          createdBy: p.createdBy?.name || 'User',
-        })),
+        .map((p) => {
+          const adv = Number(p.advanceAmount || 0);
+          const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+          return {
+            id: p.id,
+            number: p.poNumber,
+            supplier: p.supplier?.name || 'Supplier',
+            date: p.poDate,
+            amount: Number(p.grandTotal),
+            advanceAmount: adv,
+            pendingAmount: pending,
+            createdBy: p.createdBy?.name || 'User',
+          };
+        }),
       recentExpenses: displayExpenses.slice(0, 6).map((e) => ({
         id: e.id,
         claim: e.claimNumber,

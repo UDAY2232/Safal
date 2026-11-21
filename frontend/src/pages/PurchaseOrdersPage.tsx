@@ -352,7 +352,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <Coins size={24} strokeWidth={2.2} />
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-bold text-gray-800 block">Total Due PO Value</span>
+              <span className="text-xs font-bold text-gray-800 block">
+                {isCD ? 'Total Due CD Value' : 'Total Due PO Value'}
+              </span>
               <strong className="text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
                 ₹{totalDueCommitment.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </strong>
@@ -372,7 +374,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search PO Number / Supplier / Order Person"
+              placeholder={isCD ? "Search CD Number / Customer / Order Person" : "Search PO Number / Supplier / Order Person"}
               className="w-full bg-transparent outline-none text-xs text-gray-800 placeholder-gray-400 font-medium"
             />
           </div>
@@ -452,7 +454,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500">
-              Showing <strong>{activeSection === 'due' ? dueOrders.length : orders.length}</strong> purchase orders
+              Showing <strong>{activeSection === 'due' ? dueOrders.length : orders.length}</strong> {isCD ? 'customer dues' : 'purchase orders'}
             </span>
             <button
               onClick={handleExportCSV}
@@ -473,14 +475,16 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <div className="flex items-center gap-2">
                 <CreditCard className="text-rose-700" size={20} />
                 <h2 className="text-base font-black text-gray-900">
-                  Due POs Settlement Tracker
+                  {isCD ? 'Due CD Tracker' : 'Due POs Settlement Tracker'}
                 </h2>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
-                  {dueOrders.length} Dues
+                  {dueOrders.length} {isCD ? 'Due CDs' : 'Dues'}
                 </span>
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                Supplier &amp; staff details, advance paid, and pending balance. Click <strong>Submit Due Payment</strong> to record settlements.
+                {isCD
+                  ? 'Customer & staff details, payment received, and pending due balance. Click Submit Due Payment to record settlements.'
+                  : 'Supplier & staff details, advance paid, and pending balance. Click Submit Due Payment to record settlements.'}
               </p>
             </div>
 
@@ -493,7 +497,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 onClick={() => setShowAddDueModal(true)}
                 className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-bold shadow-xs transition"
               >
-                <Plus size={14} /> + Record Due PO
+                <Plus size={14} /> {isCD ? '+ Record Due CD' : '+ Record Due PO'}
               </button>
             </div>
           </div>
@@ -504,20 +508,20 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 <tr className="bg-[#064D2B] text-white">
                   <th className="py-3 px-3 text-center text-xs font-bold w-12 border-r border-[#085A33]">S.No.</th>
                   <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">
-                    {isEmployee ? 'CD Number' : 'PO Number'}
+                    {isCD ? 'CD Number' : 'PO Number'}
                   </th>
                   <th className="py-3 px-5 text-left text-xs font-bold border-r border-[#085A33]">
-                    {isEmployee ? 'Customer & Staff' : 'Supplier & Staff'}
+                    {isCD ? 'Customer & Staff' : 'Supplier & Staff'}
                   </th>
                   <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">Order Date</th>
                   <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">
-                    {isEmployee ? 'Total CD Value' : 'Total PO Value'}
+                    {isCD ? 'Total CD Value' : 'Total PO Value'}
                   </th>
                   <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">
-                    {isEmployee ? 'Payed Amount' : 'Advance Paid'}
+                    {isCD ? 'Payed Amount' : 'Advance Paid'}
                   </th>
                   <th className="py-3 px-4 text-right text-xs font-bold border-r border-[#085A33]">
-                    {isEmployee ? 'Pending CD Balance' : 'Pending Due Balance'}
+                    {isCD ? 'Pending CD Balance' : 'Pending Due Balance'}
                   </th>
                   <th className="py-3 px-4 text-center text-xs font-bold border-r border-[#085A33]">Status</th>
                   <th className="py-3 px-4 text-center text-xs font-bold">Action</th>
@@ -528,16 +532,20 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                   <tr>
                     <td colSpan={9} className="text-center py-14 text-gray-500">
                       <CreditCard size={38} className="mx-auto text-rose-500 mb-2" />
-                      <p className="font-bold text-gray-800 text-sm">No Pending Dues Recorded Yet</p>
+                      <p className="font-bold text-gray-800 text-sm">
+                        {isCD ? 'No Pending Customer Dues Recorded Yet' : 'No Pending Dues Recorded Yet'}
+                      </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        Record pre-existing or offline due purchase orders into the tracker.
+                        {isCD
+                          ? 'Record customer due records into the tracker.'
+                          : 'Record pre-existing or offline due purchase orders into the tracker.'}
                       </p>
                       <button
                         type="button"
                         onClick={() => setShowAddDueModal(true)}
                         className="mt-3.5 inline-flex items-center gap-2 px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md transition"
                       >
-                        <Plus size={15} /> + Record Due PO
+                        <Plus size={15} /> {isCD ? '+ Record Due CD' : '+ Record Due PO'}
                       </button>
                     </td>
                   </tr>

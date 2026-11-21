@@ -895,6 +895,10 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
       return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
+    const adv = Number(po.advanceAmount || 0);
+    const pending = Number(po.pendingAmount ?? Math.max(0, Number(po.grandTotal) - adv));
+    const effectiveStatus = (pending > 0 && po.status === 'CLOSED') ? 'OPEN' : po.status;
+
     generatePurchaseOrderPDF(
       {
         poNumber: po.poNumber,
@@ -902,20 +906,20 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
         expectedDeliveryDate: po.expectedDeliveryDate
           ? new Date(po.expectedDeliveryDate).toLocaleDateString('en-GB')
           : null,
-        supplierName: po.supplier?.name || 'Supplier Record',
+        supplierName: po.supplier?.name || (po.poNumber.startsWith('CD/') ? 'Customer' : 'Supplier Record'),
         supplierAddress: po.supplier?.address || null,
         supplierContact: po.supplier?.phone || po.supplier?.email || null,
         createdByName: po.createdBy?.name || 'Authorized Staff',
         deliveryAddress: po.deliveryAddress,
         paymentTerms: po.paymentTerms,
-        advanceAmount: Number(po.advanceAmount || 0),
-        pendingAmount: Number(po.pendingAmount || 0),
+        advanceAmount: adv,
+        pendingAmount: pending,
         notes: po.notes,
         subtotal: Number(po.subtotal),
         discountTotal: Number(po.discountTotal),
         taxTotal: Number(po.taxTotal),
         grandTotal: Number(po.grandTotal),
-        status: po.status,
+        status: effectiveStatus,
         items: po.items.map((i) => ({
           fruitName: i.fruitName,
           category: i.category,
