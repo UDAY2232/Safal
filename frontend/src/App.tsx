@@ -95,7 +95,7 @@ function MainApp() {
         />
 
         <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
-          {activePage !== 'Purchase Order (PO)' && activePage !== 'Dashboard' && activePage !== 'Attendance' && (
+          {activePage !== 'Purchase Order (PO)' && activePage !== 'Customer Due (CD)' && activePage !== 'Dashboard' && activePage !== 'Attendance' && (
             <PageHeading
               page={activePage}
               onAction={() => {
@@ -110,8 +110,19 @@ function MainApp() {
             <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
           )}
           {activePage === 'Attendance' && <AttendancePage user={user} />}
-          {activePage === 'Purchase Order (PO)' && (
+          {activePage === 'Purchase Order (PO)' && user?.role !== 'EMPLOYEE' && (
             <PurchaseOrdersPage
+              key="po-page"
+              mode="PO"
+              onNotify={notify}
+              showCreateModal={showCreatePO}
+              setShowCreateModal={setShowCreatePO}
+            />
+          )}
+          {activePage === 'Customer Due (CD)' && (
+            <PurchaseOrdersPage
+              key="cd-page"
+              mode="CD"
               onNotify={notify}
               showCreateModal={showCreatePO}
               setShowCreateModal={setShowCreatePO}
@@ -136,15 +147,23 @@ function MainApp() {
         onOpenMenu={() => setIsSidebarOpen(true)}
       />
 
-      {/* Global Create PO Modal - opens instantly from any page (Dashboard, PO, etc.) */}
+      {/* Global Create PO / CD Modal - opens instantly from any page (Dashboard, PO, etc.) */}
       {showCreatePO && (
         <CreatePOModal
+          mode={activePage === 'Customer Due (CD)' || user?.role === 'EMPLOYEE' ? 'CD' : 'PO'}
           onClose={() => setShowCreatePO(false)}
           onSuccess={(msg) => {
             setShowCreatePO(false);
-            notify(msg || 'Purchase Order created successfully');
-            if (activePage !== 'Purchase Order (PO)') {
-              setActivePage('Purchase Order (PO)');
+            const isCDContext = activePage === 'Customer Due (CD)' || user?.role === 'EMPLOYEE';
+            notify(msg || (isCDContext ? 'Customer Due (CD) created successfully' : 'Purchase Order created successfully'));
+            if (isCDContext) {
+              if (activePage !== 'Customer Due (CD)') {
+                setActivePage('Customer Due (CD)');
+              }
+            } else {
+              if (activePage !== 'Purchase Order (PO)') {
+                setActivePage('Purchase Order (PO)');
+              }
             }
           }}
         />

@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Home,
   ShoppingCart,
+  CreditCard,
   FileText,
   ReceiptIndianRupee,
   ClipboardCheck,
@@ -40,7 +41,8 @@ interface NavEntry {
 
 const navItems: NavEntry[] = [
   { label: 'Dashboard', icon: Home, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
-  { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
+  { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Customer Due (CD)', icon: CreditCard, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Attendance', icon: Clock, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Employee Expenses', icon: ReceiptIndianRupee, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
@@ -144,17 +146,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <nav className="sidebar-nav">
         {visibleNav.map(({ label, icon: Icon, adminOnly }) => {
           const isActive = activePage === label;
-          const displayLabel = label === 'Purchase Order (PO)' && currentRole === 'EMPLOYEE' ? 'Customer Due (CD)' : label;
           return (
             <button
               key={label}
               type="button"
               className={`nav-item ${isActive ? 'active' : ''} ${isCollapsed ? 'collapsed-item' : ''}`}
               onClick={() => onNavigate(label)}
-              title={displayLabel}
+              title={label}
             >
               <Icon size={19} className="flex-shrink-0" />
-              {!isCollapsed && <span className="truncate flex-1">{displayLabel}</span>}
+              {!isCollapsed && <span className="truncate flex-1">{label}</span>}
               {!isCollapsed && adminOnly && <span className="admin-dot flex-shrink-0">A</span>}
             </button>
           );

@@ -51,19 +51,98 @@ async function generateNextPONumber(tx: any): Promise<string> {
   }
 }
 
+/**
+ * Generates a clean, monotonically increasing, collision-safe CD (Customer Due) Number:
+ * Format: CD/SF/YYYY/XXX (e.g. CD/SF/2026/001, CD/SF/2026/002)
+ * Used exclusively for employee retail customer due entries.
+ */
+async function generateNextCDNumber(tx: any): Promise<string> {
+  const currentYear = new Date().getFullYear();
+  const prefix = `CD/SF/${currentYear}/`;
+
+  const existingCDs = await tx.purchaseOrder.findMany({
+    where: {
+      poNumber: {
+        startsWith: prefix,
+      },
+    },
+    select: {
+      poNumber: true,
+    },
+  });
+
+  let maxSeq = 0;
+  for (const cd of existingCDs) {
+    const parts = cd.poNumber.split('/');
+    const seqStr = parts[parts.length - 1];
+    const seqNum = parseInt(seqStr, 10);
+    if (!isNaN(seqNum) && seqNum > maxSeq) {
+      maxSeq = seqNum;
+    }
+  }
+
+  let nextSeq = maxSeq + 1;
+
+  while (true) {
+    const candidate = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+    const exists = await tx.purchaseOrder.findUnique({
+      where: { poNumber: candidate },
+      select: { id: true },
+    });
+    if (!exists) {
+      return candidate;
+    }
+    nextSeq++;
+  }
+}
+
 export async function getPurchaseOrders(req: AuthRequest, res: Response) {
   try {
-    const { search, status, financialStatus, supplierId, fromDate, toDate } = req.query;
+    const { search, status, financialStatus, supplierId, fromDate, toDate, type } = req.query;
+
+    // Auto-migration: Convert any existing Employee-created POs into CDs (PO/SF/... -> CD/SF/...)
+    try {
+      const employeePOs = await prisma.purchaseOrder.findMany({
+        where: {
+          createdBy: { role: 'EMPLOYEE' },
+          poNumber: { startsWith: 'PO/' },
+        },
+        select: { id: true, poNumber: true },
+      });
+
+      for (const ep of employeePOs) {
+        const targetCD = ep.poNumber.replace(/^PO\//, 'CD/');
+        const exists = await prisma.purchaseOrder.findUnique({
+          where: { poNumber: targetCD },
+          select: { id: true },
+        });
+        if (!exists) {
+          await prisma.purchaseOrder.update({
+            where: { id: ep.id },
+            data: { poNumber: targetCD },
+          });
+        }
+      }
+    } catch (migErr) {
+      console.error('Auto-migration employee PO -> CD error:', migErr);
+    }
 
     const where: any = {};
 
     // Strict Role-based visibility:
-    // Whichever PO an employee created, ONLY that PO must be visible to that employee.
-    // ALL POs are visible ONLY to ADMIN and ACCOUNTANT.
+    // Whichever CD an employee created, ONLY that record is visible to that employee.
+    // ALL POs and CDs are visible to ADMIN and ACCOUNTANT.
     if (req.user?.role === 'EMPLOYEE') {
       where.createdById = req.user.id;
+      where.poNumber = { startsWith: 'CD/' };
     } else if (req.query.myOrders === 'true' && req.user?.id) {
       where.createdById = req.user.id;
+    }
+
+    if (type === 'CD') {
+      where.poNumber = { startsWith: 'CD/' };
+    } else if (type === 'PO') {
+      where.poNumber = { startsWith: 'PO/' };
     }
 
     if (status && status !== 'All') {
@@ -376,7 +455,9 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       attempts++;
       try {
         newPO = await prisma.$transaction(async (tx) => {
-          const poNumber = await generateNextPONumber(tx);
+          const isEmployee = req.user?.role === 'EMPLOYEE';
+          const isCD = isEmployee || req.body.isCD === true || req.body.type === 'CD' || req.query.type === 'CD';
+          const poNumber = isCD ? await generateNextCDNumber(tx) : await generateNextPONumber(tx);
 
           return await tx.purchaseOrder.create({
             data: {
@@ -1016,17 +1097,19 @@ export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
         });
       }
 
-      // 2. Resolve PO Number
+      // 2. Resolve PO / CD Number
+      const isEmployee = req.user?.role === 'EMPLOYEE';
+      const isCD = isEmployee || req.body.isCD === true || req.body.type === 'CD' || req.query.type === 'CD';
       let finalPONumber = customPONumber?.trim();
       if (finalPONumber) {
         const existing = await tx.purchaseOrder.findUnique({ where: { poNumber: finalPONumber } });
         if (existing) {
           throw new Error(
-            `PO Number "${finalPONumber}" is already in use. Please enter a different PO number or leave blank to auto-generate.`
+            `Order Number "${finalPONumber}" is already in use. Please enter a different number or leave blank to auto-generate.`
           );
         }
       } else {
-        finalPONumber = await generateNextPONumber(tx);
+        finalPONumber = isCD ? await generateNextCDNumber(tx) : await generateNextPONumber(tx);
       }
 
       const orderDateObj = poDate ? new Date(poDate) : new Date();

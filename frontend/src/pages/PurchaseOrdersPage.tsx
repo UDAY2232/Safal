@@ -35,15 +35,18 @@ interface PurchaseOrdersPageProps {
   onNotify: (msg: string) => void;
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
+  mode?: 'PO' | 'CD';
 }
 
 export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   onNotify,
   showCreateModal,
   setShowCreateModal,
+  mode,
 }) => {
   const { user } = useAuth();
   const isEmployee = user?.role === 'EMPLOYEE';
+  const isCD = mode === 'CD' || isEmployee;
 
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,13 +71,19 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       if (search) query += `search=${encodeURIComponent(search)}&`;
       if (fromDate) query += `fromDate=${encodeURIComponent(fromDate)}&`;
       if (toDate) query += `toDate=${encodeURIComponent(toDate)}&`;
-      if (isEmployee) query += `myOrders=true&`;
+      if (isEmployee) {
+        query += `myOrders=true&type=CD&`;
+      } else if (isCD) {
+        query += `type=CD&`;
+      } else {
+        query += `type=PO&`;
+      }
 
       const list = await api.getPurchaseOrders(query);
       const scopedList = isEmployee ? list.filter((o: any) => o.createdById === user?.id) : list;
       setOrders(scopedList);
     } catch (err: any) {
-      onNotify(err.message || 'Failed to fetch purchase orders');
+      onNotify(err.message || 'Failed to fetch records');
     } finally {
       setLoading(false);
     }
@@ -137,7 +146,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <ShoppingCart size={26} strokeWidth={2.4} />
             </div>
             <h1 className="text-2xl lg:text-3xl font-extrabold text-[#064D2B] font-['Manrope'] tracking-tight">
-              {isEmployee ? 'Customer Dues (CD) Management' : 'Purchase Order (PO) Management'}
+              {isCD ? (isEmployee ? 'My Customer Dues (CD)' : 'Customer Due (CD) Management') : 'Purchase Order (PO) Management'}
             </h1>
           </div>
           {/* Green accent underline bar */}
@@ -153,9 +162,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               setShowAddDueModal(true);
             }}
             className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-700 hover:bg-rose-800 text-white text-sm font-bold rounded-xl shadow-md transition"
-            title={isEmployee ? 'Record an existing customer due record' : 'Record an existing / pre-software PO with pending dues'}
+            title={isCD ? 'Record an existing customer due record' : 'Record an existing / pre-software PO with pending dues'}
           >
-            <Plus size={18} /> {isEmployee ? 'Record Due CD' : 'Record Due PO'}
+            <Plus size={18} /> {isCD ? 'Record Due CD' : 'Record Due PO'}
           </button>
 
           {/* Direct Settle Due POs / CDs Button */}
@@ -173,7 +182,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             }`}
           >
             <CreditCard size={17} />
-            <span>{isEmployee ? 'Due CD Tracker' : 'Due Tracker'}</span>
+            <span>{isCD ? 'Due CD Tracker' : 'Due Tracker'}</span>
             {dueOrders.length > 0 && (
               <span className="px-1.5 py-0.5 rounded-full text-xs bg-rose-600 text-white font-extrabold ml-0.5">
                 {dueOrders.length}
@@ -186,7 +195,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-sm font-bold rounded-xl shadow-md transition"
           >
-            <Plus size={18} /> {isEmployee ? 'Create CD [Customer Due]' : 'Create PO'}
+            <Plus size={18} /> {isCD ? 'Create CD [Customer Due]' : 'Create PO'}
           </button>
         </div>
       </div>
@@ -203,7 +212,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <ShoppingCart size={15} /> {isEmployee ? `All Customer Dues (${orders.length})` : `All Purchase Orders (${orders.length})`}
+            <ShoppingCart size={15} /> {isCD ? `All Customer Dues (${orders.length})` : `All Purchase Orders (${orders.length})`}
           </button>
 
           <button
@@ -215,7 +224,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
             }`}
           >
-            <CreditCard size={15} /> {isEmployee ? 'Due CDs Section' : 'Due POs Section'}
+            <CreditCard size={15} /> {isCD ? 'Due CDs Section' : 'Due POs Section'}
             {dueOrders.length > 0 && (
               <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-rose-500 text-white">
                 {dueOrders.length}
@@ -242,7 +251,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isEmployee ? 'My Total CDs' : 'Total PO'}
+                {isCD ? (isEmployee ? 'My Total CDs' : 'Total Customer Dues (CD)') : 'Total PO'}
               </span>
               <strong className="text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block mt-0.5">
                 {orders.length}
@@ -256,7 +265,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isEmployee ? 'My Open CDs' : 'Open PO'}
+                {isCD ? (isEmployee ? 'My Open CDs' : 'Open Customer Dues') : 'Open PO'}
               </span>
               <strong className="text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
                 {openCount}
@@ -270,7 +279,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isEmployee ? 'My Settled CDs' : 'Closed PO'}
+                {isCD ? (isEmployee ? 'My Settled CDs' : 'Settled Customer Dues') : 'Closed PO'}
               </span>
               <strong className="text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5">
                 {closedCount}
@@ -284,7 +293,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </div>
             <div className="min-w-0">
               <span className="text-xs font-bold text-[#1E293B] block">
-                {isEmployee ? 'My Total CD Amount' : 'Total PO Amount'}
+                {isCD ? (isEmployee ? 'My Total CD Amount' : 'Total CD Amount') : 'Total PO Amount'}
               </span>
               <strong className="text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 truncate">
                 ₹ {totalAmount.toLocaleString('en-IN')}
@@ -634,7 +643,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       S.No.
                     </th>
                     <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
-                      {isEmployee ? 'CD (Customer Due)' : 'PO (Purchase Order)'}
+                      {isCD ? 'CD (Customer Due)' : 'PO (Purchase Order)'}
                     </th>
                     <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       Order Person &amp; Area
@@ -643,7 +652,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       Date
                     </th>
                     <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
-                      {isEmployee ? 'CD Amount (₹)' : 'PO Amount (₹)'}
+                      {isCD ? 'CD Amount (₹)' : 'PO Amount (₹)'}
+                    </th>
+                    <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                      Due Amount (₹)
                     </th>
                     <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       Status
@@ -656,8 +668,8 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 <tbody className="divide-y divide-gray-200">
                   {orders.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="text-center py-10 text-gray-400 text-xs">
-                        {isEmployee ? 'No customer dues (CD) found matching criteria.' : 'No purchase orders found matching criteria.'}
+                      <td colSpan={8} className="text-center py-10 text-gray-400 text-xs">
+                        {isCD ? 'No customer dues (CD) found matching criteria.' : 'No purchase orders found matching criteria.'}
                       </td>
                     </tr>
                   ) : (
@@ -673,7 +685,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           key={order.id}
                           className="hover:bg-[#F4F9F5] transition cursor-pointer text-xs"
                           onClick={() => setSelectedPO(order)}
-                          title="Click to view full purchase order dossier & line items"
+                          title="Click to view full order dossier & line items"
                         >
                           <td className="text-center py-3 px-4 font-bold text-gray-700 border-r border-gray-200">
                             {index + 1}
@@ -700,10 +712,16 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           </td>
                           <td className="text-center py-3 px-5 font-extrabold text-gray-900 border-r border-gray-200 whitespace-nowrap">
                             <div>₹{order.grandTotal.toLocaleString('en-IN')}</div>
-                            {pendingDue > 0 && (
-                              <div className="text-[10px] text-rose-700 font-semibold mt-0.5">
-                                Due: ₹{pendingDue.toLocaleString('en-IN')}
-                              </div>
+                          </td>
+                          <td className="text-center py-3 px-5 border-r border-gray-200 whitespace-nowrap">
+                            {pendingDue > 0 ? (
+                              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 shadow-xs">
+                                ₹{pendingDue.toLocaleString('en-IN')}
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                ₹0 (Cleared)
+                              </span>
                             )}
                           </td>
                           <td className="text-center py-3 px-5">
@@ -939,9 +957,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         />
       )}
 
-      {/* Enter / Add Pre-Existing Due PO Modal */}
+      {/* Enter / Add Pre-Existing Due PO / CD Modal */}
       {showAddDueModal && (
         <AddDuePOModal
+          mode={isCD ? 'CD' : 'PO'}
           onClose={() => setShowAddDueModal(false)}
           onSuccess={(msg) => {
             onNotify(msg);

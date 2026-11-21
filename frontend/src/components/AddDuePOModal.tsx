@@ -20,11 +20,13 @@ import { useAuth } from '../context/AuthContext';
 interface AddDuePOModalProps {
   onClose: () => void;
   onSuccess: (msg: string) => void;
+  mode?: 'PO' | 'CD';
 }
 
-export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess }) => {
+export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess, mode }) => {
   const { user } = useAuth();
   const isEmployee = user?.role === 'EMPLOYEE';
+  const isCD = mode === 'CD' || isEmployee;
 
   const [supplierName, setSupplierName] = useState('');
   const [supplierContact, setSupplierContact] = useState('');
@@ -90,14 +92,16 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
         quantity: Number(quantity) || 1,
         unit: unit || 'LOT',
         notes: notes.trim() || undefined,
+        isCD: isCD,
+        type: isCD ? 'CD' : 'PO',
       });
 
       onSuccess(
-        `Pre-existing Due PO ${res.poNumber} (${supplierName}) added successfully! Outstanding Due: ₹${currentPending.toLocaleString('en-IN')}`
+        `Pre-existing Due ${isCD ? 'CD' : 'PO'} ${res.poNumber} (${supplierName}) added successfully! Outstanding Due: ₹${currentPending.toLocaleString('en-IN')}`
       );
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to record due purchase order');
+      setError(err.message || (isCD ? 'Failed to record due CD' : 'Failed to record due purchase order'));
     } finally {
       setIsSubmitting(false);
     }
@@ -117,10 +121,10 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
             </div>
             <div>
               <span className="eyebrow text-rose-800 font-bold flex items-center gap-1">
-                <Sparkles size={13} /> {isEmployee ? 'PRE-EXISTING CUSTOMER DUE (CD) ONBOARDING' : 'PRE-EXISTING DUE PO ONBOARDING'}
+                <Sparkles size={13} /> {isCD ? 'PRE-EXISTING CUSTOMER DUE (CD) ONBOARDING' : 'PRE-EXISTING DUE PO ONBOARDING'}
               </span>
               <h2 className="text-xl font-black text-gray-900 mt-0.5">
-                {isEmployee ? 'Record Pre-Existing Customer Due (CD)' : 'Record Pre-Existing / Due Purchase Order'}
+                {isCD ? 'Record Pre-Existing Customer Due (CD)' : 'Record Pre-Existing / Due Purchase Order'}
               </h2>
             </div>
           </div>
@@ -146,20 +150,21 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
           {/* Section 1: Customer / Supplier Details */}
           <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-3">
             <h3 className="font-bold text-gray-800 text-xs flex items-center gap-1.5 uppercase tracking-wide">
-              <User size={14} className="text-[#087A3E]" /> {isEmployee ? 'Customer & Shop Details' : 'Supplier & Procurement Details'}
+              <User size={14} className="text-[#087A3E]" /> {isCD ? 'Customer & Shop Details' : 'Supplier & Procurement Details'}
             </h3>
 
             {/* Manual Supplier / Customer Entry */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
-                  {isEmployee ? 'Customer / Shop Name' : 'Supplier Name'} <span className="text-red-500">*</span>
+                  {isCD ? 'Customer / Shop Name' : 'Supplier Name'} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={supplierName}
                   onChange={(e) => setSupplierName(e.target.value)}
-                  placeholder={isEmployee ? 'e.g. Balaji Fruit Shop / Retailer' : 'e.g. Kashmir Apple Farms, Safal'}
+                  placeholder={isCD ? 'e.g. Balaji Fruit Shop / Retailer' : 'e.g. Kashmir Apple Farms, Safal'}
                   className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#087A3E]"
                   required
                 />
@@ -167,10 +172,11 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
-                  <Phone size={11} className="text-gray-400" /> {isEmployee ? 'Customer Phone / Contact' : 'Supplier Phone / Contact'}
+                  <Phone size={11} className="text-gray-400" /> {isCD ? 'Customer Phone / Contact' : 'Supplier Phone / Contact'}
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={supplierContact}
                   onChange={(e) => setSupplierContact(e.target.value)}
                   placeholder="+91 98..."
@@ -187,6 +193,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={orderPersonName}
                   onChange={(e) => setOrderPersonName(e.target.value)}
                   placeholder="e.g. Shanker, Naveen, Uday"
@@ -197,13 +204,14 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
-                  <MapPin size={11} className="text-emerald-700" /> Procurement Area
+                  <MapPin size={11} className="text-emerald-700" /> {isCD ? 'Customer Area / City' : 'Order Person Place / Area'}
                 </label>
                 <input
                   type="text"
+                  autoComplete="off"
                   value={orderPersonPlace}
                   onChange={(e) => setOrderPersonPlace(e.target.value)}
-                  placeholder="e.g. Hyderabad, Kashmir"
+                  placeholder="e.g. Hyderabad, Warangal, Vijayawada"
                   className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs text-gray-800 focus:outline-none focus:border-[#087A3E]"
                 />
               </div>
@@ -214,14 +222,15 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-white border border-gray-200 rounded-2xl">
             <div>
               <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                <span>{isEmployee ? 'CD / Receipt Slip Number' : 'PO / Bill Slip Number'}</span>
+                <span>{isCD ? 'CD / Receipt Slip Number' : 'PO / Bill Slip Number'}</span>
                 <span className="text-[10px] text-gray-400">Leave blank for auto-number</span>
               </label>
               <input
                 type="text"
+                autoComplete="off"
                 value={customPONumber}
                 onChange={(e) => setCustomPONumber(e.target.value)}
-                placeholder={isEmployee ? 'Auto (or enter e.g. CD/SF/2026/002)' : 'Auto (or enter e.g. PO/SF/2026/002)'}
+                placeholder={isCD ? 'Auto (or enter e.g. CD/SF/2026/001)' : 'Auto (or enter e.g. PO/SF/2026/001)'}
                 className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 focus:outline-none focus:border-[#087A3E]"
               />
             </div>
@@ -249,7 +258,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-gray-800 font-bold mb-1">
-                  {isEmployee ? 'Total CD Value (₹)' : 'Total PO Value (₹)'} <span className="text-red-500">*</span>
+                  {isCD ? 'Total CD Value (₹)' : 'Total PO Value (₹)'} <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">₹</span>
@@ -268,7 +277,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
 
               <div>
                 <label className="block text-gray-800 font-bold mb-1 flex items-center justify-between">
-                  <span>{isEmployee ? 'Payed Amount (₹)' : 'Advance Paid / Cleared Amount (₹)'}</span>
+                  <span>{isCD ? 'Payed Amount (₹)' : 'Advance Paid / Cleared Amount (₹)'}</span>
                   <span className="text-[10px] text-emerald-700 font-bold">Paid upfront</span>
                 </label>
                 <div className="relative">
@@ -394,7 +403,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
             disabled={isSubmitting}
           >
             <PlusCircle size={15} />
-            {isSubmitting ? 'Recording Due PO...' : 'Record & Add Due PO'}
+            {isSubmitting ? (isCD ? 'Recording Due CD...' : 'Recording Due PO...') : (isCD ? 'Record & Add Due CD' : 'Record & Add Due PO')}
           </button>
         </div>
       </form>

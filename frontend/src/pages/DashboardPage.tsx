@@ -145,7 +145,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           <div>
             <div className="flex items-center gap-2 text-emerald-200 text-xs font-bold uppercase tracking-wider mb-1">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{isAccountant ? 'Finance & Procurement Desk' : 'Field Procurement Desk'}</span>
+              <span>{isAccountant ? 'Finance & Procurement Desk' : 'Field Customer Due Desk'}</span>
             </div>
             <h1 className="text-2xl font-extrabold font-['Manrope']">
               {isAccountant ? 'Accountant Operations Console' : 'Employee Operations Console'}
@@ -255,6 +255,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                     <th>{isEmployee ? 'Customer' : 'Supplier'}</th>
                     <th>Order Date</th>
                     <th>Amount</th>
+                    <th>Due Amount</th>
                     <th>Status</th>
                     <th>Created By</th>
                   </tr>
@@ -262,7 +263,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 <tbody>
                   {recentPOs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-gray-400 text-xs">
+                      <td colSpan={7} className="text-center py-8 text-gray-400 text-xs">
                         {isEmployee ? 'No customer dues recorded yet. Click "+ Create CD [Customer Due]" above to begin.' : 'No purchase orders recorded yet. Click "+ Create New PO" above to begin.'}
                       </td>
                     </tr>
@@ -273,6 +274,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                         <td>{po.supplier}</td>
                         <td className="text-gray-600 text-xs">{new Date(po.date).toLocaleDateString('en-GB')}</td>
                         <td className="font-bold">{formatCurrency(po.amount)}</td>
+                        <td>
+                          {Number(po.pendingAmount || 0) > 0 ? (
+                            <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                              {formatCurrency(po.pendingAmount)}
+                            </span>
+                          ) : (
+                            <span className="text-emerald-700 font-bold">₹0</span>
+                          )}
+                        </td>
                         <td>
                           <StatusBadge status={po.status} />
                         </td>
@@ -574,10 +584,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             <table>
               <thead>
                 <tr>
-                  <th>PO Number</th>
-                  <th>Supplier</th>
+                  <th>Order Number</th>
+                  <th>Party / Supplier</th>
                   <th>Order Date</th>
-                  <th>Amount</th>
+                  <th>Total Amount</th>
+                  <th>Due Amount</th>
                   <th>Status</th>
                   <th>Action</th>
                 </tr>
@@ -585,8 +596,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               <tbody>
                 {recentPOs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-8 text-gray-400 text-xs">
-                      No purchase orders recorded yet.
+                    <td colSpan={7} className="text-center py-8 text-gray-400 text-xs">
+                      No orders recorded yet.
                     </td>
                   </tr>
                 ) : (
@@ -599,11 +610,20 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       </td>
                       <td className="font-bold">{formatCurrency(order.amount)}</td>
                       <td>
+                        {Number(order.pendingAmount || 0) > 0 ? (
+                          <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                            {formatCurrency(order.pendingAmount)}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700 font-bold">₹0</span>
+                        )}
+                      </td>
+                      <td>
                         <StatusBadge status={order.status} />
                       </td>
                       <td>
                         <button
-                          onClick={() => onNavigate('Purchase Order (PO)')}
+                          onClick={() => onNavigate(String(order.number || '').startsWith('CD') ? 'Customer Due (CD)' : 'Purchase Order (PO)')}
                           className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1"
                         >
                           View <ArrowRight size={12} />
