@@ -31,11 +31,32 @@ async function migrate() {
   console.log('💾 Target (Local):', localUrl.replace(/:[^:]*@/, ':***@'));
 
   try {
+    console.log('\n🧹 Clearing initial mock/seed data from local database...');
+    await target.invoiceItem.deleteMany().catch(() => {});
+    await target.invoice.deleteMany().catch(() => {});
+    await target.attendanceRecord.deleteMany().catch(() => {});
+    await target.expensePayment.deleteMany().catch(() => {});
+    await target.expenseClaim.deleteMany().catch(() => {});
+    await target.wagePayment.deleteMany().catch(() => {});
+    await target.employeeWageRecord.deleteMany().catch(() => {});
+    await target.purchaseOrderFinancialRecord.deleteMany().catch(() => {});
+    await target.purchaseOrderStatusHistory.deleteMany().catch(() => {});
+    await target.purchaseOrderItem.deleteMany().catch(() => {});
+    await target.purchaseOrder.deleteMany().catch(() => {});
+    await target.supplier.deleteMany().catch(() => {});
+    await target.employee.deleteMany().catch(() => {});
+    await target.accountantProfile.deleteMany().catch(() => {});
+    await target.user.deleteMany().catch(() => {});
+    await target.auditLog.deleteMany().catch(() => {});
+    await target.notification.deleteMany().catch(() => {});
+    await target.applicationSetting.deleteMany().catch(() => {});
+    console.log('✅ Local database cleaned. Ready to insert real data from Neon.');
+
     // 1. Users
     const users = await source.user.findMany();
     console.log(`\n📦 Migrating Users (${users.length})...`);
     for (const u of users) {
-      await target.user.upsert({ where: { id: u.id }, update: u, create: u });
+      await target.user.create({ data: u });
     }
     console.log(`✅ ${users.length} Users migrated.`);
 
@@ -43,7 +64,7 @@ async function migrate() {
     const accountants = await source.accountantProfile.findMany();
     console.log(`📦 Migrating Accountant Profiles (${accountants.length})...`);
     for (const a of accountants) {
-      await target.accountantProfile.upsert({ where: { id: a.id }, update: a, create: a });
+      await target.accountantProfile.create({ data: a });
     }
     console.log(`✅ ${accountants.length} Accountant profiles migrated.`);
 
@@ -51,7 +72,7 @@ async function migrate() {
     const employees = await source.employee.findMany();
     console.log(`📦 Migrating Employees (${employees.length})...`);
     for (const e of employees) {
-      await target.employee.upsert({ where: { id: e.id }, update: e, create: e });
+      await target.employee.create({ data: e });
     }
     console.log(`✅ ${employees.length} Employees migrated.`);
 
@@ -59,7 +80,7 @@ async function migrate() {
     const suppliers = await source.supplier.findMany();
     console.log(`📦 Migrating Suppliers (${suppliers.length})...`);
     for (const s of suppliers) {
-      await target.supplier.upsert({ where: { id: s.id }, update: s, create: s });
+      await target.supplier.create({ data: s });
     }
     console.log(`✅ ${suppliers.length} Suppliers migrated.`);
 
@@ -67,7 +88,7 @@ async function migrate() {
     const pos = await source.purchaseOrder.findMany();
     console.log(`📦 Migrating Purchase Orders & CDs (${pos.length})...`);
     for (const p of pos) {
-      await target.purchaseOrder.upsert({ where: { id: p.id }, update: p, create: p });
+      await target.purchaseOrder.create({ data: p });
     }
     console.log(`✅ ${pos.length} Orders & Customer Dues migrated.`);
 
@@ -75,7 +96,7 @@ async function migrate() {
     const poItems = await source.purchaseOrderItem.findMany();
     console.log(`📦 Migrating PO Items (${poItems.length})...`);
     for (const item of poItems) {
-      await target.purchaseOrderItem.upsert({ where: { id: item.id }, update: item, create: item });
+      await target.purchaseOrderItem.create({ data: item });
     }
     console.log(`✅ ${poItems.length} PO items migrated.`);
 
@@ -83,7 +104,7 @@ async function migrate() {
     const histories = await source.purchaseOrderStatusHistory.findMany();
     console.log(`📦 Migrating Status History (${histories.length})...`);
     for (const h of histories) {
-      await target.purchaseOrderStatusHistory.upsert({ where: { id: h.id }, update: h, create: h });
+      await target.purchaseOrderStatusHistory.create({ data: h });
     }
     console.log(`✅ ${histories.length} Status history logs migrated.`);
 
@@ -91,7 +112,7 @@ async function migrate() {
     const financials = await source.purchaseOrderFinancialRecord.findMany();
     console.log(`📦 Migrating Financial Records (${financials.length})...`);
     for (const f of financials) {
-      await target.purchaseOrderFinancialRecord.upsert({ where: { id: f.id }, update: f, create: f });
+      await target.purchaseOrderFinancialRecord.create({ data: f });
     }
     console.log(`✅ ${financials.length} Financial records migrated.`);
 
@@ -99,7 +120,7 @@ async function migrate() {
     const wages = await source.employeeWageRecord.findMany();
     console.log(`📦 Migrating Wage Records (${wages.length})...`);
     for (const w of wages) {
-      await target.employeeWageRecord.upsert({ where: { id: w.id }, update: w, create: w });
+      await target.employeeWageRecord.create({ data: w });
     }
     console.log(`✅ ${wages.length} Wage records migrated.`);
 
@@ -107,7 +128,7 @@ async function migrate() {
     const wagePayments = await source.wagePayment.findMany();
     console.log(`📦 Migrating Wage Payments (${wagePayments.length})...`);
     for (const wp of wagePayments) {
-      await target.wagePayment.upsert({ where: { id: wp.id }, update: wp, create: wp });
+      await target.wagePayment.create({ data: wp });
     }
     console.log(`✅ ${wagePayments.length} Wage payments migrated.`);
 
@@ -115,7 +136,7 @@ async function migrate() {
     const expenses = await source.expenseClaim.findMany();
     console.log(`📦 Migrating Expense Claims (${expenses.length})...`);
     for (const ec of expenses) {
-      await target.expenseClaim.upsert({ where: { id: ec.id }, update: ec, create: ec });
+      await target.expenseClaim.create({ data: ec });
     }
     console.log(`✅ ${expenses.length} Expense claims migrated.`);
 
@@ -123,7 +144,7 @@ async function migrate() {
     const expensePayments = await source.expensePayment.findMany();
     console.log(`📦 Migrating Expense Payments (${expensePayments.length})...`);
     for (const ep of expensePayments) {
-      await target.expensePayment.upsert({ where: { id: ep.id }, update: ep, create: ep });
+      await target.expensePayment.create({ data: ep });
     }
     console.log(`✅ ${expensePayments.length} Expense payments migrated.`);
 
@@ -131,7 +152,7 @@ async function migrate() {
     const attendances = await source.attendanceRecord.findMany();
     console.log(`📦 Migrating Attendance Records (${attendances.length})...`);
     for (const att of attendances) {
-      await target.attendanceRecord.upsert({ where: { id: att.id }, update: att, create: att });
+      await target.attendanceRecord.create({ data: att });
     }
     console.log(`✅ ${attendances.length} Attendance records migrated.`);
 
@@ -139,7 +160,7 @@ async function migrate() {
     const auditLogs = await source.auditLog.findMany();
     console.log(`📦 Migrating Audit Logs (${auditLogs.length})...`);
     for (const al of auditLogs) {
-      await target.auditLog.upsert({ where: { id: al.id }, update: al, create: al });
+      await target.auditLog.create({ data: al });
     }
     console.log(`✅ ${auditLogs.length} Audit logs migrated.`);
 
@@ -147,7 +168,7 @@ async function migrate() {
     const notifications = await source.notification.findMany();
     console.log(`📦 Migrating Notifications (${notifications.length})...`);
     for (const n of notifications) {
-      await target.notification.upsert({ where: { id: n.id }, update: n, create: n });
+      await target.notification.create({ data: n });
     }
     console.log(`✅ ${notifications.length} Notifications migrated.`);
 
@@ -155,7 +176,7 @@ async function migrate() {
     const settings = await source.applicationSetting.findMany();
     console.log(`📦 Migrating Settings (${settings.length})...`);
     for (const s of settings) {
-      await target.applicationSetting.upsert({ where: { id: s.id }, update: s, create: s });
+      await target.applicationSetting.create({ data: s });
     }
     console.log(`✅ ${settings.length} Application settings migrated.`);
 
@@ -163,7 +184,7 @@ async function migrate() {
     const invoices = await source.invoice.findMany();
     console.log(`📦 Migrating Invoices (${invoices.length})...`);
     for (const inv of invoices) {
-      await target.invoice.upsert({ where: { id: inv.id }, update: inv, create: inv });
+      await target.invoice.create({ data: inv });
     }
     console.log(`✅ ${invoices.length} Invoices migrated.`);
 
@@ -171,7 +192,7 @@ async function migrate() {
     const invoiceItems = await source.invoiceItem.findMany();
     console.log(`📦 Migrating Invoice Items (${invoiceItems.length})...`);
     for (const ii of invoiceItems) {
-      await target.invoiceItem.upsert({ where: { id: ii.id }, update: ii, create: ii });
+      await target.invoiceItem.create({ data: ii });
     }
     console.log(`✅ ${invoiceItems.length} Invoice items migrated.`);
 
