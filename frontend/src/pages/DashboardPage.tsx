@@ -6,6 +6,7 @@ import {
   WalletCards,
   ReceiptIndianRupee,
   ShoppingCart,
+  CreditCard,
   Users,
   CheckCircle2,
   TrendingUp,
@@ -73,10 +74,25 @@ const DEFAULT_DASHBOARD_DATA = {
   recentActivityLogs: [],
 };
 
+// In-memory cache for 0ms instantaneous dashboard transitions
+let memoryDashboardCache: any = null;
+
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCreatePO }) => {
   const { user } = useAuth();
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize with in-memory or persisted cache so page renders IMMEDIATELY with zero spinner delay
+  const [data, setData] = useState<any>(() => {
+    if (memoryDashboardCache) return memoryDashboardCache;
+    try {
+      const saved = localStorage.getItem('safal_dashboard_cache');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        memoryDashboardCache = parsed;
+        return parsed;
+      }
+    } catch {}
+    return DEFAULT_DASHBOARD_DATA;
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -84,10 +100,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
       try {
         setLoading(true);
         const res = await api.getAdminDashboard();
-        if (isMounted) setData(res);
+        if (isMounted) {
+          setData(res);
+          memoryDashboardCache = res;
+          try {
+            localStorage.setItem('safal_dashboard_cache', JSON.stringify(res));
+          } catch {}
+        }
       } catch (err) {
         console.error('Failed to load dashboard:', err);
-        if (isMounted) setData(DEFAULT_DASHBOARD_DATA);
+        if (isMounted && !data) setData(DEFAULT_DASHBOARD_DATA);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -98,15 +120,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
     };
   }, [user]);
 
-  if (loading && !data) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[350px] p-8 text-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#087A3E] mb-3" />
-        <p className="text-xs text-emerald-800 font-semibold tracking-wide">Loading Dashboard Metrics...</p>
-      </div>
-    );
-  }
-
+  // NEVER block the user screen with full-page loading spinner. Always render immediately!
   const safeData = data || DEFAULT_DASHBOARD_DATA;
   const summary = safeData.summary || DEFAULT_DASHBOARD_DATA.summary;
   const charts = safeData.charts || DEFAULT_DASHBOARD_DATA.charts;
@@ -155,6 +169,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             </p>
           </div>
           <div className="flex items-center gap-2.5 self-start md:self-auto flex-wrap">
+            {isAccountant && (
+              <button
+                onClick={() => onNavigate('Customer Due (CD)')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-800/80 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition border border-emerald-600/40 shadow-sm"
+              >
+                <CreditCard size={15} /> Customer Due (CD)
+              </button>
+            )}
             <button
               onClick={() => onNavigate('Attendance')}
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-800/80 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition border border-emerald-600/40 shadow-sm"
@@ -380,6 +402,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           </div>
 
           <div className="flex flex-wrap lg:flex-col gap-2.5 self-start lg:self-auto flex-shrink-0">
+            <button
+              onClick={() => onNavigate('Customer Due (CD)')}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-800/80 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition border border-emerald-600/40"
+            >
+              <CreditCard size={14} /> Customer Due (CD)
+            </button>
             <button
               onClick={onCreatePO}
               className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-white text-[#064D2B] hover:bg-emerald-50 rounded-xl text-xs font-bold transition shadow-sm"
@@ -699,6 +727,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         <strong>Executive Operations &amp; Quick Actions</strong>
         <div>
           {[
+            ['Customer Due (CD)', 'Customer Due (CD)'],
             ['Create PO', 'Purchase Order (PO)'],
             ['Add Employee', 'Employees'],
             ['Review Expenses', 'Employee Expenses'],

@@ -55,11 +55,9 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  // 3-4 Multi-Item rows support for employee CD creation
+  // Multi-Item rows support for employee CD creation: starts with 1 item by default, employee adds more via + button
   const [items, setItems] = useState<CDLineItem[]>([
     { id: '1', fruitName: '', varietyGrade: 'Grade A', quantity: '', unit: 'BOX', ratePerUnit: '', lineTotal: 0 },
-    { id: '2', fruitName: '', varietyGrade: 'Grade A', quantity: '', unit: 'BOX', ratePerUnit: '', lineTotal: 0 },
-    { id: '3', fruitName: '', varietyGrade: 'Grade A', quantity: '', unit: 'BOX', ratePerUnit: '', lineTotal: 0 },
   ]);
 
   useEffect(() => {
@@ -216,7 +214,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
   return (
     <div className="modal-backdrop">
-      <div className="modal !w-[920px] max-w-[98vw] max-h-[94vh] flex flex-col p-5 sm:p-6 overflow-hidden rounded-3xl shadow-2xl">
+      <div className="modal !w-[920px] max-w-[96vw] max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-3xl shadow-2xl my-auto">
         {/* Modal Header */}
         <div className="modal-header pb-3 border-b border-gray-100 flex-shrink-0">
           <div>
@@ -228,7 +226,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             </h2>
             <p className="text-[11px] text-gray-500 mt-0.5">
               {isCD
-                ? 'Enter customer details, order fruit items (3-4 items), and upfront payment. Due is given 1-day settlement window.'
+                ? 'Enter customer details, order fruit items, and upfront payment. Due is given 1-day settlement window.'
                 : 'Procurement details and supplier order items.'}
             </p>
           </div>
@@ -252,14 +250,14 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
           {/* Section 1: Customer & Shop Details */}
           <div className="p-4 bg-emerald-50/50 border border-emerald-100 rounded-2xl space-y-3">
             <h3 className="font-extrabold text-xs text-[#064D2B] uppercase tracking-wider flex items-center gap-2">
-              <User size={15} /> Customer &amp; Shop Details
+              <User size={15} /> {isCD ? 'Customer / Buyer & Shop Details' : 'Customer & Shop Details'}
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               {/* Customer / Shop Name */}
               <div className="md:col-span-2">
                 <label className="block text-gray-700 font-bold mb-1">
-                  {isCD ? 'Customer / Shop Name *' : 'Supplier Name *'}
+                  {isCD ? 'Customer / Buyer Name *' : 'Supplier Name *'}
                 </label>
                 <input
                   type="text"
@@ -267,7 +265,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                   {...(!isCD ? { list: 'suppliers-datalist' } : {})}
                   value={supplierName}
                   onChange={(e) => setSupplierName(e.target.value)}
-                  placeholder={isCD ? 'e.g. Balaji Fruit Shop / Retailer' : 'e.g. Royal Fruit Traders'}
+                  placeholder={isCD ? 'e.g. Balaji Fruit Shop / Retailer / Customer Name' : 'e.g. Royal Fruit Traders'}
                   className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none shadow-2xs"
                   required
                 />
@@ -286,7 +284,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
                   <Phone size={12} className="text-emerald-700" />
-                  <span>Customer Phone / Contact</span>
+                  <span>{isCD ? 'Buyer Phone / Contact' : 'Customer Phone / Contact'}</span>
                 </label>
                 <input
                   type="tel"
@@ -314,10 +312,10 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-              {/* Order Person (Staff) */}
+              {/* Employee (Staff) / Created By */}
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
-                  Order Person (Staff) *
+                  {isCD ? 'Created By (Employee / Staff) *' : 'Order Person (Staff) *'}
                 </label>
                 <input
                   type="text"
@@ -331,7 +329,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
                   <MapPin size={12} className="text-emerald-700" />
-                  <span>{isCD ? 'Customer Area / City *' : 'Placement City *'}</span>
+                  <span>{isCD ? 'Buyer Area / City *' : 'Placement City *'}</span>
                 </label>
                 <input
                   type="text"
@@ -345,15 +343,17 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             </div>
           </div>
 
-          {/* Section 2: Order Fruit Items (3-4 Items Entry) */}
+          {/* Section 2: Order Fruit Items */}
           <div className="p-4 bg-white border-2 border-emerald-500/30 rounded-2xl space-y-3 shadow-xs">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold text-xs text-[#064D2B] uppercase tracking-wider flex items-center gap-2">
-                  <ShoppingCart size={15} /> Order Fruit Items ({items.length} Items)
+                  <ShoppingCart size={15} /> Order Fruit Items ({items.length} {items.length === 1 ? 'Item' : 'Items'})
                 </h3>
                 <p className="text-[10px] text-gray-500">
-                  Enter details for each fruit item (e.g. 3, 4 items: Fruit name, variety, quantity, rate).
+                  {isCD
+                    ? 'Enter details for fruit item (fruit name, variety, quantity, rate). Click "+ Add Item" for more.'
+                    : 'Enter details for each fruit item (e.g. Fruit name, variety, quantity, rate).'}
                 </p>
               </div>
 

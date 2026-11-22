@@ -3,6 +3,7 @@ import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
 import { generatePurchaseOrderPDF } from '../services/pdfService.js';
+import { clearDashboardCache } from './adminController.js';
 
 /**
  * Generates a clean, monotonically increasing, collision-safe PO Number:
@@ -221,6 +222,8 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         expectedDeliveryDate: p.expectedDeliveryDate,
         deliveryAddress: p.deliveryAddress,
         orderPersonPlace: (p as any).orderPersonPlace || null,
+        paymentProofUrl: (p as any).paymentProofUrl || null,
+        paymentProofNotes: (p as any).paymentProofNotes || null,
         createdById: p.createdById,
         createdByName: p.createdBy.name,
         approvedById: p.approvedById,
@@ -605,6 +608,7 @@ export async function submitPurchaseOrder(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    clearDashboardCache();
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to submit purchase order' });
@@ -665,6 +669,7 @@ export async function approvePurchaseOrder(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    clearDashboardCache();
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to approve purchase order' });
@@ -725,6 +730,7 @@ export async function rejectPurchaseOrder(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    clearDashboardCache();
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to reject purchase order' });
@@ -781,6 +787,7 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    clearDashboardCache();
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to close purchase order' });
@@ -1005,7 +1012,13 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       newStatus = 'OPEN';
     }
 
-    const comment = `Due Payment of ₹${paymentAmount.toLocaleString('en-IN')} received via ${paymentMode}.${reference ? ` Ref: ${reference}.` : ''} Remaining Due: ₹${finalPending.toLocaleString('en-IN')}.${notes ? ` Note: ${notes}` : ''}`;
+    const paymentProofUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
+    const paymentProofNotes = (req.body.proofNotes || notes || '').trim() || undefined;
+
+    let comment = `Due Payment of ₹${paymentAmount.toLocaleString('en-IN')} received via ${paymentMode}.${reference ? ` Ref: ${reference}.` : ''} Remaining Due: ₹${finalPending.toLocaleString('en-IN')}.${notes ? ` Note: ${notes}` : ''}`;
+    if (paymentProofUrl) {
+      comment += ` [Proof Attached: ${paymentProofUrl}]`;
+    }
 
     const updated = await prisma.purchaseOrder.update({
       where: { id },
@@ -1013,6 +1026,8 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
         advanceAmount: finalAdvance,
         pendingAmount: finalPending,
         status: newStatus,
+        ...(paymentProofUrl ? { paymentProofUrl } : {}),
+        ...(paymentProofNotes ? { paymentProofNotes } : {}),
         statusHistory: {
           create: {
             status: newStatus,
@@ -1032,6 +1047,8 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       },
     });
 
+    clearDashboardCache();
+
     await createAuditLog({
       userId: req.user?.id,
       userName: req.user?.name || 'User',
@@ -1043,6 +1060,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    clearDashboardCache();
     return res.json(updated);
   } catch (error) {
     console.error('Error recording due payment:', error);

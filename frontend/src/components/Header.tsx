@@ -104,12 +104,12 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Mobile Drawer Button */}
+          {/* Mobile Drawer Button (Visible on phones & tablets <= 1024px) */}
           {onOpenMobileMenu && (
             <button
               type="button"
               onClick={onOpenMobileMenu}
-              className="md:hidden h-8 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#064D2B] flex items-center gap-1 transition active:scale-95 cursor-pointer flex-shrink-0 font-bold text-xs border border-emerald-200"
+              className="lg:hidden h-8 px-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#064D2B] flex items-center gap-1 transition active:scale-95 cursor-pointer flex-shrink-0 font-bold text-xs border border-emerald-200"
               aria-label="Open menu"
             >
               <Menu size={16} />
@@ -117,12 +117,12 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Desktop Sidebar Toggle */}
+          {/* Desktop Sidebar Toggle (Visible only on desktop screens > 1024px) */}
           {onToggleSidebar && (
             <button
               type="button"
               onClick={onToggleSidebar}
-              className="hidden md:inline-flex w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#064D2B] items-center justify-center transition active:scale-95 cursor-pointer flex-shrink-0"
+              className="hidden lg:inline-flex w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-[#064D2B] items-center justify-center transition active:scale-95 cursor-pointer flex-shrink-0"
               title={isSidebarCollapsed ? 'Expand Navigation Sidebar' : 'Collapse Navigation Sidebar'}
             >
               {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}

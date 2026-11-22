@@ -72,6 +72,8 @@ export interface PurchaseOrder {
   pendingAmount?: number;
   status: POStatus;
   rejectionReason?: string | null;
+  paymentProofUrl?: string | null;
+  paymentProofNotes?: string | null;
   itemsCount: number;
   items?: POItem[];
   financial: {

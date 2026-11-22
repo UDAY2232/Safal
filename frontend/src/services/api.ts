@@ -87,7 +87,7 @@ export const api = {
     request<any>('/purchase-orders/due-orders', { method: 'POST', body: JSON.stringify(data) }),
   updatePOFinancials: (id: string, data: any) =>
     request<any>(`/purchase-orders/${id}/financials`, { method: 'POST', body: JSON.stringify(data) }),
-  recordDuePayment: (id: string, data: {
+  recordDuePayment: (id: string, data: FormData | {
     amount?: number;
     paymentMode?: string;
     reference?: string;
@@ -95,7 +95,14 @@ export const api = {
     markClosed?: boolean;
     newAdvanceAmount?: number;
     newPendingAmount?: number;
-  }) => request<any>(`/purchase-orders/${id}/due-payment`, { method: 'POST', body: JSON.stringify(data) }),
+    proofNotes?: string;
+  }) => {
+    const isForm = typeof FormData !== 'undefined' && data instanceof FormData;
+    return request<any>(`/purchase-orders/${id}/due-payment`, {
+      method: 'POST',
+      body: isForm ? data : JSON.stringify(data),
+    });
+  },
   downloadPOPDFUrl: (id: string) => {
     const token = localStorage.getItem('safal_token') || '';
     return `${API_BASE}/purchase-orders/${id}/pdf?token=${encodeURIComponent(token)}`;

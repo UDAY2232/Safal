@@ -15,6 +15,7 @@ import {
 } from '../controllers/purchaseOrderController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
+import { upload } from '../middleware/upload.js';
 
 const router = Router();
 
@@ -36,9 +37,9 @@ router.post('/:id/approve', requireRole('ADMIN'), approvePurchaseOrder);
 router.post('/:id/reject', requireRole('ADMIN'), rejectPurchaseOrder);
 router.post('/:id/close', requireRole('ADMIN'), closePurchaseOrder);
 
-// Due Settlement & Payment Recording
-router.post('/:id/payments', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), recordDuePayment);
-router.post('/:id/due-payment', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), recordDuePayment);
+// Due Settlement & Payment Recording (with optional payment proof upload)
+router.post('/:id/payments', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), upload.single('proof'), recordDuePayment);
+router.post('/:id/due-payment', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), upload.single('proof'), recordDuePayment);
 
 // Financial Profit & Loss Tracking
 router.post('/:id/financials', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), updateFinancialRecords);

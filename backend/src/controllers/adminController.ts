@@ -4,50 +4,101 @@ import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
 
+// In-memory dashboard cache with 15s TTL to serve repeated dashboard clicks in < 1ms
+interface CachedDashboard {
+  data: any;
+  expiry: number;
+}
+const dashboardMemoryCache = new Map<string, CachedDashboard>();
+
+export function clearDashboardCache() {
+  dashboardMemoryCache.clear();
+}
+
 export async function getAdminDashboard(req: AuthRequest, res: Response) {
   try {
+    const isEmp = req.user?.role === 'EMPLOYEE';
+    const cacheKey = `${req.user?.id || 'anon'}:${req.user?.role || 'EMP'}`;
+    const cached = dashboardMemoryCache.get(cacheKey);
+    if (cached && Date.now() < cached.expiry) {
+      return res.json(cached.data);
+    }
+
     const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
     const today = new Date(`${dateStr}T00:00:00.000Z`);
 
-    const [
-      pos,
-      accountants,
-      employees,
-      wages,
-      expenses,
-      wagePayments,
-      expensePayments,
-      financialRecords,
-      auditLogs,
-      todayAttendances,
-    ] = await Promise.all([
-      prisma.purchaseOrder.findMany({
-        include: { supplier: true, createdBy: true },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.accountantProfile.findMany({
-        include: { user: true },
-      }),
-      prisma.employee.findMany({
-        include: { user: true },
-      }),
-      prisma.employeeWageRecord.findMany(),
-      prisma.expenseClaim.findMany({
-        include: { employee: true },
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.wagePayment.findMany(),
-      prisma.expensePayment.findMany(),
-      prisma.purchaseOrderFinancialRecord.findMany(),
-      prisma.auditLog.findMany({
-        take: 10,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.attendanceRecord.findMany({
-        where: { date: today },
-        include: { user: true },
-      }),
-    ]);
+    let pos: any[] = [];
+    let accountants: any[] = [];
+    let employees: any[] = [];
+    let wages: any[] = [];
+    let expenses: any[] = [];
+    let wagePayments: any[] = [];
+    let expensePayments: any[] = [];
+    let financialRecords: any[] = [];
+    let auditLogs: any[] = [];
+    let todayAttendances: any[] = [];
+
+    if (isEmp) {
+      // High-performance targeted queries for Employee console
+      [pos, expenses, todayAttendances] = await Promise.all([
+        prisma.purchaseOrder.findMany({
+          where: { createdById: req.user!.id },
+          include: { supplier: true, createdBy: true },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        prisma.expenseClaim.findMany({
+          where: { employee: { userId: req.user!.id } },
+          include: { employee: true },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        }),
+        prisma.attendanceRecord.findMany({
+          where: { date: today, userId: req.user!.id },
+          include: { user: true },
+        }),
+      ]);
+    } else {
+      [
+        pos,
+        accountants,
+        employees,
+        wages,
+        expenses,
+        wagePayments,
+        expensePayments,
+        financialRecords,
+        auditLogs,
+        todayAttendances,
+      ] = await Promise.all([
+        prisma.purchaseOrder.findMany({
+          include: { supplier: true, createdBy: true },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.accountantProfile.findMany({
+          include: { user: true },
+        }),
+        prisma.employee.findMany({
+          include: { user: true },
+        }),
+        prisma.employeeWageRecord.findMany(),
+        prisma.expenseClaim.findMany({
+          include: { employee: true },
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.wagePayment.findMany(),
+        prisma.expensePayment.findMany(),
+        prisma.purchaseOrderFinancialRecord.findMany(),
+        prisma.auditLog.findMany({
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+        }),
+        prisma.attendanceRecord.findMany({
+          where: { date: today },
+          include: { user: true },
+        }),
+      ]);
+    }
 
     const attendedUserIds = new Set(todayAttendances.map((a) => a.userId));
     const attendedEmpIds = new Set(todayAttendances.filter((a) => a.employeeId).map((a) => a.employeeId!));
@@ -66,7 +117,6 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
     };
 
     // Role-scoped dataset: Employees only see their own created POs and claims
-    const isEmp = req.user?.role === 'EMPLOYEE';
     const displayPOs = isEmp ? pos.filter((p) => p.createdById === req.user?.id) : pos;
     const displayExpenses = isEmp ? expenses.filter((e) => e.employee?.userId === req.user?.id) : expenses;
 
@@ -180,7 +230,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       };
     });
 
-    return res.json({
+    const responsePayload = {
       summary: {
         totalPOs,
         openPOs,
@@ -251,7 +301,10 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         status: e.status,
       })),
       recentActivityLogs: auditLogs,
-    });
+    };
+
+    dashboardMemoryCache.set(cacheKey, { data: responsePayload, expiry: Date.now() + 15000 });
+    return res.json(responsePayload);
   } catch (error) {
     console.error('Error fetching admin dashboard:', error);
     return res.status(500).json({ error: 'Failed to load dashboard data' });

@@ -46,6 +46,8 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 }) => {
   const { user } = useAuth();
   const isEmployee = user?.role === 'EMPLOYEE';
+  const isAdmin = user?.role === 'ADMIN';
+  const isAccountant = user?.role === 'ACCOUNTANT';
   const isCD = mode === 'CD' || isEmployee;
 
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
@@ -395,7 +397,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={isCD ? "Search CD Number / Customer / Order Person" : "Search PO Number / Supplier / Order Person"}
+              placeholder={isCD ? "Search CD Number / Customer / Buyer / Employee" : "Search PO Number / Supplier / Order Person"}
               className="w-full bg-transparent outline-none text-xs text-gray-800 placeholder-gray-400 font-medium"
             />
           </div>
@@ -669,28 +671,31 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           {viewMode === 'reference' ? (
             /* STANDARD REFERENCE VIEW */
             <div className="table-scroll-wrap overflow-x-auto w-full">
-              <table className="w-full border-collapse min-w-[820px]">
+              <table className="w-full border-collapse min-w-[920px]">
                 <thead>
                   <tr className="bg-[#064D2B] text-white">
-                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider w-16 border-r border-[#085A33]">
+                    <th className="text-center py-3.5 px-3 font-bold text-xs uppercase tracking-wider w-12 border-r border-[#085A33]">
                       S.No.
                     </th>
-                    <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       {isCD ? 'CD (Customer Due)' : 'PO (Purchase Order)'}
                     </th>
-                    <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
-                      Order Person &amp; Area
+                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                      {isCD ? 'Buyer / Customer & Area' : 'Supplier & Area'}
                     </th>
-                    <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                      {isCD ? 'Employee (Staff)' : 'Created By'}
+                    </th>
+                    <th className="text-center py-3.5 px-3 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       Date
                     </th>
-                    <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       {isCD ? 'CD Amount (₹)' : 'PO Amount (₹)'}
                     </th>
-                    <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       Due Amount (₹)
                     </th>
-                    <th className="text-center py-3.5 px-5 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       Status
                     </th>
                     <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider">
@@ -701,7 +706,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 <tbody className="divide-y divide-gray-200">
                   {orders.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-10 text-gray-400 text-xs">
+                      <td colSpan={9} className="text-center py-10 text-gray-400 text-xs">
                         {isCD ? 'No customer dues (CD) found matching criteria.' : 'No purchase orders found matching criteria.'}
                       </td>
                     </tr>
@@ -720,10 +725,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           onClick={() => setSelectedPO(order)}
                           title="Click to view full order dossier & line items"
                         >
-                          <td className="text-center py-3 px-4 font-bold text-gray-700 border-r border-gray-200">
+                          <td className="text-center py-3 px-3 font-bold text-gray-700 border-r border-gray-200">
                             {index + 1}
                           </td>
-                          <td className="text-center py-3 px-5 font-extrabold text-[#087A3E] border-r border-gray-200">
+                          <td className="text-center py-3 px-4 font-extrabold text-[#087A3E] border-r border-gray-200 whitespace-nowrap">
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -734,19 +739,31 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                               {order.poNumber}
                             </button>
                           </td>
-                          <td className="text-center py-3 px-5 text-gray-800 border-r border-gray-200">
-                            <span className="font-bold text-gray-900 block truncate">{order.createdByName}</span>
+                          {/* Buyer / Customer & Area */}
+                          <td className="text-center py-3 px-4 text-gray-800 border-r border-gray-200">
+                            <span className="font-bold text-gray-900 block truncate" title={order.supplierName}>
+                              {order.supplierName || (isCD ? 'Retail Customer' : 'Supplier')}
+                            </span>
                             <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              📍 {order.orderPersonPlace || 'Hyderabad'}
+                              📍 {order.orderPersonPlace || 'Warangal'}
                             </span>
                           </td>
-                          <td className="text-center py-3 px-5 font-medium text-gray-700 border-r border-gray-200 whitespace-nowrap">
+                          {/* Employee (Staff) */}
+                          <td className="text-center py-3 px-4 border-r border-gray-200 whitespace-nowrap">
+                            <span className="font-bold text-[#064D2B] block truncate" title={order.createdByName}>
+                              {order.createdByName || 'Staff'}
+                            </span>
+                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-bold bg-gray-100 text-gray-600 border border-gray-200 uppercase">
+                              {isCD ? 'Employee' : 'Creator'}
+                            </span>
+                          </td>
+                          <td className="text-center py-3 px-3 font-medium text-gray-700 border-r border-gray-200 whitespace-nowrap">
                             {new Date(order.poDate).toLocaleDateString('en-GB')}
                           </td>
-                          <td className="text-center py-3 px-5 font-extrabold text-gray-900 border-r border-gray-200 whitespace-nowrap">
+                          <td className="text-center py-3 px-4 font-extrabold text-gray-900 border-r border-gray-200 whitespace-nowrap">
                             <div>₹{order.grandTotal.toLocaleString('en-IN')}</div>
                           </td>
-                          <td className="text-center py-3 px-5 border-r border-gray-200 whitespace-nowrap">
+                          <td className="text-center py-3 px-4 border-r border-gray-200 whitespace-nowrap">
                             {pendingDue > 0 ? (
                               <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 shadow-xs">
                                 ₹{pendingDue.toLocaleString('en-IN')}
@@ -756,12 +773,37 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 ₹0 (Cleared)
                               </span>
                             )}
+                            {order.paymentProofUrl && (
+                              <div className="mt-1">
+                                <a
+                                  href={order.paymentProofUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 transition"
+                                  title="View Uploaded Payment Proof"
+                                >
+                                  <FileText size={11} /> Proof Attached
+                                </a>
+                              </div>
+                            )}
                           </td>
-                          <td className="text-center py-3 px-5">
+                          <td className="text-center py-3 px-4 border-r border-gray-200">
                             {isClosed ? (
                               <span className="inline-block px-5 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
                                 Closed
                               </span>
+                            ) : pendingDue === 0 ? (
+                              <div className="inline-flex flex-col items-center">
+                                <span className="px-3 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                  {isAdmin ? 'Ready to Close' : 'Awaiting Close'}
+                                </span>
+                                {order.paymentProofUrl ? (
+                                  <span className="text-[10px] text-emerald-700 font-bold">Proof Verified ✓</span>
+                                ) : (
+                                  <span className="text-[10px] text-gray-500 font-medium">Due Cleared</span>
+                                )}
+                              </div>
                             ) : isCD ? (
                               (() => {
                                 const orderTime = new Date(order.poDate || order.createdAt).getTime();
@@ -798,11 +840,43 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => setDuePaymentPO(order)}
-                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition"
+                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
                                   title="Submit Due Payment"
                                 >
                                   <CreditCard size={12} /> Pay Due
                                 </button>
+                              )}
+                              {pendingDue === 0 && !isClosed && isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      onNotify(`Closing ${order.poNumber}...`);
+                                      await api.closePurchaseOrder(order.id);
+                                      onNotify(`Customer Due ${order.poNumber} verified and formally CLOSED!`);
+                                      loadOrders();
+                                    } catch (err: any) {
+                                      alert(err.message || 'Failed to close CD');
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
+                                  title="Approve proof and close CD"
+                                >
+                                  <CheckCircle2 size={12} /> Close CD
+                                </button>
+                              )}
+                              {order.paymentProofUrl && (
+                                <a
+                                  href={order.paymentProofUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
+                                  title="View Uploaded Payment Proof"
+                                >
+                                  <FileText size={12} /> Proof
+                                </a>
                               )}
                               <button
                                 type="button"
@@ -922,6 +996,38 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 >
                                   <CreditCard size={12} /> Pay Due
                                 </button>
+                              )}
+                              {pendingDue === 0 && order.status !== 'CLOSED' && isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      onNotify(`Closing ${order.poNumber}...`);
+                                      await api.closePurchaseOrder(order.id);
+                                      onNotify(`Order ${order.poNumber} verified and CLOSED!`);
+                                      loadOrders();
+                                    } catch (err: any) {
+                                      alert(err.message || 'Failed to close order');
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
+                                  title="Approve & Close"
+                                >
+                                  <CheckCircle2 size={12} /> Close
+                                </button>
+                              )}
+                              {order.paymentProofUrl && (
+                                <a
+                                  href={order.paymentProofUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
+                                  title="View Uploaded Payment Proof"
+                                >
+                                  <FileText size={12} /> Proof
+                                </a>
                               )}
                               <button
                                 className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"

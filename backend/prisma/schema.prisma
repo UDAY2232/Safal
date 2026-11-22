@@ -163,6 +163,8 @@ model PurchaseOrder {
   orderPersonPlace     String?                       // Procurement Territory / Placement City (e.g. Hyderabad, Chennai, Warangal)
   paymentTerms         String?
   notes                String?
+  paymentProofUrl      String?
+  paymentProofNotes    String?
   subtotal             Decimal                       @default(0) @db.Decimal(14, 2)
   discountTotal        Decimal                       @default(0) @db.Decimal(14, 2)
   taxTotal             Decimal                       @default(0) @db.Decimal(14, 2)

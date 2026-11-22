@@ -66,11 +66,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, logout } = useAuth();
   const currentRole = user?.role || 'EMPLOYEE';
 
+  // In mobile overlay drawer mode (isOpen = true), sidebar must NEVER be collapsed.
+  // Full text labels and names must always show next to the icons!
+  const isEffectivelyCollapsed = isCollapsed && !isOpen;
+
   const visibleNav = navItems.filter((item) => item.roles.includes(currentRole));
 
   return (
     <aside
-      className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${isCollapsed ? 'sidebar-collapsed' : ''}`}
+      className={`sidebar ${isOpen ? 'sidebar-open' : ''} ${isEffectivelyCollapsed ? 'sidebar-collapsed' : ''}`}
       aria-label="Sidebar Navigation"
     >
       {/* Mobile drawer header */}
@@ -101,7 +105,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Access Scope Banner & Desktop Collapse Toggle */}
-      {!isCollapsed ? (
+      {!isEffectivelyCollapsed ? (
         <div className="flex items-center justify-between px-3 py-2 mb-2 bg-white/5 rounded-xl border border-white/10 flex-shrink-0">
           <div className="min-w-0 pr-1">
             <span className="text-[10px] uppercase font-bold text-emerald-300 tracking-wider block">Access Scope</span>
@@ -116,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {toggleCollapse && (
             <button
               onClick={toggleCollapse}
-              className="hidden md:flex items-center justify-center w-7 h-7 rounded-lg text-emerald-200/80 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+              className="hidden lg:flex items-center justify-center w-7 h-7 rounded-lg text-emerald-200/80 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
               title="Collapse sidebar to icon bar"
               aria-label="Collapse sidebar"
             >
@@ -129,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {toggleCollapse && (
             <button
               onClick={toggleCollapse}
-              className="hidden md:flex items-center justify-center w-8 h-8 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition-colors"
+              className="hidden lg:flex items-center justify-center w-8 h-8 rounded-lg text-emerald-200 hover:text-white hover:bg-white/10 transition-colors"
               title="Expand sidebar"
               aria-label="Expand sidebar"
             >
@@ -150,20 +154,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               key={label}
               type="button"
-              className={`nav-item ${isActive ? 'active' : ''} ${isCollapsed ? 'collapsed-item' : ''}`}
+              className={`nav-item ${isActive ? 'active' : ''} ${isEffectivelyCollapsed ? 'collapsed-item' : ''}`}
               onClick={() => onNavigate(label)}
               title={label}
             >
               <Icon size={19} className="flex-shrink-0" />
-              {!isCollapsed && <span className="truncate flex-1">{label}</span>}
-              {!isCollapsed && adminOnly && <span className="admin-dot flex-shrink-0">A</span>}
+              {!isEffectivelyCollapsed && <span className="truncate flex-1 font-semibold">{label}</span>}
+              {!isEffectivelyCollapsed && adminOnly && <span className="admin-dot flex-shrink-0">A</span>}
             </button>
           );
         })}
       </nav>
 
       {/* Persistent Footer with User info and Mobile Logout */}
-      {!isCollapsed ? (
+      {!isEffectivelyCollapsed ? (
         <div className="sidebar-footer relative z-10 flex items-center gap-2.5">
           <div className="leaf-badge flex-shrink-0">
             <Leaf size={18} />
@@ -182,7 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={logout}
-            className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/20 hover:bg-red-500/30 active:scale-90 text-red-200 transition-transform cursor-pointer flex-shrink-0"
+            className="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-red-500/20 hover:bg-red-500/30 active:scale-90 text-red-200 transition-transform cursor-pointer flex-shrink-0"
             title="Sign Out"
             aria-label="Sign Out"
           >

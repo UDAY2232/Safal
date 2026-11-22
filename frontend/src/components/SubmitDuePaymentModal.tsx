@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   X,
   CreditCard,
@@ -10,9 +10,16 @@ import {
   User,
   MapPin,
   Calendar,
+  Upload,
+  FileText,
+  ExternalLink,
+  Image as ImageIcon,
+  Trash2,
+  ShieldCheck,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { StatusBadge } from './StatusBadge';
 
 interface SubmitDuePaymentModalProps {
@@ -26,6 +33,11 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { user } = useAuth();
+  const isEmployee = user?.role === 'EMPLOYEE';
+  const isAdmin = user?.role === 'ADMIN';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const grandTotal = Number(order.grandTotal);
   const currentAdvance = Number(order.advanceAmount || 0);
   const currentPending = Number(
@@ -41,7 +53,10 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
     new Date().toISOString().split('T')[0]
   );
   const [notes, setNotes] = useState('');
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isClosingDirectly, setIsClosingDirectly] = useState(false);
   const [error, setError] = useState('');
 
   const numPayment = Number(paymentAmount) || 0;
@@ -60,6 +75,33 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
     setError('');
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        setError('Selected file exceeds 10 MB limit.');
+        return;
+      }
+      setProofFile(file);
+      setError('');
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => setProofPreview(reader.result as string);
+        reader.readAsDataURL(file);
+      } else {
+        setProofPreview(null);
+      }
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setProofFile(null);
+    setProofPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (numPayment <= 0) {
@@ -73,27 +115,62 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
       if (!confirmOverpay) return;
     }
 
+    // Require payment proof for Employee when clearing full due
+    if (isEmployee && newPending === 0 && !proofFile && !order.paymentProofUrl) {
+      setError('Please upload Buyer Payment Proof (Receipt / Bank Transfer Screenshot / Slip) to clear this CD.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setError('');
 
-      // Strict Rule: Closed ONLY when newPending === 0 (₹0 remaining due).
-      await api.recordDuePayment(order.id, {
-        amount: numPayment,
-        paymentMode,
-        reference: reference.trim(),
-        notes: notes.trim(),
-        markClosed: newPending === 0,
-      });
+      const formData = new FormData();
+      formData.append('amount', String(numPayment));
+      formData.append('paymentMode', paymentMode);
+      formData.append('reference', reference.trim());
+      formData.append('notes', notes.trim());
+      formData.append('markClosed', String(newPending === 0 && isAdmin));
+      if (proofFile) {
+        formData.append('proof', proofFile);
+      }
 
-      onSuccess(
-        `Payment of ₹${numPayment.toLocaleString('en-IN')} submitted successfully for ${order.poNumber}! Remaining Due: ₹${newPending.toLocaleString('en-IN')}`
-      );
+      await api.recordDuePayment(order.id, formData);
+
+      if (isEmployee) {
+        onSuccess(
+          `Due payment of ₹${numPayment.toLocaleString('en-IN')} and proof submitted successfully for ${order.poNumber}! Sent for Admin verification & closure.`
+        );
+      } else {
+        onSuccess(
+          `Payment of ₹${numPayment.toLocaleString('en-IN')} submitted successfully for ${order.poNumber}! Remaining Due: ₹${newPending.toLocaleString('en-IN')}`
+        );
+      }
       onClose();
     } catch (err: any) {
       setError(err.message || 'Failed to submit due payment');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Direct Admin Action: Approve proof and close CD immediately if due is 0
+  const handleAdminApproveAndClose = async () => {
+    if (!isAdmin) return;
+    if (currentPending > 0) {
+      setError(`Cannot close CD: Remaining due of ₹${currentPending.toLocaleString('en-IN')} must be cleared first.`);
+      return;
+    }
+    try {
+      setIsClosingDirectly(true);
+      setError('');
+      await api.closePurchaseOrder(order.id);
+      onSuccess(`Customer Due ${order.poNumber} verified and formally CLOSED by Admin!`);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to close customer due');
+    } finally {
+      setIsClosingDirectly(false);
     }
   };
 
@@ -153,7 +230,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
                   <User size={14} />
                 </div>
                 <div>
-                  <span className="text-[11px] text-gray-400 font-semibold block">Supplier Name</span>
+                  <span className="text-[11px] text-gray-400 font-semibold block">Buyer / Customer</span>
                   <strong className="text-gray-900 font-bold text-xs">{order.supplierName}</strong>
                 </div>
               </div>
@@ -163,7 +240,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
                   <MapPin size={14} />
                 </div>
                 <div>
-                  <span className="text-[11px] text-gray-400 font-semibold block">Order Person &amp; Area</span>
+                  <span className="text-[11px] text-gray-400 font-semibold block">Created By (Employee &amp; Area)</span>
                   <strong className="text-gray-900 font-bold text-xs">
                     {order.createdByName}
                     <span className="ml-1 text-emerald-700">({order.orderPersonPlace || 'Hyderabad'})</span>
@@ -175,14 +252,14 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
             {/* 3 Metrics: Grand Total | Advance Paid | Pending Due */}
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-white p-2.5 rounded-xl border border-gray-100 shadow-xs">
-                <span className="text-[10px] font-bold text-gray-500 uppercase block">Total PO Value</span>
+                <span className="text-[10px] font-bold text-gray-500 uppercase block">Total Due Amount</span>
                 <strong className="text-gray-900 font-black text-sm block mt-0.5">
                   ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </strong>
               </div>
 
               <div className="bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200 shadow-xs">
-                <span className="text-[10px] font-bold text-emerald-800 uppercase block">Advance Paid</span>
+                <span className="text-[10px] font-bold text-emerald-800 uppercase block">Amount Cleared</span>
                 <strong className="text-[#087A3E] font-black text-sm block mt-0.5">
                   ₹{currentAdvance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </strong>
@@ -216,6 +293,33 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Existing Attached Proof (if any) */}
+          {order.paymentProofUrl && (
+            <div className="p-3 bg-emerald-50/80 rounded-2xl border border-emerald-300/80 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-200 text-emerald-900 grid place-items-center">
+                  <FileText size={18} />
+                </div>
+                <div>
+                  <span className="text-[11px] font-bold text-emerald-900 block">
+                    Existing Payment Proof Attached
+                  </span>
+                  <span className="text-[10px] text-emerald-700">
+                    Uploaded by employee during settlement
+                  </span>
+                </div>
+              </div>
+              <a
+                href={order.paymentProofUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 transition shadow-xs"
+              >
+                View Proof <ExternalLink size={12} />
+              </a>
+            </div>
+          )}
 
           {/* Payment Form Fields */}
           <div className="space-y-3.5 bg-white p-4 rounded-2xl border border-gray-200 shadow-xs">
@@ -367,14 +471,94 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </div>
             </div>
 
-            {/* Status Preview: Strict rule (₹0 Due = Closed, >0 Due = Open) */}
+            {/* FILE UPLOAD SECTION: Payment Proof / Buyer Receipt */}
             <div className="pt-2 border-t border-gray-100">
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-200">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="font-bold text-gray-800 block text-xs flex items-center gap-1.5">
+                  <Upload size={14} className="text-[#087A3E]" />
+                  Upload Buyer Payment Proof / Receipt
+                  {isEmployee && newPending === 0 && (
+                    <span className="text-red-500 font-extrabold">* (Required)</span>
+                  )}
+                </label>
+                <span className="text-[10px] text-gray-400">JPG, PNG, PDF (Max: 10MB)</span>
+              </div>
+
+              {!proofFile ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-2xl p-4 text-center cursor-pointer bg-gray-50/70 hover:bg-emerald-50/40 transition group"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <div className="flex flex-col items-center justify-center gap-1.5">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 group-hover:border-emerald-300 text-gray-500 group-hover:text-emerald-600 grid place-items-center shadow-2xs transition">
+                      <Upload size={18} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-800 block">
+                        Tap or Click to Upload Payment Proof
+                      </span>
+                      <span className="text-[11px] text-gray-400 block mt-0.5">
+                        Screenshot of UPI, bank transfer slip, or signed receipt
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 overflow-hidden">
+                    {proofPreview ? (
+                      <img
+                        src={proofPreview}
+                        alt="Proof preview"
+                        className="w-12 h-12 object-cover rounded-lg border border-emerald-300 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 grid place-items-center flex-shrink-0">
+                        <FileText size={18} />
+                      </div>
+                    )}
+                    <div className="truncate">
+                      <strong className="text-xs font-bold text-gray-900 block truncate">
+                        {proofFile.name}
+                      </strong>
+                      <span className="text-[10px] text-gray-500 font-semibold block">
+                        {(proofFile.size / 1024).toFixed(1)} KB • Ready to submit
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-white transition"
+                    title="Remove File"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Status Preview */}
+            <div className="pt-2 border-t border-gray-100">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-200 gap-1.5">
                 <span className="text-xs font-semibold text-gray-700">Status After Payment:</span>
                 {newPending <= 0 ? (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
-                    ✓ Closed (₹0 Due Remaining)
-                  </span>
+                  isEmployee ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD] shadow-xs">
+                      ● Pending Admin Verification (Proof Attached)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
+                      ✓ Closed (₹0 Due Remaining)
+                    </span>
+                  )
                 ) : (
                   <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-[#FFE0DF] text-[#C53030] border border-[#FDC4C4] shadow-xs">
                     ● Open (₹{newPending.toLocaleString('en-IN')} Due Pending)
@@ -385,23 +569,46 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
           </div>
 
           {/* Modal Action Buttons */}
-          <div className="modal-actions pt-3 border-t border-gray-100 flex items-center justify-end gap-2.5 flex-shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-50 transition"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md inline-flex items-center gap-2 transition disabled:opacity-50"
-            >
-              <CheckCircle2 size={16} />
-              {isSubmitting ? 'Submitting Due Payment...' : 'Submit Due Payment'}
-            </button>
+          <div className="modal-actions pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2.5 flex-shrink-0">
+            {/* Direct Admin Close Button (when pending is 0 and status is OPEN) */}
+            {isAdmin && currentPending === 0 && order.status === 'OPEN' ? (
+              <button
+                type="button"
+                onClick={handleAdminApproveAndClose}
+                disabled={isClosingDirectly}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs inline-flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                <ShieldCheck size={16} />
+                {isClosingDirectly ? 'Closing CD...' : 'Approve Proof & Close CD'}
+              </button>
+            ) : (
+              <div />
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={isSubmitting || isClosingDirectly}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold text-xs hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || isClosingDirectly}
+                className="px-5 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md inline-flex items-center gap-2 transition disabled:opacity-50"
+              >
+                <CheckCircle2 size={16} />
+                {isSubmitting
+                  ? 'Submitting...'
+                  : isEmployee
+                  ? 'Submit Settlement & Proof'
+                  : newPending === 0
+                  ? 'Submit Payment & Settle'
+                  : 'Submit Due Payment'}
+              </button>
+            </div>
           </div>
         </form>
       </div>

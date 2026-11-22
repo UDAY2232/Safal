@@ -190,9 +190,10 @@ function MainApp() {
             />
           )}
 
-          {activePage === 'Dashboard' && (
+          {/* Primary View: Dashboard (Kept persistently mounted for 0ms instantaneous tab switching) */}
+          <div style={{ display: activePage === 'Dashboard' ? 'block' : 'none' }}>
             <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
-          )}
+          </div>
           {activePage === 'Attendance' && <AttendancePage user={user} />}
           {/* Purchase Order (PO) and Customer Due (CD) Management */}
           {(activePage === 'Purchase Order (PO)' || activePage === 'Customer Due (CD)') && (
