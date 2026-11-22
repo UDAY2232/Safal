@@ -12,6 +12,8 @@ import {
   DollarSign,
   CreditCard,
   Trash2,
+  Edit3,
+  Lock,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { StatusBadge } from './StatusBadge';
@@ -41,8 +43,20 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // Edit Mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editSupplierName, setEditSupplierName] = useState(order.supplierName || '');
+  const [editOrderPlace, setEditOrderPlace] = useState(order.orderPersonPlace || '');
+  const [editPoDate, setEditPoDate] = useState(order.poDate ? order.poDate.substring(0, 10) : '');
+  const [editNotes, setEditNotes] = useState(order.notes || '');
+  const [editGrandTotal, setEditGrandTotal] = useState(String(order.grandTotal || ''));
+  const [editAdvanceAmount, setEditAdvanceAmount] = useState(String(order.advanceAmount || '0'));
+  const [editError, setEditError] = useState('');
+
   const isAdmin = user?.role === 'ADMIN';
+  const isAccountant = user?.role === 'ACCOUNTANT';
   const isEmployee = user?.role === 'EMPLOYEE';
+  const isCD = String(order.poNumber || '').startsWith('CD/') || order.supplierCategory === 'Customer Due';
   // Strict Role Check: ONLY ADMIN can delete records. Employees cannot delete.
   const canDelete = isAdmin;
 
@@ -50,15 +64,48 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   const adv = Number(order.advanceAmount || 0);
   const pendingDue = Number(order.pendingAmount ?? Math.max(0, grandTotal - adv));
 
+  const supplierDisplayName = order.supplierName || (order as any).supplier?.name || (isCD ? 'Retail Customer' : 'Party / Supplier');
+  const createdByDisplayName = order.createdByName || (order as any).createdBy?.name || 'Staff';
+  const financial = order.financial || (order as any).financialRecord || {
+    financialStatus: 'NOT_RECORDED',
+    realizedProfitLoss: null,
+  };
+
+  const handleSaveEdit = async () => {
+    try {
+      setIsProcessing(true);
+      setEditError('');
+      const payload: any = {
+        supplierName: editSupplierName,
+        orderPersonPlace: editOrderPlace,
+        poDate: editPoDate,
+        notes: editNotes,
+      };
+      if (!isEmployee) {
+        payload.grandTotal = Number(editGrandTotal);
+        payload.advanceAmount = Number(editAdvanceAmount);
+      }
+      await api.updatePurchaseOrder(order.id, payload);
+      onNotify(`${isCD ? 'Customer Due' : 'Purchase Order'} ${order.poNumber} updated successfully!`);
+      setIsEditing(false);
+      onRefresh();
+      onClose();
+    } catch (err: any) {
+      setEditError(err.message || 'Failed to update order');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleApprove = async () => {
     try {
       setIsProcessing(true);
       await api.approvePurchaseOrder(order.id);
-      onNotify(`Purchase Order ${order.poNumber} approved`);
+      onNotify(`${isCD ? 'Customer Due' : 'Purchase Order'} ${order.poNumber} approved`);
       onRefresh();
       onClose();
     } catch (err: any) {
-      onNotify(err.message || 'Failed to approve PO');
+      onNotify(err.message || `Failed to approve ${isCD ? 'CD' : 'PO'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -72,7 +119,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
     try {
       setIsProcessing(true);
       await api.rejectPurchaseOrder(order.id, rejectReason);
-      onNotify(`Purchase Order ${order.poNumber} rejected`);
+      onNotify(`${isCD ? 'Customer Due' : 'Purchase Order'} ${order.poNumber} rejected`);
       onRefresh();
       onClose();
     } catch (err: any) {
@@ -156,18 +203,202 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               </div>
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-700">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-2">
+            {order.status !== 'CLOSED' && (
+              <button
+                type="button"
+                onClick={() => setIsEditing(!isEditing)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                  isEditing
+                    ? 'bg-amber-100 text-amber-900 border-amber-300'
+                    : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-200 shadow-2xs'
+                }`}
+              >
+                <Edit3 size={13} /> {isEditing ? 'Cancel Edit' : 'Edit Details'}
+              </button>
+            )}
+            <button type="button" onClick={onClose} aria-label="Close" className="text-gray-400 hover:text-gray-700">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Body */}
         <div className="overflow-y-auto flex-1 py-4 pr-1 space-y-4 text-xs">
+          {/* Payment Proof Review Banner */}
+          {order.paymentProofUrl && (
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center flex-shrink-0">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <span className="font-bold text-emerald-950 text-xs block">Submitted Payment Proof / Settlement Receipt</span>
+                  <a
+                    href={order.paymentProofUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-emerald-700 hover:text-emerald-900 underline text-[11px] font-semibold"
+                  >
+                    Click to Open Full Uploaded Receipt / Proof Image ↗
+                  </a>
+                </div>
+              </div>
+              {(isAdmin || isAccountant) && order.status !== 'CLOSED' && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      setIsProcessing(true);
+                      await api.closePurchaseOrder(order.id);
+                      onNotify(`${isCD ? 'Customer Due' : 'Order'} ${order.poNumber} verified and CLOSED!`);
+                      onRefresh();
+                      onClose();
+                    } catch (err: any) {
+                      onNotify(err.message || 'Failed to approve proof');
+                    } finally {
+                      setIsProcessing(false);
+                    }
+                  }}
+                  disabled={isProcessing}
+                  className="px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                >
+                  <CheckCircle size={15} /> Approve Proof &amp; Close CD
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Edit Form */}
+          {isEditing && (
+            <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Edit3 size={16} className="text-amber-800" />
+                  <span className="font-extrabold text-amber-950 text-xs uppercase tracking-wide">
+                    Edit {isCD ? 'Customer Due (CD)' : 'Purchase Order'}
+                  </span>
+                </div>
+                {isEmployee && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300">
+                    <Lock size={11} /> Amount fields locked (Admin/Accountant authorized)
+                  </span>
+                )}
+              </div>
+
+              {editError && (
+                <div className="p-2 bg-red-100 border border-red-300 text-red-800 rounded-lg text-xs font-semibold">
+                  {editError}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="md:col-span-2">
+                  <label className="block text-gray-700 font-bold mb-1">
+                    {isCD ? 'Buyer / Customer Name *' : 'Supplier Name *'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editSupplierName}
+                    onChange={(e) => setEditSupplierName(e.target.value)}
+                    className="w-full h-9 px-3 border border-amber-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    {isCD ? 'Buyer Area / Place' : 'Area / Place'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editOrderPlace}
+                    onChange={(e) => setEditOrderPlace(e.target.value)}
+                    className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Order Date</label>
+                  <input
+                    type="date"
+                    value={editPoDate}
+                    onChange={(e) => setEditPoDate(e.target.value)}
+                    className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                    <span>Total Amount (₹)</span>
+                    {isEmployee && <span className="text-[10px] text-gray-400 font-normal">Read-only for staff</span>}
+                  </label>
+                  <input
+                    type="number"
+                    value={editGrandTotal}
+                    onChange={(e) => setEditGrandTotal(e.target.value)}
+                    disabled={isEmployee}
+                    className={`w-full h-9 px-3 border rounded-xl text-xs font-bold ${
+                      isEmployee
+                        ? 'bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed'
+                        : 'bg-white text-gray-900 border-amber-300'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                    <span>{isCD ? 'Initial Paid Amount (₹)' : 'Advance Paid (₹)'}</span>
+                    {isEmployee && <span className="text-[10px] text-gray-400 font-normal">Read-only for staff</span>}
+                  </label>
+                  <input
+                    type="number"
+                    value={editAdvanceAmount}
+                    onChange={(e) => setEditAdvanceAmount(e.target.value)}
+                    disabled={isEmployee}
+                    className={`w-full h-9 px-3 border rounded-xl text-xs font-bold ${
+                      isEmployee
+                        ? 'bg-gray-100 text-gray-500 border-gray-300 cursor-not-allowed'
+                        : 'bg-white text-gray-900 border-amber-300'
+                    }`}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">Notes / Remarks</label>
+                <textarea
+                  rows={2}
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  placeholder="Additional order or delivery remarks..."
+                  className="w-full p-2 border border-gray-300 rounded-xl text-xs bg-white focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-xl text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  disabled={isProcessing}
+                  className="px-4 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs"
+                >
+                  <Check size={14} /> Save Changes
+                </button>
+              </div>
+            </div>
+          )}
           {/* Metadata Cards */}
           <div className="grid grid-cols-2 md:grid-cols-7 gap-2.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
             <div>
-              <span className="text-gray-400 font-medium block">Supplier</span>
-              <strong className="text-gray-800 text-xs block mt-0.5 truncate">{order.supplierName}</strong>
+              <span className="text-gray-400 font-medium block">{isCD ? 'Buyer / Customer' : 'Supplier'}</span>
+              <strong className="text-gray-800 text-xs block mt-0.5 truncate">{supplierDisplayName}</strong>
             </div>
             <div>
               <span className="text-gray-400 font-medium block">Order Date</span>
@@ -177,7 +408,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </div>
             <div>
               <span className="text-gray-400 font-medium block">Order Person</span>
-              <strong className="text-gray-800 text-xs block mt-0.5 truncate">{order.createdByName}</strong>
+              <strong className="text-gray-800 text-xs block mt-0.5 truncate">{createdByDisplayName}</strong>
             </div>
             <div>
               <span className="text-emerald-700 font-semibold block">Order Area</span>
@@ -266,41 +497,43 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </div>
           </div>
 
-          {/* Financial Tracking Banner */}
-          <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex flex-col md:flex-row items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-gray-800">Financial Profit / Loss Analysis:</span>
-                <StatusBadge status={order.financial.financialStatus} />
+          {/* Financial Tracking Banner (Only for Procurement POs, not Customer Dues) */}
+          {!isCD && financial && (
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex flex-col md:flex-row items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-gray-800">Financial Profit / Loss Analysis:</span>
+                  <StatusBadge status={financial.financialStatus || 'PENDING'} />
+                </div>
+                <p className="text-[11px] text-gray-600 mt-1">
+                  {financial.realizedProfitLoss !== null && financial.realizedProfitLoss !== undefined ? (
+                    <span>
+                      Verified Result:{' '}
+                      <strong
+                        className={
+                          financial.realizedProfitLoss >= 0 ? 'text-green-700' : 'text-red-700'
+                        }
+                      >
+                        ₹
+                        {Math.abs(financial.realizedProfitLoss).toLocaleString('en-IN', {
+                          minimumFractionDigits: 2,
+                        })}{' '}
+                        ({financial.realizedProfitLoss >= 0 ? 'Net Profit' : 'Net Loss'})
+                      </strong>
+                    </span>
+                  ) : (
+                    <span>Awaiting verified associated costs &amp; linked recognized sales revenue.</span>
+                  )}
+                </p>
               </div>
-              <p className="text-[11px] text-gray-600 mt-1">
-                {order.financial.realizedProfitLoss !== null ? (
-                  <span>
-                    Verified Result:{' '}
-                    <strong
-                      className={
-                        order.financial.realizedProfitLoss >= 0 ? 'text-green-700' : 'text-red-700'
-                      }
-                    >
-                      ₹
-                      {Math.abs(order.financial.realizedProfitLoss).toLocaleString('en-IN', {
-                        minimumFractionDigits: 2,
-                      })}{' '}
-                      ({order.financial.realizedProfitLoss >= 0 ? 'Net Profit' : 'Net Loss'})
-                    </strong>
-                  </span>
-                ) : (
-                  <span>Awaiting verified associated costs &amp; linked recognized sales revenue.</span>
-                )}
-              </p>
+              <button
+                onClick={() => setShowFinancials(true)}
+                className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-lg font-semibold inline-flex items-center gap-1.5 transition flex-shrink-0"
+              >
+                <TrendingUp size={14} /> Update P&amp;L Records
+              </button>
             </div>
-            <button
-              onClick={() => setShowFinancials(true)}
-              className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-lg font-semibold inline-flex items-center gap-1.5 transition flex-shrink-0"
-            >
-              <TrendingUp size={14} /> Update P&amp;L Records
-            </button>
-          </div>
+          )}
 
           {/* Reject Reason input box */}
           {showRejectInput && (
@@ -354,7 +587,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                   disabled={isProcessing}
                   className="px-3 py-2 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 rounded-lg font-bold text-xs transition"
                 >
-                  Reject PO
+                  Reject {isCD ? 'CD' : 'PO'}
                 </button>
                 <button
                   type="button"
@@ -362,7 +595,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                   disabled={isProcessing}
                   className="primary-button inline-flex items-center gap-1.5"
                 >
-                  <Check size={15} /> Approve PO
+                  <Check size={15} /> Approve {isCD ? 'CD' : 'PO'}
                 </button>
               </>
             )}

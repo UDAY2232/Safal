@@ -44,9 +44,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
     order.pendingAmount ?? Math.max(0, grandTotal - currentAdvance)
   );
 
-  const [paymentAmount, setPaymentAmount] = useState<string>(
-    currentPending > 0 ? String(currentPending) : ''
-  );
+  const [paymentAmount, setPaymentAmount] = useState<string>('');
   const [paymentMode, setPaymentMode] = useState<string>('BANK_TRANSFER');
   const [reference, setReference] = useState('');
   const [paymentDate, setPaymentDate] = useState<string>(
@@ -351,12 +349,13 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
                   type="number"
                   min="1"
                   step="any"
+                  autoFocus
                   value={paymentAmount}
                   onChange={(e) => {
                     setPaymentAmount(e.target.value);
                     setError('');
                   }}
-                  placeholder="Enter payment amount"
+                  placeholder="Enter amount to pay (e.g. 50000)"
                   className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm font-bold text-gray-900 focus:outline-none focus:border-[#087A3E] focus:ring-2 focus:ring-emerald-100 transition"
                   required
                 />
@@ -412,35 +411,20 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
             </div>
 
             {/* Payment Mode & Reference */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">
-                  Payment Mode <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={paymentMode}
-                  onChange={(e) => setPaymentMode(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 bg-white focus:outline-none focus:border-[#087A3E]"
-                >
-                  <option value="BANK_TRANSFER">Bank Transfer (NEFT / RTGS / IMPS)</option>
-                  <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
-                  <option value="CASH">Cash Payment</option>
-                  <option value="CHEQUE">Cheque / Demand Draft</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-bold text-gray-700 block mb-1">
-                  Transaction Ref. / UTR / Cheque No.
-                </label>
-                <input
-                  type="text"
-                  value={reference}
-                  onChange={(e) => setReference(e.target.value)}
-                  placeholder="e.g. UTR / Receipt / Txn ID"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-medium text-gray-800 focus:outline-none focus:border-[#087A3E]"
-                />
-              </div>
+            <div>
+              <label className="font-bold text-gray-700 block mb-1">
+                Payment Mode <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={paymentMode}
+                onChange={(e) => setPaymentMode(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-semibold text-gray-800 bg-white focus:outline-none focus:border-[#087A3E]"
+              >
+                <option value="BANK_TRANSFER">Bank Transfer (NEFT / RTGS / IMPS)</option>
+                <option value="UPI">UPI (GPay / PhonePe / Paytm)</option>
+                <option value="CASH">Cash Payment</option>
+                <option value="CHEQUE">Cheque / Demand Draft</option>
+              </select>
             </div>
 
             {/* Payment Date & Notes */}
@@ -471,79 +455,81 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </div>
             </div>
 
-            {/* FILE UPLOAD SECTION: Payment Proof / Buyer Receipt */}
-            <div className="pt-2 border-t border-gray-100">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="font-bold text-gray-800 block text-xs flex items-center gap-1.5">
-                  <Upload size={14} className="text-[#087A3E]" />
-                  Upload Buyer Payment Proof / Receipt
-                  {isEmployee && newPending === 0 && (
-                    <span className="text-red-500 font-extrabold">* (Required)</span>
-                  )}
-                </label>
-                <span className="text-[10px] text-gray-400">JPG, PNG, PDF (Max: 10MB)</span>
-              </div>
-
-              {!proofFile ? (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-2xl p-4 text-center cursor-pointer bg-gray-50/70 hover:bg-emerald-50/40 transition group"
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,application/pdf"
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
-                  <div className="flex flex-col items-center justify-center gap-1.5">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 group-hover:border-emerald-300 text-gray-500 group-hover:text-emerald-600 grid place-items-center shadow-2xs transition">
-                      <Upload size={18} />
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-800 block">
-                        Tap or Click to Upload Payment Proof
-                      </span>
-                      <span className="text-[11px] text-gray-400 block mt-0.5">
-                        Screenshot of UPI, bank transfer slip, or signed receipt
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between">
-                  <div className="flex items-center gap-2.5 overflow-hidden">
-                    {proofPreview ? (
-                      <img
-                        src={proofPreview}
-                        alt="Proof preview"
-                        className="w-12 h-12 object-cover rounded-lg border border-emerald-300 flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 grid place-items-center flex-shrink-0">
-                        <FileText size={18} />
-                      </div>
+            {/* FILE UPLOAD SECTION: Payment Proof / Buyer Receipt (Visible for staff/employees, hidden for Admin) */}
+            {!isAdmin && (
+              <div className="pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="font-bold text-gray-800 block text-xs flex items-center gap-1.5">
+                    <Upload size={14} className="text-[#087A3E]" />
+                    Upload Buyer Payment Proof / Receipt
+                    {isEmployee && newPending === 0 && (
+                      <span className="text-red-500 font-extrabold">* (Required)</span>
                     )}
-                    <div className="truncate">
-                      <strong className="text-xs font-bold text-gray-900 block truncate">
-                        {proofFile.name}
-                      </strong>
-                      <span className="text-[10px] text-gray-500 font-semibold block">
-                        {(proofFile.size / 1024).toFixed(1)} KB • Ready to submit
-                      </span>
+                  </label>
+                  <span className="text-[10px] text-gray-400">JPG, PNG, PDF (Max: 10MB)</span>
+                </div>
+
+                {!proofFile ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-2xl p-4 text-center cursor-pointer bg-gray-50/70 hover:bg-emerald-50/40 transition group"
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <div className="flex flex-col items-center justify-center gap-1.5">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 group-hover:border-emerald-300 text-gray-500 group-hover:text-emerald-600 grid place-items-center shadow-2xs transition">
+                        <Upload size={18} />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-800 block">
+                          Tap or Click to Upload Payment Proof
+                        </span>
+                        <span className="text-[11px] text-gray-400 block mt-0.5">
+                          Screenshot of UPI, bank transfer slip, or signed receipt
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleRemoveFile}
-                    className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-white transition"
-                    title="Remove File"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      {proofPreview ? (
+                        <img
+                          src={proofPreview}
+                          alt="Proof preview"
+                          className="w-12 h-12 object-cover rounded-lg border border-emerald-300 flex-shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 grid place-items-center flex-shrink-0">
+                          <FileText size={18} />
+                        </div>
+                      )}
+                      <div className="truncate">
+                        <strong className="text-xs font-bold text-gray-900 block truncate">
+                          {proofFile.name}
+                        </strong>
+                        <span className="text-[10px] text-gray-500 font-semibold block">
+                          {(proofFile.size / 1024).toFixed(1)} KB • Ready to submit
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveFile}
+                      className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-white transition"
+                      title="Remove File"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Status Preview */}
             <div className="pt-2 border-t border-gray-100">

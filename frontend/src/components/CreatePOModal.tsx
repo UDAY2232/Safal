@@ -42,7 +42,12 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [supplierName, setSupplierName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [orderPersonName] = useState(user?.name || 'Staff');
+  const [orderPersonName, setOrderPersonName] = useState(() => {
+    if (user?.name) {
+      return user.role === 'ADMIN' ? `${user.name} (Admin)` : user.name;
+    }
+    return 'Shanker (Admin)';
+  });
   const [poDate, setPoDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -179,6 +184,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       await api.createPurchaseOrder({
         supplierId: finalSupplierId,
         customerPhone: customerPhone.trim(),
+        orderPersonName: orderPersonName.trim(),
         poDate: poDate || new Date().toISOString(),
         expectedDeliveryDate: expectedDeliveryDate || null,
         deliveryAddress: deliveryAddress.trim(),
@@ -257,7 +263,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               {/* Customer / Shop Name */}
               <div className="md:col-span-2">
                 <label className="block text-gray-700 font-bold mb-1">
-                  {isCD ? 'Customer / Buyer Name *' : 'Supplier Name *'}
+                  Buyer Name *
                 </label>
                 <input
                   type="text"
@@ -265,7 +271,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                   {...(!isCD ? { list: 'suppliers-datalist' } : {})}
                   value={supplierName}
                   onChange={(e) => setSupplierName(e.target.value)}
-                  placeholder={isCD ? 'e.g. Balaji Fruit Shop / Retailer / Customer Name' : 'e.g. Royal Fruit Traders'}
+                  placeholder={isCD ? 'e.g. Balaji Fruit Shop / Retailer / Buyer Name' : 'e.g. Royal Fruit Traders / Buyer Name'}
                   className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none shadow-2xs"
                   required
                 />
@@ -315,13 +321,15 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               {/* Employee (Staff) / Created By */}
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
-                  {isCD ? 'Created By (Employee / Staff) *' : 'Order Person (Staff) *'}
+                  Order Taken By (Staff / Admin) *
                 </label>
                 <input
                   type="text"
                   value={orderPersonName}
-                  disabled
-                  className="w-full h-10 px-3 border border-gray-200 bg-gray-100 rounded-xl text-xs font-bold text-gray-700 cursor-not-allowed uppercase"
+                  onChange={(e) => setOrderPersonName(e.target.value)}
+                  placeholder="e.g. Shanker (Admin)"
+                  className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none shadow-2xs"
+                  required
                 />
               </div>
 

@@ -12,9 +12,18 @@ function formatCSV(headers: string[], rows: (string | number)[][]): string {
 
 export async function getPOReports(req: AuthRequest, res: Response) {
   try {
-    const { format } = req.query;
+    const { format, type } = req.query;
+
+    const isCDType = type === 'CD' || req.originalUrl?.includes('customer-dues');
+    const where: any = {};
+    if (isCDType) {
+      where.poNumber = { startsWith: 'CD/' };
+    } else {
+      where.poNumber = { startsWith: 'PO/' };
+    }
 
     const pos = await prisma.purchaseOrder.findMany({
+      where,
       include: {
         supplier: true,
         createdBy: true,
@@ -24,6 +33,46 @@ export async function getPOReports(req: AuthRequest, res: Response) {
     });
 
     if (format === 'csv') {
+      if (isCDType) {
+        const headers = [
+          'CD Number',
+          'Customer / Buyer',
+          'Order Date',
+          'Recorded By (Staff)',
+          'Area / Place',
+          'Total CD Amount (INR)',
+          'Advance Paid (INR)',
+          'Pending Due Balance (INR)',
+          'Status',
+          'Proof Attached',
+          'Notes',
+        ];
+
+        const rows = pos.map((p) => {
+          const adv = Number(p.advanceAmount || 0);
+          const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+          const staffMatch = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
+          return [
+            p.poNumber,
+            p.supplier.name,
+            new Date(p.poDate).toLocaleDateString('en-GB'),
+            staffMatch ? staffMatch[1].trim() : p.createdBy.name,
+            p.orderPersonPlace || 'Warangal',
+            Number(p.grandTotal),
+            adv,
+            pending,
+            pending <= 0 && p.status === 'CLOSED' ? 'CLOSED' : p.status,
+            p.paymentProofUrl ? 'YES' : 'NO',
+            p.notes || '',
+          ];
+        });
+
+        const csvData = formatCSV(headers, rows);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="CustomerDues_Report.csv"');
+        return res.send(csvData);
+      }
+
       const headers = [
         'PO Number',
         'Supplier',
@@ -66,7 +115,8 @@ export async function getPOReports(req: AuthRequest, res: Response) {
 
     return res.json(pos);
   } catch (error) {
-    return res.status(500).json({ error: 'Failed to generate PO report' });
+    console.error('Error generating report:', error);
+    return res.status(500).json({ error: 'Failed to generate report' });
   }
 }
 

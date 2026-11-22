@@ -120,20 +120,45 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
     const displayPOs = isEmp ? pos.filter((p) => p.createdById === req.user?.id) : pos;
     const displayExpenses = isEmp ? expenses.filter((e) => e.employee?.userId === req.user?.id) : expenses;
 
-    // PO Calculations
-    const totalPOs = displayPOs.length;
-    const openPOs = displayPOs.filter((p) => {
+    // Strict Separation: Separate Purchase Orders (PO) from Customer Dues (CD)
+    const isCD = (p: any) => p.poNumber?.startsWith('CD/') || p.supplier?.category === 'Customer Due';
+    const poOrders = displayPOs.filter((p) => !isCD(p));
+    const cdOrders = displayPOs.filter((p) => isCD(p));
+
+    // PO Calculations (Strictly POs only)
+    const totalPOs = poOrders.length;
+    const openPOs = poOrders.filter((p) => {
       const adv = Number(p.advanceAmount || 0);
       const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
       return p.status === 'OPEN' || (pending > 0 && p.status === 'CLOSED');
     }).length;
-    const closedPOs = displayPOs.filter((p) => {
+    const closedPOs = poOrders.filter((p) => {
       const adv = Number(p.advanceAmount || 0);
       const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
       return p.status === 'CLOSED' && pending <= 0;
     }).length;
-    const pendingApprovalPOs = displayPOs.filter((p) => p.status === 'PENDING_APPROVAL').length;
-    const totalPOAmount = displayPOs.reduce((sum, p) => sum + Number(p.grandTotal), 0);
+    const pendingApprovalPOs = poOrders.filter((p) => p.status === 'PENDING_APPROVAL').length;
+    const pendingApprovalCDs = cdOrders.filter((p) => p.status === 'PENDING_APPROVAL').length;
+    const totalPendingApprovals = pendingApprovalPOs + pendingApprovalCDs;
+    const totalPOAmount = poOrders.reduce((sum, p) => sum + Number(p.grandTotal), 0);
+
+    // Customer Due (CD) Calculations (Strictly CDs only)
+    const totalCDs = cdOrders.length;
+    const openCDs = cdOrders.filter((p) => {
+      const adv = Number(p.advanceAmount || 0);
+      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+      return p.status === 'OPEN' || (pending > 0 && p.status === 'CLOSED');
+    }).length;
+    const closedCDs = cdOrders.filter((p) => {
+      const adv = Number(p.advanceAmount || 0);
+      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+      return p.status === 'CLOSED' && pending <= 0;
+    }).length;
+    const totalCDAmount = cdOrders.reduce((sum, p) => sum + Number(p.grandTotal), 0);
+    const totalCDDue = cdOrders.reduce((sum, p) => {
+      const adv = Number(p.advanceAmount || 0);
+      return sum + Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+    }, 0);
 
     // Accountant Calculations
     const totalAccountants = accountants.length;
@@ -236,7 +261,14 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         openPOs,
         closedPOs,
         totalPOAmount,
-        pendingApprovals: pendingApprovalPOs,
+        totalCDs,
+        openCDs,
+        closedCDs,
+        totalCDAmount,
+        totalCDDue,
+        pendingApprovals: totalPendingApprovals,
+        pendingPOApprovalsCount: pendingApprovalPOs,
+        pendingCDApprovalsCount: pendingApprovalCDs,
         totalAccountants,
         activeAccountants,
         totalEmployees,
@@ -258,36 +290,55 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         monthlyData,
         statusCounts,
       },
-      recentPOs: displayPOs.slice(0, 6).map((p) => {
+      recentPOs: poOrders.slice(0, 8).map((p) => {
         const adv = Number(p.advanceAmount || 0);
         const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+        const staffMatch = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
         return {
           id: p.id,
           number: p.poNumber,
-          supplier: p.supplier?.name || 'Customer / Supplier',
+          supplier: p.supplier?.name || 'Party / Supplier',
           date: p.poDate,
           amount: Number(p.grandTotal),
           advanceAmount: adv,
           pendingAmount: pending,
           status: (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status,
-          createdBy: p.createdBy?.name || 'User',
+          createdBy: staffMatch ? staffMatch[1].trim() : (p.createdBy?.name || 'User'),
+        };
+      }),
+      recentCDs: cdOrders.slice(0, 8).map((p) => {
+        const adv = Number(p.advanceAmount || 0);
+        const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+        const staffMatch = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
+        return {
+          id: p.id,
+          number: p.poNumber,
+          supplier: p.supplier?.name || 'Customer / Buyer',
+          date: p.poDate,
+          amount: Number(p.grandTotal),
+          advanceAmount: adv,
+          pendingAmount: pending,
+          status: (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status,
+          createdBy: staffMatch ? staffMatch[1].trim() : (p.createdBy?.name || 'User'),
         };
       }),
       pendingPOApprovals: displayPOs
         .filter((p) => p.status === 'PENDING_APPROVAL')
-        .slice(0, 6)
+        .slice(0, 10)
         .map((p) => {
           const adv = Number(p.advanceAmount || 0);
           const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+          const staffMatch = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
           return {
             id: p.id,
             number: p.poNumber,
-            supplier: p.supplier?.name || 'Supplier',
+            supplier: p.supplier?.name || (isCD(p) ? 'Buyer / Customer' : 'Supplier'),
             date: p.poDate,
             amount: Number(p.grandTotal),
             advanceAmount: adv,
             pendingAmount: pending,
-            createdBy: p.createdBy?.name || 'User',
+            isCD: isCD(p),
+            createdBy: staffMatch ? staffMatch[1].trim() : (p.createdBy?.name || 'User'),
           };
         }),
       recentExpenses: displayExpenses.slice(0, 6).map((e) => ({

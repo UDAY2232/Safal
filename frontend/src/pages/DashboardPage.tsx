@@ -34,6 +34,8 @@ import { api } from '../services/api';
 import { StatCard } from '../components/StatCard';
 import { StatusBadge } from '../components/StatusBadge';
 import { AttendancePunchWidget } from '../components/AttendancePunchWidget';
+import { PODetailModal } from '../components/PODetailModal';
+import { SubmitDuePaymentModal } from '../components/SubmitDuePaymentModal';
 
 interface DashboardPageProps {
   onNavigate: (page: string) => void;
@@ -46,6 +48,11 @@ const DEFAULT_DASHBOARD_DATA = {
     openPOs: 0,
     closedPOs: 0,
     totalPOAmount: 0,
+    totalCDs: 0,
+    openCDs: 0,
+    closedCDs: 0,
+    totalCDAmount: 0,
+    totalCDDue: 0,
     pendingApprovals: 0,
     totalAccountants: 0,
     activeAccountants: 0,
@@ -69,6 +76,7 @@ const DEFAULT_DASHBOARD_DATA = {
     statusCounts: {},
   },
   recentPOs: [],
+  recentCDs: [],
   pendingPOApprovals: [],
   recentExpenses: [],
   recentActivityLogs: [],
@@ -93,6 +101,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
     return DEFAULT_DASHBOARD_DATA;
   });
   const [loading, setLoading] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [duePaymentOrder, setDuePaymentOrder] = useState<any | null>(null);
+  const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
+
+  const refreshDashboard = async () => {
+    try {
+      const res = await api.getAdminDashboard();
+      setData(res);
+      memoryDashboardCache = res;
+      try {
+        localStorage.setItem('safal_dashboard_cache', JSON.stringify(res));
+      } catch {}
+    } catch {}
+  };
+
+  const handleOpenOrder = async (orderId: string) => {
+    try {
+      setLoadingOrderId(orderId);
+      const fullOrder = await api.getPurchaseOrderById(orderId);
+      setSelectedOrder(fullOrder);
+    } catch (err: any) {
+      console.error('Failed to open order dossier:', err);
+      alert('Failed to load order details');
+    } finally {
+      setLoadingOrderId(null);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -124,7 +159,12 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   const safeData = data || DEFAULT_DASHBOARD_DATA;
   const summary = safeData.summary || DEFAULT_DASHBOARD_DATA.summary;
   const charts = safeData.charts || DEFAULT_DASHBOARD_DATA.charts;
-  const recentPOs = safeData.recentPOs || [];
+  const rawRecentPOs = safeData.recentPOs || [];
+  const rawRecentCDs = safeData.recentCDs || [];
+  const recentPOs = rawRecentPOs.filter((p: any) => !String(p.number || '').startsWith('CD/'));
+  const recentCDs = rawRecentCDs.length > 0 
+    ? rawRecentCDs 
+    : rawRecentPOs.filter((p: any) => String(p.number || '').startsWith('CD/'));
   const recentExpenses = safeData.recentExpenses || [];
   const isAccountant = user?.role === 'ACCOUNTANT';
   const isEmployee = user?.role === 'EMPLOYEE';
@@ -199,17 +239,29 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         <section className="stat-grid dashboard-stats">
           <StatCard
             label={isAccountant ? 'Total PO Amount' : isEmployee ? 'My Total Customer Dues (CD)' : 'My Total PO Amount'}
-            value={formatCurrency(summary.totalPOAmount)}
+            value={formatCurrency(isEmployee ? (summary.totalCDAmount || summary.totalPOAmount) : summary.totalPOAmount)}
             icon={<CircleDollarSign />}
             tone="gold"
-            detail={isAccountant ? 'Company Procurement Volume' : isEmployee ? 'Recorded Customer Orders' : 'My Initiated POs'}
+            detail={isAccountant ? `${summary.totalPOs} Company POs` : isEmployee ? 'Recorded Customer Orders' : 'My Initiated POs'}
+            onClick={() => onNavigate(isEmployee ? 'Customer Due (CD)' : 'Purchase Order (PO)')}
           />
+          {isAccountant && (
+            <StatCard
+              label="Total CD Amount"
+              value={formatCurrency(summary.totalCDAmount || 0)}
+              icon={<CreditCard />}
+              tone="gold"
+              detail={`${summary.totalCDs || 0} Total Customer Dues`}
+              onClick={() => onNavigate('Customer Due (CD)')}
+            />
+          )}
           <StatCard
             label={isAccountant ? 'Pending Approvals' : 'My Pending Approvals'}
             value={summary.pendingApprovals}
             icon={<Clock3 />}
             tone="blue"
             detail="Awaiting Admin Decision"
+            onClick={() => onNavigate('Customer Due (CD)')}
           />
           <StatCard
             label={isAccountant ? 'Total Employee Expenses' : 'My Expenses Submitted'}
@@ -217,6 +269,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             icon={<ReceiptIndianRupee />}
             tone="green"
             detail={isAccountant ? 'All Staff Claims' : 'Submitted Claims'}
+            onClick={() => onNavigate('Employee Expenses')}
           />
           <StatCard
             label="Pending Reimbursements"
@@ -224,6 +277,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             icon={<WalletCards />}
             tone="rose"
             detail="Needs Disbursement"
+            onClick={() => onNavigate(isAccountant ? 'Bill Clearance' : 'Employee Expenses')}
           />
         </section>
 
@@ -233,7 +287,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             <span className="text-xs font-bold text-gray-500 uppercase">
               {isAccountant ? 'Company Open POs' : isEmployee ? 'My Open CDs' : 'My Open POs'}
             </span>
-            <p className="text-2xl font-black text-[#087A3E] mt-1">{summary.openPOs}</p>
+            <p className="text-2xl font-black text-[#087A3E] mt-1">{isEmployee ? summary.openCDs : summary.openPOs}</p>
             <span className="text-[11px] text-gray-400">
               {isEmployee ? 'Active customer dues pending clearance' : 'Goods in transit / active procurement'}
             </span>
@@ -242,7 +296,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             <span className="text-xs font-bold text-gray-500 uppercase">
               {isAccountant ? 'Company Closed POs' : isEmployee ? 'My Settled CDs' : 'My Closed POs'}
             </span>
-            <p className="text-2xl font-black text-gray-800 mt-1">{summary.closedPOs}</p>
+            <p className="text-2xl font-black text-gray-800 mt-1">{isEmployee ? summary.closedCDs : summary.closedPOs}</p>
             <span className="text-[11px] text-gray-400">
               {isEmployee ? 'Fully settled & approved customer dues' : 'Consignments fully verified and cleared'}
             </span>
@@ -262,60 +316,213 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
 
         {/* Tables stacked vertically so Expense Claims is down and both tables get full width */}
         <div className="space-y-6">
-          <section className="dashboard-panel">
-            <div className="panel-heading">
-              <h2>{isAccountant ? 'Recent Purchase Orders' : isEmployee ? 'My Recent Customer Dues (CD)' : 'My Recent Purchase Orders'}</h2>
-              <button onClick={() => onNavigate(isEmployee ? 'Customer Due (CD)' : 'Purchase Order (PO)')}>
-                See all <ArrowRight size={14} />
-              </button>
-            </div>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>{isEmployee ? 'CD Number' : 'PO Number'}</th>
-                    <th>{isEmployee ? 'Customer' : 'Supplier'}</th>
-                    <th>Order Date</th>
-                    <th>Amount</th>
-                    <th>Due Amount</th>
-                    <th>Status</th>
-                    <th>Created By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentPOs.length === 0 ? (
+          {isEmployee ? (
+            <section className="dashboard-panel">
+              <div className="panel-heading">
+                <h2>My Recent Customer Dues (CD)</h2>
+                <button onClick={() => onNavigate('Customer Due (CD)')}>
+                  See all <ArrowRight size={14} />
+                </button>
+              </div>
+              <div className="table-wrap">
+                <table>
+                  <thead>
                     <tr>
-                      <td colSpan={7} className="text-center py-8 text-gray-400 text-xs">
-                        {isEmployee ? 'No customer dues recorded yet. Click "+ Create CD [Customer Due]" above to begin.' : 'No purchase orders recorded yet. Click "+ Create New PO" above to begin.'}
-                      </td>
+                      <th>CD Number</th>
+                      <th>Customer / Buyer</th>
+                      <th>Order Date</th>
+                      <th>Amount</th>
+                      <th>Due Amount</th>
+                      <th>Status</th>
+                      <th>Created By</th>
                     </tr>
-                  ) : (
-                    recentPOs.slice(0, 5).map((po: any) => (
-                      <tr key={po.id}>
-                        <td className="font-semibold text-emerald-800">{po.number}</td>
-                        <td>{po.supplier}</td>
-                        <td className="text-gray-600 text-xs">{new Date(po.date).toLocaleDateString('en-GB')}</td>
-                        <td className="font-bold">{formatCurrency(po.amount)}</td>
-                        <td>
-                          {Number(po.pendingAmount || 0) > 0 ? (
-                            <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                              {formatCurrency(po.pendingAmount)}
-                            </span>
-                          ) : (
-                            <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
-                          )}
+                  </thead>
+                  <tbody>
+                    {recentCDs.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="text-center py-8 text-gray-400 text-xs">
+                          No customer dues recorded yet. Click "+ Create CD [Customer Due]" above to begin.
                         </td>
-                        <td>
-                          <StatusBadge status={po.status} />
-                        </td>
-                        <td className="text-gray-500 text-xs">{po.createdBy}</td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                    ) : (
+                      recentCDs.slice(0, 6).map((cd: any) => (
+                        <tr key={cd.id}>
+                          <td className="font-semibold text-emerald-800">{cd.number}</td>
+                          <td className="font-medium text-gray-900">{cd.supplier}</td>
+                          <td className="text-gray-600 text-xs">{cd.date ? new Date(cd.date).toLocaleDateString('en-GB') : '--'}</td>
+                          <td className="font-bold">{formatCurrency(cd.amount)}</td>
+                          <td>
+                            {Number(cd.pendingAmount || 0) > 0 ? (
+                              <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                {formatCurrency(cd.pendingAmount)}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
+                            )}
+                          </td>
+                          <td>
+                            <StatusBadge status={cd.status} />
+                          </td>
+                          <td className="text-gray-500 text-xs">{cd.createdBy}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ) : (
+            <>
+              {/* Accountant View: Separate Recent Purchase Orders and Recent Customer Dues (CD) */}
+              <section className="dashboard-panel">
+                <div className="panel-heading">
+                  <h2>Recent Purchase Orders</h2>
+                  <button onClick={() => onNavigate('Purchase Order (PO)')}>
+                    See all <ArrowRight size={14} />
+                  </button>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>PO Number</th>
+                        <th>Supplier / Buyer</th>
+                        <th>Order Date</th>
+                        <th>Total Amount</th>
+                        <th>Due Amount</th>
+                        <th>Status</th>
+                        <th>Order Taken By</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentPOs.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="text-center py-8 text-gray-400 text-xs">
+                            No purchase orders recorded yet. Click "+ Create New PO" above to begin.
+                          </td>
+                        </tr>
+                      ) : (
+                        recentPOs.slice(0, 6).map((po: any) => (
+                          <tr
+                            key={po.id}
+                            onClick={() => handleOpenOrder(po.id)}
+                            className="cursor-pointer hover:bg-emerald-50/40 transition"
+                            title="Click to view purchase order dossier"
+                          >
+                            <td className="font-semibold text-emerald-800">{po.number}</td>
+                            <td className="font-medium text-gray-900">{po.supplier}</td>
+                            <td className="text-gray-600 text-xs">{po.date ? new Date(po.date).toLocaleDateString('en-GB') : '--'}</td>
+                            <td className="font-bold">{formatCurrency(po.amount)}</td>
+                            <td>
+                              {Number(po.pendingAmount || 0) > 0 ? (
+                                <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                  {formatCurrency(po.pendingAmount)}
+                                </span>
+                              ) : (
+                                <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
+                              )}
+                            </td>
+                            <td>
+                              <StatusBadge status={po.status} />
+                            </td>
+                            <td className="text-gray-600 text-xs font-semibold">{po.createdBy}</td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenOrder(po.id);
+                                }}
+                                disabled={loadingOrderId === po.id}
+                                className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                {loadingOrderId === po.id ? 'Loading...' : 'View'} <ArrowRight size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section className="dashboard-panel">
+                <div className="panel-heading">
+                  <h2>Recent Customer Dues (CD)</h2>
+                  <button onClick={() => onNavigate('Customer Due (CD)')}>
+                    See all <ArrowRight size={14} />
+                  </button>
+                </div>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>CD Number</th>
+                        <th>Customer / Buyer</th>
+                        <th>Order Date</th>
+                        <th>Total Amount</th>
+                        <th>Due Balance</th>
+                        <th>Status</th>
+                        <th>Recorded By</th>
+                        <th>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentCDs.length === 0 ? (
+                        <tr>
+                          <td colSpan={8} className="text-center py-8 text-gray-400 text-xs">
+                            No customer dues recorded yet.
+                          </td>
+                        </tr>
+                      ) : (
+                        recentCDs.slice(0, 6).map((cd: any) => (
+                          <tr
+                            key={cd.id}
+                            onClick={() => handleOpenOrder(cd.id)}
+                            className="cursor-pointer hover:bg-emerald-50/40 transition"
+                            title="Click to view customer due dossier"
+                          >
+                            <td className="font-semibold text-emerald-800">{cd.number}</td>
+                            <td className="font-medium text-gray-900">{cd.supplier}</td>
+                            <td className="text-gray-600 text-xs">{cd.date ? new Date(cd.date).toLocaleDateString('en-GB') : '--'}</td>
+                            <td className="font-bold">{formatCurrency(cd.amount)}</td>
+                            <td>
+                              {Number(cd.pendingAmount || 0) > 0 ? (
+                                <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                  {formatCurrency(cd.pendingAmount)}
+                                </span>
+                              ) : (
+                                <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
+                              )}
+                            </td>
+                            <td>
+                              <StatusBadge status={cd.status} />
+                            </td>
+                            <td className="text-gray-600 text-xs font-semibold">{cd.createdBy}</td>
+                            <td>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenOrder(cd.id);
+                                }}
+                                disabled={loadingOrderId === cd.id}
+                                className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                {loadingOrderId === cd.id ? 'Loading...' : 'View'} <ArrowRight size={12} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </>
+          )}
 
           <section className="dashboard-panel">
             <div className="panel-heading">
@@ -396,7 +603,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 {summary.totalPOs} {summary.totalPOs === 1 ? 'Order' : 'Orders'} ({formatCurrency(summary.totalPOAmount)})
               </span>
               <span className="inline-flex items-center gap-1.5 bg-black/15 px-3 py-1 rounded-full text-emerald-100 border border-emerald-500/20">
-                <span className="font-semibold text-white">PostgreSQL:</span> Connected &amp; Synced
+                <span className="font-semibold text-white">Active CDs:</span>{' '}
+                {summary.totalCDs || 0} {(summary.totalCDs || 0) === 1 ? 'Customer Due' : 'Customer Dues'} ({formatCurrency(summary.totalCDAmount || 0)})
               </span>
             </div>
           </div>
@@ -449,6 +657,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           icon={<CircleDollarSign />}
           tone="gold"
           detail={`${summary.totalPOs} Total POs`}
+          onClick={() => onNavigate('Purchase Order (PO)')}
+        />
+        <StatCard
+          label="Total CD Amount"
+          value={formatCurrency(summary.totalCDAmount || 0)}
+          icon={<CreditCard />}
+          tone="gold"
+          detail={`${summary.totalCDs || 0} Total Customer Dues`}
+          onClick={() => onNavigate('Customer Due (CD)')}
         />
         <StatCard
           label="Pending Approvals"
@@ -456,6 +673,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           icon={<Clock3 />}
           tone="blue"
           detail="Requires Admin Decision"
+          onClick={() => onNavigate('Customer Due (CD)')}
         />
         <StatCard
           label="Monthly Wage Commitment"
@@ -463,6 +681,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           icon={<WalletCards />}
           tone="green"
           detail={`${summary.activeEmployees} Active Employees`}
+          onClick={() => onNavigate('Wages & Salary')}
         />
         <StatCard
           label="Pending Reimbursements"
@@ -470,6 +689,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           icon={<ReceiptIndianRupee />}
           tone="rose"
           detail="Approved Bills to Clear"
+          onClick={() => onNavigate('Employee Expenses')}
         />
       </section>
 
@@ -614,6 +834,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 <tr>
                   <th>Order Number</th>
                   <th>Party / Supplier</th>
+                  <th>Order Taken By (Staff / Admin)</th>
                   <th>Order Date</th>
                   <th>Total Amount</th>
                   <th>Due Amount</th>
@@ -624,15 +845,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               <tbody>
                 {recentPOs.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-8 text-gray-400 text-xs">
-                      No orders recorded yet.
+                    <td colSpan={8} className="text-center py-8 text-gray-400 text-xs">
+                      No purchase orders recorded yet.
                     </td>
                   </tr>
                 ) : (
                   recentPOs.map((order: any) => (
-                    <tr key={order.id}>
+                    <tr
+                      key={order.id}
+                      onClick={() => handleOpenOrder(order.id)}
+                      className="cursor-pointer hover:bg-emerald-50/40 transition"
+                      title="Click to view full purchase order dossier"
+                    >
                       <td className="font-semibold text-emerald-800">{order.number}</td>
-                      <td>{order.supplier}</td>
+                      <td className="font-medium text-gray-900">{order.supplier}</td>
+                      <td className="text-gray-700 text-xs font-semibold">{order.createdBy || '--'}</td>
                       <td className="text-gray-600 text-xs">
                         {order.date ? new Date(order.date).toLocaleDateString('en-GB') : '--'}
                       </td>
@@ -651,10 +878,91 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       </td>
                       <td>
                         <button
-                          onClick={() => onNavigate(String(order.number || '').startsWith('CD') ? 'Customer Due (CD)' : 'Purchase Order (PO)')}
-                          className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1"
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenOrder(order.id);
+                          }}
+                          disabled={loadingOrderId === order.id}
+                          className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1 cursor-pointer"
                         >
-                          View <ArrowRight size={12} />
+                          {loadingOrderId === order.id ? 'Loading...' : 'View'} <ArrowRight size={12} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="dashboard-panel">
+          <div className="panel-heading">
+            <h2>Recent Customer Dues (CD)</h2>
+            <button onClick={() => onNavigate('Customer Due (CD)')}>
+              See all <ArrowRight size={14} />
+            </button>
+          </div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>CD Number</th>
+                  <th>Buyer / Customer</th>
+                  <th>Order Taken By (Staff)</th>
+                  <th>Order Date</th>
+                  <th>Total Amount</th>
+                  <th>Due Amount</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentCDs.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="text-center py-8 text-gray-400 text-xs">
+                      No customer dues recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  recentCDs.map((order: any) => (
+                    <tr
+                      key={order.id}
+                      onClick={() => handleOpenOrder(order.id)}
+                      className="cursor-pointer hover:bg-emerald-50/40 transition"
+                      title="Click to view full customer due dossier"
+                    >
+                      <td className="font-semibold text-emerald-800">{order.number}</td>
+                      <td className="font-medium text-gray-900">{order.supplier}</td>
+                      <td className="text-gray-700 text-xs font-semibold">{order.createdBy || '--'}</td>
+                      <td className="text-gray-600 text-xs">
+                        {order.date ? new Date(order.date).toLocaleDateString('en-GB') : '--'}
+                      </td>
+                      <td className="font-bold">{formatCurrency(order.amount)}</td>
+                      <td>
+                        {Number(order.pendingAmount || 0) > 0 ? (
+                          <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                            {formatCurrency(order.pendingAmount)}
+                          </span>
+                        ) : (
+                          <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
+                        )}
+                      </td>
+                      <td>
+                        <StatusBadge status={order.status} />
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenOrder(order.id);
+                          }}
+                          disabled={loadingOrderId === order.id}
+                          className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          {loadingOrderId === order.id ? 'Loading...' : 'View'} <ArrowRight size={12} />
                         </button>
                       </td>
                     </tr>
@@ -744,6 +1052,33 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           ))}
         </div>
       </section>
+
+      {/* PO / CD Dossier Detail Modal */}
+      {selectedOrder && (
+        <PODetailModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onRefresh={refreshDashboard}
+          onNotify={(msg) => alert(msg)}
+          onOpenDuePayment={(ord) => {
+            setSelectedOrder(null);
+            setDuePaymentOrder(ord);
+          }}
+        />
+      )}
+
+      {/* Direct Settlement Modal */}
+      {duePaymentOrder && (
+        <SubmitDuePaymentModal
+          order={duePaymentOrder}
+          onClose={() => setDuePaymentOrder(null)}
+          onSuccess={(msg) => {
+            alert(msg);
+            setDuePaymentOrder(null);
+            refreshDashboard();
+          }}
+        />
+      )}
     </>
   );
 };

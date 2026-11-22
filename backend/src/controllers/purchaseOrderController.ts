@@ -101,33 +101,6 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
   try {
     const { search, status, financialStatus, supplierId, fromDate, toDate, type } = req.query;
 
-    // Auto-migration: Convert any existing Employee-created POs into CDs (PO/SF/... -> CD/SF/...)
-    try {
-      const employeePOs = await prisma.purchaseOrder.findMany({
-        where: {
-          createdBy: { role: 'EMPLOYEE' },
-          poNumber: { startsWith: 'PO/' },
-        },
-        select: { id: true, poNumber: true },
-      });
-
-      for (const ep of employeePOs) {
-        const targetCD = ep.poNumber.replace(/^PO\//, 'CD/');
-        const exists = await prisma.purchaseOrder.findUnique({
-          where: { poNumber: targetCD },
-          select: { id: true },
-        });
-        if (!exists) {
-          await prisma.purchaseOrder.update({
-            where: { id: ep.id },
-            data: { poNumber: targetCD },
-          });
-        }
-      }
-    } catch (migErr) {
-      console.error('Auto-migration employee PO -> CD error:', migErr);
-    }
-
     const where: any = {};
 
     // Strict Role-based visibility:
@@ -225,7 +198,10 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         paymentProofUrl: (p as any).paymentProofUrl || null,
         paymentProofNotes: (p as any).paymentProofNotes || null,
         createdById: p.createdById,
-        createdByName: p.createdBy.name,
+        createdByName: (() => {
+          const match = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
+          return match ? match[1].trim() : p.createdBy.name;
+        })(),
         approvedById: p.approvedById,
         approvedByName: p.approvedBy?.name || null,
         subtotal: Number(p.subtotal),
@@ -304,7 +280,29 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
       po.status = 'OPEN';
     }
 
-    return res.json(po);
+    const staffMatch = po.notes?.match(/Order Taken By:\s*([^|\n]+)/);
+    const formatted = {
+      ...po,
+      supplierName: po.supplier?.name || 'Party / Supplier',
+      supplierCategory: po.supplier?.category || (po.poNumber?.startsWith('CD/') ? 'Customer Due' : 'Wholesale Fruits'),
+      createdByName: staffMatch ? staffMatch[1].trim() : (po.createdBy?.name || 'Staff'),
+      financial: {
+        financialStatus: po.financialRecord?.financialStatus || 'NOT_RECORDED',
+        realizedProfitLoss: po.financialRecord?.realizedProfitLoss !== undefined && po.financialRecord?.realizedProfitLoss !== null
+          ? Number(po.financialRecord.realizedProfitLoss)
+          : null,
+        verifiedCost: po.financialRecord?.verifiedCost !== undefined && po.financialRecord?.verifiedCost !== null
+          ? Number(po.financialRecord.verifiedCost)
+          : null,
+        allocatedTransportCost: Number(po.financialRecord?.allocatedTransportCost || 0),
+        allocatedLaborCost: Number(po.financialRecord?.allocatedLaborCost || 0),
+        linkedRevenue: po.financialRecord?.linkedRevenue !== undefined && po.financialRecord?.linkedRevenue !== null
+          ? Number(po.financialRecord.linkedRevenue)
+          : null,
+      },
+    };
+
+    return res.json(formatted);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to fetch purchase order' });
   }
@@ -481,9 +479,11 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
               deliveryAddress,
               orderPersonPlace: personPlace || null,
               paymentTerms,
-              notes: personPlace
-                ? `${notes ? notes + ' | ' : ''}Area: ${personPlace}`
-                : notes,
+              notes: [
+                req.body.orderPersonName ? `Order Taken By: ${String(req.body.orderPersonName).trim()}` : '',
+                personPlace ? `Area: ${personPlace}` : '',
+                notes ? String(notes).trim() : '',
+              ].filter(Boolean).join(' | ') || null,
               subtotal: effectiveSubtotal,
               discountTotal,
               taxTotal,
@@ -1161,9 +1161,11 @@ export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
           advanceAmount: advance,
           pendingAmount: pending,
           status,
-          notes: notes
-            ? `${notes} (Legacy Due PO)`
-            : 'Legacy Due PO recorded directly into Due Tracker',
+          notes: [
+            req.body.orderPersonName ? `Order Taken By: ${String(req.body.orderPersonName).trim()}` : '',
+            notes ? String(notes).trim() : '',
+            'Customer Due (CD)'
+          ].filter(Boolean).join(' | '),
           items: {
             create: [
               {
@@ -1255,6 +1257,135 @@ export async function deletePurchaseOrder(req: AuthRequest, res: Response) {
   } catch (error: any) {
     console.error('Error deleting purchase order:', error);
     return res.status(500).json({ error: error.message || 'Failed to delete purchase order' });
+  }
+}
+
+export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const {
+      buyerName,
+      supplierName,
+      customerPhone,
+      orderPersonPlace,
+      notes,
+      expectedDeliveryDate,
+      grandTotal,
+      advanceAmount,
+      pendingAmount,
+    } = req.body;
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: { supplier: true, items: true, createdBy: true },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const isEmp = req.user?.role === 'EMPLOYEE';
+    const isAdminOrAcc = req.user?.role === 'ADMIN' || req.user?.role === 'ACCOUNTANT';
+
+    // Employee can only edit their own order
+    if (isEmp && po.createdById !== req.user?.id) {
+      return res.status(403).json({ error: 'Access denied: You can only edit your own orders' });
+    }
+
+    const effectiveBuyerName = (buyerName || supplierName || '').trim();
+    const isAmountAttempt = (
+      grandTotal !== undefined && Number(grandTotal) !== Number(po.grandTotal)
+    ) || (
+      advanceAmount !== undefined && Number(advanceAmount) !== Number(po.advanceAmount || 0)
+    ) || (
+      pendingAmount !== undefined && Number(pendingAmount) !== Number(po.pendingAmount || 0)
+    );
+
+    if (isEmp && isAmountAttempt) {
+      return res.status(403).json({
+        error: 'Amount modification locked: Order amounts can only be modified with Admin or Accountant approval. Please request your Admin/Accountant to adjust this value.',
+      });
+    }
+
+    const updateData: any = {};
+
+    // Update buyer / supplier name and contact if provided
+    if (effectiveBuyerName && effectiveBuyerName !== po.supplier.name) {
+      // Check if any other purchase orders share this supplierId
+      const otherOrdersCount = await prisma.purchaseOrder.count({
+        where: {
+          supplierId: po.supplierId,
+          id: { not: po.id },
+        },
+      });
+
+      if (otherOrdersCount === 0) {
+        // Only this order uses this supplier, so safe to update in place
+        await prisma.supplier.update({
+          where: { id: po.supplierId },
+          data: {
+            name: effectiveBuyerName,
+            phone: customerPhone || po.supplier.phone,
+          },
+        });
+      } else {
+        // Other orders share this supplier! Do NOT rename the shared supplier.
+        // Look up if a supplier with the new name already exists or create a new one.
+        let targetSupplier = await prisma.supplier.findFirst({
+          where: { name: { equals: effectiveBuyerName, mode: 'insensitive' } },
+        });
+
+        if (!targetSupplier) {
+          const supCount = await prisma.supplier.count();
+          const supplierCode = `SUP-${String(supCount + 1).padStart(3, '0')}`;
+          const isCDOrder = po.poNumber.startsWith('CD/') || po.supplier?.category === 'Customer Due';
+          targetSupplier = await prisma.supplier.create({
+            data: {
+              name: effectiveBuyerName,
+              supplierCode,
+              phone: customerPhone || po.supplier?.phone,
+              category: isCDOrder ? 'Customer Due' : 'Wholesale Fruits',
+              paymentTerms: po.supplier?.paymentTerms || 'Custom',
+              status: 'ACTIVE',
+            },
+          });
+        }
+        updateData.supplierId = targetSupplier.id;
+      }
+    }
+    if (orderPersonPlace !== undefined) updateData.orderPersonPlace = orderPersonPlace ? String(orderPersonPlace).trim() : null;
+    if (notes !== undefined) updateData.notes = notes ? String(notes).trim() : null;
+    if (expectedDeliveryDate !== undefined) updateData.expectedDeliveryDate = expectedDeliveryDate ? new Date(expectedDeliveryDate) : null;
+
+    if (isAdminOrAcc) {
+      if (grandTotal !== undefined) updateData.grandTotal = Number(grandTotal);
+      if (advanceAmount !== undefined) updateData.advanceAmount = Number(advanceAmount);
+      if (pendingAmount !== undefined) updateData.pendingAmount = Number(pendingAmount);
+    }
+
+    const updated = await prisma.purchaseOrder.update({
+      where: { id },
+      data: updateData,
+      include: { supplier: true, items: true, createdBy: true },
+    });
+
+    clearDashboardCache();
+
+    await createAuditLog({
+      userId: req.user?.id,
+      userName: req.user?.name || 'User',
+      userRole: req.user?.role || 'UNKNOWN',
+      action: 'PO_UPDATED',
+      entityType: 'PURCHASE_ORDER',
+      entityId: id,
+      details: `Order ${updated.poNumber} updated by ${req.user?.name || 'User'}${isAmountAttempt ? ' (Amounts updated)' : ''}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json(updated);
+  } catch (error: any) {
+    console.error('Error updating purchase order:', error);
+    return res.status(500).json({ error: error.message || 'Failed to update order' });
   }
 }
 

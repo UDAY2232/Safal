@@ -14,6 +14,11 @@ router.use(authenticateToken);
 router.use(requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'));
 
 router.get('/purchase-orders', getPOReports);
+router.get('/customer-dues', (req, res) => {
+  req.query.type = 'CD';
+  req.query.format = req.query.format || 'csv';
+  return getPOReports(req, res);
+});
 router.get('/wages', requireRole('ADMIN'), getWageReports);
 router.get('/expenses', getExpenseReports);
 router.get('/profit-loss', getProfitLossReport);

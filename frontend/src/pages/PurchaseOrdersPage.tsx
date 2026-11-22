@@ -58,7 +58,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const [status, setStatus] = useState('All');
   const [financialStatus, setFinancialStatus] = useState('All');
   const [viewMode, setViewMode] = useState<'reference' | 'financial'>('reference');
-  const [activeSection, setActiveSection] = useState<'all' | 'due'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'pending_verification' | 'due'>('all');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [financialPO, setFinancialPO] = useState<PurchaseOrder | null>(null);
   const [duePaymentPO, setDuePaymentPO] = useState<PurchaseOrder | null>(null);
@@ -148,6 +148,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     return (Date.now() - orderTime) < ONE_DAY_MS;
   }) : [];
 
+  // Pending verification CDs (awaiting Admin/Accountant approval with proof)
+  const pendingVerificationOrders = isCD ? orders.filter((o) => {
+    return o.status === 'PENDING_APPROVAL' || (Boolean(o.paymentProofUrl) && o.status !== 'CLOSED');
+  }) : [];
+
+  const displayedOrders = activeSection === 'pending_verification' 
+    ? pendingVerificationOrders 
+    : activeSection === 'due' 
+      ? dueOrders 
+      : orders;
+
   const totalDueAmount = dueOrders.reduce((sum, o) => {
     const adv = Number(o.advanceAmount || 0);
     const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
@@ -175,21 +186,6 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-          {/* Enter Due PO / CD Button: REMOVED for CD as requested */}
-          {!isCD && (
-            <button
-              type="button"
-              onClick={() => {
-                setActiveSection('due');
-                setShowAddDueModal(true);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-700 hover:bg-rose-800 text-white text-sm font-bold rounded-xl shadow-md transition"
-              title="Record an existing / pre-software PO with pending dues"
-            >
-              <Plus size={18} /> Record Due PO
-            </button>
-          )}
-
           {/* Direct Settle Due POs / CDs Button */}
           <button
             onClick={() => {
@@ -223,7 +219,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </div>
       </div>
 
-      {/* Primary Section Switcher Tabs: All POs / CDs vs Due Tracker */}
+      {/* Primary Section Switcher Tabs: All POs / CDs vs Pending Verification vs Due Tracker */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs">
         <div className="flex items-center gap-2">
           <button
@@ -237,6 +233,26 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           >
             <ShoppingCart size={15} /> {isCD ? `All Customer Dues (${orders.length})` : `All Purchase Orders (${orders.length})`}
           </button>
+
+          {isCD && (
+            <button
+              type="button"
+              onClick={() => setActiveSection('pending_verification')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                activeSection === 'pending_verification'
+                  ? 'bg-amber-600 text-white shadow-sm'
+                  : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+              }`}
+              title="Customer dues with submitted proof awaiting review and closing"
+            >
+              <Clock size={15} /> Pending Verification
+              {pendingVerificationOrders.length > 0 && (
+                <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-white">
+                  {pendingVerificationOrders.length}
+                </span>
+              )}
+            </button>
+          )}
 
           <button
             type="button"
@@ -260,6 +276,12 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           <div className="text-xs text-rose-800 font-bold px-2 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
             <span>Total Outstanding Due: <strong>₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></span>
+          </div>
+        )}
+        {activeSection === 'pending_verification' && (
+          <div className="text-xs text-amber-800 font-bold px-2 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>Pending Verification: <strong>{pendingVerificationOrders.length} Records</strong></span>
           </div>
         )}
       </div>
@@ -314,11 +336,11 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <div className="w-12 h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
               <Coins size={24} strokeWidth={2.2} />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <span className="text-xs font-bold text-[#1E293B] block">
                 {isCD ? (isEmployee ? 'My Total CD Amount' : 'Total CD Amount') : 'Total PO Amount'}
               </span>
-              <strong className="text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 truncate">
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 whitespace-nowrap overflow-visible">
                 ₹ {totalAmount.toLocaleString('en-IN')}
               </strong>
             </div>
@@ -515,15 +537,6 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <span className="px-3.5 py-1.5 bg-rose-700 text-white rounded-xl text-xs font-black shadow-xs">
                 Total Due: ₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
-              {!isCD && (
-                <button
-                  type="button"
-                  onClick={() => setShowAddDueModal(true)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-bold shadow-xs transition"
-                >
-                  <Plus size={14} /> + Record Due PO
-                </button>
-              )}
             </div>
           </div>
 
@@ -563,17 +576,8 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       <p className="text-xs text-gray-500 mt-1">
                         {isCD
                           ? 'Customer Dues exceeding the 1-day settlement period will appear here automatically.'
-                          : 'Record pre-existing or offline due purchase orders into the tracker.'}
+                          : 'Pending dues requiring settlement will appear here automatically.'}
                       </p>
-                      {!isCD && (
-                        <button
-                          type="button"
-                          onClick={() => setShowAddDueModal(true)}
-                          className="mt-3.5 inline-flex items-center gap-2 px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md transition"
-                        >
-                          <Plus size={15} /> + Record Due PO
-                        </button>
-                      )}
                     </td>
                   </tr>
                 ) : (
@@ -698,20 +702,29 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                     <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       Status
                     </th>
+                    {isCD && (
+                      <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                        Due Tracker
+                      </th>
+                    )}
                     <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider">
                       Settlement / Action
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {orders.length === 0 ? (
+                  {displayedOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-10 text-gray-400 text-xs">
-                        {isCD ? 'No customer dues (CD) found matching criteria.' : 'No purchase orders found matching criteria.'}
+                      <td colSpan={isCD ? 10 : 9} className="text-center py-10 text-gray-400 text-xs">
+                        {activeSection === 'pending_verification'
+                          ? 'No pending verification customer dues found. Once payment proof is submitted, it will appear here.'
+                          : isCD
+                          ? 'No customer dues (CD) found matching criteria.'
+                          : 'No purchase orders found matching criteria.'}
                       </td>
                     </tr>
                   ) : (
-                    orders.map((order, index) => {
+                    displayedOrders.map((order, index) => {
                       const isPending = order.status === 'PENDING_APPROVAL' || order.status === 'DRAFT';
                       const adv = Number(order.advanceAmount || 0);
                       const pendingDue = Number(order.pendingAmount ?? Math.max(0, Number(order.grandTotal) - adv));
@@ -790,50 +803,57 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           </td>
                           <td className="text-center py-3 px-4 border-r border-gray-200">
                             {isClosed ? (
-                              <span className="inline-block px-5 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
+                              <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
                                 Closed
                               </span>
-                            ) : pendingDue === 0 ? (
+                            ) : order.status === 'PENDING_APPROVAL' || (order.paymentProofUrl && !isClosed) ? (
                               <div className="inline-flex flex-col items-center">
-                                <span className="px-3 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
-                                  {isAdmin ? 'Ready to Close' : 'Awaiting Close'}
+                                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                  Pending Verification
                                 </span>
-                                {order.paymentProofUrl ? (
-                                  <span className="text-[10px] text-emerald-700 font-bold">Proof Verified ✓</span>
-                                ) : (
-                                  <span className="text-[10px] text-gray-500 font-medium">Due Cleared</span>
+                                {order.paymentProofUrl && (
+                                  <span className="text-[10px] text-emerald-700 font-bold">Proof Attached</span>
                                 )}
                               </div>
-                            ) : isCD ? (
-                              (() => {
-                                const orderTime = new Date(order.poDate || order.createdAt).getTime();
-                                const isOverOneDay = (Date.now() - orderTime) >= ONE_DAY_MS;
-                                return isOverOneDay ? (
-                                  <div className="inline-flex flex-col items-center">
-                                    <span className="px-3 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
-                                      Due Tracker
-                                    </span>
-                                    <span className="text-[10px] text-rose-600 font-bold">&gt;1 Day Overdue</span>
-                                  </div>
-                                ) : (
-                                  <div className="inline-flex flex-col items-center">
-                                    <span className="px-3 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">
-                                      Due Today
-                                    </span>
-                                    <span className="text-[10px] text-emerald-700 font-semibold">1-Day Window</span>
-                                  </div>
-                                );
-                              })()
                             ) : isPending ? (
-                              <span className="inline-block px-4 py-1 rounded-full text-xs font-bold bg-[#FFF2C9] text-[#986B0C] border border-[#FBE39A]">
+                              <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#FFF2C9] text-[#986B0C] border border-[#FBE39A]">
                                 Pending
                               </span>
                             ) : (
-                              <span className="inline-block px-5 py-1 rounded-full text-xs font-bold bg-[#FFE0DF] text-[#C53030] border border-[#FDC4C4] shadow-xs">
+                              <span className="inline-block px-4 py-1 rounded-full text-xs font-bold bg-[#FFE0DF] text-[#C53030] border border-[#FDC4C4] shadow-xs">
                                 Open
                               </span>
                             )}
                           </td>
+                          {isCD && (
+                            <td className="text-center py-3 px-4 border-r border-gray-200">
+                              {pendingDue <= 0 || isClosed ? (
+                                <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Cleared ✓
+                                </span>
+                              ) : (
+                                (() => {
+                                  const orderTime = new Date(order.poDate || order.createdAt).getTime();
+                                  const isOverOneDay = (Date.now() - orderTime) >= ONE_DAY_MS;
+                                  return isOverOneDay ? (
+                                    <div className="inline-flex flex-col items-center">
+                                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-100 text-rose-800 border border-rose-300 shadow-2xs">
+                                        Due Tracker
+                                      </span>
+                                      <span className="text-[10px] text-rose-600 font-bold">&gt;1 Day Overdue</span>
+                                    </div>
+                                  ) : (
+                                    <div className="inline-flex flex-col items-center">
+                                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs">
+                                        Due Today
+                                      </span>
+                                      <span className="text-[10px] text-emerald-700 font-semibold">1-Day Window</span>
+                                    </div>
+                                  );
+                                })()
+                              )}
+                            </td>
+                          )}
                           <td className="text-center py-3 px-4 border-l border-gray-200 whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                               {pendingDue > 0 && (
@@ -846,7 +866,26 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   <CreditCard size={12} /> Pay Due
                                 </button>
                               )}
-                              {pendingDue === 0 && !isClosed && isAdmin && (
+                              {((order.status === 'PENDING_APPROVAL' || order.paymentProofUrl) && !isClosed && (isAdmin || isAccountant)) ? (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      onNotify(`Approving proof & closing ${order.poNumber}...`);
+                                      await api.closePurchaseOrder(order.id);
+                                      onNotify(`Customer Due ${order.poNumber} verified and formally CLOSED!`);
+                                      loadOrders();
+                                    } catch (err: any) {
+                                      alert(err.message || 'Failed to approve CD');
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
+                                  title="Approve proof and close CD"
+                                >
+                                  <CheckCircle2 size={12} /> Approve Close
+                                </button>
+                              ) : pendingDue === 0 && !isClosed && isAdmin ? (
                                 <button
                                   type="button"
                                   onClick={async (e) => {
@@ -865,7 +904,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 >
                                   <CheckCircle2 size={12} /> Close CD
                                 </button>
-                              )}
+                              ) : null}
                               {order.paymentProofUrl && (
                                 <a
                                   href={order.paymentProofUrl}

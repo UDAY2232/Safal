@@ -10,17 +10,18 @@ interface POFinancialsModalProps {
 }
 
 export const POFinancialsModal: React.FC<POFinancialsModalProps> = ({ order, onClose, onSuccess }) => {
+  const fin = order.financial || (order as any).financialRecord || {};
   const [verifiedCost, setVerifiedCost] = useState<string>(
-    order.financial.verifiedCost !== null ? String(order.financial.verifiedCost) : ''
+    fin.verifiedCost !== null && fin.verifiedCost !== undefined ? String(fin.verifiedCost) : ''
   );
   const [transportCost, setTransportCost] = useState<string>(
-    String(order.financial.allocatedTransportCost || 0)
+    String(fin.allocatedTransportCost || 0)
   );
   const [laborCost, setLaborCost] = useState<string>(
-    String(order.financial.allocatedLaborCost || 0)
+    String(fin.allocatedLaborCost || 0)
   );
   const [linkedRevenue, setLinkedRevenue] = useState<string>(
-    order.financial.linkedRevenue !== null ? String(order.financial.linkedRevenue) : ''
+    fin.linkedRevenue !== null && fin.linkedRevenue !== undefined ? String(fin.linkedRevenue) : ''
   );
   const [costNotes, setCostNotes] = useState('');
   const [revenueNotes, setRevenueNotes] = useState('');

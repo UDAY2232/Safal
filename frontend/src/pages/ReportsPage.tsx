@@ -13,6 +13,7 @@ import {
   BarChart3,
   PieChart as PieIcon,
   ShieldCheck,
+  CreditCard,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -129,12 +130,20 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
 
   const reportItems = [
     {
-      title: 'Purchase Orders Report',
+      title: 'Purchase Orders Report (PO)',
       type: 'purchase-orders',
       desc: 'Complete fruit procurement orders, suppliers, quantities, advance, pending due, and GST totals.',
       icon: <ShoppingCart size={22} />,
       metric: `${summary.totalPOs} Total Orders · ${formatCurrency(summary.totalPOAmount)}`,
       updated: 'Neon PostgreSQL Synced',
+    },
+    {
+      title: 'Customer Dues (CD) Report',
+      type: 'customer-dues',
+      desc: 'Complete buyer dues, retail accounts, customer names, advance paid, pending collection dues, and clearing proofs.',
+      icon: <CreditCard size={22} />,
+      metric: `${summary.totalCDs || 0} Total Dues · ${formatCurrency(summary.totalCDAmount || 0)} (Due: ${formatCurrency(summary.totalCDDue || 0)})`,
+      updated: 'Live Database Synced',
     },
     ...(isAdmin
       ? [
@@ -199,20 +208,27 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
         )}
       </div>
 
-      {/* 4 Real-Data Financial KPI Cards */}
+      {/* Real-Data Financial KPI Cards */}
       <section className="stat-grid dashboard-stats">
         <StatCard
-          label="Total Procurement Spend"
+          label="Total Procurement Spend (PO)"
           value={formatCurrency(summary.totalPOAmount)}
           icon={<ShoppingCart />}
           tone="gold"
           detail={`${summary.totalPOs} Verified Purchase Orders`}
         />
         <StatCard
+          label="Total Customer Dues (CD)"
+          value={formatCurrency(summary.totalCDAmount || 0)}
+          icon={<CreditCard />}
+          tone="green"
+          detail={`${summary.totalCDs || 0} Customer Dues · Due: ${formatCurrency(summary.totalCDDue || 0)}`}
+        />
+        <StatCard
           label="Realized Net P&L"
           value={`+${formatCurrency(summary.realizedProfit - summary.realizedLoss)}`}
           icon={<TrendingUp />}
-          tone="green"
+          tone="blue"
           detail={`Profit: +${formatCurrency(summary.realizedProfit)} · Loss: -${formatCurrency(summary.realizedLoss)}`}
         />
         {isAdmin ? (
@@ -225,10 +241,10 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
           />
         ) : (
           <StatCard
-            label="Pending PO Approvals"
+            label="Pending Approvals"
             value={String(summary.pendingApprovals)}
             icon={<Clock3 />}
-            tone="blue"
+            tone="rose"
             detail="Awaiting Admin Decision"
           />
         )}

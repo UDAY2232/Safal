@@ -25,7 +25,10 @@ export async function getSuppliers(req: AuthRequest, res: Response) {
         purchaseOrders: {
           select: {
             id: true,
+            poNumber: true,
             grandTotal: true,
+            advanceAmount: true,
+            pendingAmount: true,
             status: true,
           },
         },
@@ -34,8 +37,12 @@ export async function getSuppliers(req: AuthRequest, res: Response) {
     });
 
     const formatted = suppliers.map((s) => {
-      const poCount = s.purchaseOrders.length;
-      const totalAmount = s.purchaseOrders.reduce((sum, po) => sum + Number(po.grandTotal), 0);
+      const isCD = (po: any) => po.poNumber?.startsWith('CD/') || s.category === 'Customer Due';
+      const poOrders = s.purchaseOrders.filter((po) => !isCD(po));
+      const cdOrders = s.purchaseOrders.filter((po) => isCD(po));
+
+      const isBuyer = s.category === 'Customer Due' || (cdOrders.length > 0 && poOrders.length === 0);
+
       return {
         id: s.id,
         supplierCode: s.supplierCode,
@@ -49,8 +56,12 @@ export async function getSuppliers(req: AuthRequest, res: Response) {
         paymentTerms: s.paymentTerms,
         status: s.status,
         notes: s.notes,
-        poCount,
-        totalPOValue: totalAmount,
+        isBuyer,
+        poCount: poOrders.length,
+        totalPOValue: poOrders.reduce((sum, po) => sum + Number(po.grandTotal), 0),
+        cdCount: cdOrders.length,
+        totalCDValue: cdOrders.reduce((sum, po) => sum + Number(po.grandTotal), 0),
+        totalCDDue: cdOrders.reduce((sum, po) => sum + Number(po.pendingAmount || 0), 0),
       };
     });
 
