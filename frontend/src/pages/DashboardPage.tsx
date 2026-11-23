@@ -932,7 +932,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 8 Regional Hubs
               </span>
               <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold">
-                70% Auto-Advance Policy
+                55% Auto-Advance Policy
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-2 font-['Manrope']">
@@ -991,7 +991,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           </div>
 
           <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">70% Advance Outlay</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">55% Advance Outlay</span>
             <p className="text-xl font-black text-emerald-800 mt-1">
               {formatCurrency(
                 recentPOs.reduce((sum: number, p: any) => sum + Number(p.advanceAmount || 0), 0)

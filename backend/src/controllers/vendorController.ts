@@ -854,7 +854,7 @@ export async function submitHubQCInspection(req: AuthRequest, res: Response) {
  * Supports:
  * - Dynamic Apple Sizing (4L, 5L, Roll, Total Boxes, Total Amount)
  * - Direct upload of Vehicle Photo and Transport Bill (Bilty)
- * - 70% automatic advance guarantee calculation
+ * - 55% automatic advance guarantee calculation
  * - Direct mapping to destination regional hub
  */
 export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
@@ -889,7 +889,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
           contactPerson: profile.contactPerson,
           phone: profile.phone,
           category: 'Wholesale Fruits',
-          paymentTerms: '70% Advance on Dispatch + 30% on QC Acceptance',
+          paymentTerms: '55% Advance on Dispatch + 45% on QC Acceptance',
           status: 'ACTIVE',
         },
       });
@@ -998,7 +998,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
       return res.status(400).json({ error: 'Total consignment value must be greater than zero.' });
     }
 
-    const autoAdvance = Math.round(grandTotal * 0.70);
+    const autoAdvance = Math.round(grandTotal * 0.55);
     const pendingBalance = Math.max(0, grandTotal - autoAdvance);
 
     // Handle files if uploaded with creation
@@ -1030,7 +1030,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
           createdById: req.user!.id,
           orderPersonPlace: targetHub,
           deliveryAddress: `${targetHub} Regional Hub Receiving Desk`,
-          paymentTerms: '70% Advance on Dispatch + 30% on QC Acceptance',
+          paymentTerms: '55% Advance on Dispatch + 45% on QC Acceptance',
           dispatchVehicleNumber: dispatchVehicleNumber ? dispatchVehicleNumber.trim().toUpperCase() : null,
           transporterName: transporterName ? transporterName.trim() : null,
           driverPhone: driverPhone ? driverPhone.trim() : null,
@@ -1062,7 +1062,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
             create: {
               status: 'PENDING_APPROVAL',
               changedById: req.user!.id,
-              comment: 'Vendor created supply consignment order with 70% auto-advance guarantee',
+              comment: 'Vendor created supply consignment order with 55% auto-advance guarantee',
             },
           },
           financialRecord: {

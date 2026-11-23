@@ -96,7 +96,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       }
       const curTot = Number(totalAmount) || 0;
       if (curTot > 0) {
-        const adv = Math.round(curTot * 0.70);
+        const adv = Math.round(curTot * 0.55);
         setAdvanceAmount(String(adv));
         setPendingAmount(String(curTot - adv));
       }
@@ -118,6 +118,11 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       const itemsSum = updated.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
       if (!manualTotalOverride && itemsSum > 0) {
         setTotalAmount(String(itemsSum));
+        if (!isCD) {
+          const adv = Math.round(itemsSum * 0.55);
+          setAdvanceAmount(String(adv));
+          setPendingAmount(String(itemsSum - adv));
+        }
       }
 
       return updated;
@@ -303,7 +308,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                     <ShieldCheck size={14} className="text-emerald-700" /> Select Registered Vendor Partner (KYC Verified)
                   </label>
                   <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    70% Auto-Advance Policy
+                    55% Auto-Advance Policy
                   </span>
                 </div>
                 <select
@@ -618,7 +623,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {/* Total CD Value */}
+              {/* Total CD / PO Value */}
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
                   <span>{isCD ? 'Total CD Value (₹) *' : 'Total PO Value (₹) *'}</span>
@@ -630,24 +635,37 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                   step="any"
                   value={totalAmount}
                   onChange={(e) => {
-                    setTotalAmount(e.target.value);
+                    const val = e.target.value;
+                    setTotalAmount(val);
                     setManualTotalOverride(true);
-                    setPendingAmount('');
+                    if (!isCD) {
+                      const curTot = Number(val) || 0;
+                      if (curTot > 0) {
+                        const adv = Math.round(curTot * 0.55);
+                        setAdvanceAmount(String(adv));
+                        setPendingAmount(String(curTot - adv));
+                      } else {
+                        setAdvanceAmount('0');
+                        setPendingAmount('0');
+                      }
+                    } else {
+                      setPendingAmount('');
+                    }
                   }}
                   placeholder="0.00"
                   className="w-full h-11 px-3 border-2 border-emerald-500 rounded-xl text-base font-black text-emerald-950 bg-white focus:border-emerald-700 focus:outline-none shadow-xs"
                   required
                 />
                 <span className="text-[10px] text-gray-500 mt-1 block font-semibold">
-                  {currentTotal > 0 ? `₹${currentTotal.toLocaleString('en-IN')}` : 'Enter or auto-calculated from items'}
+                  {currentTotal > 0 ? `₹${currentTotal.toLocaleString('en-IN')}` : 'Enter total or auto-calculated from items'}
                 </span>
               </div>
 
-              {/* Payed Amount Upfront */}
+              {/* Payed Amount Upfront / 55% Auto Advance */}
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                  <span>{isCD ? 'Payed Amount (₹)' : 'Advance Amount (₹)'}</span>
-                  <span className="text-[10px] text-emerald-700 font-bold">Paid upfront</span>
+                  <span>{isCD ? 'Payed Amount (₹)' : 'Advance Amount (₹) (55% Auto)'}</span>
+                  <span className="text-[10px] text-emerald-700 font-bold">{isCD ? 'Paid upfront' : '55% Auto-Advance'}</span>
                 </label>
                 <input
                   type="number"
@@ -655,26 +673,31 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                   step="any"
                   value={advanceAmount}
                   onChange={(e) => {
-                    setAdvanceAmount(e.target.value);
-                    setPendingAmount('');
+                    const val = e.target.value;
+                    setAdvanceAmount(val);
+                    const curTot = Number(totalAmount) || currentTotal;
+                    const advNum = Number(val) || 0;
+                    setPendingAmount(String(Math.max(0, curTot - advNum)));
                   }}
                   placeholder="0.00"
                   className="w-full h-11 px-3 border border-emerald-400 rounded-xl text-sm font-bold text-emerald-900 bg-white focus:border-emerald-600 focus:outline-none shadow-xs"
                 />
                 <span className="text-[10px] text-gray-500 mt-1 block">
-                  {currentAdvance > 0 ? `₹${currentAdvance.toLocaleString('en-IN')} collected today` : '₹0 (No upfront payment)'}
+                  {currentAdvance > 0
+                    ? `₹${currentAdvance.toLocaleString('en-IN')} ${!isCD ? '(55% Auto-calculated)' : 'collected today'}`
+                    : '₹0 (No upfront payment)'}
                 </span>
                 {!isCD && currentTotal > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      const adv = Math.round(currentTotal * 0.70);
+                      const adv = Math.round(currentTotal * 0.55);
                       setAdvanceAmount(String(adv));
                       setPendingAmount(String(currentTotal - adv));
                     }}
                     className="mt-1.5 px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-[#064D2B] rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
                   >
-                    <Sparkles size={11} /> Apply 70% Vendor Advance (₹{Math.round(currentTotal * 0.70).toLocaleString('en-IN')})
+                    <Sparkles size={11} /> Apply 55% Vendor Advance (₹{Math.round(currentTotal * 0.55).toLocaleString('en-IN')})
                   </button>
                 )}
               </div>
@@ -683,7 +706,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
                   <span>Pending Due Balance (₹)</span>
-                  <span className="text-[10px] text-rose-700 font-bold">1-Day Window</span>
+                  <span className="text-[10px] text-rose-700 font-bold">{isCD ? '1-Day Window' : '45% on Delivery'}</span>
                 </label>
                 <input
                   type="number"
@@ -695,7 +718,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                   className="w-full h-11 px-3 border-2 border-rose-400 rounded-xl text-sm font-black text-rose-900 bg-white focus:border-rose-600 focus:outline-none shadow-xs"
                 />
                 <span className="text-[10px] text-rose-800 font-bold mt-1 block">
-                  ₹{computedPending.toLocaleString('en-IN')} pending · 1-day grace period
+                  ₹{computedPending.toLocaleString('en-IN')} pending · {isCD ? '1-day grace period' : '45% balance on mandi delivery'}
                 </span>
               </div>
             </div>

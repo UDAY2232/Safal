@@ -211,7 +211,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
   const otherTotalAmount = (Number(otherQuantity) || 0) * (Number(otherRate) || 0);
   const grandSupplyTotal = isApple ? totalAppleAmount : otherTotalAmount;
-  const autoAdvanceAmount = Math.round(grandSupplyTotal * 0.70);
+  const autoAdvanceAmount = Math.round(grandSupplyTotal * 0.55);
   const pendingBalanceAmount = Math.max(0, grandSupplyTotal - autoAdvanceAmount);
 
   // Synchronize activeTab when navigation changes from the left sidebar
@@ -357,7 +357,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
       const res = await api.createVendorSupplyPO(formData);
       setShowCreatePOModal(false);
-      onNotify(res.message || 'Consignment Supply PO submitted successfully with 70% Auto-Advance Guarantee!');
+      onNotify(res.message || 'Consignment Supply PO submitted successfully with 55% Auto-Advance Guarantee!');
 
       // Reset form fields
       setSupplyVehicleNumber('');
@@ -1241,7 +1241,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </h2>
                 </div>
                 <p className="text-xs text-gray-600 mt-1">
-                  Instant pre-filled WhatsApp templates to share live truck transit location, inquire 70% advance bank transfer UTR, or check mandi scale weight.
+                  Instant pre-filled WhatsApp templates to share live truck transit location, inquire 55% advance bank transfer UTR, or check mandi scale weight.
                 </p>
               </div>
               <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold self-start sm:self-auto">
@@ -1277,7 +1277,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               const hubName = activePO?.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal';
               const driverContact = (activePO as any)?.dispatchDriverPhone || vendorProfile?.phone || '+91 98480 12345';
               const orderTotal = Number(activePO?.grandTotal || 1320000);
-              const advanceAmt = Math.round(orderTotal * 0.70);
+              const advanceAmt = Math.round(orderTotal * 0.55);
               const vendorName = vendorProfile?.businessName || user?.name || 'Authorized Vendor';
               const vendorId = vendorProfile?.vendorId || 'VND-001';
               const bankAcc = vendorProfile?.bankAccountNumberMasked || 'XXXXXX6789';
@@ -1287,7 +1287,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               const locationMsg = `🚚 *SAFAL TRUCK LOCATION UPDATE*\n• PO Number: ${poNum}\n• Vendor: ${vendorName} (${vendorId})\n• Vehicle No: ${truckNo}\n• Destination Hub: ${hubName}\n• Driver Contact: ${driverContact}\n\nSir, our loaded vehicle is currently moving to the hub. Here is our live transit update.`;
               const locationWaUrl = `https://wa.me/919848012345?text=${encodeURIComponent(locationMsg)}`;
 
-              const advanceMsg = `💰 *SAFAL 70% ADVANCE PAYMENT INQUIRY*\n• PO Number: ${poNum}\n• Vendor: ${vendorName} (${vendorId})\n• Total PO Value: ₹${orderTotal.toLocaleString('en-IN')}\n• 70% Advance Amount: ₹${advanceAmt.toLocaleString('en-IN')}\n• Bank Account: ${bankAcc} (${ifsc})\n\nSir, dispatch proof has been submitted. Kindly share the 70% advance payment bank transfer UTR number.`;
+              const advanceMsg = `💰 *SAFAL 55% ADVANCE PAYMENT INQUIRY*\n• PO Number: ${poNum}\n• Vendor: ${vendorName} (${vendorId})\n• Total PO Value: ₹${orderTotal.toLocaleString('en-IN')}\n• 55% Advance Amount: ₹${advanceAmt.toLocaleString('en-IN')}\n• Bank Account: ${bankAcc} (${ifsc})\n\nSir, dispatch proof has been submitted. Kindly share the 55% advance payment bank transfer UTR number.`;
               const advanceWaUrl = `https://wa.me/919848012345?text=${encodeURIComponent(advanceMsg)}`;
 
               const qcMsg = `⚖️ *SAFAL WEIGHBRIDGE & QC STATUS*\n• PO Number: ${poNum}\n• Vendor: ${vendorName} (${vendorId})\n• Vehicle: ${truckNo}\n• Destination: ${hubName} Hub\n\nSir, please verify the Weighbridge Gross/Tare weight slip and QC grading certificate for this consignment.`;
@@ -1322,14 +1322,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </a>
                   </div>
 
-                  {/* Card 2: 70% Advance Inquiry */}
+                  {/* Card 2: 55% Advance Inquiry */}
                   <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 flex flex-col justify-between gap-3">
                     <div>
                       <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center mb-2">
                         <CreditCard size={20} />
                       </div>
                       <h3 className="font-extrabold text-sm text-amber-950">
-                        2. Inquire 70% Advance / Bank UTR
+                        2. Inquire 55% Advance / Bank UTR
                       </h3>
                       <p className="text-xs text-gray-600 mt-1">
                         Ask Corporate Accounts Desk for NEFT/RTGS transaction receipt and bank reference.
@@ -1345,7 +1345,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       rel="noreferrer"
                       className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-2 cursor-pointer transition"
                     >
-                      <CreditCard size={14} /> Inquire 70% Advance on WhatsApp
+                      <CreditCard size={14} /> Inquire 55% Advance on WhatsApp
                     </a>
                   </div>
 
@@ -1965,7 +1965,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* Dispatch & Transport Proof Details (Vehicle photo, Transport bill photo, vehicle number, driver) */}
               <div className="p-3.5 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-3">
                 <span className="text-[10px] uppercase font-black text-blue-900 tracking-wider block flex items-center gap-1.5">
-                  <Truck size={14} className="text-blue-700" /> Dispatch &amp; Logistics Proof (Upload now for instant 70% advance release)
+                  <Truck size={14} className="text-blue-700" /> Dispatch &amp; Logistics Proof (Upload now for instant 55% advance release)
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -2060,10 +2060,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               </div>
 
-              {/* 70% Auto-Advance Policy Settlement Breakdown */}
+              {/* 55% Auto-Advance Policy Settlement Breakdown */}
               <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-400 rounded-2xl space-y-2">
                 <span className="text-[10px] uppercase font-black text-[#064D2B] tracking-wider block flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-emerald-700" /> 70% Automatic Advance Settlement Guarantee
+                  <Sparkles size={13} className="text-emerald-700" /> 55% Automatic Advance Settlement Guarantee
                 </span>
                 <div className="grid grid-cols-3 gap-2 text-center pt-1">
                   <div className="bg-white p-2 rounded-xl border border-emerald-200">
@@ -2077,7 +2077,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </div>
 
                   <div className="bg-white p-2 rounded-xl border border-emerald-300 shadow-2xs">
-                    <span className="text-[9px] text-emerald-800 uppercase font-extrabold block">70% Auto Advance</span>
+                    <span className="text-[9px] text-emerald-800 uppercase font-extrabold block">55% Auto Advance</span>
                     <strong className="text-sm font-black text-emerald-700 block mt-0.5">
                       ₹{autoAdvanceAmount.toLocaleString('en-IN')}
                     </strong>
@@ -2085,7 +2085,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </div>
 
                   <div className="bg-white p-2 rounded-xl border border-gray-200">
-                    <span className="text-[9px] text-gray-500 uppercase font-bold block">30% Balance Due</span>
+                    <span className="text-[9px] text-gray-500 uppercase font-bold block">45% Balance Due</span>
                     <strong className="text-sm font-black text-gray-700 block mt-0.5">
                       ₹{pendingBalanceAmount.toLocaleString('en-IN')}
                     </strong>
