@@ -159,28 +159,32 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
 
   const getConsignmentFinancials = (op: any) => {
     const items = op.items || [];
-    const totalQty = items.reduce((s: number, it: any) => s + (Number(it.quantity) || 0), 0) || (op.volume?.includes('1,200') ? 1200 : 650);
+    const totalQty =
+      items.reduce((s: number, it: any) => s + (Number(it.quantity) || 0), 0) ||
+      Number(String(op.volume || '').match(/\d+/)?.[0] || 0) ||
+      1;
     const unit = items[0]?.unit || (op.volume?.includes('MT') ? 'MT' : 'BOX');
-    const baseCost = Number(op.grandTotal || op.totalAmount || (items[0]?.lineTotal) || (op.commodity?.includes('Pomegranate') ? 845000 : 1320000));
-    const unitCost = Math.round(baseCost / totalQty);
-    
-    const transportCost = Number(op.financialRecord?.allocatedTransportCost ?? (baseCost > 1000000 ? 35000 : 25000));
-    const laborCost = Number(op.financialRecord?.allocatedLaborCost ?? 5000);
+    const baseCost = Number(op.grandTotal || op.totalAmount || items[0]?.lineTotal || 0);
+    const unitCost = baseCost > 0 ? Math.round(baseCost / totalQty) : 0;
+
+    const transportCost = Number(op.financialRecord?.allocatedTransportCost ?? 0);
+    const laborCost = Number(op.financialRecord?.allocatedLaborCost ?? 0);
     const totalLandedCost = baseCost + transportCost + laborCost;
 
-    const defaultClosingRate = op.commodity?.includes('Pomegranate') || op.poNumber?.includes('018') ? 1450 : 1260;
-    const closingRate = op.financialRecord?.linkedRevenue 
+    const defaultClosingRate = op.unitPrice ? Math.round(Number(op.unitPrice) * 1.15) : Math.round(unitCost * 1.15);
+    const closingRate = op.financialRecord?.linkedRevenue
       ? Math.round(Number(op.financialRecord.linkedRevenue) / totalQty)
       : defaultClosingRate;
     const totalRevenue = op.financialRecord?.linkedRevenue
       ? Number(op.financialRecord.linkedRevenue)
       : Math.round(closingRate * totalQty);
 
-    const netProfitLoss = op.financialRecord?.realizedProfitLoss !== undefined && op.financialRecord?.realizedProfitLoss !== null
-      ? Number(op.financialRecord.realizedProfitLoss)
-      : (totalRevenue - totalLandedCost);
+    const netProfitLoss =
+      op.financialRecord?.realizedProfitLoss !== undefined && op.financialRecord?.realizedProfitLoss !== null
+        ? Number(op.financialRecord.realizedProfitLoss)
+        : totalRevenue - totalLandedCost;
 
-    const profitMarginPercent = Number(((netProfitLoss / baseCost) * 100).toFixed(1));
+    const profitMarginPercent = baseCost > 0 ? Number(((netProfitLoss / baseCost) * 100).toFixed(1)) : 0;
     const isProfit = netProfitLoss >= 0;
 
     return {
@@ -1081,7 +1085,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 my-4">
           <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Registered Vendors</span>
-            <p className="text-xl font-black text-[#064D2B] mt-1">{vendors.length || 2}</p>
+            <p className="text-xl font-black text-[#064D2B] mt-1">{vendors.length}</p>
             <span className="text-[10px] font-bold text-emerald-600 block mt-0.5">✓ KYC Frozen &amp; Active</span>
           </div>
 
@@ -1094,10 +1098,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           <div className="bg-white p-3.5 rounded-xl border border-blue-100 shadow-2xs">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Fleet in Transit</span>
             <p className="text-xl font-black text-blue-700 mt-1">
-              {(vendorOperations.length > 0
-                ? vendorOperations.filter((p: any) => p.dispatchStatus === 'IN_TRANSIT' || p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchVehicleNumber)
-                : [1, 2]
-              ).length}
+              {vendorOperations.filter((p: any) => p.dispatchStatus === 'IN_TRANSIT' || p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchVehicleNumber).length}
             </p>
             <span className="text-[10px] text-blue-600 font-bold block mt-0.5">Trucks En-Route to Hubs</span>
           </div>
@@ -1106,9 +1107,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">55% Advance Outlay</span>
             <p className="text-xl font-black text-emerald-800 mt-1">
               {formatCurrency(
-                (vendorOperations.length > 0
-                  ? vendorOperations.reduce((sum: number, p: any) => sum + Number(p.advancePaymentAmount || p.advanceAmount || 0), 0)
-                  : 1388750)
+                vendorOperations.reduce((sum: number, p: any) => sum + Number(p.advancePaymentAmount || p.advanceAmount || 0), 0)
               )}
             </p>
             <span className="text-[10px] text-emerald-700 font-bold block mt-0.5">Instant Disbursed on Dispatch</span>
@@ -1127,12 +1126,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             }`}
           >
             <Truck size={15} className={vendorOpsTab === 'dispatches' ? 'text-[#087A3E]' : 'text-gray-400'} />
-            <span>🚚 Live Fleet &amp; Dispatches in Transit</span>
+            <span>Live Fleet &amp; Dispatches in Transit</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-900 font-mono font-bold">
-              {(vendorOperations.length > 0
-                ? vendorOperations.filter((p: any) => p.dispatchVehicleNumber || p.dispatchStatus === 'IN_TRANSIT')
-                : [1, 2]
-              ).length}
+              {vendorOperations.filter((p: any) => p.dispatchVehicleNumber || p.dispatchStatus === 'IN_TRANSIT').length}
             </span>
           </button>
 
@@ -1146,12 +1142,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             }`}
           >
             <Scale size={15} className={vendorOpsTab === 'weighbridge' ? 'text-[#087A3E]' : 'text-gray-400'} />
-            <span>⚖️ Mandi Weighbridge &amp; QC Slips</span>
+            <span>Mandi Weighbridge &amp; QC Slips</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-900 font-mono font-bold">
-              {(vendorOperations.length > 0
-                ? vendorOperations.filter((p: any) => p.weighbridgeGrossKg || p.qcInspectionStatus)
-                : [1, 2]
-              ).length}
+              {vendorOperations.filter((p: any) => p.weighbridgeGrossKg || p.qcInspectionStatus).length}
             </span>
           </button>
 
@@ -1165,7 +1158,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             }`}
           >
             <Building2 size={15} className={vendorOpsTab === 'vendors' ? 'text-[#087A3E]' : 'text-gray-400'} />
-            <span>🏢 Registered Vendors &amp; Frozen Bank KYCs ({vendors.length || 2})</span>
+            <span>Registered Vendors &amp; Frozen Bank KYCs ({vendors.length})</span>
           </button>
         </div>
 
@@ -1193,66 +1186,36 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {(() => {
-                  const opsList = vendorOperations.length > 0 ? vendorOperations : [
-                    {
-                      id: 'demo-1',
-                      poNumber: 'PO/SF/2026/020',
-                      poDate: new Date().toISOString(),
-                      orderPersonPlace: 'Warangal',
-                      vendorName: 'Ramesh Agro Farms & Cold Storage',
-                      vendorCode: 'VND-001',
-                      commodity: '🍎 Kashmir Apples',
-                      volume: '1,200 Boxes (4L/5L/Roll)',
-                      grandTotal: 1320000,
-                      truckNo: 'TS09UB4521',
-                      transporter: 'New Golden Roadways',
-                      driverPhone: '9848012345',
-                      vehiclePhoto: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&auto=format&fit=crop',
-                      bilty: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-                      advanceAmt: '₹9,24,000',
-                      advanceStatus: 'CLEARED',
-                      status: 'IN_TRANSIT',
-                    },
-                    {
-                      id: 'demo-2',
-                      poNumber: 'PO/SF/2026/018',
-                      poDate: new Date(Date.now() - 86400000).toISOString(),
-                      orderPersonPlace: 'Tirupati',
-                      vendorName: 'Rayalaseema Pomegranate Orchards',
-                      vendorCode: 'VND-002',
-                      commodity: '🍇 Pomegranate (Bhagwa)',
-                      volume: '650 Boxes (~13 MT)',
-                      grandTotal: 845000,
-                      truckNo: 'AP04TX8899',
-                      transporter: 'Balaji Freight Express',
-                      driverPhone: '9440987654',
-                      vehiclePhoto: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&auto=format&fit=crop',
-                      bilty: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-                      advanceAmt: '₹4,64,750',
-                      advanceStatus: 'CLEARED',
-                      status: 'IN_TRANSIT',
-                    },
-                  ];
-
-                  return opsList.map((op: any) => {
-                    const poCode = op.poNumber || 'PO/SF/2026/020';
-                    const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || 'Wholesale Vendor';
-                    const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || 'VND-001';
-                    const hub = op.orderPersonPlace || 'Warangal Hub';
-                    const truck = op.dispatchVehicleNumber || op.truckNo || 'TS09UB4521';
-                    const transporter = op.dispatchTransporterName || op.transporter || 'Regional Transporter';
-                    const driver = op.dispatchDriverPhone || op.driverPhone || '9848012345';
+                {vendorOperations.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-12 text-gray-400">
+                      <Truck size={32} className="mx-auto text-gray-300 mb-2" />
+                      <p className="font-bold text-gray-700 text-sm">No live fleet dispatches in transit</p>
+                      <p className="text-xs text-gray-400 mt-1">When vendors dispatch consignments, live trucks will appear here.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  vendorOperations.map((op: any) => {
+                    const poCode = op.poNumber || 'PO/SF/2026/001';
+                    const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || '-';
+                    const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '-';
+                    const hub = op.orderPersonPlace || '-';
+                    const truck = op.dispatchVehicleNumber || op.truckNo || '-';
+                    const transporter = op.dispatchTransporterName || op.transporter || '-';
+                    const driver = op.dispatchDriverPhone || op.driverPhone || '-';
                     const vehiclePhoto = op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
                     const bilty = op.dispatchTransportBillUrl || op.bilty;
-                    const advAmt = op.advancePaymentAmount ? `₹${Number(op.advancePaymentAmount).toLocaleString('en-IN')}` : (op.advanceAmt || '₹9,24,000');
+                    const fin = getConsignmentFinancials(op);
+                    const advAmt = op.advancePaymentAmount
+                      ? formatCurrency(Number(op.advancePaymentAmount))
+                      : op.advanceAmount
+                      ? formatCurrency(Number(op.advanceAmount))
+                      : formatCurrency(Math.round(fin.baseCost * 0.55));
                     const advStatus = op.advancePaymentStatus || op.advanceStatus || 'CLEARED';
 
                     const itemDesc = op.items && op.items.length > 0
                       ? op.items.map((it: any) => `${it.fruitName} (${it.quantity} ${it.unit || 'BOX'})`).join(', ')
-                      : (op.commodity ? `${op.commodity} · ${op.volume}` : '🍎 Kashmir Apples (1,200 Boxes)');
-
-                    const fin = getConsignmentFinancials(op);
+                      : (op.commodity ? `${op.commodity} · ${op.volume}` : 'Wholesale Fruit Consignment');
 
                     return (
                       <tr key={op.id || poCode} className="hover:bg-emerald-50/30 transition text-xs">
@@ -1322,11 +1285,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                             <MapPin size={10} className="text-emerald-700" /> {hub}
                           </span>
                           <span className="font-mono text-[10px] font-bold text-gray-700 block mt-0.5">
-                            🚛 {truck}
+                            <Truck size={10} className="inline mr-1 text-gray-500" />
+                            {truck}
                           </span>
-                          <a href={`tel:${driver}`} className="text-blue-700 hover:underline text-[10px] font-medium block">
-                            📞 {driver}
-                          </a>
+                          {driver !== '-' ? (
+                            <a href={`tel:${driver}`} className="text-blue-700 hover:underline text-[10px] font-medium block">
+                              <Phone size={9} className="inline mr-1 text-gray-400" /> {driver}
+                            </a>
+                          ) : (
+                            <span className="text-gray-400 text-[10px] block">-</span>
+                          )}
                         </td>
                         <td className="py-3 px-3 text-right">
                           <strong className="text-emerald-800 block text-xs font-mono">{advAmt}</strong>
@@ -1343,7 +1311,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                               title="Open Consignment P&L Dossier"
                             >
                               <Calculator size={11} className="text-amber-700" />
-                              <span>💰 P&amp;L Dossier</span>
+                              <span>P&amp;L Dossier</span>
                             </button>
 
                             <div className="flex items-center gap-1">
@@ -1370,8 +1338,8 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                         </td>
                       </tr>
                     );
-                  });
-                })()}
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -1402,60 +1370,34 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {(() => {
-                  const qcList = vendorOperations.length > 0 ? vendorOperations : [
-                    {
-                      id: 'demo-qc-1',
-                      poNumber: 'PO/SF/2026/020',
-                      orderPersonPlace: 'Warangal Mandi Hub',
-                      vendorName: 'Ramesh Agro Farms & Cold Storage',
-                      vendorCode: 'VND-001',
-                      grossKg: 26450,
-                      tareKg: 11200,
-                      netKg: 15250,
-                      grandTotal: 1320000,
-                      qcStatus: 'PASSED',
-                      qcGrade: 'Grade A Export',
-                      inspector: 'Mandi Scale Officer / WGL QC',
-                      remarks: 'Zero tare calibrated. 4L/5L apple layer count verified. Firmness & brix approved.',
-                      scaleSlipUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-                      balanceAmt: '₹3,96,000',
-                      balanceStatus: 'CLEARED ON WEIGHBRIDGE',
-                    },
-                    {
-                      id: 'demo-qc-2',
-                      poNumber: 'PO/SF/2026/018',
-                      orderPersonPlace: 'Tirupati Mandi Hub',
-                      vendorName: 'Rayalaseema Pomegranate Orchards',
-                      vendorCode: 'VND-002',
-                      grossKg: 18900,
-                      tareKg: 7800,
-                      netKg: 11100,
-                      grandTotal: 845000,
-                      qcStatus: 'PASSED',
-                      qcGrade: 'Grade A Bhagwa',
-                      inspector: 'Tirupati Mandi QC Team',
-                      remarks: 'Tare balance zeroed. Uniform fruit count. Sugar brix 15.5%.',
-                      scaleSlipUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-                      balanceAmt: '₹3,80,250',
-                      balanceStatus: 'CLEARED ON WEIGHBRIDGE',
-                    },
-                  ];
+                  const qcList = vendorOperations.filter((p: any) => p.weighbridgeGrossKg || p.qcInspectionStatus || p.weighbridgeScaleSlipUrl);
+                  if (qcList.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={9} className="text-center py-12 text-gray-400">
+                          <Scale size={32} className="mx-auto text-gray-300 mb-2" />
+                          <p className="font-bold text-gray-700 text-sm">No weighbridge scale slips verified yet</p>
+                          <p className="text-xs text-gray-400 mt-1">Scale weighment receipts will appear here once trucks arrive at Mandi hubs.</p>
+                        </td>
+                      </tr>
+                    );
+                  }
 
                   return qcList.map((qc: any) => {
-                    const poCode = qc.poNumber || 'PO/SF/2026/020';
-                    const hub = qc.orderPersonPlace || 'Warangal Hub';
-                    const vName = qc.vendorProfile?.businessName || qc.supplier?.name || qc.vendorName || 'Wholesale Vendor';
-                    const vCode = qc.vendorProfile?.vendorId || qc.supplier?.supplierCode || qc.vendorCode || 'VND-001';
-                    const gross = qc.weighbridgeGrossKg || qc.grossKg || 26450;
-                    const tare = qc.weighbridgeTareKg || qc.tareKg || 11200;
+                    const poCode = qc.poNumber || 'PO/SF/2026/001';
+                    const hub = qc.orderPersonPlace || '-';
+                    const vName = qc.vendorProfile?.businessName || qc.supplier?.name || qc.vendorName || '-';
+                    const vCode = qc.vendorProfile?.vendorId || qc.supplier?.supplierCode || qc.vendorCode || '-';
+                    const gross = qc.weighbridgeGrossKg || qc.grossKg || 0;
+                    const tare = qc.weighbridgeTareKg || qc.tareKg || 0;
                     const net = qc.weighbridgeNetKg || qc.netKg || Math.max(0, gross - tare);
                     const qcStatus = qc.qcInspectionStatus || qc.qcStatus || 'PASSED';
-                    const qcGrade = qc.qcGrade || 'Grade A Mandi Certified';
+                    const qcGrade = qc.qcGrade || 'Standard Grade';
                     const slipUrl = qc.weighbridgeScaleSlipUrl || qc.scaleSlipUrl;
 
                     const fin = getConsignmentFinancials(qc);
-                    const buyingRateKg = Number((fin.baseCost / (net || 15000)).toFixed(2));
-                    const closingRateKg = Number((fin.totalRevenue / (net || 15000)).toFixed(2));
+                    const buyingRateKg = net > 0 ? Number((fin.baseCost / net).toFixed(2)) : 0;
+                    const closingRateKg = net > 0 ? Number((fin.totalRevenue / net).toFixed(2)) : 0;
 
                     return (
                       <tr key={qc.id || poCode} className="hover:bg-emerald-50/30 transition text-xs">
@@ -1528,7 +1470,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                             onClick={() => openPLModal(qc)}
                             className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-2xs"
                           >
-                            <Calculator size={11} /> 💰 P&amp;L Dossier
+                            <Calculator size={11} /> P&amp;L Dossier
                           </button>
                         </td>
                       </tr>

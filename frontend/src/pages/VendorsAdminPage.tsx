@@ -179,139 +179,25 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     }
   };
 
-  // Standard Mock Consignments to ensure robust display if database has fewer items
-  const defaultMockOperations = [
-    {
-      id: 'op-1',
-      poNumber: 'PO/SF/2026/020',
-      poDate: new Date().toISOString(),
-      orderPersonPlace: 'Warangal',
-      vendorName: 'Ramesh Agro Farms & Cold Storage',
-      vendorCode: 'VND-001',
-      commodity: 'Kashmir Apples',
-      volume: '1,200 Boxes',
-      items: [{ fruitName: 'Kashmir Apples', quantity: 1200, unit: 'BOX', lineTotal: 1320000 }],
-      grandTotal: 1320000,
-      truckNo: 'TS09UB4521',
-      transporter: 'New Golden Roadways',
-      driverPhone: '9848012345',
-      vehiclePhoto: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&auto=format&fit=crop',
-      bilty: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-      advancePaymentAmount: 924000,
-      advanceStatus: 'CLEARED',
-      balancePaymentAmount: 396000,
-      dispatchStatus: 'IN_TRANSIT',
-      status: 'OPEN',
-      weighbridgeGrossKg: 26450,
-      weighbridgeTareKg: 11200,
-      weighbridgeNetKg: 15250,
-      qcGrade: 'Grade A Export',
-      scaleSlipUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-      financialRecord: {
-        allocatedTransportCost: 35000,
-        allocatedLaborCost: 5000,
-        linkedRevenue: 1512000,
-        realizedProfitLoss: 152000,
-      },
-    },
-    {
-      id: 'op-2',
-      poNumber: 'PO/SF/2026/018',
-      poDate: new Date(Date.now() - 86400000).toISOString(),
-      orderPersonPlace: 'Tirupati',
-      vendorName: 'Rayalaseema Pomegranate Orchards',
-      vendorCode: 'VND-002',
-      commodity: 'Pomegranate',
-      volume: '650 Boxes',
-      items: [{ fruitName: 'Bhagwa Pomegranate', quantity: 650, unit: 'BOX', lineTotal: 845000 }],
-      grandTotal: 845000,
-      truckNo: 'AP04TX8899',
-      transporter: 'Balaji Freight Express',
-      driverPhone: '9440987654',
-      vehiclePhoto: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&auto=format&fit=crop',
-      bilty: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-      advancePaymentAmount: 464750,
-      advanceStatus: 'CLEARED',
-      balancePaymentAmount: 380250,
-      dispatchStatus: 'IN_TRANSIT',
-      status: 'OPEN',
-      weighbridgeGrossKg: 18900,
-      weighbridgeTareKg: 7800,
-      weighbridgeNetKg: 11100,
-      qcGrade: 'Grade A Bhagwa',
-      scaleSlipUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-      financialRecord: {
-        allocatedTransportCost: 25000,
-        allocatedLaborCost: 4000,
-        linkedRevenue: 942500,
-        realizedProfitLoss: 68500,
-      },
-    },
-    {
-      id: 'op-3',
-      poNumber: 'PO/SF/2026/015',
-      poDate: new Date(Date.now() - 172800000).toISOString(),
-      orderPersonPlace: 'Vijayawada',
-      vendorName: 'Krishna Valley Agro Producer Co.',
-      vendorCode: 'VND-003',
-      commodity: 'Watermelon',
-      volume: '15 MT Bulk',
-      items: [{ fruitName: 'Sugar Baby Watermelon', quantity: 15, unit: 'MT', lineTotal: 345000 }],
-      grandTotal: 345000,
-      truckNo: 'AP16TY5544',
-      transporter: 'Amaravati Express Cargo',
-      driverPhone: '9849112233',
-      vehiclePhoto: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&auto=format&fit=crop',
-      bilty: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-      advancePaymentAmount: 189750,
-      advanceStatus: 'CLEARED',
-      balancePaymentAmount: 155250,
-      dispatchStatus: 'DELIVERED',
-      status: 'CLOSED',
-      weighbridgeGrossKg: 24200,
-      weighbridgeTareKg: 9150,
-      weighbridgeNetKg: 15050,
-      qcGrade: 'Export Grade Sugar 13° Brix',
-      scaleSlipUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&auto=format&fit=crop',
-      financialRecord: {
-        allocatedTransportCost: 18000,
-        allocatedLaborCost: 3500,
-        linkedRevenue: 406350,
-        realizedProfitLoss: 39850,
-      },
-    },
-  ];
-
-  const allConsignments = operations.length > 0 ? operations : defaultMockOperations;
+  // Pure live consignment operations from the database (No mock data)
+  const allConsignments = operations;
 
   // Commercial P&L calculation helper per consignment
   const getConsignmentFinancials = (op: any) => {
     const items = op.items || [];
     const totalQty =
       items.reduce((s: number, it: any) => s + (Number(it.quantity) || 0), 0) ||
-      (op.volume?.includes('1,200') ? 1200 : op.volume?.includes('650') ? 650 : 15);
+      Number(String(op.volume || '').match(/\d+/)?.[0] || 0) ||
+      1;
     const unit = items[0]?.unit || (op.volume?.includes('MT') ? 'MT' : 'BOX');
-    const baseCost = Number(
-      op.grandTotal ||
-        op.totalAmount ||
-        items[0]?.lineTotal ||
-        (op.commodity?.includes('Pomegranate') ? 845000 : op.commodity?.includes('Watermelon') ? 345000 : 1320000)
-    );
-    const unitCost = Math.round(baseCost / Math.max(1, totalQty));
+    const baseCost = Number(op.grandTotal || op.totalAmount || items[0]?.lineTotal || 0);
+    const unitCost = baseCost > 0 ? Math.round(baseCost / Math.max(1, totalQty)) : 0;
 
-    const transportCost = Number(
-      op.financialRecord?.allocatedTransportCost ?? (baseCost > 1000000 ? 35000 : baseCost > 500000 ? 25000 : 18000)
-    );
-    const laborCost = Number(op.financialRecord?.allocatedLaborCost ?? 5000);
+    const transportCost = Number(op.financialRecord?.allocatedTransportCost ?? 0);
+    const laborCost = Number(op.financialRecord?.allocatedLaborCost ?? 0);
     const totalLandedCost = baseCost + transportCost + laborCost;
 
-    // Mandi closing rate per unit (Auction selling realization)
-    const defaultClosingRate =
-      op.commodity?.includes('Pomegranate') || op.poNumber?.includes('018')
-        ? 1450
-        : op.commodity?.includes('Watermelon') || op.poNumber?.includes('015')
-        ? 27090
-        : 1260;
+    const defaultClosingRate = op.unitPrice ? Math.round(Number(op.unitPrice) * 1.15) : Math.round(unitCost * 1.15);
     const closingRate = op.financialRecord?.linkedRevenue
       ? Math.round(Number(op.financialRecord.linkedRevenue) / Math.max(1, totalQty))
       : defaultClosingRate;
@@ -324,7 +210,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         ? Number(op.financialRecord.realizedProfitLoss)
         : totalRevenue - totalLandedCost;
 
-    const profitMarginPercent = Number(((netProfitLoss / Math.max(1, baseCost)) * 100).toFixed(1));
+    const profitMarginPercent = baseCost > 0 ? Number(((netProfitLoss / Math.max(1, baseCost)) * 100).toFixed(1)) : 0;
     const isProfit = netProfitLoss >= 0;
 
     return {
@@ -1367,13 +1253,13 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   ) : (
                     filteredConsignments.map((op, index) => {
                       const fin = getConsignmentFinancials(op);
-                      const poCode = op.poNumber || `PO/SF/2026/02${index}`;
-                      const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || 'Wholesale Vendor';
-                      const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || 'VND-001';
-                      const hub = op.orderPersonPlace || 'Warangal';
-                      const truck = op.dispatchVehicleNumber || op.truckNo || 'TS09UB4521';
-                      const transporter = op.dispatchTransporterName || op.transporter || 'Transporter Express';
-                      const driver = op.dispatchDriverPhone || op.driverPhone || '9848012345';
+                      const poCode = op.poNumber || 'PO/SF/2026/001';
+                      const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || '-';
+                      const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '-';
+                      const hub = op.orderPersonPlace || '-';
+                      const truck = op.dispatchVehicleNumber || op.truckNo || '-';
+                      const transporter = op.dispatchTransporterName || op.transporter || '-';
+                      const driver = op.dispatchDriverPhone || op.driverPhone || '-';
                       const vehiclePhoto = op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
                       const bilty = op.dispatchTransportBillUrl || op.bilty;
                       const advAmt = Math.round(fin.baseCost * 0.55);
@@ -1693,15 +1579,24 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {transitConsignments.map((op, idx) => {
+                {transitConsignments.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="text-center py-14 text-gray-400">
+                      <Truck size={32} className="mx-auto text-gray-300 mb-2" />
+                      <p className="font-bold text-gray-700 text-sm">No fleets currently in transit</p>
+                      <p className="text-xs text-gray-400 mt-1">Active truck dispatches with transporter biltys will appear here automatically.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  transitConsignments.map((op, idx) => {
                   const fin = getConsignmentFinancials(op);
-                  const poCode = op.poNumber || `PO/SF/2026/02${idx}`;
-                  const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || 'Wholesale Vendor';
-                  const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || 'VND-001';
-                  const hub = op.orderPersonPlace || 'Warangal';
-                  const truck = op.dispatchVehicleNumber || op.truckNo || 'TS09UB4521';
-                  const transporter = op.dispatchTransporterName || op.transporter || 'Transporter Express';
-                  const driver = op.dispatchDriverPhone || op.driverPhone || '9848012345';
+                  const poCode = op.poNumber || 'PO/SF/2026/001';
+                  const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || '-';
+                  const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '-';
+                  const hub = op.orderPersonPlace || '-';
+                  const truck = op.dispatchVehicleNumber || op.truckNo || '-';
+                  const transporter = op.dispatchTransporterName || op.transporter || '-';
+                  const driver = op.dispatchDriverPhone || op.driverPhone || '-';
                   const vehiclePhoto = op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
                   const bilty = op.dispatchTransportBillUrl || op.bilty;
                   const advAmt = Math.round(fin.baseCost * 0.55);
@@ -1775,7 +1670,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
@@ -1822,20 +1717,29 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {weighbridgeConsignments.map((qc) => {
-                  const poCode = qc.poNumber || 'PO/SF/2026/020';
-                  const hub = qc.orderPersonPlace || 'Warangal Hub';
-                  const vName = qc.vendorProfile?.businessName || qc.supplier?.name || qc.vendorName || 'Wholesale Vendor';
-                  const vCode = qc.vendorProfile?.vendorId || qc.supplier?.supplierCode || qc.vendorCode || 'VND-001';
-                  const gross = qc.weighbridgeGrossKg || qc.grossKg || 26450;
-                  const tare = qc.weighbridgeTareKg || qc.tareKg || 11200;
+                {weighbridgeConsignments.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="text-center py-14 text-gray-400">
+                      <Scale size={32} className="mx-auto text-gray-300 mb-2" />
+                      <p className="font-bold text-gray-700 text-sm">No weighbridge scale slips recorded yet</p>
+                      <p className="text-xs text-gray-400 mt-1">Scale weighment receipts and QC inspections will appear here.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  weighbridgeConsignments.map((qc) => {
+                  const poCode = qc.poNumber || 'PO/SF/2026/001';
+                  const hub = qc.orderPersonPlace || '-';
+                  const vName = qc.vendorProfile?.businessName || qc.supplier?.name || qc.vendorName || '-';
+                  const vCode = qc.vendorProfile?.vendorId || qc.supplier?.supplierCode || qc.vendorCode || '-';
+                  const gross = qc.weighbridgeGrossKg || qc.grossKg || 0;
+                  const tare = qc.weighbridgeTareKg || qc.tareKg || 0;
                   const net = qc.weighbridgeNetKg || qc.netKg || Math.max(0, gross - tare);
-                  const qcGrade = qc.qcGrade || 'Grade A Certified';
+                  const qcGrade = qc.qcGrade || 'Standard Grade';
                   const slipUrl = qc.weighbridgeScaleSlipUrl || qc.scaleSlipUrl;
 
                   const fin = getConsignmentFinancials(qc);
-                  const buyingRateKg = Number((fin.baseCost / Math.max(1, net)).toFixed(2));
-                  const closingRateKg = Number((fin.totalRevenue / Math.max(1, net)).toFixed(2));
+                  const buyingRateKg = net > 0 ? Number((fin.baseCost / net).toFixed(2)) : 0;
+                  const closingRateKg = net > 0 ? Number((fin.totalRevenue / net).toFixed(2)) : 0;
 
                   return (
                     <tr key={qc.id || poCode} className="hover:bg-gray-50 transition text-xs">
@@ -1918,7 +1822,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>

@@ -235,14 +235,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
   // Compute Fruit Commodity Breakdown for Donut Chart
   const fruitBreakdown = React.useMemo(() => {
-    const map: Record<string, { count: number; boxes: number; amount: number; color: string; icon: string }> = {
-      'Kashmir Apples': { count: 0, boxes: 0, amount: 0, color: '#DC2626', icon: '🍎' },
-      'Pomegranate': { count: 0, boxes: 0, amount: 0, color: '#E11D48', icon: '🍇' },
-      'Watermelon': { count: 0, boxes: 0, amount: 0, color: '#059669', icon: '🍉' },
-      'Muskmelon': { count: 0, boxes: 0, amount: 0, color: '#D97706', icon: '🍈' },
-      'Banana': { count: 0, boxes: 0, amount: 0, color: '#EAB308', icon: '🍌' },
-      'Orange': { count: 0, boxes: 0, amount: 0, color: '#F97316', icon: '🍊' },
-      'Plum': { count: 0, boxes: 0, amount: 0, color: '#9333EA', icon: '🍑' },
+    if (orders.length === 0) {
+      return [];
+    }
+
+    const map: Record<string, { count: number; boxes: number; amount: number; color: string }> = {
+      'Kashmir Apples': { count: 0, boxes: 0, amount: 0, color: '#DC2626' },
+      'Pomegranate': { count: 0, boxes: 0, amount: 0, color: '#E11D48' },
+      'Watermelon': { count: 0, boxes: 0, amount: 0, color: '#059669' },
+      'Muskmelon': { count: 0, boxes: 0, amount: 0, color: '#D97706' },
+      'Banana': { count: 0, boxes: 0, amount: 0, color: '#EAB308' },
+      'Orange': { count: 0, boxes: 0, amount: 0, color: '#F97316' },
+      'Plum': { count: 0, boxes: 0, amount: 0, color: '#9333EA' },
     };
 
     orders.forEach((po) => {
@@ -256,7 +260,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       else if (poFruit.toLowerCase().includes('orange')) matchedKey = 'Orange';
       else if (poFruit.toLowerCase().includes('plum')) matchedKey = 'Plum';
 
-      const boxes = po.items?.reduce((s, it) => s + (Number(it.quantity) || 0), 0) || 100;
+      const boxes = po.items?.reduce((s, it) => s + (Number(it.quantity) || 0), 0) || 0;
       const amount = Number(po.grandTotal || po.totalAmount || 0);
 
       map[matchedKey].count += 1;
@@ -265,15 +269,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     });
 
     const active = Object.entries(map).filter(([_, v]) => v.amount > 0 || v.boxes > 0);
-    if (active.length === 0 || (active.length === 1 && orders.length <= 1)) {
-      const primaryTotal = Number(stats.totalOrderValue || 1320000);
-      return [
-        { fruit: 'Kashmir Apples', boxes: 1200, amount: Math.round(primaryTotal * 0.58), percent: 58, color: '#DC2626', icon: '🍎' },
-        { fruit: 'Pomegranate', boxes: 350, amount: Math.round(primaryTotal * 0.18), percent: 18, color: '#E11D48', icon: '🍇' },
-        { fruit: 'Orange', boxes: 280, amount: Math.round(primaryTotal * 0.12), percent: 12, color: '#F97316', icon: '🍊' },
-        { fruit: 'Watermelon', boxes: 200, amount: Math.round(primaryTotal * 0.08), percent: 8, color: '#059669', icon: '🍉' },
-        { fruit: 'Banana', boxes: 150, amount: Math.round(primaryTotal * 0.04), percent: 4, color: '#EAB308', icon: '🍌' },
-      ];
+    if (active.length === 0) {
+      return [];
     }
 
     const totalAmt = active.reduce((sum, [_, v]) => sum + v.amount, 0) || 1;
@@ -283,30 +280,24 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       amount: v.amount,
       percent: Math.round((v.amount / totalAmt) * 100) || 1,
       color: v.color,
-      icon: v.icon,
     }));
-  }, [orders, stats]);
+  }, [orders]);
 
   // Compute Total Volume in Boxes
   const totalVolumeBoxes = React.useMemo(() => {
-    const computed = orders.reduce((sum, po) => {
+    return orders.reduce((sum, po) => {
       const poBoxes = po.items?.reduce((s, it) => s + (Number(it.quantity) || 0), 0) || 0;
-      return sum + (poBoxes > 0 ? poBoxes : 1200);
+      return sum + poBoxes;
     }, 0);
-    return computed > 0 ? computed : 2180;
   }, [orders]);
 
   // Compute Bar Chart Data (Comparison of Consignments / Orders)
   const barChartData = React.useMemo(() => {
     if (orders.length === 0) {
-      return [
-        { label: 'PO #020', sublabel: 'Warangal Hub', total: 1320000, advance: 924000, due: 396000 },
-        { label: 'PO #018', sublabel: 'Tirupati Hub', total: 850000, advance: 595000, due: 255000 },
-        { label: 'PO #015', sublabel: 'Kurnool Hub', total: 1100000, advance: 770000, due: 330000 },
-      ];
+      return [];
     }
     return orders.slice(0, 3).map((po, idx) => {
-      const total = Number(po.grandTotal || po.totalAmount || po.totalOrderValue || 1320000);
+      const total = Number(po.grandTotal || po.totalAmount || po.totalOrderValue || 0);
       const adv = Number(po.advancePaymentAmount || po.advancePaid || po.advanceAmount || Math.round(total * 0.55));
       const due = Number(po.pendingPaymentAmount || po.balanceDue || po.pendingAmount || Math.max(0, total - adv));
       const shortCode = po.poNumber ? po.poNumber.split('/').pop() || `PO #${idx + 1}` : `PO #${idx + 1}`;
@@ -1098,10 +1089,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="mt-2">
                 <span className="text-xs font-bold text-gray-600 block">Total Contract Value</span>
                 <strong className="text-lg sm:text-xl font-black text-gray-900 font-['Manrope'] block mt-0.5">
-                  ₹{Number(stats.totalOrderValue || 1320000).toLocaleString('en-IN')}
+                  ₹{Number(stats.totalOrderValue || 0).toLocaleString('en-IN')}
                 </strong>
                 <span className="text-[10px] text-emerald-700 font-bold block mt-1">
-                  ✓ {stats.totalPOs || 1} Active PO Contracts
+                  ✓ {stats.totalPOs || 0} Active PO Contracts
                 </span>
               </div>
               <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
@@ -1124,7 +1115,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="mt-2">
                 <span className="text-xs font-bold text-gray-600 block">Bank Advance Received</span>
                 <strong className="text-lg sm:text-xl font-black text-[#087A3E] font-['Manrope'] block mt-0.5">
-                  ₹{Number(stats.totalAdvanceReceived || 924000).toLocaleString('en-IN')}
+                  ₹{Number(stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}
                 </strong>
                 <span className="text-[10px] text-emerald-800 font-bold block mt-1">
                   Direct NEFT/RTGS Cleared
@@ -1150,7 +1141,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="mt-2">
                 <span className="text-xs font-bold text-gray-600 block">Pending Mandi Due</span>
                 <strong className="text-lg sm:text-xl font-black text-teal-800 font-['Manrope'] block mt-0.5">
-                  ₹{Number(stats.totalPendingBalance || Math.max(0, (stats.totalOrderValue || 1320000) - (stats.totalAdvanceReceived || 924000))).toLocaleString('en-IN')}
+                  ₹{Number(stats.totalPendingBalance || Math.max(0, (stats.totalOrderValue || 0) - (stats.totalAdvanceReceived || 0))).toLocaleString('en-IN')}
                 </strong>
                 <span className="text-[10px] text-teal-700 font-bold block mt-1">
                   Settled on Mandi Delivery
@@ -1260,68 +1251,75 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               </div>
 
               {/* SVG Donut Chart */}
-              <div className="flex flex-col sm:flex-row items-center gap-5 justify-center py-2">
-                <div className="relative w-48 h-48 sm:w-52 sm:h-52 flex-shrink-0 flex items-center justify-center">
-                  <svg viewBox="0 0 320 320" className="w-full h-full transform -rotate-90">
-                    {(() => {
-                      const radius = 90;
-                      const circumference = 2 * Math.PI * radius; // ~565.48
-                      let accumulatedPercent = 0;
-                      return fruitBreakdown.map((item, idx) => {
-                        const strokeDasharray = `${(item.percent / 100) * circumference} ${circumference}`;
-                        const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
-                        accumulatedPercent += item.percent;
-                        return (
-                          <circle
-                            key={idx}
-                            cx="160"
-                            cy="160"
-                            r={radius}
-                            fill="transparent"
-                            stroke={item.color}
-                            strokeWidth="36"
-                            strokeDasharray={strokeDasharray}
-                            strokeDashoffset={strokeDashoffset}
-                            className="transition-all duration-500 hover:opacity-85 cursor-pointer"
-                          />
-                        );
-                      });
-                    })()}
-                  </svg>
-                  {/* Center Content */}
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                    <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Total Volume</span>
-                    <strong className="text-xl font-black text-gray-900 font-['Manrope'] block">
-                      {totalVolumeBoxes.toLocaleString('en-IN')}
-                    </strong>
-                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 mt-0.5">
-                      Boxes Supplied
-                    </span>
+              {fruitBreakdown.length === 0 ? (
+                <div className="py-14 text-center text-gray-400">
+                  <PieChart size={32} className="mx-auto text-gray-300 mb-2" />
+                  <p className="font-bold text-gray-700 text-sm">No commodity consignments recorded</p>
+                  <p className="text-xs text-gray-400 mt-1">Dispatched fruit variety volume breakdown will appear here.</p>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center gap-5 justify-center py-2">
+                  <div className="relative w-48 h-48 sm:w-52 sm:h-52 flex-shrink-0 flex items-center justify-center">
+                    <svg viewBox="0 0 320 320" className="w-full h-full transform -rotate-90">
+                      {(() => {
+                        const radius = 90;
+                        const circumference = 2 * Math.PI * radius; // ~565.48
+                        let accumulatedPercent = 0;
+                        return fruitBreakdown.map((item, idx) => {
+                          const strokeDasharray = `${(item.percent / 100) * circumference} ${circumference}`;
+                          const strokeDashoffset = -((accumulatedPercent / 100) * circumference);
+                          accumulatedPercent += item.percent;
+                          return (
+                            <circle
+                              key={idx}
+                              cx="160"
+                              cy="160"
+                              r={radius}
+                              fill="transparent"
+                              stroke={item.color}
+                              strokeWidth="36"
+                              strokeDasharray={strokeDasharray}
+                              strokeDashoffset={strokeDashoffset}
+                              className="transition-all duration-500 hover:opacity-85 cursor-pointer"
+                            />
+                          );
+                        });
+                      })()}
+                    </svg>
+                    {/* Center Content */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                      <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Total Volume</span>
+                      <strong className="text-xl font-black text-gray-900 font-['Manrope'] block">
+                        {totalVolumeBoxes.toLocaleString('en-IN')}
+                      </strong>
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 mt-0.5">
+                        Boxes Supplied
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Donut Legend */}
+                  <div className="flex-1 w-full space-y-2 text-xs">
+                    {fruitBreakdown.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-2 rounded-xl bg-gray-50/80 hover:bg-emerald-50/50 border border-gray-200/60 transition"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
+                          <span className="font-bold text-gray-800 truncate">{item.fruit}</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0 text-right">
+                          <span className="text-[11px] font-bold text-gray-600">{item.boxes.toLocaleString('en-IN')} Bx</span>
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-white border border-gray-200 text-gray-700">
+                            {item.percent}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {/* Donut Legend */}
-                <div className="flex-1 w-full space-y-2 text-xs">
-                  {fruitBreakdown.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex items-center justify-between p-2 rounded-xl bg-gray-50/80 hover:bg-emerald-50/50 border border-gray-200/60 transition"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-                        <span className="text-sm">{item.icon}</span>
-                        <span className="font-bold text-gray-800 truncate">{item.fruit}</span>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 text-right">
-                        <span className="text-[11px] font-bold text-gray-600">{item.boxes.toLocaleString('en-IN')} Bx</span>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-white border border-gray-200 text-gray-700">
-                          {item.percent}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Chart 2: Revenue & Payouts Bar Chart (7 Cols) */}
@@ -1353,85 +1351,93 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               </div>
 
               {/* SVG Bar Chart */}
-              <div className="w-full overflow-x-auto pt-2">
-                <svg viewBox="0 0 520 220" className="w-full h-56 select-none font-sans">
-                  {/* Grid Lines */}
-                  <line x1="45" y1="20" x2="505" y2="20" stroke="#F3F4F6" strokeDasharray="3 3" />
-                  <line x1="45" y1="70" x2="505" y2="70" stroke="#F3F4F6" strokeDasharray="3 3" />
-                  <line x1="45" y1="120" x2="505" y2="120" stroke="#F3F4F6" strokeDasharray="3 3" />
-                  <line x1="45" y1="170" x2="505" y2="170" stroke="#D1D5DB" strokeWidth="1.5" />
+              {barChartData.length === 0 ? (
+                <div className="py-14 text-center text-gray-400">
+                  <BarChart3 size={32} className="mx-auto text-gray-300 mb-2" />
+                  <p className="font-bold text-gray-700 text-sm">No consignment payouts to compare</p>
+                  <p className="text-xs text-gray-400 mt-1">PO total value, 55% advance, and balance due metrics will plot here.</p>
+                </div>
+              ) : (
+                <div className="w-full overflow-x-auto pt-2">
+                  <svg viewBox="0 0 520 220" className="w-full h-56 select-none font-sans">
+                    {/* Grid Lines */}
+                    <line x1="45" y1="20" x2="505" y2="20" stroke="#F3F4F6" strokeDasharray="3 3" />
+                    <line x1="45" y1="70" x2="505" y2="70" stroke="#F3F4F6" strokeDasharray="3 3" />
+                    <line x1="45" y1="120" x2="505" y2="120" stroke="#F3F4F6" strokeDasharray="3 3" />
+                    <line x1="45" y1="170" x2="505" y2="170" stroke="#D1D5DB" strokeWidth="1.5" />
 
-                  {/* Y-Axis Labels */}
-                  <text x="40" y="24" textAnchor="end" fontSize="10" fill="#9CA3AF" fontWeight="600">₹15L</text>
-                  <text x="40" y="74" textAnchor="end" fontSize="10" fill="#9CA3AF" fontWeight="600">₹10L</text>
-                  <text x="40" y="124" textAnchor="end" fontSize="10" fill="#9CA3AF" fontWeight="600">₹5L</text>
-                  <text x="40" y="174" textAnchor="end" fontSize="10" fill="#9CA3AF" fontWeight="600">₹0</text>
+                    {/* Y-Axis Labels */}
+                    <text x="40" y="24" textAnchor="end" fontSize="10" fill="#9CA3AF" fontWeight="600">₹15L</text>
+                    <text x="40" y="74" textAnchor="end" fontSize="10" fill="#9CA3AF" fontWeight="600">₹10L</text>
+                    <text x="40" y="124" textAnchor="end" fontSize="10" fill="#9CA3AF" fontWeight="600">₹5L</text>
+                    <text x="40" y="174" textAnchor="end" fontSize="10" fill="#9CA3AF" fontWeight="600">₹0</text>
 
-                  {/* Bar Groups */}
-                  {barChartData.map((d, i) => {
-                    const baseX = 85 + i * 145;
-                    const maxVal = 1600000;
-                    const hTotal = Math.min(150, Math.max(12, (d.total / maxVal) * 150));
-                    const hAdv = Math.min(150, Math.max(12, (d.advance / maxVal) * 150));
-                    const hDue = Math.min(150, Math.max(12, (d.due / maxVal) * 150));
+                    {/* Bar Groups */}
+                    {barChartData.map((d, i) => {
+                      const baseX = 85 + i * 145;
+                      const maxVal = 1600000;
+                      const hTotal = Math.min(150, Math.max(12, (d.total / maxVal) * 150));
+                      const hAdv = Math.min(150, Math.max(12, (d.advance / maxVal) * 150));
+                      const hDue = Math.min(150, Math.max(12, (d.due / maxVal) * 150));
 
-                    return (
-                      <g key={i}>
-                        {/* Total Bar */}
-                        <rect
-                          x={baseX}
-                          y={170 - hTotal}
-                          width="26"
-                          height={hTotal}
-                          rx="4"
-                          fill="#087A3E"
-                          className="transition-all hover:opacity-90"
-                        />
-                        {/* Advance Bar */}
-                        <rect
-                          x={baseX + 30}
-                          y={170 - hAdv}
-                          width="26"
-                          height={hAdv}
-                          rx="4"
-                          fill="#14B8A6"
-                          className="transition-all hover:opacity-90"
-                        />
-                        {/* Due Bar */}
-                        <rect
-                          x={baseX + 60}
-                          y={170 - hDue}
-                          width="26"
-                          height={hDue}
-                          rx="4"
-                          fill="#F59E0B"
-                          className="transition-all hover:opacity-90"
-                        />
-                        {/* X-axis Label */}
-                        <text
-                          x={baseX + 43}
-                          y="192"
-                          textAnchor="middle"
-                          fontSize="11"
-                          fill="#1F2937"
-                          fontWeight="bold"
-                        >
-                          {d.label}
-                        </text>
-                        <text
-                          x={baseX + 43}
-                          y="206"
-                          textAnchor="middle"
-                          fontSize="9"
-                          fill="#6B7280"
-                        >
-                          {d.sublabel}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
+                      return (
+                        <g key={i}>
+                          {/* Total Bar */}
+                          <rect
+                            x={baseX}
+                            y={170 - hTotal}
+                            width="26"
+                            height={hTotal}
+                            rx="4"
+                            fill="#087A3E"
+                            className="transition-all hover:opacity-90"
+                          />
+                          {/* Advance Bar */}
+                          <rect
+                            x={baseX + 30}
+                            y={170 - hAdv}
+                            width="26"
+                            height={hAdv}
+                            rx="4"
+                            fill="#14B8A6"
+                            className="transition-all hover:opacity-90"
+                          />
+                          {/* Due Bar */}
+                          <rect
+                            x={baseX + 60}
+                            y={170 - hDue}
+                            width="26"
+                            height={hDue}
+                            rx="4"
+                            fill="#F59E0B"
+                            className="transition-all hover:opacity-90"
+                          />
+                          {/* X-axis Label */}
+                          <text
+                            x={baseX + 43}
+                            y="192"
+                            textAnchor="middle"
+                            fontSize="11"
+                            fill="#1F2937"
+                            fontWeight="bold"
+                          >
+                            {d.label}
+                          </text>
+                          <text
+                            x={baseX + 43}
+                            y="206"
+                            textAnchor="middle"
+                            fontSize="9"
+                            fill="#6B7280"
+                          >
+                            {d.sublabel}
+                          </text>
+                        </g>
+                      );
+                    })}
+                  </svg>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1543,11 +1549,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <strong className="text-sm font-black text-[#087A3E] font-mono">{po.poNumber}</strong>
-                      <span className="text-xs font-bold text-gray-800">🍎 {po.fruitName || 'Kashmir Apples'}</span>
-                      <span className="text-xs text-gray-500">📍 {po.orderPersonPlace || 'Warangal Hub'}</span>
+                      <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
+                        <Package size={13} className="text-[#087A3E]" /> {po.fruitName || 'Kashmir Apples'}
+                      </span>
+                      <span className="text-xs text-gray-500 flex items-center gap-0.5">
+                        <MapPin size={11} className="text-gray-400" /> {po.orderPersonPlace || 'Warangal Hub'}
+                      </span>
                       {po.dispatchVehicleNumber && (
-                        <span className="px-2 py-0.5 rounded bg-gray-100 font-mono text-[10px] font-bold text-gray-700">
-                          🚚 {po.dispatchVehicleNumber}
+                        <span className="px-2 py-0.5 rounded bg-gray-100 font-mono text-[10px] font-bold text-gray-700 flex items-center gap-1">
+                          <Truck size={10} className="text-gray-500" /> {po.dispatchVehicleNumber}
                         </span>
                       )}
                     </div>
@@ -1639,7 +1649,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <ul className="space-y-0.5">
                             {order.items.map((it, idx) => (
                               <li key={idx} className="text-gray-600 text-[11px] flex justify-between">
-                                <span>🍏 {it.fruitName} ({it.varietyGrade})</span>
+                                <span>{it.fruitName} ({it.varietyGrade})</span>
                                 <strong>{it.quantity} {it.unit}</strong>
                               </li>
                             ))}
@@ -1835,8 +1845,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Fruit & Layer Breakdown */}
                           <td className="py-3.5 px-3 border-r border-gray-100">
-                            <div className="font-extrabold text-gray-900 flex items-center gap-1">
-                              {isAppleConsignment ? '🍎 Kashmir Apples' : `🍏 ${po.fruitName || 'Fresh Fruits'}`}
+                            <div className="font-extrabold text-gray-900 flex items-center gap-1.5">
+                              <Package size={14} className="text-[#087A3E]" />
+                              {isAppleConsignment ? 'Kashmir Apples' : (po.fruitName || 'Fresh Fruits')}
                             </div>
                             {po.items && po.items.length > 0 ? (
                               <div className="mt-0.5 text-[10px] text-gray-600 font-semibold flex flex-wrap gap-1">
@@ -1863,7 +1874,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           {/* Destination Hub */}
                           <td className="text-center py-3.5 px-3 text-gray-800 border-r border-gray-100 whitespace-nowrap">
                             <span className="inline-flex items-center gap-1 font-bold text-gray-900">
-                              📍 {po.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal Hub'}
+                              <MapPin size={11} className="text-gray-400" />
+                              {po.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal Hub'}
                             </span>
                           </td>
 
@@ -1886,8 +1898,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             {po.dispatchVehicleNumber ? (
                               <div className="space-y-1">
-                                <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-200 font-black text-[10px] block">
-                                  🚚 {po.dispatchVehicleNumber}
+                                <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-200 font-black text-[10px] inline-flex items-center gap-1">
+                                  <Truck size={10} className="text-blue-700" /> {po.dispatchVehicleNumber}
                                 </span>
                                 <div className="flex items-center justify-center gap-1">
                                   {po.vehiclePhotoUrl && (
@@ -1900,7 +1912,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                       className="px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[9px] font-bold flex items-center gap-0.5 cursor-pointer"
                                       title="View vehicle photo"
                                     >
-                                      📸 Photo
+                                      <Camera size={10} className="inline" /> Photo
                                     </button>
                                   )}
                                   {po.transportBillUrl && (
@@ -1913,7 +1925,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                       className="px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded text-[9px] font-bold flex items-center gap-0.5 cursor-pointer"
                                       title="View transport bill"
                                     >
-                                      🧾 Bilty
+                                      <ReceiptText size={10} className="inline" /> Bilty
                                     </button>
                                   )}
                                 </div>
@@ -2314,8 +2326,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             <strong>{order.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal'} Hub</strong>
                           </span>
                           {order.dispatchVehicleNumber && (
-                            <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-800 text-[11px] font-mono font-bold">
-                              🚚 {order.dispatchVehicleNumber}
+                            <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-800 text-[11px] font-mono font-bold flex items-center gap-1">
+                              <Truck size={12} className="text-gray-600" /> {order.dispatchVehicleNumber}
                             </span>
                           )}
                         </div>
@@ -2636,7 +2648,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 {transportBillPreview && (
                   <div className="mt-2 p-2 bg-white rounded-xl border border-gray-200 inline-block">
                     {transportBillFile?.type === 'application/pdf' ? (
-                      <span className="text-xs text-blue-800 font-bold">📄 PDF Document Attached ({transportBillFile.name})</span>
+                      <span className="text-xs text-blue-800 font-bold flex items-center gap-1">
+                        <FileText size={13} /> PDF Document Attached ({transportBillFile.name})
+                      </span>
                     ) : (
                       <img
                         src={transportBillPreview}
@@ -3428,8 +3442,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   {/* Vehicle Photo Upload */}
                   <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5">
-                    <label className="block text-[11px] font-bold text-gray-800">
-                      📸 Dispatch Photo (Vehicle &amp; Loaded Cartons)
+                    <label className="block text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
+                      <Camera size={13} className="text-emerald-700" />
+                      Dispatch Photo (Vehicle &amp; Loaded Cartons)
                     </label>
                     <p className="text-[10px] text-gray-500">
                       Clear photo showing vehicle with loaded fruit boxes and number plate.
@@ -3463,8 +3478,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                   {/* Transport Bill Photo Upload */}
                   <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5">
-                    <label className="block text-[11px] font-bold text-gray-800">
-                      🧾 Transport Bill Photo (Bilty / LR Receipt)
+                    <label className="block text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
+                      <ReceiptText size={13} className="text-blue-700" />
+                      Transport Bill Photo (Bilty / LR Receipt)
                     </label>
                     <p className="text-[10px] text-gray-500">
                       Clear photo or PDF receipt from transporter / consignment note.
@@ -3487,7 +3503,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     {supplyTransportBillPreview && (
                       <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
                         {supplyTransportBillFile?.type === 'application/pdf' ? (
-                          <span className="text-xs text-blue-800 font-bold">📄 PDF Document ({supplyTransportBillFile.name})</span>
+                          <span className="text-xs text-blue-800 font-bold flex items-center gap-1">
+                            <FileText size={12} /> PDF Document ({supplyTransportBillFile.name})
+                          </span>
                         ) : (
                           <img
                             src={supplyTransportBillPreview}
@@ -4316,15 +4334,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <div>
                   <span className="text-[10px] font-bold text-gray-500 uppercase">Current Total</span>
                   <strong className="text-2xl sm:text-3xl font-black text-gray-900 font-['Manrope'] block mt-0.5">
-                    {selectedKpiModal === 'orders' && `₹${Number(stats.totalOrderValue || 1320000).toLocaleString('en-IN')}`}
-                    {selectedKpiModal === 'advance' && `₹${Number(stats.totalAdvanceReceived || 924000).toLocaleString('en-IN')}`}
-                    {selectedKpiModal === 'due' && `₹${Number(stats.totalPendingBalance || Math.max(0, (stats.totalOrderValue || 1320000) - (stats.totalAdvanceReceived || 924000))).toLocaleString('en-IN')}`}
+                    {selectedKpiModal === 'orders' && `₹${Number(stats.totalOrderValue || 0).toLocaleString('en-IN')}`}
+                    {selectedKpiModal === 'advance' && `₹${Number(stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}`}
+                    {selectedKpiModal === 'due' && `₹${Number(stats.totalPendingBalance || Math.max(0, (stats.totalOrderValue || 0) - (stats.totalAdvanceReceived || 0))).toLocaleString('en-IN')}`}
                     {selectedKpiModal === 'volume' && `${totalVolumeBoxes.toLocaleString('en-IN')} Boxes`}
                     {selectedKpiModal === 'transit' && `${stats.inTransitPOs || 0} Trucks on Road`}
                     {selectedKpiModal === 'qc' && `99.4% Mandi Verified`}
                   </strong>
                   <span className="text-[11px] text-gray-600 font-medium block mt-0.5">
-                    {selectedKpiModal === 'orders' && `${stats.totalPOs || 1} Active Procurement Orders`}
+                    {selectedKpiModal === 'orders' && `${stats.totalPOs || 0} Active Procurement Orders`}
                     {selectedKpiModal === 'advance' && `55% Advance Cleared to Vendor Account`}
                     {selectedKpiModal === 'due' && `45% Settled on Hub Delivery & Weighbridge`}
                     {selectedKpiModal === 'volume' && `~${(totalVolumeBoxes * 0.02).toFixed(1)} Metric Tonnes Net Fruit Weight`}
