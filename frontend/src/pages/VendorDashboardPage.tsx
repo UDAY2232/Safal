@@ -509,7 +509,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
       const res = await api.createVendorSupplyPO(formData);
       setShowCreatePOModal(false);
-      onNotify(res.message || 'Consignment Supply PO submitted successfully with 55% Auto-Advance Guarantee!');
+      onNotify(res.message || 'Consignment Supply PO submitted successfully!');
 
       // Reset form fields
       setSupplyVehicleNumber('');
@@ -954,7 +954,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   Fruit Supply Consignments (పండ్ల సప్లై కన్సైన్‌మెంట్లు)
                 </h2>
                 <p className="text-xs text-gray-600 mt-0.5">
-                  Direct fruit supply dispatches to SAFAL Regional Hubs with 55% Auto-Advance Guarantee.
+                  Direct fruit supply dispatches to SAFAL Regional Hubs.
                 </p>
               </div>
             </div>
@@ -1041,8 +1041,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Fruit &amp; Layer Breakdown</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Destination Hub</th>
                   <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Consignment Value</th>
-                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">55% Auto-Advance</th>
-                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">45% Balance Due</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Advance Paid</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Balance Due</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Logistics &amp; Proof</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Status</th>
                   <th className="py-3 px-3 text-center font-bold">Action</th>
@@ -1125,18 +1125,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             ₹{total.toLocaleString('en-IN')}
                           </td>
 
-                          {/* 55% Auto-Advance */}
+                          {/* Advance Paid */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             <strong className="text-emerald-700 font-black block">₹{advance.toLocaleString('en-IN')}</strong>
-                            <span className="text-[9px] text-emerald-800 font-extrabold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                              ✓ 55% Guaranteed
-                            </span>
                           </td>
 
-                          {/* 45% Balance Due */}
+                          {/* Balance Due */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             <strong className="text-amber-900 font-black block">₹{balance.toLocaleString('en-IN')}</strong>
-                            <span className="text-[9px] text-gray-500 font-medium">45% on delivery</span>
                           </td>
 
                           {/* Logistics & Proof */}
@@ -1256,7 +1252,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                     </span>
                                   </div>
                                   <span className="text-xs font-black text-emerald-800">
-                                    Total: ₹{total.toLocaleString('en-IN')} (55% Adv: ₹{advance.toLocaleString('en-IN')} | 45% Due: ₹{balance.toLocaleString('en-IN')})
+                                    Total: ₹{total.toLocaleString('en-IN')} (Adv: ₹{advance.toLocaleString('en-IN')} | Due: ₹{balance.toLocaleString('en-IN')})
                                   </span>
                                 </div>
 
@@ -1383,7 +1379,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div>
                 <strong className="block font-bold">Authorized Vendor Profile &amp; Bank Disbursement Desk:</strong>
                 <span className="text-emerald-800">
-                  Update your contact person, phone number, primary delivery hub, and bank NEFT/RTGS disbursement coordinates directly. All 55% auto-advance settlements will be routed to your registered account.
+                  Update your contact person, phone number, primary delivery hub, and bank NEFT/RTGS disbursement coordinates directly. All settlements will be routed to your registered account.
                 </span>
               </div>
             </div>
@@ -2651,7 +2647,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* Dispatch & Transport Proof Details (Vehicle photo, Transport bill photo, vehicle number, driver) */}
               <div className="p-3.5 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-3">
                 <span className="text-[10px] uppercase font-black text-blue-900 tracking-wider block flex items-center gap-1.5">
-                  <Truck size={14} className="text-blue-700" /> Dispatch &amp; Logistics Proof (Upload now for instant 55% advance release)
+                  <Truck size={14} className="text-blue-700" /> Dispatch &amp; Logistics Proof Documentation
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
@@ -2746,39 +2742,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               </div>
 
-              {/* 55% Auto-Advance Policy Settlement Breakdown */}
-              <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-400 rounded-2xl space-y-2">
-                <span className="text-[10px] uppercase font-black text-[#064D2B] tracking-wider block flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-emerald-700" /> 55% Automatic Advance Settlement Guarantee
-                </span>
-                <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                  <div className="bg-white p-2 rounded-xl border border-emerald-200">
-                    <span className="text-[9px] text-gray-500 uppercase font-bold block">Total Consignment</span>
-                    <strong className="text-sm font-black text-gray-900 block mt-0.5">
-                      ₹{grandSupplyTotal.toLocaleString('en-IN')}
-                    </strong>
-                    <span className="text-[8px] text-gray-400 block">
-                      {isApple ? `${totalAppleBoxes} Boxes` : `${otherQuantity} ${otherUnit}`}
-                    </span>
-                  </div>
 
-                  <div className="bg-white p-2 rounded-xl border border-emerald-300 shadow-2xs">
-                    <span className="text-[9px] text-emerald-800 uppercase font-extrabold block">55% Auto Advance</span>
-                    <strong className="text-sm font-black text-emerald-700 block mt-0.5">
-                      ₹{autoAdvanceAmount.toLocaleString('en-IN')}
-                    </strong>
-                    <span className="text-[8px] text-emerald-600 block">Released on Dispatch Proof</span>
-                  </div>
-
-                  <div className="bg-white p-2 rounded-xl border border-gray-200">
-                    <span className="text-[9px] text-gray-500 uppercase font-bold block">45% Balance Due</span>
-                    <strong className="text-sm font-black text-gray-700 block mt-0.5">
-                      ₹{pendingBalanceAmount.toLocaleString('en-IN')}
-                    </strong>
-                    <span className="text-[8px] text-gray-400 block">Settled on Mandi Delivery</span>
-                  </div>
-                </div>
-              </div>
 
               {/* Consignment Remarks */}
               <div>
@@ -3086,7 +3050,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* Disbursement Banking Coordinates */}
               <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3">
                 <span className="text-[10px] uppercase font-black text-emerald-900 tracking-wider block">
-                  Official Disbursement Bank Coordinates (55% Auto-Advance Routing)
+                  Official Disbursement Bank Coordinates (Direct NEFT/RTGS)
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
