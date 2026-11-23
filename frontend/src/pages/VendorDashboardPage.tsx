@@ -2759,21 +2759,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         🍎 Apple Mandi Layer Box Grading (4L / 5L / Roll)
                       </span>
                       <p className="text-[11px] text-gray-600">
-                        Wholesale apple telescopic cartons (~20-22 Kg/box). Rates are fixed by Admin. Enter box counts only.
+                        Wholesale apple telescopic cartons (~20-22 Kg/box). Enter box counts.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-lg text-[11px] font-black">
                       Kashmir Apples
-                    </span>
-                  </div>
-
-                  {/* Admin Fixed Rates Banner */}
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-700 flex-shrink-0" /> Mandi rates are fixed by Safal Admin. Vendors enter box counts only.
-                    </span>
-                    <span className="text-[10px] text-amber-800 font-black uppercase bg-white px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      Fixed by Admin
                     </span>
                   </div>
 
@@ -2783,7 +2773,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         <tr className="bg-[#064D2B] text-white font-black text-[10px] uppercase tracking-wider">
                           <th className="w-[32%] py-2.5 px-3">Layer Grade</th>
                           <th className="w-[22%] py-2.5 px-2 text-center">No. of Boxes</th>
-                          <th className="w-[22%] py-2.5 px-2 text-right">Admin Rate</th>
+                          <th className="w-[22%] py-2.5 px-2 text-right">Rate (₹)</th>
                           <th className="w-[24%] py-2.5 px-3 text-right">Subtotal</th>
                         </tr>
                       </thead>
@@ -2805,8 +2795,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             />
                           </td>
                           <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center justify-end gap-1 px-2 py-1 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
-                              <Lock size={10} className="text-amber-600 flex-shrink-0" /> ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
+                            <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs">
+                              ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
@@ -2831,8 +2821,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             />
                           </td>
                           <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center justify-end gap-1 px-2 py-1 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
-                              <Lock size={10} className="text-amber-600 flex-shrink-0" /> ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
+                            <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs">
+                              ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
@@ -2857,8 +2847,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             />
                           </td>
                           <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center justify-end gap-1 px-2 py-1 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
-                              <Lock size={10} className="text-amber-600 flex-shrink-0" /> ₹{Number(rollRate || 700).toLocaleString('en-IN')}
+                            <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs">
+                              ₹{Number(rollRate || 700).toLocaleString('en-IN')}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
@@ -2874,8 +2864,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <td className="py-2.5 px-2 text-center font-black text-gray-900 text-xs">
                             {totalAppleBoxes.toLocaleString('en-IN')} Boxes
                           </td>
-                          <td className="py-2.5 px-2 text-right text-amber-800 font-bold text-[10px]">
-                            <span className="inline-flex items-center gap-0.5"><Lock size={9} /> Fixed Rate</span>
+                          <td className="py-2.5 px-2 text-right text-gray-500 font-bold text-[10px]">
+                            Mandi Rate
                           </td>
                           <td className="py-2.5 px-3 text-right text-sm sm:text-base font-black text-emerald-800 font-mono">
                             ₹{totalAppleAmount.toLocaleString('en-IN')}
@@ -2909,21 +2899,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         🍇 Pomegranate Consignment Entry
                       </span>
                       <p className="text-[11px] text-gray-600">
-                        Standard wholesale pomegranate telescopic boxes / crates. Rates are fixed by Safal Admin.
+                        Standard wholesale pomegranate telescopic boxes / crates.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-rose-100 text-rose-900 rounded-lg text-[11px] font-black">
                       Pomegranate
-                    </span>
-                  </div>
-
-                  {/* Admin Fixed Rate Banner */}
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-700 flex-shrink-0" /> Procurement rate is fixed by Safal Admin. Vendors enter box count only.
-                    </span>
-                    <span className="text-[10px] text-amber-800 font-black uppercase bg-white px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      Fixed by Admin
                     </span>
                   </div>
 
@@ -2943,13 +2923,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1 flex items-center justify-between">
-                        <span>Admin Procurement Rate</span>
-                        <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1"><Lock size={10} /> Locked</span>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Procurement Rate (₹ / Box)
                       </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-100/90 flex items-center justify-between shadow-2xs">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Mandi Rate</span>
-                        <strong className="font-mono text-sm text-rose-900">₹{Number(pomegranateRate || 950).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/ Box</span></strong>
+                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
+                        <strong className="font-mono text-sm text-gray-900">₹{Number(pomegranateRate || 950).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ Box</span></strong>
                       </div>
                     </div>
                   </div>
@@ -2971,21 +2950,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         🍉 Watermelon Harvest Weighment
                       </span>
                       <p className="text-[11px] text-gray-600">
-                        Bulk truckload mandi weighbridge harvest. Rates are fixed by Safal Admin.
+                        Bulk truckload mandi weighbridge harvest.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 rounded-lg text-[11px] font-black">
                       Watermelon
-                    </span>
-                  </div>
-
-                  {/* Admin Fixed Rate Banner */}
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-700 flex-shrink-0" /> Procurement rate is fixed by Safal Admin. Vendors enter weight only.
-                    </span>
-                    <span className="text-[10px] text-amber-800 font-black uppercase bg-white px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      Fixed by Admin
                     </span>
                   </div>
 
@@ -3036,13 +3005,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1 flex items-center justify-between">
-                        <span>Admin Procurement Rate</span>
-                        <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1"><Lock size={10} /> Locked</span>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Procurement Rate (₹ / {watermelonUnit})
                       </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-100/90 flex items-center justify-between shadow-2xs">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Mandi Rate</span>
-                        <strong className="font-mono text-sm text-emerald-900">₹{Number(watermelonRate || (watermelonUnit === 'TON' ? 14000 : 14)).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/ {watermelonUnit}</span></strong>
+                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
+                        <strong className="font-mono text-sm text-gray-900">₹{Number(watermelonRate || (watermelonUnit === 'TON' ? 14000 : 14)).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ {watermelonUnit}</span></strong>
                       </div>
                     </div>
                   </div>
@@ -3064,21 +3032,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         🍈 Muskmelon Loaded Weighment
                       </span>
                       <p className="text-[11px] text-gray-600">
-                        Sweet melon farm loaded weighbridge load. Rates are fixed by Safal Admin.
+                        Sweet melon farm loaded weighbridge load.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-amber-100 text-amber-900 rounded-lg text-[11px] font-black">
                       Muskmelon
-                    </span>
-                  </div>
-
-                  {/* Admin Fixed Rate Banner */}
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-700 flex-shrink-0" /> Procurement rate is fixed by Safal Admin. Vendors enter weight only.
-                    </span>
-                    <span className="text-[10px] text-amber-800 font-black uppercase bg-white px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      Fixed by Admin
                     </span>
                   </div>
 
@@ -3129,13 +3087,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1 flex items-center justify-between">
-                        <span>Admin Procurement Rate</span>
-                        <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1"><Lock size={10} /> Locked</span>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Procurement Rate (₹ / {muskmelonUnit})
                       </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-100/90 flex items-center justify-between shadow-2xs">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Mandi Rate</span>
-                        <strong className="font-mono text-sm text-amber-900">₹{Number(muskmelonRate || (muskmelonUnit === 'TON' ? 18000 : 18)).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/ {muskmelonUnit}</span></strong>
+                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
+                        <strong className="font-mono text-sm text-gray-900">₹{Number(muskmelonRate || (muskmelonUnit === 'TON' ? 18000 : 18)).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ {muskmelonUnit}</span></strong>
                       </div>
                     </div>
                   </div>
@@ -3157,21 +3114,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         🍌 Banana Wholesale Crates
                       </span>
                       <p className="text-[11px] text-gray-600">
-                        Green Cavendish / Robusta farm crates. Rates are fixed by Safal Admin.
+                        Green Cavendish / Robusta farm crates.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-yellow-100 text-yellow-900 rounded-lg text-[11px] font-black">
                       Banana
-                    </span>
-                  </div>
-
-                  {/* Admin Fixed Rate Banner */}
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-700 flex-shrink-0" /> Procurement rate is fixed by Safal Admin. Vendors enter box count only.
-                    </span>
-                    <span className="text-[10px] text-amber-800 font-black uppercase bg-white px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      Fixed by Admin
                     </span>
                   </div>
 
@@ -3191,13 +3138,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1 flex items-center justify-between">
-                        <span>Admin Procurement Rate</span>
-                        <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1"><Lock size={10} /> Locked</span>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Procurement Rate (₹ / Box)
                       </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-100/90 flex items-center justify-between shadow-2xs">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Mandi Rate</span>
-                        <strong className="font-mono text-sm text-yellow-950">₹{Number(bananaRate || 550).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/ Box</span></strong>
+                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
+                        <strong className="font-mono text-sm text-gray-900">₹{Number(bananaRate || 550).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ Box</span></strong>
                       </div>
                     </div>
                   </div>
@@ -3219,21 +3165,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         🍊 Orange (Citrus) Caliber &amp; Count Grading
                       </span>
                       <p className="text-[11px] text-gray-600">
-                        Wholesale citrus caliber count selection. Rates are fixed by Safal Admin.
+                        Wholesale citrus caliber count selection.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-orange-100 text-orange-900 rounded-lg text-[11px] font-black">
                       Orange
-                    </span>
-                  </div>
-
-                  {/* Admin Fixed Rate Banner */}
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-700 flex-shrink-0" /> Procurement rate is fixed by Safal Admin. Vendors choose count &amp; enter box count only.
-                    </span>
-                    <span className="text-[10px] text-amber-800 font-black uppercase bg-white px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      Fixed by Admin
                     </span>
                   </div>
 
@@ -3277,13 +3213,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1 flex items-center justify-between">
-                        <span>Admin Procurement Rate</span>
-                        <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1"><Lock size={10} /> Locked</span>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Procurement Rate (₹ / Box)
                       </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-100/90 flex items-center justify-between shadow-2xs">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Mandi Rate</span>
-                        <strong className="font-mono text-sm text-orange-900">₹{Number(orangeRate || 780).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/ Box</span></strong>
+                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
+                        <strong className="font-mono text-sm text-gray-900">₹{Number(orangeRate || 780).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ Box</span></strong>
                       </div>
                     </div>
                   </div>
@@ -3307,21 +3242,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         🍑 Plum Consignment Entry
                       </span>
                       <p className="text-[11px] text-gray-600">
-                        Fresh farm stone fruit cartons/crates. Rates are fixed by Safal Admin.
+                        Fresh farm stone fruit cartons/crates.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-purple-100 text-purple-900 rounded-lg text-[11px] font-black">
                       Plum
-                    </span>
-                  </div>
-
-                  {/* Admin Fixed Rate Banner */}
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-700 flex-shrink-0" /> Procurement rate is fixed by Safal Admin. Vendors enter box count only.
-                    </span>
-                    <span className="text-[10px] text-amber-800 font-black uppercase bg-white px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      Fixed by Admin
                     </span>
                   </div>
 
@@ -3341,13 +3266,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1 flex items-center justify-between">
-                        <span>Admin Procurement Rate</span>
-                        <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1"><Lock size={10} /> Locked</span>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Procurement Rate (₹ / Box)
                       </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-100/90 flex items-center justify-between shadow-2xs">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Mandi Rate</span>
-                        <strong className="font-mono text-sm text-purple-900">₹{Number(plumRate || 850).toLocaleString('en-IN')} <span className="text-xs font-medium text-gray-500">/ Box</span></strong>
+                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
+                        <strong className="font-mono text-sm text-gray-900">₹{Number(plumRate || 850).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ Box</span></strong>
                       </div>
                     </div>
                   </div>
@@ -3369,21 +3293,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         Fruit Commodity Sizing &amp; Pricing
                       </span>
                       <p className="text-[11px] text-gray-600">
-                        Rates are fixed by Safal Admin. Enter dispatch quantity.
+                        Enter dispatch quantity.
                       </p>
                     </div>
                     <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[11px] font-black">
                       {selectedFruit}
-                    </span>
-                  </div>
-
-                  {/* Admin Fixed Rate Banner */}
-                  <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-bold">
-                    <span className="flex items-center gap-1.5">
-                      <Lock size={12} className="text-amber-700 flex-shrink-0" /> Procurement rate is fixed by Safal Admin. Vendors enter quantity only.
-                    </span>
-                    <span className="text-[10px] text-amber-800 font-black uppercase bg-white px-2 py-0.5 rounded border border-amber-200 flex-shrink-0">
-                      Fixed by Admin
                     </span>
                   </div>
 
@@ -3424,11 +3338,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5 flex items-center justify-between">
-                        <span>Rate (₹ / {otherUnit})</span>
-                        <span className="text-[9px] text-amber-700 font-bold flex items-center gap-0.5"><Lock size={9} /> Fixed</span>
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">
+                        Rate (₹ / {otherUnit})
                       </label>
-                      <div className="w-full h-9 px-2.5 border border-gray-200 rounded-lg text-xs font-bold text-gray-900 bg-gray-100/90 flex items-center justify-end">
+                      <div className="w-full h-9 px-2.5 border border-gray-200 rounded-lg text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-end">
                         <span className="font-mono text-xs">₹{Number(otherRate || 950).toLocaleString('en-IN')}</span>
                       </div>
                     </div>
