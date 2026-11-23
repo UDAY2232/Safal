@@ -68,7 +68,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const [status, setStatus] = useState('All');
   const [financialStatus, setFinancialStatus] = useState('All');
   const [viewMode, setViewMode] = useState<'reference' | 'financial'>('reference');
-  const [activeSection, setActiveSection] = useState<'all' | 'pending_verification' | 'due'>('all');
+  const [activeSection, setActiveSection] = useState<
+    'all' | 'pending_verification' | 'amount_update_pending' | 'due'
+  >('all');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [financialPO, setFinancialPO] = useState<PurchaseOrder | null>(null);
   const [duePaymentPO, setDuePaymentPO] = useState<PurchaseOrder | null>(null);
@@ -108,6 +110,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
   // Deep-link from System Notifications: auto-search and open modal
   useEffect(() => {
+    if (initialOpenProof) {
+      setActiveSection('amount_update_pending');
+    }
     if (initialSearch) {
       setSearch(initialSearch);
     }
@@ -183,15 +188,28 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     return (Date.now() - orderTime) < ONE_DAY_MS;
   }) : [];
 
+  // Amount Update Pending Verification: CDs where payment settlement proof was uploaded and awaiting Admin verification & closure
+  const amountUpdatePendingOrders = orders.filter((o) => {
+    return Boolean(o.paymentProofUrl) && o.status !== 'CLOSED';
+  });
+
+  // New Orders awaiting initial approval (created but not yet approved)
+  const newApprovalOrders = orders.filter((o) => {
+    return o.status === 'PENDING_APPROVAL' && !o.paymentProofUrl;
+  });
+
   // Pending verification records (awaiting Admin/Accountant approval or with proof)
   const pendingVerificationOrders = orders.filter((o) => {
     return o.status === 'PENDING_APPROVAL' || (Boolean(o.paymentProofUrl) && o.status !== 'CLOSED');
   });
 
-  const displayedOrders = activeSection === 'pending_verification' 
-    ? pendingVerificationOrders 
-    : activeSection === 'due' 
-      ? dueOrders 
+  const displayedOrders =
+    activeSection === 'amount_update_pending'
+      ? amountUpdatePendingOrders
+      : activeSection === 'pending_verification'
+      ? (isCD ? newApprovalOrders : pendingVerificationOrders)
+      : activeSection === 'due'
+      ? dueOrders
       : orders;
 
   const totalDueAmount = dueOrders.reduce((sum, o) => {
@@ -209,6 +227,13 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     return sum + Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
   }, 0);
   const pendingVerificationWithProof = pendingVerificationOrders.filter((o) => Boolean(o.paymentProofUrl)).length;
+
+  const amountUpdateTotalValue = amountUpdatePendingOrders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
+  const amountUpdatePaidAmount = amountUpdatePendingOrders.reduce((sum, o) => sum + Number(o.advanceAmount || 0), 0);
+  const amountUpdateDueBalance = amountUpdatePendingOrders.reduce((sum, o) => {
+    const adv = Number(o.advanceAmount || 0);
+    return sum + Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+  }, 0);
 
   return (
     <div className="space-y-5">
@@ -276,7 +301,8 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <ShoppingCart size={15} /> {isCD ? `All Customer Dues (${orders.length})` : `All Purchase Orders (${orders.length})`}
           </button>
 
-          {(isCD || pendingVerificationOrders.length > 0) && (
+          {/* Tab 2: Pending Approval */}
+          {(isCD ? newApprovalOrders.length > 0 : pendingVerificationOrders.length > 0) && (
             <button
               type="button"
               onClick={() => setActiveSection('pending_verification')}
@@ -285,17 +311,44 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
               }`}
-              title="Orders with submitted proof or awaiting approval"
+              title="New orders awaiting initial approval"
             >
-              <Clock size={15} /> {isCD ? 'Pending Verification' : 'Pending Approval'}
-              {pendingVerificationOrders.length > 0 && (
+              <Clock size={15} /> {isCD ? 'Pending Approval' : 'Pending Approval'}
+              {(isCD ? newApprovalOrders.length : pendingVerificationOrders.length) > 0 && (
                 <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-white">
-                  {pendingVerificationOrders.length}
+                  {isCD ? newApprovalOrders.length : pendingVerificationOrders.length}
                 </span>
               )}
             </button>
           )}
 
+          {/* Tab 3: Dedicated CD Amount Update Pending Verification Button */}
+          {isCD && (
+            <button
+              type="button"
+              onClick={() => setActiveSection('amount_update_pending')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 whitespace-nowrap ${
+                activeSection === 'amount_update_pending'
+                  ? 'bg-emerald-700 text-white shadow-md ring-2 ring-emerald-500'
+                  : 'bg-emerald-50 text-emerald-950 hover:bg-emerald-100 border-2 border-emerald-400'
+              }`}
+              title="Customer Dues with submitted payment amount & proof awaiting verification"
+            >
+              <CreditCard size={15} />
+              <span>CD Amount Update Pending Verification</span>
+              {amountUpdatePendingOrders.length > 0 ? (
+                <span className="inline-flex items-center justify-center px-2 py-0.5 text-[10px] font-black rounded-full bg-red-600 text-white animate-pulse">
+                  {amountUpdatePendingOrders.length}
+                </span>
+              ) : (
+                <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-200 text-emerald-800">
+                  0
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* Tab 4: Due CDs Section */}
           <button
             type="button"
             onClick={() => setActiveSection('due')}
@@ -311,15 +364,28 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </div>
 
         {activeSection === 'due' && (
-          <div className="text-xs text-rose-800 font-bold px-2 flex items-center gap-1.5 whitespace-nowrap">
+          <div className="text-xs text-rose-800 font-bold px-2 flex items-center gap-1.5 whitespace-nowrap mt-1">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
             <span>Total Outstanding Due: <strong>₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></span>
           </div>
         )}
         {activeSection === 'pending_verification' && (
-          <div className="text-xs text-amber-800 font-bold px-2 flex items-center gap-1.5 whitespace-nowrap">
+          <div className="text-xs text-amber-800 font-bold px-2 flex items-center gap-1.5 whitespace-nowrap mt-1">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <span>Pending Verification: <strong>{pendingVerificationOrders.length} Records</strong></span>
+            <span>Pending Initial Approval: <strong>{isCD ? newApprovalOrders.length : pendingVerificationOrders.length} Records</strong></span>
+          </div>
+        )}
+        {activeSection === 'amount_update_pending' && (
+          <div className="text-xs text-emerald-950 font-bold px-3 py-1.5 bg-emerald-50 rounded-xl border border-emerald-300 flex items-center justify-between gap-2 whitespace-nowrap mt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
+              <span>
+                CD Amount Update Pending Verification: <strong>{amountUpdatePendingOrders.length} Records</strong> (Awaiting Admin review of submitted proof)
+              </span>
+            </div>
+            <span className="text-[11px] text-emerald-700 font-semibold hidden sm:inline">
+              Only CDs where payment settlements &amp; proofs were submitted
+            </span>
           </div>
         )}
       </div>
@@ -381,6 +447,61 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                 ₹ {totalAmount.toLocaleString('en-IN')}
               </strong>
+            </div>
+          </div>
+        </section>
+      ) : activeSection === 'amount_update_pending' ? (
+        /* CD AMOUNT UPDATE PENDING VERIFICATION DEDICATED STAT CARDS */
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
+          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-emerald-50 border border-emerald-300">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800 flex-shrink-0">
+              <CreditCard size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-950 block truncate">Amount Updates Pending</span>
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-emerald-900 font-['Manrope'] block mt-0.5">
+                {amountUpdatePendingOrders.length}
+              </strong>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Awaiting Admin Closure</small>
+            </div>
+          </div>
+
+          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+              <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-800 block truncate">Total Settlement Paid</span>
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-emerald-800 font-['Manrope'] block mt-0.5 truncate">
+                ₹{amountUpdatePaidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </strong>
+              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Recorded by staff</small>
+            </div>
+          </div>
+
+          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
+              <AlertCircle size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] sm:text-xs font-bold text-red-900 block truncate">Remaining Due Balance</span>
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-red-700 font-['Manrope'] block mt-0.5 truncate">
+                ₹{amountUpdateDueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </strong>
+              <small className="text-[10px] text-red-600 hidden sm:block truncate">Pending settlement</small>
+            </div>
+          </div>
+
+          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+              <CheckCircle2 size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 block truncate">Proofs Attached</span>
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
+                {amountUpdatePendingOrders.length}
+              </strong>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Ready to verify</small>
             </div>
           </div>
         </section>
@@ -809,8 +930,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                   {displayedOrders.length === 0 ? (
                     <tr>
                       <td colSpan={isCD ? 10 : 9} className="text-center py-10 text-gray-400 text-xs">
-                        {activeSection === 'pending_verification'
-                          ? 'No pending verification customer dues found. Once payment proof is submitted, it will appear here.'
+                        {activeSection === 'amount_update_pending'
+                          ? 'No CD amount updates awaiting verification. All submitted settlements are verified!'
+                          : activeSection === 'pending_verification'
+                          ? 'No new pending approval records found.'
                           : isCD
                           ? 'No customer dues (CD) found matching criteria.'
                           : 'No purchase orders found matching criteria.'}
@@ -874,9 +997,13 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                               <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 shadow-xs">
                                 ₹{pendingDue.toLocaleString('en-IN')}
                               </span>
-                            ) : (
+                            ) : isClosed ? (
                               <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                 ₹0 (Cleared)
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                                ₹0 (Awaiting Closure)
                               </span>
                             )}
                             {order.paymentProofUrl && (
@@ -899,27 +1026,29 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           <td className="text-center py-3 px-4 border-r border-gray-200">
                             {isClosed ? (
                               <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
-                                Closed
+                                Closed (Cleared)
                               </span>
-                            ) : order.status === 'PENDING_APPROVAL' || (order.paymentProofUrl && !isClosed) ? (
+                            ) : order.paymentProofUrl ? (
                               <div className="inline-flex flex-col items-center">
-                                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
-                                  Pending Verification
+                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                  CD Amount Update Pending Verification
                                 </span>
-                                {order.paymentProofUrl && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setProofViewerOrder(order);
-                                    }}
-                                    className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
-                                    title="View Uploaded Payment Proof"
-                                  >
-                                    Proof Attached
-                                  </button>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProofViewerOrder(order);
+                                  }}
+                                  className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer mt-0.5"
+                                  title="View Uploaded Payment Proof"
+                                >
+                                  Proof Attached
+                                </button>
                               </div>
+                            ) : order.status === 'PENDING_APPROVAL' ? (
+                              <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                Pending Approval
+                              </span>
                             ) : isPending ? (
                               <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#FFF2C9] text-[#986B0C] border border-[#FBE39A]">
                                 Pending
@@ -932,10 +1061,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           </td>
                           {isCD && (
                             <td className="text-center py-3 px-4 border-r border-gray-200">
-                              {pendingDue <= 0 || isClosed ? (
+                              {isClosed ? (
                                 <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   Cleared ✓
                                 </span>
+                              ) : order.paymentProofUrl || pendingDue <= 0 ? (
+                                <div className="inline-flex flex-col items-center">
+                                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                    Awaiting Admin Closure
+                                  </span>
+                                  <span className="text-[10px] text-amber-700 font-semibold">Proof Submitted</span>
+                                </div>
                               ) : (
                                 (() => {
                                   const orderTime = new Date(order.poDate || order.createdAt).getTime();
