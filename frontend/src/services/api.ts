@@ -229,5 +229,19 @@ export const api = {
   getTodayAttendance: () => request<any>('/attendance/today'),
   getMyAttendanceHistory: () => request<any>('/attendance/my-history'),
   getAllAttendance: (params: string = '') => request<any>(`/attendance/all${params}`),
+
+  // Vendor Operations
+  getVendorProfile: () => request<{ vendor: any }>('/vendor/profile'),
+  updateVendorProfile: (data: any) => request<any>('/vendor/profile', { method: 'PUT', body: JSON.stringify(data) }),
+  getVendorPOs: () => request<any[]>('/vendor/purchase-orders'),
+  submitPODispatch: (formData: FormData) => request<any>('/vendor/dispatch', { method: 'POST', body: formData }),
+  getVendorDashboardStats: () => request<any>('/vendor/dashboard-stats'),
+
+  // Admin Vendor Management
+  getAllVendors: () => request<any[]>('/vendor/admin/all'),
+  createVendor: (data: any) => request<any>('/vendor/admin/create', { method: 'POST', body: JSON.stringify(data) }),
+  toggleVendorKycLock: (id: string) => request<any>(`/vendor/admin/${id}/toggle-lock`, { method: 'PATCH' }),
+  updateVendorByAdmin: (id: string, data: any) =>
+    request<any>(`/vendor/admin/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 };
 

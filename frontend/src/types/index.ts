@@ -1,4 +1,52 @@
-export type Role = 'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+export type Role = 'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE' | 'VENDOR';
+
+export interface VendorProfile {
+  id: string;
+  vendorId: string;
+  businessName: string;
+  contactPerson: string;
+  phone: string;
+  email?: string | null;
+  primaryLocation: string;
+  aadharNumberMasked?: string;
+  panNumber: string;
+  bankAccountNumberMasked?: string;
+  bankIfscCode: string;
+  bankAccountHolder: string;
+  bankName?: string | null;
+  bankBranch?: string | null;
+  isKycLocked: boolean;
+  kycLockedAt?: string | null;
+  status: string;
+}
+
+export const VENDOR_WHITELISTED_LOCATIONS = [
+  'Chennai',
+  'Madurai',
+  'Varanasi',
+  'Siliguri',
+  'Bengaluru',
+  'Hyderabad',
+  'Warangal',
+  'Vijayawada',
+] as const;
+
+export const VENDOR_WHITELISTED_FRUITS = [
+  'Kashmir Apples',
+  'Pomegranate',
+  'Watermelon',
+  'Muskmelon',
+  'Banana',
+  'Orange',
+  'Plum',
+] as const;
+
+export type PODispatchStatus =
+  | 'PENDING_DISPATCH'
+  | 'LOADED_AND_DISPATCHED'
+  | 'IN_TRANSIT'
+  | 'DELIVERED_AT_HUB'
+  | 'REJECTED_TRANSIT';
 
 export interface User {
   id: string;
@@ -23,6 +71,7 @@ export interface User {
     department: string;
     designation: string;
   } | null;
+  vendorProfile?: VendorProfile | null;
 }
 
 export type POStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'OPEN' | 'CLOSED' | 'REJECTED' | 'CANCELLED';
@@ -74,6 +123,16 @@ export interface PurchaseOrder {
   rejectionReason?: string | null;
   paymentProofUrl?: string | null;
   paymentProofNotes?: string | null;
+  vendorProfileId?: string | null;
+  vendorProfile?: VendorProfile | null;
+  dispatchVehicleNumber?: string | null;
+  vehiclePhotoUrl?: string | null;
+  transportBillUrl?: string | null;
+  transporterName?: string | null;
+  driverPhone?: string | null;
+  dispatchDate?: string | null;
+  dispatchStatus?: PODispatchStatus;
+  autoAdvanceCalculated?: number | null;
   itemsCount: number;
   items?: POItem[];
   financial: {

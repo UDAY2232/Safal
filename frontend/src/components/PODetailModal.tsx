@@ -14,6 +14,8 @@ import {
   Trash2,
   Edit3,
   Lock,
+  Truck,
+  Eye,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { StatusBadge } from './StatusBadge';
@@ -266,6 +268,97 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                   <CheckCircle size={15} /> Approve Proof &amp; Close CD
                 </button>
               )}
+            </div>
+          )}
+
+          {/* Logistics & Dispatch Verification Banner */}
+          {(order.dispatchVehicleNumber || order.vehiclePhotoUrl || order.transportBillUrl) && (
+            <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-200/60 pb-2">
+                <div className="flex items-center gap-2">
+                  <Truck className="text-blue-800" size={18} />
+                  <strong className="text-xs font-black text-blue-950 uppercase tracking-wide">
+                    Logistics &amp; Dispatch Verification
+                  </strong>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-200 text-blue-900 uppercase">
+                  {order.dispatchStatus || 'IN TRANSIT'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="bg-white p-2.5 rounded-xl border border-blue-200">
+                  <span className="text-[10px] text-gray-500 block">Vehicle Registration No.</span>
+                  <strong className="text-xs font-black text-blue-900 font-mono block mt-0.5">
+                    {order.dispatchVehicleNumber || '-'}
+                  </strong>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-blue-200">
+                  <span className="text-[10px] text-gray-500 block">Transporter / Agency</span>
+                  <strong className="text-xs font-bold text-gray-900 block mt-0.5 truncate">
+                    {order.transporterName || 'Direct Vendor Transit'}
+                  </strong>
+                </div>
+
+                <div className="bg-white p-2.5 rounded-xl border border-blue-200">
+                  <span className="text-[10px] text-gray-500 block">Driver Phone</span>
+                  <strong className="text-xs font-bold text-gray-900 block mt-0.5">
+                    {order.driverPhone || 'Not Provided'}
+                  </strong>
+                </div>
+              </div>
+
+              {/* Photos & Proofs */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {order.vehiclePhotoUrl && (
+                  <div className="p-2.5 bg-white rounded-xl border border-blue-200 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold text-gray-500 block">Truck &amp; Number Plate Photo</span>
+                      <a
+                        href={order.vehiclePhotoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-extrabold text-blue-700 hover:underline flex items-center gap-1 mt-0.5 truncate"
+                      >
+                        <Eye size={12} /> View Number Plate Photo ↗
+                      </a>
+                    </div>
+                    <img
+                      src={order.vehiclePhotoUrl}
+                      alt="Vehicle"
+                      className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                    />
+                  </div>
+                )}
+
+                {order.transportBillUrl && (
+                  <div className="p-2.5 bg-white rounded-xl border border-blue-200 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[10px] font-bold text-gray-500 block">Transport Bill / Bilty (LR)</span>
+                      <a
+                        href={order.transportBillUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] font-extrabold text-blue-700 hover:underline flex items-center gap-1 mt-0.5 truncate"
+                      >
+                        <FileText size={12} /> View Transport Bill ↗
+                      </a>
+                    </div>
+                    {order.transportBillUrl.endsWith('.pdf') ? (
+                      <span className="w-12 h-12 rounded-lg bg-blue-100 text-blue-800 grid place-items-center font-bold text-[10px] flex-shrink-0">
+                        PDF
+                      </span>
+                    ) : (
+                      <img
+                        src={order.transportBillUrl}
+                        alt="Bilty"
+                        className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

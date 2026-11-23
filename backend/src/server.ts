@@ -4,6 +4,7 @@ dotenv.config();
 import { app } from './app.js';
 import { ensureAccountantSeed } from './utils/initAccountant.js';
 import { cleanupDummyOrders } from './utils/cleanupDummy.js';
+import { ensureDefaultVendor } from './utils/ensureVendorSeed.js';
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 
@@ -13,6 +14,7 @@ app.listen(PORT, '0.0.0.0', async () => {
   try {
     await ensureAccountantSeed();
     await cleanupDummyOrders();
+    await ensureDefaultVendor();
   } catch (err) {
     console.error('Error during startup tasks:', err);
   }

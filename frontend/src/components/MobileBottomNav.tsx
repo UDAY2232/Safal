@@ -23,9 +23,14 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const isEmployee = user?.role === 'EMPLOYEE';
+  const isVendor = user?.role === 'VENDOR';
 
   // Keep labels uniform and short so they never wrap or change button height
-  const items = isEmployee
+  const items = isVendor
+    ? [
+        { label: 'Dashboard', shortLabel: 'Dashboard', icon: Home, page: 'Dashboard' },
+      ]
+    : isEmployee
     ? [
         { label: 'Dashboard', shortLabel: 'Dashboard', icon: Home, page: 'Dashboard' },
         { label: 'Customer Due', shortLabel: 'CD', icon: CreditCard, page: 'Customer Due (CD)' },

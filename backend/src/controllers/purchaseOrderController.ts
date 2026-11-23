@@ -151,6 +151,7 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
       where,
       include: {
         supplier: true,
+        vendorProfile: true,
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -251,6 +252,7 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
       where: { id },
       include: {
         supplier: true,
+        vendorProfile: true,
         createdBy: {
           select: { id: true, name: true, email: true, role: true },
         },
@@ -449,6 +451,36 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       : Math.max(0, grandTotal - advance);
     const initialStatus = submitForApproval ? 'PENDING_APPROVAL' : 'DRAFT';
 
+    // Resolve vendorProfileId if supplier is a registered Vendor (supplierCode starts with VND-)
+    let linkedVendorProfileId: string | null = req.body.vendorProfileId || null;
+    if (!linkedVendorProfileId && resolvedSupplierId) {
+      const sup = await prisma.supplier.findUnique({
+        where: { id: resolvedSupplierId },
+        select: { supplierCode: true },
+      });
+      if (sup?.supplierCode && sup.supplierCode.startsWith('VND-')) {
+        const vProf = await prisma.vendorProfile.findUnique({
+          where: { vendorId: sup.supplierCode },
+          select: { id: true },
+        });
+        if (vProf) {
+          linkedVendorProfileId = vProf.id;
+        }
+      }
+    }
+
+    const isVendorProcurement = Boolean(linkedVendorProfileId) || req.body.isVendor === true;
+    let autoAdvanceCalculated: number | null = null;
+    let finalAdvance = advance;
+    let finalPending = pending;
+
+    // 70% automatic advance calculation for vendor procurement POs
+    if (isVendorProcurement && grandTotal > 0) {
+      autoAdvanceCalculated = Math.round(grandTotal * 0.70);
+      finalAdvance = autoAdvanceCalculated;
+      finalPending = Math.max(0, grandTotal - finalAdvance);
+    }
+
     if (processedItems.length === 1 && processedItems[0].lineTotal === 0 && grandTotal > 0) {
       processedItems[0].lineTotal = grandTotal;
       processedItems[0].ratePerUnit = grandTotal / (processedItems[0].quantity || 1);
@@ -475,6 +507,8 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
               poDate: poDate ? new Date(poDate) : new Date(),
               expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
               supplierId: resolvedSupplierId,
+              vendorProfileId: linkedVendorProfileId,
+              autoAdvanceCalculated,
               createdById: req.user!.id,
               deliveryAddress,
               orderPersonPlace: personPlace || null,
@@ -488,8 +522,8 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
               discountTotal,
               taxTotal,
               grandTotal,
-              advanceAmount: advance,
-              pendingAmount: pending,
+              advanceAmount: finalAdvance,
+              pendingAmount: finalPending,
               status: initialStatus,
               items: {
                 create: processedItems,
@@ -509,6 +543,7 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
             },
             include: {
               supplier: true,
+              vendorProfile: true,
               items: true,
             },
           });

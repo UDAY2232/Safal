@@ -17,6 +17,8 @@ import { ActivityLogsPage } from './pages/ActivityLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { AttendancePage } from './pages/AttendancePage';
+import { VendorDashboardPage } from './pages/VendorDashboardPage';
+import { VendorsAdminPage } from './pages/VendorsAdminPage';
 import { CreatePOModal } from './components/CreatePOModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 
@@ -192,11 +194,15 @@ function MainApp() {
 
           {/* Primary View: Dashboard (Kept persistently mounted for 0ms instantaneous tab switching) */}
           <div style={{ display: activePage === 'Dashboard' ? 'block' : 'none' }}>
-            <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
+            {user?.role === 'VENDOR' ? (
+              <VendorDashboardPage onNotify={notify} />
+            ) : (
+              <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
+            )}
           </div>
-          {activePage === 'Attendance' && <AttendancePage user={user} />}
+          {activePage === 'Attendance' && user?.role !== 'VENDOR' && <AttendancePage user={user} />}
           {/* Purchase Order (PO) and Customer Due (CD) Management */}
-          {(activePage === 'Purchase Order (PO)' || activePage === 'Customer Due (CD)') && (
+          {(activePage === 'Purchase Order (PO)' || activePage === 'Customer Due (CD)') && user?.role !== 'VENDOR' && (
             <PurchaseOrdersPage
               key={user?.role === 'EMPLOYEE' || activePage === 'Customer Due (CD)' ? 'cd-page' : 'po-page'}
               mode={user?.role === 'EMPLOYEE' || activePage === 'Customer Due (CD)' ? 'CD' : 'PO'}
@@ -205,13 +211,16 @@ function MainApp() {
               setShowCreateModal={setShowCreatePO}
             />
           )}
-          {activePage === 'Invoices' && user?.role !== 'EMPLOYEE' && <InvoicesPage onNotify={notify} />}
-          {activePage === 'Employee Expenses' && <ExpensesPage onNotify={notify} />}
-          {activePage === 'Bill Clearance' && user?.role !== 'EMPLOYEE' && <ClearancePage onNotify={notify} />}
+          {activePage === 'Invoices' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <InvoicesPage onNotify={notify} />}
+          {activePage === 'Employee Expenses' && user?.role !== 'VENDOR' && <ExpensesPage onNotify={notify} />}
+          {activePage === 'Bill Clearance' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <ClearancePage onNotify={notify} />}
           {activePage === 'Wages & Salary' && user?.role === 'ADMIN' && <WagesPage onNotify={notify} />}
           {activePage === 'Employees' && user?.role === 'ADMIN' && <EmployeesPage onNotify={notify} />}
-          {activePage === 'Suppliers' && user?.role !== 'EMPLOYEE' && <SuppliersPage onNotify={notify} />}
-          {activePage === 'Reports' && user?.role !== 'EMPLOYEE' && <ReportsPage onNotify={notify} />}
+          {activePage === 'Vendors (KYC)' && (user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
+            <VendorsAdminPage onNotify={notify} />
+          )}
+          {activePage === 'Suppliers' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <SuppliersPage onNotify={notify} />}
+          {activePage === 'Reports' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <ReportsPage onNotify={notify} />}
           {activePage === 'Accountant Performance' && <PerformancePage />}
           {activePage === 'Activity Logs' && <ActivityLogsPage />}
           {activePage === 'Settings' && <SettingsPage onNotify={notify} />}

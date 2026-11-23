@@ -7,7 +7,7 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   name: string;
-  role: 'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE';
+  role: 'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE' | 'VENDOR';
   department?: string | null;
   designation?: string | null;
   accountantProfile?: {
@@ -24,6 +24,13 @@ export interface AuthenticatedUser {
     employeeId: string;
     department: string;
     designation: string;
+  } | null;
+  vendorProfile?: {
+    id: string;
+    vendorId: string;
+    businessName: string;
+    primaryLocation: string;
+    isKycLocked: boolean;
   } | null;
 }
 
@@ -50,6 +57,7 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
       include: {
         accountantProfile: true,
         employee: true,
+        vendorProfile: true,
       },
     });
 
@@ -61,7 +69,7 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role as 'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE',
+      role: user.role as 'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE' | 'VENDOR',
       department: user.department,
       designation: user.designation,
       accountantProfile: user.accountantProfile,
@@ -71,6 +79,15 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
             employeeId: user.employee.employeeId,
             department: user.employee.department,
             designation: user.employee.designation,
+          }
+        : null,
+      vendorProfile: user.vendorProfile
+        ? {
+            id: user.vendorProfile.id,
+            vendorId: user.vendorProfile.vendorId,
+            businessName: user.vendorProfile.businessName,
+            primaryLocation: user.vendorProfile.primaryLocation,
+            isKycLocked: user.vendorProfile.isKycLocked,
           }
         : null,
     };

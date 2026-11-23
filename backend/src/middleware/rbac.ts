@@ -1,7 +1,7 @@
 import { Response, NextFunction } from 'express';
 import { AuthRequest } from './auth.js';
 
-export function requireRole(...allowedRoles: Array<'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE'>) {
+export function requireRole(...allowedRoles: Array<'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE' | 'VENDOR'>) {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthenticated' });

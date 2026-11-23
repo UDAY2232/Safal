@@ -337,16 +337,27 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1">
                   <MapPin size={12} className="text-emerald-700" />
-                  <span>{isCD ? 'Buyer Area / City *' : 'Placement City *'}</span>
+                  <span>{isCD ? 'Buyer Area / City *' : 'Delivery Hub Location *'}</span>
                 </label>
                 <input
                   type="text"
+                  list="whitelisted-hubs"
                   value={orderPersonPlace}
                   onChange={(e) => setOrderPersonPlace(e.target.value)}
-                  placeholder="e.g. Warangal, Hanamkonda, Hyderabad"
+                  placeholder={isCD ? "e.g. Warangal, Hanamkonda, Hyderabad" : "Select one of 8 Whitelisted Hubs (e.g. Warangal)"}
                   className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-semibold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none shadow-2xs"
                   required
                 />
+                <datalist id="whitelisted-hubs">
+                  <option value="Chennai" />
+                  <option value="Madurai" />
+                  <option value="Varanasi" />
+                  <option value="Siliguri" />
+                  <option value="Bengaluru" />
+                  <option value="Hyderabad" />
+                  <option value="Warangal" />
+                  <option value="Vijayawada" />
+                </datalist>
               </div>
             </div>
           </div>
@@ -361,7 +372,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 <p className="text-[10px] text-gray-500">
                   {isCD
                     ? 'Enter details for fruit item (fruit name, variety, quantity, rate). Click "+ Add Item" for more.'
-                    : 'Enter details for each fruit item (e.g. Fruit name, variety, quantity, rate).'}
+                    : 'Wholesale procurement items (Whitelisted: Kashmir Apples, Pomegranate, Watermelon, Muskmelon, Banana, Orange, Plum).'}
                 </p>
               </div>
 
@@ -376,6 +387,13 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
             {/* Datalist for fast fruit suggestions */}
             <datalist id="popular-fruits-list">
+              <option value="Kashmir Apples" />
+              <option value="Pomegranate" />
+              <option value="Watermelon" />
+              <option value="Muskmelon" />
+              <option value="Banana" />
+              <option value="Orange" />
+              <option value="Plum" />
               <option value="Shimla Royal Apples" />
               <option value="Kashmir Golden Apples" />
               <option value="Nagpur Oranges" />
@@ -579,6 +597,19 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 <span className="text-[10px] text-gray-500 mt-1 block">
                   {currentAdvance > 0 ? `₹${currentAdvance.toLocaleString('en-IN')} collected today` : '₹0 (No upfront payment)'}
                 </span>
+                {!isCD && currentTotal > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const adv = Math.round(currentTotal * 0.70);
+                      setAdvanceAmount(String(adv));
+                      setPendingAmount(String(currentTotal - adv));
+                    }}
+                    className="mt-1.5 px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-[#064D2B] rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
+                  >
+                    <Sparkles size={11} /> Apply 70% Vendor Advance (₹{Math.round(currentTotal * 0.70).toLocaleString('en-IN')})
+                  </button>
+                )}
               </div>
 
               {/* Pending Due Balance */}

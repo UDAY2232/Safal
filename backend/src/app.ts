@@ -15,6 +15,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
+import vendorRoutes from './routes/vendorRoutes.js';
 
 export const app = express();
 
@@ -110,4 +111,5 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/attendance', attendanceRoutes);
+app.use('/api/vendor', vendorRoutes);
 

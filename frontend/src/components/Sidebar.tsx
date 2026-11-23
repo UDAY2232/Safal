@@ -20,8 +20,10 @@ import {
   PanelLeftOpen,
   LogOut,
   LucideIcon,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Role } from '../types';
 
 interface SidebarProps {
   activePage: string;
@@ -35,12 +37,12 @@ interface SidebarProps {
 interface NavEntry {
   label: string;
   icon: LucideIcon;
-  roles: Array<'ADMIN' | 'ACCOUNTANT' | 'EMPLOYEE'>;
+  roles: Role[];
   adminOnly?: boolean;
 }
 
 const navItems: NavEntry[] = [
-  { label: 'Dashboard', icon: Home, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
+  { label: 'Dashboard', icon: Home, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE', 'VENDOR'] },
   { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Customer Due (CD)', icon: CreditCard, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Attendance', icon: Clock, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
@@ -49,6 +51,7 @@ const navItems: NavEntry[] = [
   { label: 'Bill Clearance', icon: ClipboardCheck, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Wages & Salary', icon: WalletCards, roles: ['ADMIN'], adminOnly: true },
   { label: 'Employees', icon: Users, roles: ['ADMIN'], adminOnly: true },
+  { label: 'Vendors (KYC)', icon: ShieldCheck, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Suppliers', icon: Truck, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Reports', icon: BarChart3, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Activity Logs', icon: Clock3, roles: ['ADMIN'], adminOnly: true },

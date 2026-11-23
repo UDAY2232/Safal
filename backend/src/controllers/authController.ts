@@ -14,11 +14,23 @@ export async function login(req: Request, res: Response) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: email.toLowerCase().trim() },
+    const loginIdentifier = email.trim();
+    const isVendorId = /^VND-\d+$/i.test(loginIdentifier);
+    const isEmployeeId = /^EMP-\d+$/i.test(loginIdentifier);
+
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email: loginIdentifier.toLowerCase() },
+          ...(isVendorId ? [{ vendorProfile: { vendorId: loginIdentifier.toUpperCase() } }] : []),
+          ...(isEmployeeId ? [{ employee: { employeeId: loginIdentifier.toUpperCase() } }] : []),
+          { phone: loginIdentifier },
+        ],
+      },
       include: {
         accountantProfile: true,
         employee: true,
+        vendorProfile: true,
       },
     });
 
@@ -100,6 +112,15 @@ export async function login(req: Request, res: Response) {
               designation: user.employee.designation,
             }
           : null,
+        vendorProfile: user.vendorProfile
+          ? {
+              id: user.vendorProfile.id,
+              vendorId: user.vendorProfile.vendorId,
+              businessName: user.vendorProfile.businessName,
+              primaryLocation: user.vendorProfile.primaryLocation,
+              isKycLocked: user.vendorProfile.isKycLocked,
+            }
+          : null,
       },
     });
   } catch (error: any) {
@@ -119,6 +140,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
       include: {
         accountantProfile: true,
         employee: true,
+        vendorProfile: true,
       },
     });
 
@@ -142,6 +164,15 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
               employeeId: user.employee.employeeId,
               department: user.employee.department,
               designation: user.employee.designation,
+            }
+          : null,
+        vendorProfile: user.vendorProfile
+          ? {
+              id: user.vendorProfile.id,
+              vendorId: user.vendorProfile.vendorId,
+              businessName: user.vendorProfile.businessName,
+              primaryLocation: user.vendorProfile.primaryLocation,
+              isKycLocked: user.vendorProfile.isKycLocked,
             }
           : null,
       },

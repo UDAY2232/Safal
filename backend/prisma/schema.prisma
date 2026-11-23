@@ -11,6 +11,7 @@ enum Role {
   ADMIN
   ACCOUNTANT
   EMPLOYEE
+  VENDOR
 }
 
 enum WageType {
@@ -27,6 +28,14 @@ enum POStatus {
   CLOSED
   REJECTED
   CANCELLED
+}
+
+enum PODispatchStatus {
+  PENDING_DISPATCH
+  LOADED_AND_DISPATCHED
+  IN_TRANSIT
+  DELIVERED_AT_HUB
+  REJECTED_TRANSIT
 }
 
 enum FinancialStatus {
@@ -79,6 +88,7 @@ model User {
 
   accountantProfile AccountantProfile?
   employee         Employee?
+  vendorProfile    VendorProfile?
   createdPOs       PurchaseOrder[]    @relation("POCreator")
   approvedPOs      PurchaseOrder[]    @relation("POApprover")
   auditLogs        AuditLog[]
@@ -128,6 +138,33 @@ model Employee {
   @@map("employees")
 }
 
+model VendorProfile {
+  id                   String          @id @default(cuid())
+  vendorId             String          @unique // e.g. VND-001, VND-002
+  userId               String          @unique
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName         String
+  contactPerson        String
+  phone                String
+  email                String?
+  primaryLocation      String          // Must be one of the 8 whitelisted cities
+  aadharNumber         String          // 12-digit Aadhaar
+  panNumber            String          // 10-char PAN
+  bankAccountNumber    String
+  bankIfscCode         String
+  bankAccountHolder    String
+  bankName             String?
+  bankBranch           String?
+  isKycLocked          Boolean         @default(false)
+  kycLockedAt          DateTime?
+  status               String          @default("ACTIVE")
+  purchaseOrders       PurchaseOrder[]
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@map("vendor_profiles")
+}
+
 model Supplier {
   id             String          @id @default(cuid())
   supplierCode   String          @unique // e.g. SUP-001
@@ -155,6 +192,8 @@ model PurchaseOrder {
   expectedDeliveryDate DateTime?
   supplierId           String
   supplier             Supplier                      @relation(fields: [supplierId], references: [id])
+  vendorProfileId      String?
+  vendorProfile        VendorProfile?                @relation(fields: [vendorProfileId], references: [id])
   createdById          String
   createdBy            User                          @relation("POCreator", fields: [createdById], references: [id])
   approvedById         String?
@@ -165,6 +204,14 @@ model PurchaseOrder {
   notes                String?
   paymentProofUrl      String?
   paymentProofNotes    String?
+  dispatchVehicleNumber String?
+  vehiclePhotoUrl      String?
+  transportBillUrl     String?
+  transporterName      String?
+  driverPhone          String?
+  dispatchDate         DateTime?
+  dispatchStatus       PODispatchStatus              @default(PENDING_DISPATCH)
+  autoAdvanceCalculated Decimal?                     @db.Decimal(14, 2)
   subtotal             Decimal                       @default(0) @db.Decimal(14, 2)
   discountTotal        Decimal                       @default(0) @db.Decimal(14, 2)
   taxTotal             Decimal                       @default(0) @db.Decimal(14, 2)
@@ -181,6 +228,7 @@ model PurchaseOrder {
 
   @@index([status])
   @@index([supplierId])
+  @@index([vendorProfileId])
   @@index([createdById])
   @@map("purchase_orders")
 }
