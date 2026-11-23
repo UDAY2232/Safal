@@ -38,6 +38,9 @@ import {
   TrendingUp,
   Activity,
   Layers,
+  Package,
+  Camera,
+  ReceiptText,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
