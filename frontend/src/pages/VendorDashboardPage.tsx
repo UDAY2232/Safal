@@ -27,6 +27,10 @@ import {
   Scale,
   ExternalLink,
   BadgeCheck,
+  ChevronDown,
+  ChevronUp,
+  Search,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -60,6 +64,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'orders' | 'dispatch' | 'qc' | 'kyc'>('orders');
   const [viewSlipModalUrl, setViewSlipModalUrl] = useState<string | null>(null);
+
+  // Consignments Search, Filter, Expand & Media Preview State
+  const [consignmentFilter, setConsignmentFilter] = useState<'ALL' | 'PENDING' | 'IN_TRANSIT' | 'DELIVERED'>('ALL');
+  const [consignmentSearch, setConsignmentSearch] = useState('');
+  const [expandedPOId, setExpandedPOId] = useState<string | null>(null);
+  const [previewMediaModal, setPreviewMediaModal] = useState<{ url: string; title: string } | null>(null);
 
   // Dispatch Modal state
   const [selectedPOForDispatch, setSelectedPOForDispatch] = useState<PurchaseOrder | null>(null);
@@ -138,9 +148,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setShowCreatePOModal(false);
         setSelectedPOForDispatch(null);
         setViewSlipModalUrl(null);
+        setPreviewMediaModal(null);
       }
     };
-    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl) {
+    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl || previewMediaModal) {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
@@ -394,6 +405,48 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       o.status !== 'REJECTED'
   );
 
+  const inTransitOrders = orders.filter(
+    (o) => o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'IN_TRANSIT'
+  );
+
+  const deliveredAndVerifiedOrders = orders.filter(
+    (o) => o.dispatchStatus === 'DELIVERED_AT_HUB' || o.status === 'CLOSED'
+  );
+
+  const filteredOrders = orders.filter((po) => {
+    if (consignmentFilter === 'PENDING') {
+      if (
+        po.dispatchStatus === 'LOADED_AND_DISPATCHED' ||
+        po.dispatchStatus === 'IN_TRANSIT' ||
+        po.dispatchStatus === 'DELIVERED_AT_HUB' ||
+        po.status === 'CLOSED'
+      ) {
+        return false;
+      }
+    } else if (consignmentFilter === 'IN_TRANSIT') {
+      if (po.dispatchStatus !== 'LOADED_AND_DISPATCHED' && po.dispatchStatus !== 'IN_TRANSIT') {
+        return false;
+      }
+    } else if (consignmentFilter === 'DELIVERED') {
+      if (po.dispatchStatus !== 'DELIVERED_AT_HUB' && po.status !== 'CLOSED') {
+        return false;
+      }
+    }
+
+    if (consignmentSearch.trim()) {
+      const q = consignmentSearch.toLowerCase();
+      const matchPO = po.poNumber?.toLowerCase().includes(q);
+      const matchHub = po.orderPersonPlace?.toLowerCase().includes(q);
+      const matchFruit =
+        po.fruitName?.toLowerCase().includes(q) ||
+        po.items?.some((it) => it.fruitName.toLowerCase().includes(q));
+      const matchTruck = po.dispatchVehicleNumber?.toLowerCase().includes(q);
+      return matchPO || matchHub || matchFruit || matchTruck;
+    }
+
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       {/* 1. Corporate Vendor Header */}
@@ -449,7 +502,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          <ShoppingCart size={15} /> My Purchase Orders ({orders.length})
+          <ShoppingCart size={15} /> Supply Consignments ({orders.length})
         </button>
 
         <button
@@ -645,111 +698,408 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         </section>
       )}
 
-      {/* 5. Tab Content: My Purchase Orders */}
+      {/* 5. Tab Content: Fruit Supply Consignments */}
       {activeTab === 'orders' && (
-        <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-black text-gray-900">Assigned Purchase Orders (PO) Dossier</h2>
-              <p className="text-xs text-gray-600 mt-0.5">
-                Official procurement orders issued by SAFAL Export &amp; Import Pvt Ltd.
-              </p>
+        <section className="bg-white rounded-3xl border border-[#D5E3D8] shadow-sm overflow-hidden space-y-0">
+          {/* Header Banner */}
+          <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-r from-emerald-50/80 via-white to-white">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-[#064D2B] text-white flex items-center justify-center font-black shadow-xs flex-shrink-0">
+                <ShoppingCart size={22} />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-black text-emerald-800 tracking-wider block">
+                  Wholesale Procurement Supply Desk
+                </span>
+                <h2 className="text-base sm:text-lg font-black text-gray-900 font-['Manrope']">
+                  Fruit Supply Consignments (పండ్ల సప్లై కన్సైన్‌మెంట్లు)
+                </h2>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Direct fruit supply dispatches to SAFAL Regional Hubs with 55% Auto-Advance Guarantee.
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-2.5">
-              <span className="text-xs text-gray-500">
-                Showing <strong>{orders.length}</strong> orders
-              </span>
+
+            <div className="flex items-center gap-2 self-start md:self-auto">
               <button
                 type="button"
                 onClick={() => setShowCreatePOModal(true)}
-                className="px-3.5 py-1.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+                className="px-4 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-black transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
-                <Plus size={14} /> + Create Supply PO
+                <Plus size={15} /> + Create Supply Consignment
               </button>
             </div>
           </div>
 
+          {/* Search & Filter Bar */}
+          <div className="p-3.5 bg-gray-50/80 border-b border-gray-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setConsignmentFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  consignmentFilter === 'ALL'
+                    ? 'bg-[#064D2B] text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                All Consignments ({orders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setConsignmentFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  consignmentFilter === 'PENDING'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                Pending Dispatch ({pendingDispatchOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setConsignmentFilter('IN_TRANSIT')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  consignmentFilter === 'IN_TRANSIT'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                In Transit ({inTransitOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setConsignmentFilter('DELIVERED')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  consignmentFilter === 'DELIVERED'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                Delivered &amp; QC Verified ({deliveredAndVerifiedOrders.length})
+              </button>
+            </div>
+
+            <div className="relative sm:w-72">
+              <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
+              <input
+                type="text"
+                value={consignmentSearch}
+                onChange={(e) => setConsignmentSearch(e.target.value)}
+                placeholder="Search PO #, Hub, Fruit, Truck..."
+                className="w-full h-8 pl-8 pr-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Consignments Table */}
           <div className="overflow-x-auto w-full">
-            <table className="w-full border-collapse min-w-[850px] text-xs">
+            <table className="w-full border-collapse min-w-[950px] text-xs">
               <thead>
                 <tr className="bg-[#064D2B] text-white">
                   <th className="py-3 px-3 text-center font-bold w-12 border-r border-[#085A33]">S.No.</th>
-                  <th className="py-3 px-4 text-center font-bold border-r border-[#085A33]">PO Number</th>
-                  <th className="py-3 px-4 text-center font-bold border-r border-[#085A33]">Destination Hub</th>
-                  <th className="py-3 px-4 text-center font-bold border-r border-[#085A33]">Order Date</th>
-                  <th className="py-3 px-4 text-right font-bold border-r border-[#085A33]">Total Value</th>
-                  <th className="py-3 px-4 text-right font-bold border-r border-[#085A33]">Advance Paid</th>
-                  <th className="py-3 px-4 text-right font-bold border-r border-[#085A33]">Balance Due</th>
-                  <th className="py-3 px-4 text-center font-bold border-r border-[#085A33]">Dispatch Status</th>
-                  <th className="py-3 px-4 text-center font-bold">Action</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Consignment PO #</th>
+                  <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Fruit &amp; Layer Breakdown</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Destination Hub</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Consignment Value</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">55% Auto-Advance</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">45% Balance Due</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Logistics &amp; Proof</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Status</th>
+                  <th className="py-3 px-3 text-center font-bold">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {orders.length === 0 ? (
+                {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-12 text-gray-400">
-                      No purchase orders assigned to this vendor account yet.
+                    <td colSpan={10} className="text-center py-12 text-gray-400">
+                      <ShoppingCart size={32} className="mx-auto mb-2 text-gray-300" />
+                      No supply consignments found matching the criteria.
                     </td>
                   </tr>
                 ) : (
-                  orders.map((po, idx) => {
+                  filteredOrders.map((po, idx) => {
                     const total = Number(po.grandTotal || 0);
-                    const advance = Number(po.advanceAmount || 0);
+                    const advance = Number(po.advanceAmount || Math.round(total * 0.55));
                     const balance = Number(po.pendingAmount ?? Math.max(0, total - advance));
+                    const isExpanded = expandedPOId === po.id;
+
+                    // Compute fruit summary & layer counts
+                    const appleItems = po.items?.filter((it) => it.fruitName.toLowerCase().includes('apple')) || [];
+                    const isAppleConsignment = appleItems.length > 0 || po.fruitName?.toLowerCase().includes('apple');
+                    const totalBoxes = po.items?.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0) || 0;
 
                     return (
-                      <tr key={po.id} className="hover:bg-gray-50 transition">
-                        <td className="text-center py-3.5 px-3 font-bold text-gray-600 border-r border-gray-100">
-                          {idx + 1}
-                        </td>
-                        <td className="text-center py-3.5 px-4 font-black text-[#087A3E] border-r border-gray-100 whitespace-nowrap">
-                          {po.poNumber}
-                        </td>
-                        <td className="text-center py-3.5 px-4 text-gray-800 border-r border-gray-100">
-                          <span className="inline-flex items-center gap-1 font-bold text-gray-900">
-                            📍 {po.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal'}
-                          </span>
-                        </td>
-                        <td className="text-center py-3.5 px-4 text-gray-600 border-r border-gray-100 whitespace-nowrap">
-                          {po.poDate ? new Date(po.poDate).toLocaleDateString('en-IN') : '-'}
-                        </td>
-                        <td className="text-right py-3.5 px-4 font-extrabold text-gray-900 border-r border-gray-100">
-                          ₹{total.toLocaleString('en-IN')}
-                        </td>
-                        <td className="text-right py-3.5 px-4 font-bold text-emerald-700 border-r border-gray-100">
-                          ₹{advance.toLocaleString('en-IN')}
-                        </td>
-                        <td className="text-right py-3.5 px-4 font-bold text-amber-900 border-r border-gray-100">
-                          ₹{balance.toLocaleString('en-IN')}
-                        </td>
-                        <td className="text-center py-3.5 px-4 border-r border-gray-100">
-                          {po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 inline-flex items-center gap-1">
-                              <Truck size={12} /> {po.dispatchVehicleNumber || 'In Transit'}
+                      <React.Fragment key={po.id}>
+                        <tr
+                          className="hover:bg-emerald-50/20 transition cursor-pointer"
+                          onClick={() => setExpandedPOId(isExpanded ? null : po.id)}
+                        >
+                          <td className="text-center py-3.5 px-3 font-bold text-gray-600 border-r border-gray-100">
+                            {idx + 1}
+                          </td>
+
+                          {/* Consignment PO Number */}
+                          <td className="text-center py-3.5 px-3 font-black text-[#087A3E] border-r border-gray-100 whitespace-nowrap">
+                            <span>{po.poNumber}</span>
+                            <span className="text-[10px] text-gray-400 block font-normal">
+                              {po.poDate ? new Date(po.poDate).toLocaleDateString('en-IN') : '-'}
                             </span>
-                          ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.status === 'CLOSED' ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-900 inline-flex items-center gap-1">
-                              <CheckCircle2 size={12} /> Delivered
+                          </td>
+
+                          {/* Fruit & Layer Breakdown */}
+                          <td className="py-3.5 px-3 border-r border-gray-100">
+                            <div className="font-extrabold text-gray-900 flex items-center gap-1">
+                              {isAppleConsignment ? '🍎 Kashmir Apples' : `🍏 ${po.fruitName || 'Fresh Fruits'}`}
+                            </div>
+                            {po.items && po.items.length > 0 ? (
+                              <div className="mt-0.5 text-[10px] text-gray-600 font-semibold flex flex-wrap gap-1">
+                                {isAppleConsignment ? (
+                                  <>
+                                    {po.items.map((it, i) => (
+                                      <span key={i} className="px-1.5 py-0.5 bg-gray-100 rounded border border-gray-200">
+                                        {it.varietyGrade?.includes('4-Layer') || it.fruitName.includes('4L') ? '4L' : it.varietyGrade?.includes('5-Layer') || it.fruitName.includes('5L') ? '5L' : it.varietyGrade?.includes('Roller') || it.fruitName.includes('Roll') ? 'Roll' : it.varietyGrade}: <strong>{it.quantity}</strong>
+                                      </span>
+                                    ))}
+                                    <span className="text-emerald-800 font-black">({totalBoxes} Boxes)</span>
+                                  </>
+                                ) : (
+                                  <span>
+                                    {totalBoxes} {po.items[0]?.unit || 'BOX'} ({po.items[0]?.varietyGrade || 'Grade A'})
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-gray-400">{po.fruitName || 'Standard Fruit Consignment'}</span>
+                            )}
+                          </td>
+
+                          {/* Destination Hub */}
+                          <td className="text-center py-3.5 px-3 text-gray-800 border-r border-gray-100 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 font-bold text-gray-900">
+                              📍 {po.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal Hub'}
                             </span>
-                          ) : (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 inline-flex items-center gap-1">
-                              <Clock size={12} /> Pending Dispatch
+                          </td>
+
+                          {/* Consignment Value */}
+                          <td className="text-right py-3.5 px-3 font-black text-gray-900 border-r border-gray-100 whitespace-nowrap">
+                            ₹{total.toLocaleString('en-IN')}
+                          </td>
+
+                          {/* 55% Auto-Advance */}
+                          <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            <strong className="text-emerald-700 font-black block">₹{advance.toLocaleString('en-IN')}</strong>
+                            <span className="text-[9px] text-emerald-800 font-extrabold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                              ✓ 55% Guaranteed
                             </span>
-                          )}
-                        </td>
-                        <td className="text-center py-3.5 px-4 whitespace-nowrap">
-                          {po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
-                            <span className="text-[11px] font-bold text-blue-700">Proof Submitted ✓</span>
-                          ) : (
-                            <button
-                              onClick={() => setSelectedPOForDispatch(po)}
-                              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition shadow-xs cursor-pointer inline-flex items-center gap-1"
-                            >
-                              <Upload size={12} /> Dispatch
-                            </button>
-                          )}
-                        </td>
-                      </tr>
+                          </td>
+
+                          {/* 45% Balance Due */}
+                          <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            <strong className="text-amber-900 font-black block">₹{balance.toLocaleString('en-IN')}</strong>
+                            <span className="text-[9px] text-gray-500 font-medium">45% on delivery</span>
+                          </td>
+
+                          {/* Logistics & Proof */}
+                          <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            {po.dispatchVehicleNumber ? (
+                              <div className="space-y-1">
+                                <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-200 font-black text-[10px] block">
+                                  🚚 {po.dispatchVehicleNumber}
+                                </span>
+                                <div className="flex items-center justify-center gap-1">
+                                  {po.vehiclePhotoUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPreviewMediaModal({ url: po.vehiclePhotoUrl!, title: `Vehicle Photo: ${po.dispatchVehicleNumber}` });
+                                      }}
+                                      className="px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[9px] font-bold flex items-center gap-0.5 cursor-pointer"
+                                      title="View vehicle photo"
+                                    >
+                                      📸 Photo
+                                    </button>
+                                  )}
+                                  {po.transportBillUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPreviewMediaModal({ url: po.transportBillUrl!, title: `Transport Bill (Bilty): ${po.poNumber}` });
+                                      }}
+                                      className="px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded text-[9px] font-bold flex items-center gap-0.5 cursor-pointer"
+                                      title="View transport bill"
+                                    >
+                                      🧾 Bilty
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                Proof Pending
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Status */}
+                          <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            {po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 inline-flex items-center gap-1">
+                                <Truck size={12} /> In Transit
+                              </span>
+                            ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.status === 'CLOSED' ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-900 inline-flex items-center gap-1">
+                                <CheckCircle2 size={12} /> Delivered &amp; Verified
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 inline-flex items-center gap-1">
+                                <Clock size={12} /> Pending Dispatch
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="text-center py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1.5">
+                              {po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPOForDispatch(po)}
+                                  className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg font-bold text-[10px] border border-blue-200 cursor-pointer"
+                                  title="Update or re-upload dispatch proof"
+                                >
+                                  Update Proof
+                                </button>
+                              ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.weighbridgeScaleSlipUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setViewSlipModalUrl(po.weighbridgeScaleSlipUrl || null)}
+                                  className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-[10px] shadow-xs cursor-pointer inline-flex items-center gap-1"
+                                >
+                                  <Scale size={11} /> Scale Slip
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPOForDispatch(po)}
+                                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition shadow-xs cursor-pointer inline-flex items-center gap-1"
+                                >
+                                  <Upload size={12} /> Dispatch
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => setExpandedPOId(isExpanded ? null : po.id)}
+                                className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center cursor-pointer transition"
+                                title="Toggle item details breakdown"
+                              >
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Expanded Item Breakdown Sub-Row */}
+                        {isExpanded && (
+                          <tr className="bg-emerald-50/40 border-b-2 border-emerald-300">
+                            <td colSpan={10} className="p-4">
+                              <div className="p-4 bg-white rounded-2xl border border-emerald-200 shadow-xs space-y-3">
+                                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-black text-gray-900">
+                                      Consignment Breakdown: {po.poNumber}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 font-bold">
+                                      Destination: {po.orderPersonPlace || 'Warangal Hub'}
+                                    </span>
+                                  </div>
+                                  <span className="text-xs font-black text-emerald-800">
+                                    Total: ₹{total.toLocaleString('en-IN')} (55% Adv: ₹{advance.toLocaleString('en-IN')} | 45% Due: ₹{balance.toLocaleString('en-IN')})
+                                  </span>
+                                </div>
+
+                                {po.items && po.items.length > 0 ? (
+                                  <div className="overflow-x-auto">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="text-gray-500 text-[10px] uppercase border-b border-gray-100">
+                                          <th className="py-1 px-2 text-left">Item Name / Grade</th>
+                                          <th className="py-1 px-2 text-right">Quantity</th>
+                                          <th className="py-1 px-2 text-center">Unit</th>
+                                          <th className="py-1 px-2 text-right">Rate (₹)</th>
+                                          <th className="py-1 px-2 text-right">Subtotal (₹)</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-gray-50 font-medium">
+                                        {po.items.map((it, i) => (
+                                          <tr key={i}>
+                                            <td className="py-1.5 px-2 font-bold text-gray-800">
+                                              {it.fruitName} <span className="text-gray-500 font-normal">({it.varietyGrade})</span>
+                                            </td>
+                                            <td className="py-1.5 px-2 text-right font-black text-gray-900">{it.quantity}</td>
+                                            <td className="py-1.5 px-2 text-center text-gray-500">{it.unit}</td>
+                                            <td className="py-1.5 px-2 text-right text-gray-700">₹{Number(it.ratePerUnit || 0).toLocaleString('en-IN')}</td>
+                                            <td className="py-1.5 px-2 text-right font-black text-emerald-800">₹{Number(it.lineTotal || 0).toLocaleString('en-IN')}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-500">No individual line items recorded.</p>
+                                )}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-gray-100 text-xs">
+                                  <div className="p-2 bg-gray-50 rounded-xl">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Vehicle &amp; Transporter</span>
+                                    <strong className="text-gray-900 block mt-0.5">{po.dispatchVehicleNumber || 'Pending'} {po.transporterName ? `(${po.transporterName})` : ''}</strong>
+                                    {po.driverPhone && <span className="text-[10px] text-gray-600 block">Driver: {po.driverPhone}</span>}
+                                  </div>
+
+                                  <div className="p-2 bg-gray-50 rounded-xl">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Weighbridge &amp; QC Verification</span>
+                                    <strong className="text-gray-900 block mt-0.5">
+                                      {po.weighbridgeNetKg ? `${Number(po.weighbridgeNetKg).toLocaleString('en-IN')} KG Verified` : 'Pending Hub Weighing'}
+                                    </strong>
+                                    {po.qcInspectionStatus && <span className="text-[10px] text-emerald-700 font-bold block">Status: {po.qcInspectionStatus}</span>}
+                                  </div>
+
+                                  <div className="p-2 bg-gray-50 rounded-xl">
+                                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Attached Documents</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      {po.vehiclePhotoUrl ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => setPreviewMediaModal({ url: po.vehiclePhotoUrl!, title: `Truck Photo: ${po.dispatchVehicleNumber}` })}
+                                          className="text-[10px] font-bold text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <ImageIcon size={12} /> Truck Photo ✓
+                                        </button>
+                                      ) : (
+                                        <span className="text-[10px] text-gray-400">No Photo</span>
+                                      )}
+                                      {po.transportBillUrl ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => setPreviewMediaModal({ url: po.transportBillUrl!, title: `Transport Bill: ${po.poNumber}` })}
+                                          className="text-[10px] font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
+                                        >
+                                          <FileText size={12} /> Bilty / LR ✓
+                                        </button>
+                                      ) : (
+                                        <span className="text-[10px] text-gray-400">No Bilty</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })
                 )}
@@ -1861,6 +2211,73 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   className="px-4 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold cursor-pointer"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Modal: Preview Media Photo / Bilty Document */}
+      {previewMediaModal && (
+        <div
+          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPreviewMediaModal(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-4 sm:p-5 my-auto max-h-[92vh] flex flex-col relative"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+              <h3 className="text-base font-black text-gray-900">{previewMediaModal.title}</h3>
+              <button
+                type="button"
+                onClick={() => setPreviewMediaModal(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-500 flex items-center justify-center transition cursor-pointer"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-2 my-2 flex items-center justify-center bg-gray-50 rounded-2xl border border-gray-200">
+              {previewMediaModal.url.endsWith('.pdf') ? (
+                <iframe
+                  src={previewMediaModal.url}
+                  title={previewMediaModal.title}
+                  className="w-full h-96 rounded-xl border-0"
+                />
+              ) : (
+                <img
+                  src={previewMediaModal.url}
+                  alt={previewMediaModal.title}
+                  className="max-h-[70vh] object-contain rounded-xl shadow-xs"
+                />
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-gray-100 flex items-center justify-between flex-shrink-0 text-xs">
+              <span className="text-gray-500 font-medium">Verified Consignment Dispatch Proof</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={previewMediaModal.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
+                >
+                  <ExternalLink size={13} /> Open in New Tab
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMediaModal(null)}
+                  className="px-4 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Close Preview
                 </button>
               </div>
             </div>
