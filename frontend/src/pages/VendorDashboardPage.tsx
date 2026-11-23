@@ -895,7 +895,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-white underline decoration-emerald-300">
                 {vendorProfile?.vendorId || 'VND-001'}
               </strong>{' '}
-              · Primary Delivery Hub: <strong>{vendorProfile?.primaryLocation || 'Warangal'}</strong> · Hub 1 Live
+              · Authorized Wholesale Vendor Partner · Hub 1 Live
             </p>
           </div>
 
@@ -2083,34 +2083,27 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <ShieldCheck size={14} className="text-emerald-800" />
                 <span>Verified Partner</span>
               </span>
-              <button
-                type="button"
-                onClick={openEditProfileModal}
-                className="px-4 py-1.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-black transition shadow-sm inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
-              >
-                <Edit3 size={14} /> Update Profile
-              </button>
+              <span className="px-3.5 py-1.5 rounded-full bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs">
+                <Lock size={12} className="text-amber-700" />
+                <span>KYC &amp; Bank Coordinates Locked</span>
+              </span>
             </div>
           </div>
 
           {/* Profile Management Notice */}
-          <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-950 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-700 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-start gap-2.5">
-              <Building2 className="text-emerald-700 flex-shrink-0 mt-0.5" size={16} />
+              <Lock className="text-emerald-700 flex-shrink-0 mt-0.5" size={16} />
               <div>
-                <strong className="block font-bold">Authorized Vendor Profile &amp; Bank Disbursement Desk:</strong>
-                <span className="text-emerald-800">
-                  Update your contact person, phone number, primary delivery hub, and bank NEFT/RTGS disbursement coordinates directly. All settlements will be routed to your registered account.
+                <strong className="block font-bold text-gray-900">Authorized Vendor Profile &amp; Bank Disbursement Dossier:</strong>
+                <span className="text-gray-600">
+                  Official commercial registration and direct bank coordinates are permanently locked by Safal Admin. Contact Safal Administrator for any profile or disbursement updates.
                 </span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={openEditProfileModal}
-              className="px-3.5 py-1.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs self-start sm:self-auto"
-            >
-              <Pencil size={13} /> Edit Profile Details
-            </button>
+            <span className="px-3 py-1 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 text-[11px] font-black uppercase flex items-center gap-1 flex-shrink-0 self-start sm:self-auto">
+              <ShieldCheck size={12} /> Admin Controlled
+            </span>
           </div>
 
           {/* Details Grid */}
@@ -2131,10 +2124,6 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <div className="flex justify-between py-1 border-b border-gray-200">
                   <span className="text-gray-500 font-medium">Authorized Contact Person:</span>
                   <strong className="text-gray-900 font-bold">{vendorProfile?.contactPerson || '-'}</strong>
-                </div>
-                <div className="flex justify-between py-1 border-b border-gray-200">
-                  <span className="text-gray-500 font-medium">Primary Hub Location:</span>
-                  <strong className="text-gray-900 font-bold">📍 {vendorProfile?.primaryLocation || 'Warangal'}</strong>
                 </div>
                 <div className="flex justify-between py-1 border-b border-gray-200">
                   <span className="text-gray-500 font-medium">Phone Number:</span>
@@ -2564,14 +2553,21 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   Take a photo of the truck where the number plate and loaded fruit boxes/crates are clearly visible.
                 </p>
 
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/jpg"
-                  capture="environment"
-                  required
-                  onChange={handleVehiclePhotoChange}
-                  className="w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#064D2B] file:text-white hover:file:bg-[#087A3E] file:cursor-pointer"
-                />
+                <label className="w-full h-11 px-3 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs">
+                  <Upload size={15} className="text-emerald-700" />
+                  <span className="text-xs font-bold text-emerald-900 truncate">
+                    {vehiclePhotoFile ? vehiclePhotoFile.name : 'Choose Vehicle Photo (with number plate)'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    capture="environment"
+                    required
+                    onChange={handleVehiclePhotoChange}
+                    style={{ display: 'none' }}
+                    className="hidden"
+                  />
+                </label>
 
                 {vehiclePhotoPreview && (
                   <div className="mt-2 p-2 bg-white rounded-xl border border-gray-200 inline-block">
@@ -2594,13 +2590,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   Upload clear photo or PDF document of the transporter's consignment note or freight receipt.
                 </p>
 
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/jpg,application/pdf"
-                  required
-                  onChange={handleTransportBillChange}
-                  className="w-full text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#064D2B] file:text-white hover:file:bg-[#087A3E] file:cursor-pointer"
-                />
+                <label className="w-full h-11 px-3.5 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-xl flex items-center justify-center gap-2.5 cursor-pointer transition shadow-2xs group">
+                  <div className="w-7 h-7 rounded-lg bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
+                    <Upload size={14} />
+                  </div>
+                  <span className="text-xs font-bold text-blue-900 truncate">
+                    {transportBillFile ? transportBillFile.name : 'Choose Transport Bill (Bilty / LR) Image or PDF'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg,application/pdf"
+                    required
+                    onChange={handleTransportBillChange}
+                    style={{ display: 'none' }}
+                    className="hidden"
+                  />
+                </label>
 
                 {transportBillPreview && (
                   <div className="mt-2 p-2 bg-white rounded-xl border border-gray-200 inline-block">
@@ -3402,12 +3407,21 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <p className="text-[10px] text-gray-500">
                       Clear photo showing vehicle with loaded fruit boxes and number plate.
                     </p>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/jpg"
-                      onChange={handleSupplyVehiclePhotoChange}
-                      className="w-full text-[11px] text-gray-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-bold file:bg-emerald-700 file:text-white hover:file:bg-emerald-800 file:cursor-pointer"
-                    />
+                    <label className="w-full h-10 px-3 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                      <div className="w-6 h-6 rounded-md bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
+                        <Upload size={13} />
+                      </div>
+                      <span className="text-[11px] font-bold text-emerald-900 truncate">
+                        {supplyVehiclePhotoFile ? supplyVehiclePhotoFile.name : 'Choose Vehicle Dispatch Photo'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={handleSupplyVehiclePhotoChange}
+                        style={{ display: 'none' }}
+                        className="hidden"
+                      />
+                    </label>
                     {supplyVehiclePhotoPreview && (
                       <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
                         <img
@@ -3428,12 +3442,21 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <p className="text-[10px] text-gray-500">
                       Clear photo or PDF receipt from transporter / consignment note.
                     </p>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/jpg,application/pdf"
-                      onChange={handleSupplyTransportBillChange}
-                      className="w-full text-[11px] text-gray-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-bold file:bg-blue-700 file:text-white hover:file:bg-blue-800 file:cursor-pointer"
-                    />
+                    <label className="w-full h-10 px-3 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                      <div className="w-6 h-6 rounded-md bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
+                        <Upload size={13} />
+                      </div>
+                      <span className="text-[11px] font-bold text-blue-900 truncate">
+                        {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose Bilty / LR Document'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg,application/pdf"
+                        onChange={handleSupplyTransportBillChange}
+                        style={{ display: 'none' }}
+                        className="hidden"
+                      />
+                    </label>
                     {supplyTransportBillPreview && (
                       <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
                         {supplyTransportBillFile?.type === 'application/pdf' ? (
@@ -4105,15 +4128,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <label className="block text-gray-700 font-bold mb-1">
                       Upload Weighbridge Scale Slip Photo / PDF
                     </label>
-                    <label className="w-full h-10 px-3 border border-dashed border-emerald-400 bg-emerald-50/30 hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition">
-                      <Upload size={14} className="text-emerald-700" />
-                      <span className="text-xs font-bold text-emerald-800 truncate">
+                    <label className="w-full h-11 px-3.5 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-xl flex items-center justify-center gap-2.5 cursor-pointer transition shadow-2xs group">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
+                        <Upload size={14} />
+                      </div>
+                      <span className="text-xs font-bold text-emerald-900 truncate">
                         {qcSlipFile ? qcSlipFile.name : 'Choose Scale Slip Receipt Image / PDF'}
                       </span>
                       <input
                         type="file"
                         accept="image/*,application/pdf"
                         onChange={handleQCSlipFileChange}
+                        style={{ display: 'none' }}
                         className="hidden"
                       />
                     </label>

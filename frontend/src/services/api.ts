@@ -243,6 +243,7 @@ export const api = {
 
   // Admin Vendor Management
   getAllVendors: () => request<any[]>('/vendor/admin/all'),
+  getVendorOperationsForAdmin: () => request<any[]>('/vendor/admin/operations'),
   createVendor: (data: any) => request<any>('/vendor/admin/create', { method: 'POST', body: JSON.stringify(data) }),
   toggleVendorKycLock: (id: string) => request<any>(`/vendor/admin/${id}/toggle-lock`, { method: 'PATCH' }),
   updateVendorByAdmin: (id: string, data: any) =>

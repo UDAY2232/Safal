@@ -511,6 +511,61 @@ export async function getAllVendors(req: AuthRequest, res: Response) {
 }
 
 /**
+ * GET /api/vendor/admin/operations
+ * Returns all vendor consignments, dispatches, and weighbridge scale slips for Admin & Accountant.
+ */
+export async function getVendorOperationsForAdmin(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'ACCOUNTANT')) {
+      return res.status(403).json({ error: 'Admin or Accountant access required' });
+    }
+
+    const operations = await prisma.purchaseOrder.findMany({
+      where: {
+        OR: [
+          { vendorProfileId: { not: null } },
+          { supplier: { supplierCode: { startsWith: 'VND' } } },
+          { dispatchVehicleNumber: { not: null } },
+          { weighbridgeGrossKg: { not: null } },
+        ],
+      },
+      include: {
+        items: true,
+        supplier: {
+          select: {
+            id: true,
+            name: true,
+            supplierCode: true,
+            phone: true,
+            primaryLocation: true,
+          },
+        },
+        vendorProfile: {
+          select: {
+            id: true,
+            vendorId: true,
+            businessName: true,
+            contactPerson: true,
+            phone: true,
+            primaryLocation: true,
+            bankAccountNumber: true,
+            bankIfscCode: true,
+            bankName: true,
+            bankBranch: true,
+          },
+        },
+      },
+      orderBy: { poDate: 'desc' },
+    });
+
+    return res.json(operations);
+  } catch (error: any) {
+    console.error('getVendorOperationsForAdmin error:', error);
+    return res.status(500).json({ error: 'Failed to list vendor operations' });
+  }
+}
+
+/**
  * POST /api/vendor/admin/create
  * Admin creates a new vendor with verified KYC & bank details.
  * Auto-generates VND-XXX ID and sets isKycLocked: true.

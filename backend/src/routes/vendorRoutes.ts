@@ -13,6 +13,7 @@ import {
   updateVendorByAdmin,
   submitHubQCInspection,
   createVendorSupplyPO,
+  getVendorOperationsForAdmin,
 } from '../controllers/vendorController.js';
 
 const router = Router();
@@ -51,6 +52,7 @@ router.post(
 
 // Admin / Accountant Management Routes
 router.get('/admin/all', authenticateToken, getAllVendors);
+router.get('/admin/operations', authenticateToken, getVendorOperationsForAdmin);
 router.post('/admin/create', authenticateToken, createVendor);
 router.patch('/admin/:id/toggle-lock', authenticateToken, toggleVendorKycLock);
 router.put('/admin/:id', authenticateToken, updateVendorByAdmin);
