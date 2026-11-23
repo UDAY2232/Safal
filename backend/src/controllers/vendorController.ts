@@ -751,3 +751,98 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
     return res.status(500).json({ error: error.message || 'Failed to update vendor' });
   }
 }
+
+/**
+ * POST /api/vendor/po/:id/qc-inspection
+ * Records Hub Weighbridge (Gross, Tare, Net KG) and QC Quality Grading inspection.
+ * Uploads weighbridge slip photo or PDF.
+ */
+export async function submitHubQCInspection(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'ACCOUNTANT')) {
+      return res.status(403).json({ error: 'Admin or Accountant access required' });
+    }
+
+    const { id } = req.params;
+    const {
+      weighbridgeGrossKg,
+      weighbridgeTareKg,
+      qcInspectionStatus = 'PASSED',
+      qcGradeARatio,
+      qcGradeBRatio,
+      qcWastageKg,
+      qcInspectorName,
+      qcInspectionRemarks,
+    } = req.body;
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        vendorProfile: { include: { user: true } },
+        supplier: true,
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    const gross = Number(weighbridgeGrossKg) || 0;
+    const tare = Number(weighbridgeTareKg) || 0;
+    const net = Math.max(0, gross - tare);
+
+    const slipFile = req.file;
+    const weighbridgeSlipUrl = slipFile ? `/uploads/${slipFile.filename}` : undefined;
+
+    const updated = await prisma.purchaseOrder.update({
+      where: { id },
+      data: {
+        weighbridgeGrossKg: gross > 0 ? gross : undefined,
+        weighbridgeTareKg: tare > 0 ? tare : undefined,
+        weighbridgeNetKg: net > 0 ? net : undefined,
+        weighbridgeSlipUrl: weighbridgeSlipUrl || po.weighbridgeSlipUrl,
+        qcInspectionStatus: qcInspectionStatus || 'PASSED',
+        qcGradeARatio: qcGradeARatio ? Number(qcGradeARatio) : undefined,
+        qcGradeBRatio: qcGradeBRatio ? Number(qcGradeBRatio) : undefined,
+        qcWastageKg: qcWastageKg ? Number(qcWastageKg) : undefined,
+        qcInspectorName: qcInspectorName || req.user.name,
+        qcInspectionDate: new Date(),
+        qcInspectionRemarks: qcInspectionRemarks || undefined,
+        dispatchStatus: 'DELIVERED_AT_HUB',
+      },
+    });
+
+    // Notify Vendor User
+    if (po.vendorProfile?.user?.id) {
+      await prisma.notification.create({
+        data: {
+          recipientId: po.vendorProfile.user.id,
+          recipientRole: 'VENDOR',
+          title: `Weighbridge & QC Verified: ${po.poNumber}`,
+          message: `Consignment Net Weight: ${net.toLocaleString('en-IN')} KG verified. Status: ${qcInspectionStatus}. Inspect digital slip in your dashboard.`,
+          type: 'INFO',
+          linkUrl: `/dashboard`,
+        },
+      });
+    }
+
+    await createAuditLog({
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'PO_QC_WEIGHBRIDGE_RECORDED',
+      entityType: 'PURCHASE_ORDER',
+      entityId: id,
+      details: `${po.poNumber} weighbridge net: ${net} KG, QC: ${qcInspectionStatus}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      message: 'Weighbridge & QC Inspection recorded successfully',
+      purchaseOrder: updated,
+    });
+  } catch (error: any) {
+    console.error('submitHubQCInspection error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to record QC inspection' });
+  }
+}

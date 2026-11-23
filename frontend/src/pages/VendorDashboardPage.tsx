@@ -24,10 +24,106 @@ import {
   ShoppingCart,
   Plus,
   Trash2,
+  Scale,
+  MessageSquare,
+  Share2,
+  ExternalLink,
+  BadgeCheck,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { PurchaseOrder, VENDOR_WHITELISTED_LOCATIONS, VENDOR_WHITELISTED_FRUITS } from '../types';
+
+export const VENDOR_HUB_DIRECTORY = [
+  {
+    city: 'Warangal',
+    state: 'Telangana',
+    name: 'Warangal Central Hub & Weighbridge',
+    manager: 'T. Ramesh Rao',
+    phone: '919848012345',
+    displayPhone: '+91 98480 12345',
+    address: 'Plot 12-14, Laxmipuram Wholesale Fruit Market Yard, Enumamula, Warangal, TG 506006',
+    scaleCapacity: '50 Ton Electronic Weighbridge',
+    hours: '05:00 AM - 08:00 PM (Scale 24x7)',
+  },
+  {
+    city: 'Hyderabad',
+    state: 'Telangana',
+    name: 'Hyderabad Mega Hub & Cold Storage',
+    manager: 'G. Srinivas',
+    phone: '919849067890',
+    displayPhone: '+91 98490 67890',
+    address: 'Batasingaram Logistic Park, NH-65 / Kothapet Fruit Market Annex, Hyderabad, TG 501511',
+    scaleCapacity: '60 Ton Pitless Digital Weighbridge',
+    hours: '04:30 AM - 09:00 PM (Scale 24x7)',
+  },
+  {
+    city: 'Vijayawada',
+    state: 'Andhra Pradesh',
+    name: 'Vijayawada Regional Transit Hub',
+    manager: 'K. Narayana',
+    phone: '919848198765',
+    displayPhone: '+91 98481 98765',
+    address: 'Nunna Mango & Fruit Market Complex, Inner Ring Rd, Vijayawada, AP 521212',
+    scaleCapacity: '50 Ton Pitless Weighbridge',
+    hours: '05:00 AM - 08:00 PM',
+  },
+  {
+    city: 'Bengaluru',
+    state: 'Karnataka',
+    name: 'Bengaluru Agro Procurement Hub',
+    manager: 'K. Venkatesh',
+    phone: '919845034567',
+    displayPhone: '+91 98450 34567',
+    address: 'Gate 4, APMC Market Yard, Yeshwanthpur, Bengaluru, KA 560022',
+    scaleCapacity: '60 Ton Electronic Weighbridge',
+    hours: '05:00 AM - 08:30 PM',
+  },
+  {
+    city: 'Chennai',
+    state: 'Tamil Nadu',
+    name: 'Chennai Port Transit Hub',
+    manager: 'R. Sundaram',
+    phone: '919444012891',
+    displayPhone: '+91 94440 12891',
+    address: 'Block C, Koyambedu Wholesale Market Complex, Chennai, TN 600092',
+    scaleCapacity: '60 Ton Weighbridge Scale',
+    hours: '04:00 AM - 08:00 PM',
+  },
+  {
+    city: 'Madurai',
+    state: 'Tamil Nadu',
+    name: 'Madurai South Hub',
+    manager: 'M. Selvam',
+    phone: '919443187654',
+    displayPhone: '+91 94431 87654',
+    address: 'Mattuthavani Central Vegetable & Fruit Market, Madurai, TN 625007',
+    scaleCapacity: '40 Ton Digital Weighbridge',
+    hours: '05:30 AM - 07:30 PM',
+  },
+  {
+    city: 'Varanasi',
+    state: 'Uttar Pradesh',
+    name: 'Varanasi North Hub',
+    manager: 'Rajesh Pandey',
+    phone: '919450023145',
+    displayPhone: '+91 94500 23145',
+    address: 'Chandpur Mandi Complex, GT Road, Varanasi, UP 221106',
+    scaleCapacity: '50 Ton Electronic Scale',
+    hours: '05:00 AM - 08:00 PM',
+  },
+  {
+    city: 'Siliguri',
+    state: 'West Bengal',
+    name: 'Siliguri North-East Gate Hub',
+    manager: 'Anirban Roy',
+    phone: '919434076512',
+    displayPhone: '+91 94340 76512',
+    address: 'Regulated Market Complex, Champasari, Siliguri, WB 734003',
+    scaleCapacity: '50 Ton Digital Scale',
+    hours: '05:00 AM - 07:30 PM',
+  },
+];
 
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
@@ -48,7 +144,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
   const [vendorProfile, setVendorProfile] = useState<any>(null);
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'orders' | 'dispatch' | 'kyc'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'dispatch' | 'qc' | 'support' | 'kyc'>('orders');
+  const [viewSlipModalUrl, setViewSlipModalUrl] = useState<string | null>(null);
+  const [selectedSupportPOId, setSelectedSupportPOId] = useState<string>('');
 
   // Dispatch Modal state
   const [selectedPOForDispatch, setSelectedPOForDispatch] = useState<PurchaseOrder | null>(null);
@@ -367,6 +465,28 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
           }`}
         >
           <Truck size={15} /> Ready for Dispatch ({pendingDispatchOrders.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('qc')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeTab === 'qc'
+              ? 'bg-[#087A3E] text-white shadow-xs'
+              : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+          }`}
+        >
+          <Scale size={15} /> Weighbridge &amp; QC Slips ({orders.filter((o) => o.weighbridgeNetKg || o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED').length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('support')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+            activeTab === 'support'
+              ? 'bg-[#1564B7] text-white shadow-xs'
+              : 'bg-blue-50 text-blue-900 hover:bg-blue-100 border border-blue-200'
+          }`}
+        >
+          <MessageSquare size={15} /> WhatsApp Helpdesk &amp; Hubs
         </button>
 
         <button
@@ -784,6 +904,468 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
         </section>
       )}
 
+      {/* 6. Tab Content: Digital Weighbridge & QC Inspection Slips */}
+      {activeTab === 'qc' && (
+        <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm p-4 sm:p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Scale className="text-emerald-700" size={24} />
+                <h2 className="text-xl font-extrabold text-gray-900">
+                  Digital Weighbridge Scale &amp; Quality Control (QC) Slips
+                </h2>
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
+                Official electronic mandi scale weight receipts (Gross, Tare, Net Fruit KG) and QC grading acceptance reports.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black inline-flex items-center gap-1.5">
+                <BadgeCheck size={14} className="text-emerald-700" />
+                <span>Mandi Scale Verified</span>
+              </span>
+            </div>
+          </div>
+
+          {/* QC Cards List */}
+          {(() => {
+            const qcOrders = orders.filter(
+              (o) =>
+                o.weighbridgeNetKg ||
+                o.qcInspectionStatus ||
+                o.dispatchStatus === 'LOADED_AND_DISPATCHED' ||
+                o.dispatchStatus === 'IN_TRANSIT' ||
+                o.dispatchStatus === 'DELIVERED_AT_HUB'
+            );
+
+            if (qcOrders.length === 0) {
+              return (
+                <div className="py-12 text-center text-gray-400">
+                  <Scale size={44} className="mx-auto text-emerald-600 mb-2 opacity-60" />
+                  <p className="font-bold text-gray-800 text-sm">No Weighbridge Slips Recorded Yet</p>
+                  <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
+                    Once your dispatch vehicle reaches the destination regional hub, the mandi weighbridge incharge will weigh the truck (Gross &amp; Tare) and upload the digital scale slip here.
+                  </p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-4">
+                {qcOrders.map((order) => {
+                  const hasWeighbridge = Boolean(order.weighbridgeNetKg);
+                  const gross = Number(order.weighbridgeGrossKg || 0);
+                  const tare = Number(order.weighbridgeTareKg || 0);
+                  const net = Number(order.weighbridgeNetKg || 0);
+                  const gradeA = Number(order.qcGradeARatio || 95);
+                  const gradeB = Number(order.qcGradeBRatio || 5);
+                  const wastage = Number(order.qcWastageKg || 0);
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="p-4 sm:p-5 rounded-2xl border border-emerald-200 bg-emerald-50/20 hover:bg-emerald-50/40 transition space-y-4"
+                    >
+                      {/* Header */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-100 pb-3">
+                        <div className="flex items-center gap-2.5 flex-wrap">
+                          <strong className="text-base font-black text-[#087A3E] font-mono">
+                            {order.poNumber}
+                          </strong>
+                          <span className="text-xs text-gray-600 flex items-center gap-1">
+                            <MapPin size={13} className="text-gray-400" />
+                            <strong>{order.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal'} Hub</strong>
+                          </span>
+                          {order.dispatchVehicleNumber && (
+                            <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-800 text-[11px] font-mono font-bold">
+                              🚚 {order.dispatchVehicleNumber}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Status Badge */}
+                        <div>
+                          {order.qcInspectionStatus === 'ACCEPTED' ? (
+                            <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1.5">
+                              <CheckCircle2 size={13} className="text-emerald-700" />
+                              QC ACCEPTED (100% Verified)
+                            </span>
+                          ) : order.qcInspectionStatus === 'CONDITIONAL_ACCEPTANCE' ? (
+                            <span className="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1.5">
+                              <AlertCircle size={13} className="text-amber-700" />
+                              CONDITIONAL ACCEPTANCE
+                            </span>
+                          ) : order.qcInspectionStatus === 'REJECTED' ? (
+                            <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1.5">
+                              <X size={13} className="text-rose-700" />
+                              QC REJECTED
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-200 inline-flex items-center gap-1.5">
+                              <Clock size={13} className="text-blue-700" />
+                              Truck in Transit / Scale Weigh-in Pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Weight Breakdown */}
+                      {hasWeighbridge ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="bg-white p-3 rounded-xl border border-emerald-200">
+                              <span className="text-[10px] uppercase font-bold text-gray-500 block">
+                                Gross Truck Weight (భారీ ట్రక్ బరువు)
+                              </span>
+                              <strong className="text-base sm:text-lg font-black text-gray-900 block mt-0.5">
+                                {gross.toLocaleString('en-IN')} KG
+                              </strong>
+                              <span className="text-[10px] text-gray-400 block">
+                                {(gross / 1000).toFixed(2)} Metric Tonnes
+                              </span>
+                            </div>
+
+                            <div className="bg-white p-3 rounded-xl border border-emerald-200">
+                              <span className="text-[10px] uppercase font-bold text-gray-500 block">
+                                Empty Tare Weight (ఖాళీ ట్రక్ బరువు)
+                              </span>
+                              <strong className="text-base sm:text-lg font-black text-gray-900 block mt-0.5">
+                                {tare.toLocaleString('en-IN')} KG
+                              </strong>
+                              <span className="text-[10px] text-gray-400 block">
+                                {(tare / 1000).toFixed(2)} Metric Tonnes
+                              </span>
+                            </div>
+
+                            <div className="bg-white p-3 rounded-xl border-2 border-emerald-500 shadow-xs">
+                              <span className="text-[10px] uppercase font-black text-emerald-800 block">
+                                Net Fruit Weight (నికర పండ్ల బరువు)
+                              </span>
+                              <strong className="text-base sm:text-lg font-black text-emerald-700 block mt-0.5">
+                                {net.toLocaleString('en-IN')} KG
+                              </strong>
+                              <span className="text-[10px] text-emerald-600 font-bold block">
+                                {(net / 1000).toFixed(2)} Metric Tonnes Net
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Quality Grading & Remarks */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                            <div className="bg-white p-3 rounded-xl border border-emerald-200 space-y-1.5">
+                              <span className="text-[10px] uppercase font-bold text-gray-500 block">
+                                Quality Grading Ratios
+                              </span>
+                              <div className="flex items-center gap-3 pt-0.5">
+                                <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 font-bold border border-emerald-200">
+                                  Grade A: <strong>{gradeA}%</strong>
+                                </span>
+                                <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-bold border border-amber-200">
+                                  Grade B: <strong>{gradeB}%</strong>
+                                </span>
+                              </div>
+                              {wastage > 0 && (
+                                <p className="text-[11px] text-rose-600 font-bold mt-1">
+                                  ⚠️ Wastage / Spoilage Deduction: <strong>{wastage} KG</strong>
+                                </p>
+                              )}
+                              <p className="text-[11px] text-gray-600 mt-1">
+                                QC Inspector: <strong>{order.qcInspectorName || 'Hub QC Officer'}</strong>
+                                {order.qcInspectionDate && (
+                                  <span> · Date: {new Date(order.qcInspectionDate).toLocaleDateString('en-IN')}</span>
+                                )}
+                              </p>
+                            </div>
+
+                            {/* Digital Slip preview or button */}
+                            <div className="bg-white p-3 rounded-xl border border-emerald-200 flex flex-col justify-between gap-2">
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-gray-500 block">
+                                  Electronic Weighbridge Slip
+                                </span>
+                                <p className="text-[11px] text-gray-600 mt-0.5">
+                                  {order.qcInspectionRemarks || 'Standard export quality certified at hub weighbridge.'}
+                                </p>
+                              </div>
+
+                              {order.weighbridgeSlipUrl ? (
+                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewSlipModalUrl(order.weighbridgeSlipUrl || null)}
+                                    className="px-3 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+                                  >
+                                    <Eye size={13} /> View Scale Slip (కాంటా రసీదు)
+                                  </button>
+                                  <a
+                                    href={order.weighbridgeSlipUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[11px] text-emerald-700 font-bold hover:underline inline-flex items-center gap-1"
+                                  >
+                                    <ExternalLink size={12} /> Open Full Size
+                                  </a>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-gray-400 italic">
+                                  Digital scale slip pending Hub document scanner upload.
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200 text-xs text-blue-900 flex items-center gap-2">
+                          <Clock size={16} className="text-blue-600 flex-shrink-0" />
+                          <span>
+                            Truck dispatched ({order.dispatchVehicleNumber || 'In Transit'}). Official weighbridge scale gross and empty tare weights will be recorded automatically when the truck enters the destination hub yard.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </section>
+      )}
+
+      {/* 7. Tab Content: 1-Click WhatsApp Support Desk & 8 Regional Hub Directory */}
+      {activeTab === 'support' && (
+        <section className="space-y-6">
+          {/* Top Card: 1-Click WhatsApp Action Desk */}
+          <div className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm p-4 sm:p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    💬
+                  </div>
+                  <h2 className="text-xl font-extrabold text-gray-900">
+                    1-Click WhatsApp Support Desk (డైరెక్ట్ వాట్సాప్ సపోర్ట్)
+                  </h2>
+                </div>
+                <p className="text-xs text-gray-600 mt-1">
+                  Instant pre-filled WhatsApp templates to share live truck transit location, inquire 70% advance bank transfer UTR, or check mandi scale weight.
+                </p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold self-start sm:self-auto">
+                Direct Corporate Helpdesk: +91 98480 12345
+              </span>
+            </div>
+
+            {/* PO Selector for dynamic templates */}
+            <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="text-xs">
+                <span className="font-bold text-gray-700 block">Select Consignment PO for WhatsApp Action:</span>
+                <span className="text-gray-500 text-[11px]">Selecting a PO automatically inserts order number, vehicle number, and advance amounts.</span>
+              </div>
+              <select
+                value={selectedSupportPOId}
+                onChange={(e) => setSelectedSupportPOId(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+              >
+                <option value="">-- General Inquiry (No specific PO) --</option>
+                {orders.map((po) => (
+                  <option key={po.id} value={po.id}>
+                    {po.poNumber} — {po.orderPersonPlace || 'Hub'} (₹{Number(po.grandTotal || 0).toLocaleString('en-IN')})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Action Cards */}
+            {(() => {
+              const activePO = orders.find((o) => o.id === selectedSupportPOId) || orders[0];
+              const poNum = activePO?.poNumber || 'PO/SF/2026/020';
+              const truckNo = activePO?.dispatchVehicleNumber || 'AP 39 TB 1234';
+              const hubName = activePO?.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal';
+              const driverContact = (activePO as any)?.dispatchDriverPhone || vendorProfile?.phone || '+91 98480 12345';
+              const orderTotal = Number(activePO?.grandTotal || 1320000);
+              const advanceAmt = Math.round(orderTotal * 0.70);
+              const vendorName = vendorProfile?.businessName || user?.name || 'Authorized Vendor';
+              const vendorId = vendorProfile?.vendorId || 'VND-001';
+              const bankAcc = vendorProfile?.bankAccountNumberMasked || 'XXXXXX6789';
+              const ifsc = vendorProfile?.bankIfscCode || 'SBIN0001234';
+
+              // Pre-filled WhatsApp URLs
+              const locationMsg = `🚚 *SAFAL TRUCK LOCATION UPDATE*\n• PO Number: ${poNum}\n• Vendor: ${vendorName} (${vendorId})\n• Vehicle No: ${truckNo}\n• Destination Hub: ${hubName}\n• Driver Contact: ${driverContact}\n\nSir, our loaded vehicle is currently moving to the hub. Here is our live transit update.`;
+              const locationWaUrl = `https://wa.me/919848012345?text=${encodeURIComponent(locationMsg)}`;
+
+              const advanceMsg = `💰 *SAFAL 70% ADVANCE PAYMENT INQUIRY*\n• PO Number: ${poNum}\n• Vendor: ${vendorName} (${vendorId})\n• Total PO Value: ₹${orderTotal.toLocaleString('en-IN')}\n• 70% Advance Amount: ₹${advanceAmt.toLocaleString('en-IN')}\n• Bank Account: ${bankAcc} (${ifsc})\n\nSir, dispatch proof has been submitted. Kindly share the 70% advance payment bank transfer UTR number.`;
+              const advanceWaUrl = `https://wa.me/919848012345?text=${encodeURIComponent(advanceMsg)}`;
+
+              const qcMsg = `⚖️ *SAFAL WEIGHBRIDGE & QC STATUS*\n• PO Number: ${poNum}\n• Vendor: ${vendorName} (${vendorId})\n• Vehicle: ${truckNo}\n• Destination: ${hubName} Hub\n\nSir, please verify the Weighbridge Gross/Tare weight slip and QC grading certificate for this consignment.`;
+              const qcWaUrl = `https://wa.me/919848012345?text=${encodeURIComponent(qcMsg)}`;
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Card 1: Live Truck Location */}
+                  <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center mb-2">
+                        <Truck size={20} />
+                      </div>
+                      <h3 className="font-extrabold text-sm text-emerald-950">
+                        1. Share Live Truck Location
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Send real-time GPS location and driver details directly to Safal Hub Logistics Team.
+                      </p>
+                      <div className="mt-2.5 p-2 bg-white rounded-lg border border-emerald-100 text-[10px] text-gray-500 font-mono">
+                        PO: <strong>{poNum}</strong> · Vehicle: <strong>{truckNo}</strong>
+                      </div>
+                    </div>
+
+                    <a
+                      href={locationWaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-2.5 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-2 cursor-pointer transition"
+                    >
+                      <Share2 size={14} /> Share Location on WhatsApp
+                    </a>
+                  </div>
+
+                  {/* Card 2: 70% Advance Inquiry */}
+                  <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center mb-2">
+                        <CreditCard size={20} />
+                      </div>
+                      <h3 className="font-extrabold text-sm text-amber-950">
+                        2. Inquire 70% Advance / Bank UTR
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Ask Corporate Accounts Desk for NEFT/RTGS transaction receipt and bank reference.
+                      </p>
+                      <div className="mt-2.5 p-2 bg-white rounded-lg border border-amber-100 text-[10px] text-gray-500 font-mono">
+                        Adv: <strong>₹{advanceAmt.toLocaleString('en-IN')}</strong> · A/C: <strong>{bankAcc}</strong>
+                      </div>
+                    </div>
+
+                    <a
+                      href={advanceWaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-2 cursor-pointer transition"
+                    >
+                      <CreditCard size={14} /> Inquire 70% Advance on WhatsApp
+                    </a>
+                  </div>
+
+                  {/* Card 3: Weighbridge & QC Status */}
+                  <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-200 flex flex-col justify-between gap-3">
+                    <div>
+                      <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center mb-2">
+                        <Scale size={20} />
+                      </div>
+                      <h3 className="font-extrabold text-sm text-blue-950">
+                        3. Weighbridge &amp; QC Query
+                      </h3>
+                      <p className="text-xs text-gray-600 mt-1">
+                        Inquire regarding truck tare weight completion and quality inspection acceptance.
+                      </p>
+                      <div className="mt-2.5 p-2 bg-white rounded-lg border border-blue-100 text-[10px] text-gray-500 font-mono">
+                        Destination: <strong>{hubName} Hub Yard</strong>
+                      </div>
+                    </div>
+
+                    <a
+                      href={qcWaUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full py-2.5 bg-[#1564B7] hover:bg-[#0E4F94] text-white rounded-xl text-xs font-black shadow-xs flex items-center justify-center gap-2 cursor-pointer transition"
+                    >
+                      <Scale size={14} /> Inquire Weighbridge on WhatsApp
+                    </a>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Bottom Section: 8 Regional Hubs Directory */}
+          <div className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm p-4 sm:p-6 space-y-4">
+            <div className="border-b border-gray-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-lg font-black text-gray-900 flex items-center gap-2">
+                  <MapPin className="text-emerald-700" size={20} />
+                  Official 8 Regional Hubs Directory &amp; Mandi Incharges
+                </h3>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Direct contacts for all Safal whitelisted regional procurement hubs with electronic weighbridge facilities.
+                </p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-black self-start sm:self-auto">
+                8 Whitelisted Hubs Active
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {VENDOR_HUB_DIRECTORY.map((hub) => {
+                const waUrl = `https://wa.me/${hub.phone}?text=${encodeURIComponent(
+                  `Hello ${hub.manager} Sir, this is ${vendorProfile?.businessName || user?.name} (${vendorProfile?.vendorId || 'Vendor'}). Inquiring about delivery to ${hub.city} Hub.`
+                )}`;
+
+                return (
+                  <div
+                    key={hub.city}
+                    className="p-3.5 rounded-2xl border border-gray-200 bg-gray-50/50 hover:bg-emerald-50/30 hover:border-emerald-300 transition flex flex-col justify-between gap-3 text-xs"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1">
+                        <strong className="text-sm font-black text-gray-900 flex items-center gap-1">
+                          📍 {hub.city}
+                        </strong>
+                        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                          {hub.state}
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] font-bold text-gray-800 mt-1">
+                        Incharge: <span className="text-emerald-900">{hub.manager}</span>
+                      </p>
+
+                      <div className="mt-2 space-y-1 text-[11px] text-gray-600">
+                        <p className="line-clamp-2" title={hub.address}>
+                          🏢 {hub.address}
+                        </p>
+                        <p className="text-emerald-800 font-semibold flex items-center gap-1 mt-1">
+                          ⚖️ {hub.scaleCapacity}
+                        </p>
+                        <p className="text-gray-500 text-[10px]">
+                          🕒 {hub.hours}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-200/80 flex items-center gap-2">
+                      <a
+                        href={waUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex-1 py-1.5 px-2 bg-[#25D366] hover:bg-[#1EBE5D] text-white rounded-lg text-[11px] font-black text-center transition flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <MessageSquare size={12} /> WhatsApp
+                      </a>
+                      <a
+                        href={`tel:+${hub.phone}`}
+                        className="py-1.5 px-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-[11px] font-bold text-center transition flex items-center justify-center gap-1 cursor-pointer"
+                        title={`Call ${hub.displayPhone}`}
+                      >
+                        <Phone size={12} /> Call
+                      </a>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* 7. Modal: Submit Vehicle Photo & Transport Bill */}
       {selectedPOForDispatch && (
         <div className="modal-backdrop">
@@ -1196,6 +1778,67 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Modal: View Weighbridge Scale Slip Document / Photo */}
+      {viewSlipModalUrl && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-80 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-4 sm:p-5 my-auto max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Scale className="text-emerald-800" size={20} />
+                <h3 className="text-base font-black text-gray-900">
+                  Digital Weighbridge Scale Slip (కాంటా రసీదు)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewSlipModalUrl(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 p-2 my-2 flex items-center justify-center bg-gray-50 rounded-2xl border border-gray-200">
+              {viewSlipModalUrl.endsWith('.pdf') ? (
+                <iframe
+                  src={viewSlipModalUrl}
+                  title="Weighbridge PDF"
+                  className="w-full h-96 rounded-xl border-0"
+                />
+              ) : (
+                <img
+                  src={viewSlipModalUrl}
+                  alt="Weighbridge Scale Slip"
+                  className="max-h-[70vh] object-contain rounded-xl shadow-xs"
+                />
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-gray-100 flex items-center justify-between flex-shrink-0 text-xs">
+              <span className="text-gray-500 font-medium">Official mandi weighbridge printout</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={viewSlipModalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  download
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
+                >
+                  <ExternalLink size={13} /> Open in New Tab
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setViewSlipModalUrl(null)}
+                  className="px-4 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

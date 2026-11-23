@@ -11,6 +11,7 @@ import {
   createVendor,
   toggleVendorKycLock,
   updateVendorByAdmin,
+  submitHubQCInspection,
 } from '../controllers/vendorController.js';
 
 const router = Router();
@@ -29,6 +30,14 @@ router.post(
   submitPODispatch
 );
 router.get('/dashboard-stats', authenticateToken, getVendorDashboardStats);
+
+// Hub QC & Weighbridge Inspection Submission
+router.post(
+  '/po/:id/qc-inspection',
+  authenticateToken,
+  upload.single('weighbridgeSlip'),
+  submitHubQCInspection
+);
 
 // Admin / Accountant Management Routes
 router.get('/admin/all', authenticateToken, getAllVendors);

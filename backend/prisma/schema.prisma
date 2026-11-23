@@ -212,6 +212,18 @@ model PurchaseOrder {
   dispatchDate         DateTime?
   dispatchStatus       PODispatchStatus              @default(PENDING_DISPATCH)
   autoAdvanceCalculated Decimal?                     @db.Decimal(14, 2)
+  // Weighbridge & Quality Control (QC) Hub Inspection Records
+  weighbridgeGrossKg   Decimal?                      @db.Decimal(12, 2)
+  weighbridgeTareKg    Decimal?                      @db.Decimal(12, 2)
+  weighbridgeNetKg     Decimal?                      @db.Decimal(12, 2)
+  weighbridgeSlipUrl   String?
+  qcInspectionStatus   String?                       // 'PASSED', 'REJECTED_TRANSIT', 'GRADE_DOWNGRADED'
+  qcGradeARatio        Decimal?                      @db.Decimal(5, 2) // e.g. 96.50 (%)
+  qcGradeBRatio        Decimal?                      @db.Decimal(5, 2) // e.g. 3.50 (%)
+  qcWastageKg          Decimal?                      @db.Decimal(12, 2)
+  qcInspectorName      String?
+  qcInspectionDate     DateTime?
+  qcInspectionRemarks  String?
   subtotal             Decimal                       @default(0) @db.Decimal(14, 2)
   discountTotal        Decimal                       @default(0) @db.Decimal(14, 2)
   taxTotal             Decimal                       @default(0) @db.Decimal(14, 2)

@@ -133,6 +133,17 @@ export interface PurchaseOrder {
   dispatchDate?: string | null;
   dispatchStatus?: PODispatchStatus;
   autoAdvanceCalculated?: number | null;
+  weighbridgeGrossKg?: number | null;
+  weighbridgeTareKg?: number | null;
+  weighbridgeNetKg?: number | null;
+  weighbridgeSlipUrl?: string | null;
+  qcInspectionStatus?: string | null;
+  qcGradeARatio?: number | null;
+  qcGradeBRatio?: number | null;
+  qcWastageKg?: number | null;
+  qcInspectorName?: string | null;
+  qcInspectionDate?: string | null;
+  qcInspectionRemarks?: string | null;
   itemsCount: number;
   items?: POItem[];
   financial: {

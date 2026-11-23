@@ -236,6 +236,8 @@ export const api = {
   getVendorPOs: () => request<any[]>('/vendor/purchase-orders'),
   submitPODispatch: (formData: FormData) => request<any>('/vendor/dispatch', { method: 'POST', body: formData }),
   getVendorDashboardStats: () => request<any>('/vendor/dashboard-stats'),
+  submitHubQCInspection: (poId: string, formData: FormData) =>
+    request<any>(`/vendor/po/${poId}/qc-inspection`, { method: 'POST', body: formData }),
 
   // Admin Vendor Management
   getAllVendors: () => request<any[]>('/vendor/admin/all'),
