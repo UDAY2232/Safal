@@ -181,7 +181,12 @@ function MainApp() {
         />
 
         <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
-          {activePage !== 'Purchase Order (PO)' && activePage !== 'Customer Due (CD)' && activePage !== 'Dashboard' && activePage !== 'Attendance' && (
+          {activePage !== 'Purchase Order (PO)' &&
+            activePage !== 'Customer Due (CD)' &&
+            activePage !== 'Dashboard' &&
+            activePage !== 'Attendance' &&
+            activePage !== 'Weighbridge & QC Slips' &&
+            activePage !== 'WhatsApp Helpdesk & Hubs' && (
             <PageHeading
               page={activePage}
               onAction={() => {
@@ -192,10 +197,25 @@ function MainApp() {
             />
           )}
 
-          {/* Primary View: Dashboard (Kept persistently mounted for 0ms instantaneous tab switching) */}
-          <div style={{ display: activePage === 'Dashboard' ? 'block' : 'none' }}>
+          {/* Primary View: Dashboard or Vendor Specialized Views (Kept persistently mounted for 0ms instantaneous tab switching) */}
+          <div
+            style={{
+              display:
+                activePage === 'Dashboard' ||
+                (user?.role === 'VENDOR' &&
+                  (activePage === 'Weighbridge & QC Slips' ||
+                    activePage === 'WhatsApp Helpdesk & Hubs'))
+                  ? 'block'
+                  : 'none',
+            }}
+          >
             {user?.role === 'VENDOR' ? (
-              <VendorDashboardPage onNotify={notify} onCreatePO={() => setShowCreatePO(true)} />
+              <VendorDashboardPage
+                onNotify={notify}
+                onCreatePO={() => setShowCreatePO(true)}
+                activePage={activePage}
+                onNavigate={navigate}
+              />
             ) : (
               <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
             )}

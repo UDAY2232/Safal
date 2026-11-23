@@ -6,6 +6,8 @@ import {
   CreditCard,
   ReceiptIndianRupee,
   Menu,
+  Scale,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -30,6 +32,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
     ? [
         { label: 'Dashboard', shortLabel: 'Dashboard', icon: Home, page: 'Dashboard' },
         { label: 'Purchase Orders', shortLabel: 'PO', icon: ShoppingCart, page: 'Purchase Order (PO)' },
+        { label: 'QC Slips', shortLabel: 'QC', icon: Scale, page: 'Weighbridge & QC Slips' },
+        { label: 'Helpdesk', shortLabel: 'Support', icon: MessageSquare, page: 'WhatsApp Helpdesk & Hubs' },
       ]
     : isEmployee
     ? [

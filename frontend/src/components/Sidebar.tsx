@@ -21,6 +21,8 @@ import {
   LogOut,
   LucideIcon,
   ShieldCheck,
+  Scale,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Role } from '../types';
@@ -44,6 +46,8 @@ interface NavEntry {
 const navItems: NavEntry[] = [
   { label: 'Dashboard', icon: Home, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE', 'VENDOR'] },
   { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT', 'VENDOR'] },
+  { label: 'Weighbridge & QC Slips', icon: Scale, roles: ['VENDOR'] },
+  { label: 'WhatsApp Helpdesk & Hubs', icon: MessageSquare, roles: ['VENDOR'] },
   { label: 'Customer Due (CD)', icon: CreditCard, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Attendance', icon: Clock, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },

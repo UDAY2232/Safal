@@ -128,9 +128,16 @@ export const VENDOR_HUB_DIRECTORY = [
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
   onCreatePO?: () => void;
+  activePage?: string;
+  onNavigate?: (page: string) => void;
 }
 
-export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNotify, onCreatePO }) => {
+export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
+  onNotify,
+  onCreatePO,
+  activePage,
+  onNavigate,
+}) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>({
     totalPOs: 0,
@@ -147,6 +154,43 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
   const [activeTab, setActiveTab] = useState<'orders' | 'dispatch' | 'qc' | 'support' | 'kyc'>('orders');
   const [viewSlipModalUrl, setViewSlipModalUrl] = useState<string | null>(null);
   const [selectedSupportPOId, setSelectedSupportPOId] = useState<string>('');
+
+  // Synchronize activeTab when navigation changes from the left sidebar
+  useEffect(() => {
+    if (activePage === 'Weighbridge & QC Slips') {
+      setActiveTab('qc');
+    } else if (activePage === 'WhatsApp Helpdesk & Hubs') {
+      setActiveTab('support');
+    }
+  }, [activePage]);
+
+  // Global Escape key listener to close any open modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowCreatePOModal(false);
+        setSelectedPOForDispatch(null);
+        setViewSlipModalUrl(null);
+      }
+    };
+    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl]);
+
+  const handleTabClick = (tab: 'orders' | 'dispatch' | 'qc' | 'support' | 'kyc') => {
+    setActiveTab(tab);
+    if (onNavigate) {
+      if (tab === 'qc') {
+        onNavigate('Weighbridge & QC Slips');
+      } else if (tab === 'support') {
+        onNavigate('WhatsApp Helpdesk & Hubs');
+      } else {
+        onNavigate('Dashboard');
+      }
+    }
+  };
 
   // Dispatch Modal state
   const [selectedPOForDispatch, setSelectedPOForDispatch] = useState<PurchaseOrder | null>(null);
@@ -431,7 +475,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
               <Plus size={15} /> + Create Supply PO
             </button>
             <button
-              onClick={() => setActiveTab('kyc')}
+              onClick={() => handleTabClick('kyc')}
               className="px-3.5 py-1.5 rounded-xl bg-white text-[#064D2B] hover:bg-emerald-50 text-xs font-extrabold transition shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
             >
               <Lock size={13} /> View Frozen KYC
@@ -446,7 +490,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
       {/* 2. Navigation Tab Pills */}
       <div className="bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs flex items-center gap-2 overflow-x-auto no-scrollbar">
         <button
-          onClick={() => setActiveTab('orders')}
+          onClick={() => handleTabClick('orders')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === 'orders'
               ? 'bg-[#064D2B] text-white shadow-xs'
@@ -457,7 +501,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
         </button>
 
         <button
-          onClick={() => setActiveTab('dispatch')}
+          onClick={() => handleTabClick('dispatch')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === 'dispatch'
               ? 'bg-amber-600 text-white shadow-xs'
@@ -468,7 +512,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
         </button>
 
         <button
-          onClick={() => setActiveTab('qc')}
+          onClick={() => handleTabClick('qc')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === 'qc'
               ? 'bg-[#087A3E] text-white shadow-xs'
@@ -479,7 +523,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
         </button>
 
         <button
-          onClick={() => setActiveTab('support')}
+          onClick={() => handleTabClick('support')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === 'support'
               ? 'bg-[#1564B7] text-white shadow-xs'
@@ -490,7 +534,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
         </button>
 
         <button
-          onClick={() => setActiveTab('kyc')}
+          onClick={() => handleTabClick('kyc')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === 'kyc'
               ? 'bg-emerald-800 text-white shadow-xs'
@@ -1368,8 +1412,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
 
       {/* 7. Modal: Submit Vehicle Photo & Transport Bill */}
       {selectedPOForDispatch && (
-        <div className="modal-backdrop">
-          <div className="modal !w-[680px] max-w-[96vw] max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+        <div
+          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedPOForDispatch(null);
+          }}
+        >
+          <div
+            className="modal !w-[680px] max-w-[96vw] max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden relative"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Header */}
             <div className="modal-header pb-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
@@ -1385,8 +1439,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedPOForDispatch(null)}
-                className="text-gray-400 hover:text-gray-700 cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSelectedPOForDispatch(null);
+                }}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-500 flex items-center justify-center transition cursor-pointer"
+                title="Close"
+                aria-label="Close"
               >
                 <X size={20} />
               </button>
@@ -1531,8 +1591,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
 
       {/* Vendor Create Supply PO Modal */}
       {showCreatePOModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-70 animate-fade-in overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col">
+        <div
+          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCreatePOModal(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
               <div>
                 <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">
@@ -1547,10 +1617,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
               </div>
               <button
                 type="button"
-                onClick={() => setShowCreatePOModal(false)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowCreatePOModal(false);
+                }}
+                className="w-9 h-9 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 flex items-center justify-center transition cursor-pointer"
+                title="Close modal (Esc)"
+                aria-label="Close modal"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
@@ -1763,10 +1839,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 flex-shrink-0">
                 <button
                   type="button"
-                  onClick={() => setShowCreatePOModal(false)}
-                  className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowCreatePOModal(false);
+                  }}
+                  className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   type="submit"
@@ -1784,8 +1864,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
 
       {/* 8. Modal: View Weighbridge Scale Slip Document / Photo */}
       {viewSlipModalUrl && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-80 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-4 sm:p-5 my-auto max-h-[92vh] flex flex-col">
+        <div
+          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewSlipModalUrl(null);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-4 sm:p-5 my-auto max-h-[92vh] flex flex-col relative"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-2">
                 <Scale className="text-emerald-800" size={20} />
@@ -1795,8 +1885,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
               </div>
               <button
                 type="button"
-                onClick={() => setViewSlipModalUrl(null)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setViewSlipModalUrl(null);
+                }}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-500 flex items-center justify-center transition cursor-pointer"
+                title="Close"
+                aria-label="Close"
               >
                 <X size={18} />
               </button>

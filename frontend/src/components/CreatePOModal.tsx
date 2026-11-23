@@ -248,8 +248,16 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   };
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal !w-[920px] max-w-[96vw] max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-3xl shadow-2xl my-auto">
+    <div
+      className="modal-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="modal !w-[920px] max-w-[96vw] max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-3xl shadow-2xl my-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
         <div className="modal-header pb-3 border-b border-gray-100 flex-shrink-0">
           <div>
