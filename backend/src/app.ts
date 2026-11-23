@@ -38,6 +38,7 @@ app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 // Serve uploaded receipts & docs
 const uploadDir = path.resolve('uploads');
 app.use('/uploads', express.static(uploadDir));
+app.use('/api/uploads', express.static(uploadDir));
 
 // Health check
 app.get('/api/health', (_req, res) => {

@@ -18,12 +18,14 @@ import {
   Eye,
   Scale,
   ShieldCheck,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { POFinancialsModal } from './POFinancialsModal';
+import { ProofViewerModal } from './ProofViewerModal';
 
 interface PODetailModalProps {
   order: PurchaseOrder;
@@ -46,6 +48,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   const [showFinancials, setShowFinancials] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showProofViewer, setShowProofViewer] = useState(false);
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -282,45 +285,62 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
         <div className="overflow-y-auto flex-1 py-4 pr-1 space-y-4 text-xs">
           {/* Payment Proof Review Banner */}
           {order.paymentProofUrl && (
-            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center flex-shrink-0">
-                  <FileText size={20} />
+            <div className="p-3.5 bg-emerald-50 border border-emerald-300 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-xs">
+              <div
+                onClick={() => setShowProofViewer(true)}
+                className="flex items-center gap-3 cursor-pointer group flex-1"
+                title="Tap to Inspect Proof Image"
+              >
+                <div className="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center flex-shrink-0 border border-emerald-200 group-hover:bg-emerald-200 transition">
+                  <ImageIcon size={22} />
                 </div>
                 <div>
-                  <span className="font-bold text-emerald-950 text-xs block">Submitted Payment Proof / Settlement Receipt</span>
-                  <a
-                    href={order.paymentProofUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-emerald-700 hover:text-emerald-900 underline text-[11px] font-semibold"
+                  <span className="font-extrabold text-emerald-950 text-xs block group-hover:text-emerald-700 transition">
+                    Verified Payment Proof / Receipt Attached
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowProofViewer(true);
+                    }}
+                    className="text-emerald-700 hover:text-emerald-900 underline text-[11px] font-bold inline-flex items-center gap-1 mt-0.5 cursor-pointer"
                   >
-                    Click to Open Full Uploaded Receipt / Proof Image ↗
-                  </a>
+                    <Eye size={12} /> Tap to Open &amp; Inspect Proof Image
+                  </button>
                 </div>
               </div>
-              {(isAdmin || isAccountant) && order.status !== 'CLOSED' && (
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={async () => {
-                    try {
-                      setIsProcessing(true);
-                      await api.closePurchaseOrder(order.id);
-                      onNotify(`${isCD ? 'Customer Due' : 'Order'} ${order.poNumber} verified and CLOSED!`);
-                      onRefresh();
-                      onClose();
-                    } catch (err: any) {
-                      onNotify(err.message || 'Failed to approve proof');
-                    } finally {
-                      setIsProcessing(false);
-                    }
-                  }}
-                  disabled={isProcessing}
-                  className="px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                  onClick={() => setShowProofViewer(true)}
+                  className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition cursor-pointer"
                 >
-                  <CheckCircle size={15} /> Approve Proof &amp; Close CD
+                  <Eye size={13} /> View Proof
                 </button>
-              )}
+                {(isAdmin || isAccountant) && order.status !== 'CLOSED' && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setIsProcessing(true);
+                        await api.closePurchaseOrder(order.id);
+                        onNotify(`${isCD ? 'Customer Due' : 'Order'} ${order.poNumber} verified and CLOSED!`);
+                        onRefresh();
+                        onClose();
+                      } catch (err: any) {
+                        onNotify(err.message || 'Failed to approve proof');
+                      } finally {
+                        setIsProcessing(false);
+                      }
+                    }}
+                    disabled={isProcessing}
+                    className="px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition cursor-pointer"
+                  >
+                    <CheckCircle size={15} /> Approve Proof &amp; Close CD
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -1086,6 +1106,34 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Payment Proof Viewer Modal */}
+      {showProofViewer && order.paymentProofUrl && (
+        <ProofViewerModal
+          proofUrl={order.paymentProofUrl}
+          orderNumber={order.poNumber}
+          supplierName={order.supplierName || order.supplier?.name}
+          amount={order.grandTotal}
+          pendingAmount={order.pendingAmount}
+          notes={order.paymentProofNotes || ''}
+          canApprove={(isAdmin || isAccountant) && order.status !== 'CLOSED'}
+          onClose={() => setShowProofViewer(false)}
+          onApprove={async () => {
+            try {
+              setIsProcessing(true);
+              await api.closePurchaseOrder(order.id);
+              onNotify(`${isCD ? 'Customer Due' : 'Order'} ${order.poNumber} verified and CLOSED!`);
+              setShowProofViewer(false);
+              onRefresh();
+              onClose();
+            } catch (err: any) {
+              onNotify(err.message || 'Failed to approve proof');
+            } finally {
+              setIsProcessing(false);
+            }
+          }}
+        />
       )}
     </div>
   );

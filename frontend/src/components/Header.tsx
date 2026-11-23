@@ -17,7 +17,10 @@ import type { Notification as AppNotification } from '../types';
 import { SendNoticeModal } from './SendNoticeModal';
 
 interface HeaderProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (
+    page: string,
+    params?: { orderId?: string; orderNumber?: string; openProof?: boolean }
+  ) => void;
   onGoBack?: () => void;
   canGoBack?: boolean;
   activePage?: string;
@@ -138,6 +141,66 @@ export const Header: React.FC<HeaderProps> = ({
       setUnreadCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch {}
+  };
+
+  const handleNotificationClick = async (n: AppNotification) => {
+    if (!n.isRead) {
+      try {
+        await api.markNotificationRead(n.id);
+        setNotifications((prev) =>
+          prev.map((item) => (item.id === n.id ? { ...item, isRead: true } : item))
+        );
+        setUnreadCount((c) => Math.max(0, c - 1));
+      } catch {}
+    }
+
+    setShowNotifications(false);
+
+    const title = n.title || '';
+    const message = n.message || '';
+    const linkUrl = n.linkUrl || '';
+
+    const cdRegex = /CD\/SF\/\d{4}\/\d+/i;
+    const poRegex = /PO\/SF\/\d{4}\/\d+/i;
+    const cdMatch = title.match(cdRegex) || message.match(cdRegex);
+    const poMatch = title.match(poRegex) || message.match(poRegex);
+
+    const isCD =
+      Boolean(cdMatch) ||
+      linkUrl.includes('type=CD') ||
+      title.toLowerCase().includes('customer due') ||
+      message.toLowerCase().includes('customer due');
+    const isPO =
+      Boolean(poMatch) ||
+      (!isCD && (linkUrl.includes('purchase-order') || title.toLowerCase().includes('po')));
+    const isExpense = linkUrl.includes('expenses') || title.toLowerCase().includes('expense');
+    const isClearance = linkUrl.includes('clearance') || title.toLowerCase().includes('clearance');
+    const isAttendance = linkUrl.includes('attendance') || title.toLowerCase().includes('attendance');
+    const isVendor = linkUrl.includes('vendor') || title.toLowerCase().includes('vendor');
+
+    const idMatch = linkUrl.match(/\/purchase-orders\/([a-zA-Z0-9_-]+)/);
+    const orderId = idMatch ? idMatch[1] : undefined;
+    const orderNumber = cdMatch ? cdMatch[0] : (poMatch ? poMatch[0] : undefined);
+    const openProof =
+      title.toLowerCase().includes('proof') ||
+      message.toLowerCase().includes('proof') ||
+      linkUrl.includes('proof=true');
+
+    if (isCD) {
+      onNavigate('Customer Due (CD)', { orderId, orderNumber, openProof });
+    } else if (isPO) {
+      onNavigate('Purchase Order (PO)', { orderId, orderNumber });
+    } else if (isExpense) {
+      onNavigate('Employee Expenses');
+    } else if (isClearance) {
+      onNavigate('Bill Clearance');
+    } else if (isAttendance) {
+      onNavigate('Attendance');
+    } else if (isVendor) {
+      onNavigate('Vendors (KYC)');
+    } else {
+      onNavigate('Dashboard');
+    }
   };
 
   const getInitials = (name?: string) => {
@@ -318,10 +381,7 @@ export const Header: React.FC<HeaderProps> = ({
                         className={`notification-row cursor-pointer transition p-2 rounded-lg hover:bg-gray-50 ${
                           !n.isRead ? 'bg-emerald-50/50' : ''
                         }`}
-                        onClick={() => {
-                          if (n.linkUrl) onNavigate(n.linkUrl.replace('/', ''));
-                          setShowNotifications(false);
-                        }}
+                        onClick={() => handleNotificationClick(n)}
                       >
                         <div className="notification-symbol">
                           <Bell size={14} />

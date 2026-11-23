@@ -19,6 +19,7 @@ import {
   Clock,
   User,
   MapPin,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -30,12 +31,17 @@ import { POFinancialsModal } from '../components/POFinancialsModal';
 import { CreatePOModal } from '../components/CreatePOModal';
 import { SubmitDuePaymentModal } from '../components/SubmitDuePaymentModal';
 import { AddDuePOModal } from '../components/AddDuePOModal';
+import { ProofViewerModal } from '../components/ProofViewerModal';
 
 interface PurchaseOrdersPageProps {
   onNotify: (msg: string) => void;
   showCreateModal: boolean;
   setShowCreateModal: (show: boolean) => void;
   mode?: 'PO' | 'CD';
+  initialOrderId?: string | null;
+  initialSearch?: string | null;
+  initialOpenProof?: boolean;
+  onClearInitialAction?: () => void;
 }
 
 export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
@@ -43,6 +49,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   showCreateModal,
   setShowCreateModal,
   mode,
+  initialOrderId,
+  initialSearch,
+  initialOpenProof,
+  onClearInitialAction,
 }) => {
   const { user } = useAuth();
   const isEmployee = user?.role === 'EMPLOYEE';
@@ -62,6 +72,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [financialPO, setFinancialPO] = useState<PurchaseOrder | null>(null);
   const [duePaymentPO, setDuePaymentPO] = useState<PurchaseOrder | null>(null);
+  const [proofViewerOrder, setProofViewerOrder] = useState<PurchaseOrder | null>(null);
   const [showAddDueModal, setShowAddDueModal] = useState(false);
 
   const loadOrders = async () => {
@@ -94,6 +105,30 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   useEffect(() => {
     loadOrders();
   }, [status, financialStatus]);
+
+  // Deep-link from System Notifications: auto-search and open modal
+  useEffect(() => {
+    if (initialSearch) {
+      setSearch(initialSearch);
+    }
+    if (initialOrderId) {
+      api
+        .getPurchaseOrderById(initialOrderId)
+        .then((ord) => {
+          if (initialOpenProof && ord.paymentProofUrl) {
+            setProofViewerOrder(ord);
+          } else {
+            setSelectedPO(ord);
+          }
+        })
+        .catch((err) => {
+          console.warn('Could not auto-open order from notification:', err);
+        })
+        .finally(() => {
+          if (onClearInitialAction) onClearInitialAction();
+        });
+    }
+  }, [initialOrderId, initialSearch, initialOpenProof]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -845,17 +880,19 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                               </span>
                             )}
                             {order.paymentProofUrl && (
-                              <div className="mt-1">
-                                <a
-                                  href={order.paymentProofUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300 transition"
-                                  title="View Uploaded Payment Proof"
+                              <div className="mt-1 flex items-center justify-center">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProofViewerOrder(order);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md border border-emerald-300 transition shadow-2xs cursor-pointer active:scale-95"
+                                  title="Tap to View Verified Payment Proof Image"
                                 >
-                                  <FileText size={11} /> Proof Attached
-                                </a>
+                                  <ImageIcon size={12} className="text-emerald-700" />
+                                  <span>Proof Attached</span>
+                                </button>
                               </div>
                             )}
                           </td>
@@ -870,7 +907,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   Pending Verification
                                 </span>
                                 {order.paymentProofUrl && (
-                                  <span className="text-[10px] text-emerald-700 font-bold">Proof Attached</span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setProofViewerOrder(order);
+                                    }}
+                                    className="text-[10px] text-emerald-700 hover:text-emerald-900 font-bold underline cursor-pointer"
+                                    title="View Uploaded Payment Proof"
+                                  >
+                                    Proof Attached
+                                  </button>
                                 )}
                               </div>
                             ) : isPending ? (
@@ -964,16 +1011,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 </button>
                               ) : null}
                               {order.paymentProofUrl && (
-                                <a
-                                  href={order.paymentProofUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
-                                  title="View Uploaded Payment Proof"
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProofViewerOrder(order);
+                                  }}
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer active:scale-95 shadow-2xs"
+                                  title="Tap to View Payment Proof Image"
                                 >
-                                  <FileText size={12} /> Proof
-                                </a>
+                                  <ImageIcon size={12} /> Proof
+                                </button>
                               )}
                               <button
                                 type="button"
@@ -1115,16 +1163,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 </button>
                               )}
                               {order.paymentProofUrl && (
-                                <a
-                                  href={order.paymentProofUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
-                                  title="View Uploaded Payment Proof"
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setProofViewerOrder(order);
+                                  }}
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer active:scale-95 shadow-2xs"
+                                  title="Tap to View Payment Proof Image"
                                 >
-                                  <FileText size={12} /> Proof
-                                </a>
+                                  <ImageIcon size={12} /> Proof
+                                </button>
                               )}
                               <button
                                 className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
@@ -1216,6 +1265,30 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           onSuccess={(msg) => {
             onNotify(msg);
             loadOrders();
+          }}
+        />
+      )}
+
+      {/* Payment Proof Image Viewer Modal */}
+      {proofViewerOrder && proofViewerOrder.paymentProofUrl && (
+        <ProofViewerModal
+          proofUrl={proofViewerOrder.paymentProofUrl}
+          orderNumber={proofViewerOrder.poNumber}
+          supplierName={proofViewerOrder.supplier?.name}
+          amount={proofViewerOrder.grandTotal}
+          pendingAmount={proofViewerOrder.pendingAmount}
+          notes={proofViewerOrder.paymentProofNotes || ''}
+          canApprove={(isAdmin || isAccountant) && proofViewerOrder.status !== 'CLOSED'}
+          onClose={() => setProofViewerOrder(null)}
+          onApprove={async () => {
+            try {
+              await api.closePurchaseOrder(proofViewerOrder.id);
+              onNotify(`Customer Due ${proofViewerOrder.poNumber} verified and formally CLOSED!`);
+              setProofViewerOrder(null);
+              loadOrders();
+            } catch (err: any) {
+              onNotify(err.message || 'Failed to approve CD');
+            }
           }}
         />
       )}

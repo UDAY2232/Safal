@@ -588,13 +588,18 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
 
     // Create Notification if submitted for approval or created by Vendor
     if (submitForApproval || isVendorUser) {
+      const isCD = newPO.poNumber.startsWith('CD/');
       await prisma.notification.create({
         data: {
           recipientRole: 'ADMIN',
-          title: isVendorUser ? 'New Vendor Supply PO Created' : 'New PO Awaiting Approval',
+          title: isVendorUser
+            ? 'New Vendor Supply PO Created'
+            : isCD
+            ? `New CD Awaiting Approval: ${newPO.poNumber}`
+            : `New PO Awaiting Approval: ${newPO.poNumber}`,
           message: `${newPO.poNumber} from ${newPO.supplier.name} for ₹${grandTotal.toLocaleString('en-IN')} submitted by ${req.user!.name}`,
           type: 'ACTION_REQUIRED',
-          linkUrl: `/purchase-orders/${newPO.id}`,
+          linkUrl: `/purchase-orders/${newPO.id}?type=${isCD ? 'CD' : 'PO'}`,
         },
       });
     }
@@ -651,13 +656,14 @@ export async function submitPurchaseOrder(req: AuthRequest, res: Response) {
       },
     });
 
+    const isCD = po.poNumber.startsWith('CD/');
     await prisma.notification.create({
       data: {
         recipientRole: 'ADMIN',
-        title: 'PO Submitted for Approval',
+        title: isCD ? `CD Submitted for Approval: ${po.poNumber}` : `PO Submitted for Approval: ${po.poNumber}`,
         message: `${po.poNumber} has been submitted by ${req.user!.name}`,
         type: 'ACTION_REQUIRED',
-        linkUrl: `/purchase-orders/${po.id}`,
+        linkUrl: `/purchase-orders/${po.id}?type=${isCD ? 'CD' : 'PO'}`,
       },
     });
 
@@ -823,6 +829,13 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
     if (pending > 0) {
       return res.status(400).json({
         error: `Cannot close PO: Due of ₹${pending.toLocaleString('en-IN')} is still pending. Status must remain Open until Due is ₹0.`,
+      });
+    }
+
+    // Strict Rule: For Customer Due records, payment proof image must be attached before final approval & closure
+    if (po.poNumber.startsWith('CD/') && !po.paymentProofUrl) {
+      return res.status(400).json({
+        error: `Cannot approve/close Customer Due ${po.poNumber}: Payment proof image must be uploaded and verified before Admin approval.`,
       });
     }
 
@@ -1076,8 +1089,16 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       newStatus = 'OPEN';
     }
 
+    const isCDOrder = po.poNumber.startsWith('CD/');
     const paymentProofUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
     const paymentProofNotes = (req.body.proofNotes || notes || '').trim() || undefined;
+
+    // Strict Mandatory Proof: CD settlements submitted by employee or on any CD record REQUIRE payment proof image
+    if ((isCDOrder || req.user?.role === 'EMPLOYEE') && !paymentProofUrl && !po.paymentProofUrl) {
+      return res.status(400).json({
+        error: 'Buyer payment proof image (UPI screenshot, bank transfer receipt, or signed slip) is strictly mandatory for Customer Due settlements.',
+      });
+    }
 
     let comment = `Due Payment of ₹${paymentAmount.toLocaleString('en-IN')} received via ${paymentMode}.${reference ? ` Ref: ${reference}.` : ''} Remaining Due: ₹${finalPending.toLocaleString('en-IN')}.${notes ? ` Note: ${notes}` : ''}`;
     if (paymentProofUrl) {
@@ -1120,7 +1141,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
             recipientRole: 'ADMIN',
             title: paymentProofUrl ? `Payment Proof Uploaded: ${po.poNumber}` : `Due Payment Recorded: ${po.poNumber}`,
             message: `${req.user?.name || 'Staff'} submitted ₹${paymentAmount.toLocaleString('en-IN')} payment for ${po.poNumber}.${paymentProofUrl ? ' Proof attached for verification.' : ''}`,
-            linkUrl: '/orders?type=CD',
+            linkUrl: `/purchase-orders/${po.id}?type=${isCDOrder ? 'CD' : 'PO'}&proof=true`,
           },
         });
       }
@@ -1130,7 +1151,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
             userId: po.createdById,
             title: `Customer Due Settled & Closed: ${po.poNumber}`,
             message: `Your Customer Due ${po.poNumber} has been verified and marked as CLOSED by Admin.`,
-            linkUrl: '/orders?type=CD',
+            linkUrl: `/purchase-orders/${po.id}?type=${isCDOrder ? 'CD' : 'PO'}`,
           },
         });
       }

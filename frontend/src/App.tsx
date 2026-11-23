@@ -48,14 +48,42 @@ function MainApp() {
     setTimeout(() => setToast(''), 3000);
   };
 
-  const navigate = (page: string) => {
+  const [navParams, setNavParams] = useState<{
+    orderId?: string;
+    orderNumber?: string;
+    openProof?: boolean;
+  } | null>(null);
+
+  const navigate = (
+    page: string,
+    params?: { orderId?: string; orderNumber?: string; openProof?: boolean }
+  ) => {
+    let clean = page.replace(/^\//, '');
+    if (clean.startsWith('purchase-orders')) {
+      clean = clean.includes('type=CD') ? 'Customer Due (CD)' : 'Purchase Order (PO)';
+    } else if (clean.startsWith('orders')) {
+      clean = clean.includes('type=CD') ? 'Customer Due (CD)' : 'Purchase Order (PO)';
+    } else if (clean.startsWith('expenses')) {
+      clean = 'Employee Expenses';
+    } else if (clean.startsWith('clearance')) {
+      clean = 'Bill Clearance';
+    } else if (clean.startsWith('attendance')) {
+      clean = 'Attendance';
+    } else if (clean.startsWith('vendors')) {
+      clean = 'Vendors (KYC)';
+    }
+
     // If an employee attempts to navigate to 'Purchase Order (PO)', reroute to 'Customer Due (CD)'
-    const targetPage = (user?.role === 'EMPLOYEE' && page === 'Purchase Order (PO)') ? 'Customer Due (CD)' : page;
+    const targetPage =
+      user?.role === 'EMPLOYEE' && clean === 'Purchase Order (PO)'
+        ? 'Customer Due (CD)'
+        : clean;
     setPageHistory((prev) => (prev[prev.length - 1] === targetPage ? prev : [...prev, targetPage]));
     try {
       window.history.pushState({ page: targetPage }, '', window.location.pathname);
     } catch {}
     setActivePage(targetPage);
+    setNavParams(params || null);
     setIsSidebarOpen(false);
   };
 
@@ -232,6 +260,10 @@ function MainApp() {
               onNotify={notify}
               showCreateModal={showCreatePO}
               setShowCreateModal={setShowCreatePO}
+              initialOrderId={navParams?.orderId}
+              initialSearch={navParams?.orderNumber}
+              initialOpenProof={navParams?.openProof}
+              onClearInitialAction={() => setNavParams(null)}
             />
           )}
           {activePage === 'Invoices' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <InvoicesPage onNotify={notify} />}

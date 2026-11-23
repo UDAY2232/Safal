@@ -21,6 +21,7 @@ import { PurchaseOrder } from '../types';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge } from './StatusBadge';
+import { ProofViewerModal } from './ProofViewerModal';
 
 interface SubmitDuePaymentModalProps {
   order: PurchaseOrder;
@@ -53,6 +54,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
   const [notes, setNotes] = useState('');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [showProofModal, setShowProofModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClosingDirectly, setIsClosingDirectly] = useState(false);
   const [error, setError] = useState('');
@@ -113,9 +115,11 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
       if (!confirmOverpay) return;
     }
 
-    // Require payment proof for Employee when clearing full due
-    if (isEmployee && newPending === 0 && !proofFile && !order.paymentProofUrl) {
-      setError('Please upload Buyer Payment Proof (Receipt / Bank Transfer Screenshot / Slip) to clear this CD.');
+    // Mandatory Payment Proof for all Customer Due (CD) settlements:
+    // Any employee or user submitting payment on a CD record MUST provide an image proof.
+    const isCD = order.poNumber.startsWith('CD/') || isEmployee;
+    if (isCD && !proofFile && !order.paymentProofUrl) {
+      setError('Buyer Payment Proof image (UPI screenshot, bank slip, or receipt) is strictly mandatory to submit CD payment.');
       return;
     }
 
@@ -308,14 +312,13 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
                   </span>
                 </div>
               </div>
-              <a
-                href={order.paymentProofUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 transition shadow-xs"
+              <button
+                type="button"
+                onClick={() => setShowProofModal(true)}
+                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 transition shadow-xs cursor-pointer active:scale-95"
               >
-                View Proof <ExternalLink size={12} />
-              </a>
+                <ImageIcon size={13} /> View Proof
+              </button>
             </div>
           )}
 
@@ -455,81 +458,99 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
               </div>
             </div>
 
-            {/* FILE UPLOAD SECTION: Payment Proof / Buyer Receipt (Visible for staff/employees, hidden for Admin) */}
-            {!isAdmin && (
-              <div className="pt-2 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="font-bold text-gray-800 block text-xs flex items-center gap-1.5">
-                    <Upload size={14} className="text-[#087A3E]" />
-                    Upload Buyer Payment Proof / Receipt
-                    {isEmployee && newPending === 0 && (
-                      <span className="text-red-500 font-extrabold">* (Required)</span>
-                    )}
-                  </label>
-                  <span className="text-[10px] text-gray-400">JPG, PNG, PDF (Max: 10MB)</span>
-                </div>
+            {/* FILE UPLOAD SECTION: Payment Proof / Buyer Receipt (Mandatory for all CDs / Employees) */}
+            <div className="pt-2 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="font-bold text-gray-800 block text-xs flex items-center gap-1.5">
+                  <Upload size={14} className="text-[#087A3E]" />
+                  Upload Buyer Payment Proof / Receipt
+                  <span className="text-red-600 font-black">*(Mandatory)</span>
+                </label>
+                <span className="text-[10px] text-gray-400">JPG, PNG, PDF (Max: 10MB)</span>
+              </div>
 
-                {!proofFile ? (
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    className="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-2xl p-4 text-center cursor-pointer bg-gray-50/70 hover:bg-emerald-50/40 transition group"
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-                    <div className="flex flex-col items-center justify-center gap-1.5">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 group-hover:border-emerald-300 text-gray-500 group-hover:text-emerald-600 grid place-items-center shadow-2xs transition">
-                        <Upload size={18} />
-                      </div>
-                      <div>
-                        <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-800 block">
-                          Tap or Click to Upload Payment Proof
-                        </span>
-                        <span className="text-[11px] text-gray-400 block mt-0.5">
-                          Screenshot of UPI, bank transfer slip, or signed receipt
-                        </span>
-                      </div>
+              {!proofFile && !order.paymentProofUrl && (
+                <div className="mb-2 p-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-center gap-2">
+                  <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                  <span className="font-semibold text-[11px]">
+                    Buyer payment proof (UPI screenshot / receipt) is strictly mandatory to submit payment.
+                  </span>
+                </div>
+              )}
+
+              {!proofFile ? (
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 hover:border-emerald-500 rounded-2xl p-4 text-center cursor-pointer bg-gray-50/70 hover:bg-emerald-50/40 transition group"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <div className="flex flex-col items-center justify-center gap-1.5">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-gray-200 group-hover:border-emerald-300 text-gray-500 group-hover:text-emerald-600 grid place-items-center shadow-2xs transition">
+                      <Upload size={18} />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-800 block">
+                        Tap or Click to Upload Payment Proof
+                      </span>
+                      <span className="text-[11px] text-gray-400 block mt-0.5">
+                        Screenshot of UPI, bank transfer slip, or signed receipt
+                      </span>
                     </div>
                   </div>
-                ) : (
-                  <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 overflow-hidden">
-                      {proofPreview ? (
-                        <img
-                          src={proofPreview}
-                          alt="Proof preview"
-                          className="w-12 h-12 object-cover rounded-lg border border-emerald-300 flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 grid place-items-center flex-shrink-0">
-                          <FileText size={18} />
-                        </div>
-                      )}
-                      <div className="truncate">
-                        <strong className="text-xs font-bold text-gray-900 block truncate">
-                          {proofFile.name}
-                        </strong>
-                        <span className="text-[10px] text-gray-500 font-semibold block">
-                          {(proofFile.size / 1024).toFixed(1)} KB • Ready to submit
-                        </span>
+                </div>
+              ) : (
+                <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl flex items-center justify-between">
+                  <div
+                    onClick={() => setShowProofModal(true)}
+                    className="flex items-center gap-2.5 overflow-hidden cursor-pointer group flex-1"
+                    title="Click to preview image full screen"
+                  >
+                    {proofPreview ? (
+                      <img
+                        src={proofPreview}
+                        alt="Proof preview"
+                        className="w-12 h-12 object-cover rounded-lg border border-emerald-300 flex-shrink-0 group-hover:opacity-85 transition"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 grid place-items-center flex-shrink-0">
+                        <FileText size={18} />
                       </div>
+                    )}
+                    <div className="truncate">
+                      <strong className="text-xs font-bold text-gray-900 block truncate group-hover:text-emerald-800">
+                        {proofFile.name}
+                      </strong>
+                      <span className="text-[10px] text-emerald-700 font-semibold block">
+                        {(proofFile.size / 1024).toFixed(1)} KB • Tap to preview image
+                      </span>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowProofModal(true)}
+                      className="px-2.5 py-1 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Eye size={13} /> View
+                    </button>
                     <button
                       type="button"
                       onClick={handleRemoveFile}
-                      className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-white transition"
+                      className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-white transition cursor-pointer"
                       title="Remove File"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
 
             {/* Status Preview */}
             <div className="pt-2 border-t border-gray-100">
@@ -598,6 +619,19 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* Proof Preview Lightbox */}
+      {showProofModal && (proofPreview || order.paymentProofUrl) && (
+        <ProofViewerModal
+          proofUrl={proofPreview || order.paymentProofUrl || null}
+          orderNumber={order.poNumber}
+          supplierName={order.supplier?.name}
+          amount={order.grandTotal}
+          pendingAmount={newPending}
+          notes={notes || order.paymentProofNotes || ''}
+          onClose={() => setShowProofModal(false)}
+        />
+      )}
     </div>
   );
 };
