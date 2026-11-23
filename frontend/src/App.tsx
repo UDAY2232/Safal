@@ -181,12 +181,11 @@ function MainApp() {
         />
 
         <main className={`main-content ${isSidebarCollapsed ? 'main-content-collapsed' : ''}`}>
-          {activePage !== 'Purchase Order (PO)' &&
+          {user?.role !== 'VENDOR' &&
+            activePage !== 'Purchase Order (PO)' &&
             activePage !== 'Customer Due (CD)' &&
             activePage !== 'Dashboard' &&
-            activePage !== 'Attendance' &&
-            activePage !== 'Weighbridge & QC Slips' &&
-            activePage !== 'WhatsApp Helpdesk & Hubs' && (
+            activePage !== 'Attendance' && (
             <PageHeading
               page={activePage}
               onAction={() => {
@@ -203,7 +202,9 @@ function MainApp() {
               display:
                 activePage === 'Dashboard' ||
                 (user?.role === 'VENDOR' &&
-                  (activePage === 'Weighbridge & QC Slips' ||
+                  (activePage === 'Supply Consignments' ||
+                    activePage === 'Ready for Dispatch' ||
+                    activePage === 'Weighbridge & QC Slips' ||
                     activePage === 'WhatsApp Helpdesk & Hubs'))
                   ? 'block'
                   : 'none',

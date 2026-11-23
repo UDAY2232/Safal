@@ -7,6 +7,7 @@ import {
   VENDOR_WHITELISTED_LOCATIONS,
   isValidVendorLocation,
 } from '../constants/vendorConstants.js';
+import { generateNextPONumber } from './purchaseOrderController.js';
 
 /**
  * Generates sequential, collision-safe Vendor ID: VND-001, VND-002, etc.
@@ -816,7 +817,7 @@ export async function submitHubQCInspection(req: AuthRequest, res: Response) {
     if (po.vendorProfile?.user?.id) {
       await prisma.notification.create({
         data: {
-          recipientId: po.vendorProfile.user.id,
+          userId: po.vendorProfile.user.id,
           recipientRole: 'VENDOR',
           title: `Weighbridge & QC Verified: ${po.poNumber}`,
           message: `Consignment Net Weight: ${net.toLocaleString('en-IN')} KG verified. Status: ${qcInspectionStatus}. Inspect digital slip in your dashboard.`,
@@ -844,5 +845,272 @@ export async function submitHubQCInspection(req: AuthRequest, res: Response) {
   } catch (error: any) {
     console.error('submitHubQCInspection error:', error);
     return res.status(500).json({ error: error.message || 'Failed to record QC inspection' });
+  }
+}
+
+/**
+ * POST /api/vendor/supply-po
+ * Specialized Wholesale Fruit Supply Consignment creation for Vendors.
+ * Supports:
+ * - Dynamic Apple Sizing (4L, 5L, Roll, Total Boxes, Total Amount)
+ * - Direct upload of Vehicle Photo and Transport Bill (Bilty)
+ * - 70% automatic advance guarantee calculation
+ * - Direct mapping to destination regional hub
+ */
+export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user || req.user.role !== 'VENDOR') {
+      return res.status(403).json({ error: 'Vendor access required' });
+    }
+
+    const profile = await prisma.vendorProfile.findUnique({
+      where: { userId: req.user.id },
+    });
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Vendor profile not found' });
+    }
+
+    // Resolve or find supplier record linked to this vendor
+    let supplier = await prisma.supplier.findFirst({
+      where: {
+        OR: [
+          { supplierCode: profile.vendorId },
+          { name: profile.businessName },
+        ],
+      },
+    });
+
+    if (!supplier) {
+      supplier = await prisma.supplier.create({
+        data: {
+          supplierCode: profile.vendorId,
+          name: profile.businessName,
+          contactPerson: profile.contactPerson,
+          phone: profile.phone,
+          category: 'Wholesale Fruits',
+          paymentTerms: '70% Advance on Dispatch + 30% on QC Acceptance',
+          status: 'ACTIVE',
+        },
+      });
+    }
+
+    const {
+      destinationHub,
+      expectedDeliveryDate,
+      fruitName,
+      items: rawItems,
+      dispatchVehicleNumber,
+      transporterName,
+      driverPhone,
+      notes,
+    } = req.body;
+
+    const targetHub = destinationHub || profile.primaryLocation || 'Warangal';
+    if (!isValidVendorLocation(targetHub)) {
+      return res.status(400).json({
+        error: `Invalid destination hub "${targetHub}". Allowed hubs: ${VENDOR_WHITELISTED_LOCATIONS.join(', ')}`,
+      });
+    }
+
+    // Parse items if passed as stringified JSON or construct from layer fields
+    let itemsToProcess: Array<{
+      fruitName: string;
+      category: string;
+      varietyGrade: string;
+      quantity: number;
+      unit: string;
+      ratePerUnit: number;
+      lineTotal: number;
+    }> = [];
+
+    if (rawItems) {
+      try {
+        const parsed = typeof rawItems === 'string' ? JSON.parse(rawItems) : rawItems;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          itemsToProcess = parsed.map((it: any) => ({
+            fruitName: it.fruitName || fruitName || 'Kashmir Apples',
+            category: 'Fresh Fruits',
+            varietyGrade: it.varietyGrade || 'Grade A',
+            quantity: Number(it.quantity) || 0,
+            unit: it.unit || 'BOX',
+            ratePerUnit: Number(it.ratePerUnit) || 0,
+            lineTotal: Number(it.lineTotal) || (Number(it.quantity) * Number(it.ratePerUnit)),
+          }));
+        }
+      } catch (e) {
+        console.warn('Could not parse items JSON:', e);
+      }
+    }
+
+    // If apple layer fields are passed directly in body:
+    const layer4LBoxes = Number(req.body.layer4LBoxes) || 0;
+    const layer4LRate = Number(req.body.layer4LRate) || 0;
+    const layer5LBoxes = Number(req.body.layer5LBoxes) || 0;
+    const layer5LRate = Number(req.body.layer5LRate) || 0;
+    const rollBoxes = Number(req.body.rollBoxes) || 0;
+    const rollRate = Number(req.body.rollRate) || 0;
+
+    if (layer4LBoxes > 0 || layer5LBoxes > 0 || rollBoxes > 0) {
+      itemsToProcess = [];
+      const fruitLabel = fruitName || 'Kashmir Apples';
+      if (layer4LBoxes > 0) {
+        itemsToProcess.push({
+          fruitName: fruitLabel,
+          category: 'Fresh Fruits',
+          varietyGrade: '4L (4-Layer Large Size)',
+          quantity: layer4LBoxes,
+          unit: 'BOX',
+          ratePerUnit: layer4LRate,
+          lineTotal: layer4LBoxes * layer4LRate,
+        });
+      }
+      if (layer5LBoxes > 0) {
+        itemsToProcess.push({
+          fruitName: fruitLabel,
+          category: 'Fresh Fruits',
+          varietyGrade: '5L (5-Layer Medium Size)',
+          quantity: layer5LBoxes,
+          unit: 'BOX',
+          ratePerUnit: layer5LRate,
+          lineTotal: layer5LBoxes * layer5LRate,
+        });
+      }
+      if (rollBoxes > 0) {
+        itemsToProcess.push({
+          fruitName: fruitLabel,
+          category: 'Fresh Fruits',
+          varietyGrade: 'Roll (Roller Mixed Run)',
+          quantity: rollBoxes,
+          unit: 'BOX',
+          ratePerUnit: rollRate,
+          lineTotal: rollBoxes * rollRate,
+        });
+      }
+    }
+
+    if (itemsToProcess.length === 0) {
+      return res.status(400).json({ error: 'Please enter at least one fruit consignment item with box count and rate.' });
+    }
+
+    const grandTotal = itemsToProcess.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
+    if (grandTotal <= 0) {
+      return res.status(400).json({ error: 'Total consignment value must be greater than zero.' });
+    }
+
+    const autoAdvance = Math.round(grandTotal * 0.70);
+    const pendingBalance = Math.max(0, grandTotal - autoAdvance);
+
+    // Handle files if uploaded with creation
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    let vehiclePhotoUrl: string | null = null;
+    let transportBillUrl: string | null = null;
+
+    if (files && files['vehiclePhoto'] && files['vehiclePhoto'][0]) {
+      vehiclePhotoUrl = `/uploads/${files['vehiclePhoto'][0].filename}`;
+    }
+    if (files && files['transportBill'] && files['transportBill'][0]) {
+      transportBillUrl = `/uploads/${files['transportBill'][0].filename}`;
+    }
+
+    const hasDispatchProof = Boolean(dispatchVehicleNumber && (vehiclePhotoUrl || req.body.vehiclePhotoUrl));
+    const dispatchStatus = hasDispatchProof ? 'LOADED_AND_DISPATCHED' : 'PENDING_DISPATCH';
+
+    // Atomic transaction to generate next PO number and create PO
+    const newPO = await prisma.$transaction(async (tx) => {
+      const poNumber = await generateNextPONumber(tx);
+
+      return await tx.purchaseOrder.create({
+        data: {
+          poNumber,
+          poDate: new Date(),
+          expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
+          supplierId: supplier.id,
+          vendorProfileId: profile.id,
+          createdById: req.user!.id,
+          orderPersonPlace: targetHub,
+          deliveryAddress: `${targetHub} Regional Hub Receiving Desk`,
+          paymentTerms: '70% Advance on Dispatch + 30% on QC Acceptance',
+          dispatchVehicleNumber: dispatchVehicleNumber ? dispatchVehicleNumber.trim().toUpperCase() : null,
+          transporterName: transporterName ? transporterName.trim() : null,
+          driverPhone: driverPhone ? driverPhone.trim() : null,
+          vehiclePhotoUrl: vehiclePhotoUrl || req.body.vehiclePhotoUrl || null,
+          transportBillUrl: transportBillUrl || req.body.transportBillUrl || null,
+          dispatchStatus,
+          dispatchDate: hasDispatchProof ? new Date() : null,
+          subtotal: grandTotal,
+          grandTotal,
+          advanceAmount: autoAdvance,
+          autoAdvanceCalculated: autoAdvance,
+          pendingAmount: pendingBalance,
+          status: 'PENDING_APPROVAL',
+          notes: notes ? `Vendor Consignment: ${notes}` : `Vendor supply consignment for ${targetHub} Hub`,
+          items: {
+            create: itemsToProcess.map((it) => ({
+              fruitName: it.fruitName,
+              category: it.category,
+              varietyGrade: it.varietyGrade,
+              quantity: it.quantity,
+              unit: it.unit,
+              ratePerUnit: it.ratePerUnit,
+              discountPercent: 0,
+              taxPercent: 0,
+              lineTotal: it.lineTotal,
+            })),
+          },
+          statusHistory: {
+            create: {
+              status: 'PENDING_APPROVAL',
+              changedById: req.user!.id,
+              comment: 'Vendor created supply consignment order with 70% auto-advance guarantee',
+            },
+          },
+          financialRecord: {
+            create: {
+              financialStatus: 'PENDING_COST_DATA',
+            },
+          },
+        },
+        include: {
+          items: true,
+          supplier: true,
+        },
+      });
+    });
+
+    // Notify Safal Admin about this vendor's consignment
+    await prisma.notification.create({
+      data: {
+        recipientRole: 'ADMIN',
+        type: 'PURCHASE_ORDER',
+        title: 'New Vendor Consignment Supply PO',
+        message: `Supply PO ${newPO.poNumber} for ₹${grandTotal.toLocaleString('en-IN')} submitted by vendor ${profile.businessName} for ${targetHub} Hub.`,
+        linkUrl: '/purchase-orders',
+      },
+    }).catch(() => null);
+
+    await createAuditLog({
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'CREATE_VENDOR_SUPPLY_PO',
+      entityType: 'PURCHASE_ORDER',
+      entityId: newPO.id,
+      details: JSON.stringify({
+        poNumber: newPO.poNumber,
+        grandTotal,
+        autoAdvance,
+        targetHub,
+        itemsCount: itemsToProcess.length,
+      }),
+    }).catch(() => null);
+
+    return res.status(201).json({
+      message: `Consignment Supply PO ${newPO.poNumber} created successfully!`,
+      po: newPO,
+    });
+  } catch (error: any) {
+    console.error('createVendorSupplyPO error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to create vendor supply PO' });
   }
 }

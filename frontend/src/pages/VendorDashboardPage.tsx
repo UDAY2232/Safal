@@ -167,32 +167,52 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [isSubmittingDispatch, setIsSubmittingDispatch] = useState(false);
   const [dispatchError, setDispatchError] = useState('');
 
-  // Vendor PO Creation Modal State
+  // Vendor Supply PO Creation State
   const [showCreatePOModal, setShowCreatePOModal] = useState(false);
   const [targetHub, setTargetHub] = useState<string>('Warangal');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [poNotes, setPoNotes] = useState('');
-  const [poItems, setPoItems] = useState<Array<{
-    id: string;
-    fruitName: string;
-    varietyGrade: string;
-    quantity: number | string;
-    unit: string;
-    ratePerUnit: number | string;
-    lineTotal: number;
-  }>>([
-    {
-      id: '1',
-      fruitName: 'Kashmir Apples',
-      varietyGrade: 'Grade A Export Quality',
-      quantity: 500,
-      unit: 'BOX',
-      ratePerUnit: 1100,
-      lineTotal: 550000,
-    },
-  ]);
+
+  // Selected Fruit & Layer Breakdown
+  const [selectedFruit, setSelectedFruit] = useState<string>('Kashmir Apples');
+  // Dynamic Apple Layer Sizing (4L, 5L, Roll, Total, Amount)
+  const [layer4LBoxes, setLayer4LBoxes] = useState<string>('200');
+  const [layer4LRate, setLayer4LRate] = useState<string>('1200');
+  const [layer5LBoxes, setLayer5LBoxes] = useState<string>('250');
+  const [layer5LRate, setLayer5LRate] = useState<string>('1100');
+  const [rollBoxes, setRollBoxes] = useState<string>('50');
+  const [rollRate, setRollRate] = useState<string>('700');
+
+  // Other Fruit Sizing
+  const [otherQuantity, setOtherQuantity] = useState<string>('500');
+  const [otherUnit, setOtherUnit] = useState<string>('BOX');
+  const [otherRate, setOtherRate] = useState<string>('950');
+  const [otherGrade, setOtherGrade] = useState<string>('Grade A Export Quality');
+
+  // Supply Creation Direct Dispatch Proof Uploads
+  const [supplyVehicleNumber, setSupplyVehicleNumber] = useState<string>('');
+  const [supplyTransporterName, setSupplyTransporterName] = useState<string>('');
+  const [supplyDriverPhone, setSupplyDriverPhone] = useState<string>('');
+  const [supplyVehiclePhotoFile, setSupplyVehiclePhotoFile] = useState<File | null>(null);
+  const [supplyVehiclePhotoPreview, setSupplyVehiclePhotoPreview] = useState<string>('');
+  const [supplyTransportBillFile, setSupplyTransportBillFile] = useState<File | null>(null);
+  const [supplyTransportBillPreview, setSupplyTransportBillPreview] = useState<string>('');
+
   const [isSubmittingPO, setIsSubmittingPO] = useState(false);
   const [createPOError, setCreatePOError] = useState('');
+
+  // Dynamic calculations for Fruit Supply
+  const isApple = selectedFruit === 'Kashmir Apples' || selectedFruit.toLowerCase().includes('apple');
+  const apple4LAmount = (Number(layer4LBoxes) || 0) * (Number(layer4LRate) || 0);
+  const apple5LAmount = (Number(layer5LBoxes) || 0) * (Number(layer5LRate) || 0);
+  const appleRollAmount = (Number(rollBoxes) || 0) * (Number(rollRate) || 0);
+  const totalAppleBoxes = (Number(layer4LBoxes) || 0) + (Number(layer5LBoxes) || 0) + (Number(rollBoxes) || 0);
+  const totalAppleAmount = apple4LAmount + apple5LAmount + appleRollAmount;
+
+  const otherTotalAmount = (Number(otherQuantity) || 0) * (Number(otherRate) || 0);
+  const grandSupplyTotal = isApple ? totalAppleAmount : otherTotalAmount;
+  const autoAdvanceAmount = Math.round(grandSupplyTotal * 0.70);
+  const pendingBalanceAmount = Math.max(0, grandSupplyTotal - autoAdvanceAmount);
 
   // Synchronize activeTab when navigation changes from the left sidebar
   useEffect(() => {
@@ -200,6 +220,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       setActiveTab('qc');
     } else if (activePage === 'WhatsApp Helpdesk & Hubs') {
       setActiveTab('support');
+    } else if (activePage === 'Ready for Dispatch') {
+      setActiveTab('dispatch');
+    } else if (activePage === 'Supply Consignments') {
+      setActiveTab('orders');
     }
   }, [activePage]);
 
@@ -225,103 +249,129 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         onNavigate('Weighbridge & QC Slips');
       } else if (tab === 'support') {
         onNavigate('WhatsApp Helpdesk & Hubs');
+      } else if (tab === 'dispatch') {
+        onNavigate('Ready for Dispatch');
+      } else if (tab === 'orders') {
+        onNavigate('Supply Consignments');
       } else {
         onNavigate('Dashboard');
       }
     }
   };
 
-  const handleAddFruitChip = (fruit: string) => {
-    setPoItems((prev) => [
-      ...prev,
-      {
-        id: String(prev.length + 1),
-        fruitName: fruit,
-        varietyGrade: 'Grade A Export Quality',
-        quantity: 100,
-        unit: 'BOX',
-        ratePerUnit: 1000,
-        lineTotal: 100000,
-      },
-    ]);
+  const handleSupplyVehiclePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSupplyVehiclePhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSupplyVehiclePhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const handlePoItemChange = (index: number, field: string, val: any) => {
-    setPoItems((prev) => {
-      const updated = [...prev];
-      const item = { ...updated[index], [field]: val };
-      const qty = Number(item.quantity) || 0;
-      const rate = Number(item.ratePerUnit) || 0;
-      item.lineTotal = qty * rate;
-      updated[index] = item;
-      return updated;
-    });
+  const handleSupplyTransportBillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSupplyTransportBillFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSupplyTransportBillPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const handleRemovePoItem = (index: number) => {
-    if (poItems.length <= 1) return;
-    setPoItems((prev) => prev.filter((_, i) => i !== index));
+  const handleFruitSelect = (fruit: string) => {
+    setSelectedFruit(fruit);
+    if (fruit === 'Kashmir Apples' || fruit.toLowerCase().includes('apple')) {
+      if (!layer4LBoxes) setLayer4LBoxes('200');
+      if (!layer4LRate) setLayer4LRate('1200');
+      if (!layer5LBoxes) setLayer5LBoxes('250');
+      if (!layer5LRate) setLayer5LRate('1100');
+      if (!rollBoxes) setRollBoxes('50');
+      if (!rollRate) setRollRate('700');
+    } else {
+      if (!otherQuantity) setOtherQuantity('500');
+      if (!otherRate) setOtherRate('950');
+    }
   };
 
   const handleSubmitVendorPO = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatePOError('');
-    if (poItems.length === 0) {
-      setCreatePOError('Please add at least one fruit consignment item.');
-      return;
-    }
-    const invalidFruit = poItems.find(
-      (it) => !VENDOR_WHITELISTED_FRUITS.includes(it.fruitName as any)
-    );
-    if (invalidFruit) {
-      setCreatePOError(`Fruit "${invalidFruit.fruitName}" is not allowed. Vendors can only supply whitelisted fruits.`);
-      return;
-    }
-    const grandTotal = poItems.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
-    if (grandTotal <= 0) {
-      setCreatePOError('Total consignment value must be greater than 0.');
+
+    if (grandSupplyTotal <= 0) {
+      setCreatePOError('Total consignment value must be greater than ₹0.');
       return;
     }
 
     try {
       setIsSubmittingPO(true);
-      const advance = Math.round(grandTotal * 0.70);
-      const pending = grandTotal - advance;
+      const formData = new FormData();
+      formData.append('destinationHub', targetHub);
+      if (expectedDeliveryDate) {
+        formData.append('expectedDeliveryDate', expectedDeliveryDate);
+      }
+      formData.append('fruitName', selectedFruit);
+      formData.append('notes', poNotes);
 
-      await api.createPurchaseOrder({
-        supplierId: vendorProfile?.vendorId || 'VND-001',
-        isVendor: true,
-        orderPersonName: vendorProfile?.contactPerson || user?.name || 'Authorized Vendor',
-        orderPersonPlace: targetHub,
-        deliveryAddress: `${targetHub} Regional Hub Receiving Desk`,
-        poDate: new Date().toISOString(),
-        expectedDeliveryDate: expectedDeliveryDate || null,
-        grandTotal,
-        totalAmount: grandTotal,
-        advanceAmount: advance,
-        pendingAmount: pending,
-        fruitName: poItems.map((i) => `${i.fruitName} (${i.quantity} ${i.unit})`).join(', '),
-        notes: poNotes ? `Vendor Consignment: ${poNotes}` : `Vendor consignment supply for ${targetHub} Hub (70% Auto-Advance Policy)`,
-        items: poItems.map((it) => ({
-          fruitName: it.fruitName,
-          category: 'Fresh Fruits',
-          varietyGrade: it.varietyGrade || 'Grade A Export Quality',
-          quantity: Number(it.quantity) || 1,
-          unit: it.unit || 'BOX',
-          ratePerUnit: Number(it.ratePerUnit) || 0,
-          discountPercent: 0,
-          taxPercent: 0,
-          lineTotal: it.lineTotal,
-        })),
-        submitForApproval: true,
-      });
+      if (isApple) {
+        formData.append('layer4LBoxes', String(Number(layer4LBoxes) || 0));
+        formData.append('layer4LRate', String(Number(layer4LRate) || 0));
+        formData.append('layer5LBoxes', String(Number(layer5LBoxes) || 0));
+        formData.append('layer5LRate', String(Number(layer5LRate) || 0));
+        formData.append('rollBoxes', String(Number(rollBoxes) || 0));
+        formData.append('rollRate', String(Number(rollRate) || 0));
+      } else {
+        const items = [
+          {
+            fruitName: selectedFruit,
+            category: 'Fresh Fruits',
+            varietyGrade: otherGrade || 'Grade A Export Quality',
+            quantity: Number(otherQuantity) || 1,
+            unit: otherUnit || 'BOX',
+            ratePerUnit: Number(otherRate) || 0,
+            lineTotal: otherTotalAmount,
+          },
+        ];
+        formData.append('items', JSON.stringify(items));
+      }
 
+      if (supplyVehicleNumber.trim()) {
+        formData.append('dispatchVehicleNumber', supplyVehicleNumber.trim().toUpperCase());
+      }
+      if (supplyTransporterName.trim()) {
+        formData.append('transporterName', supplyTransporterName.trim());
+      }
+      if (supplyDriverPhone.trim()) {
+        formData.append('driverPhone', supplyDriverPhone.trim());
+      }
+      if (supplyVehiclePhotoFile) {
+        formData.append('vehiclePhoto', supplyVehiclePhotoFile);
+      }
+      if (supplyTransportBillFile) {
+        formData.append('transportBill', supplyTransportBillFile);
+      }
+
+      const res = await api.createVendorSupplyPO(formData);
       setShowCreatePOModal(false);
-      onNotify('Supply PO submitted successfully! Safal Operations Desk has been notified.');
+      onNotify(res.message || 'Consignment Supply PO submitted successfully with 70% Auto-Advance Guarantee!');
+
+      // Reset form fields
+      setSupplyVehicleNumber('');
+      setSupplyTransporterName('');
+      setSupplyDriverPhone('');
+      setSupplyVehiclePhotoFile(null);
+      setSupplyVehiclePhotoPreview('');
+      setSupplyTransportBillFile(null);
+      setSupplyTransportBillPreview('');
+
       await loadData();
       setActiveTab('orders');
     } catch (err: any) {
-      setCreatePOError(err.message || 'Failed to submit supply PO.');
+      setCreatePOError(err.message || 'Failed to submit consignment PO');
     } finally {
       setIsSubmittingPO(false);
     }
@@ -1673,10 +1723,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               </div>
 
-              {/* 7 Whitelisted Fruits Quick Selection Chips */}
+              {/* 7 Whitelisted Fruits Selection Chips */}
               <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-2xl">
                 <span className="text-[10px] uppercase font-bold text-[#064D2B] tracking-wider block mb-1.5 flex items-center justify-between">
-                  <span>Quick Add Whitelisted Fruits (Tap to Add)</span>
+                  <span>Select Fruit Commodity (Whitelisted)</span>
                   <span className="text-emerald-700 font-bold">7 Allowed Varieties</span>
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -1684,142 +1734,365 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <button
                       key={fruit}
                       type="button"
-                      onClick={() => handleAddFruitChip(fruit)}
-                      className="px-2.5 py-1 bg-white hover:bg-emerald-100 text-[#064D2B] border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      onClick={() => handleFruitSelect(fruit)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                        selectedFruit === fruit
+                          ? 'bg-[#064D2B] text-white shadow-sm ring-2 ring-emerald-500'
+                          : 'bg-white hover:bg-emerald-100 text-[#064D2B] border border-emerald-300'
+                      }`}
                     >
-                      <Plus size={11} /> {fruit}
+                      {fruit === 'Kashmir Apples' ? '🍎' : fruit === 'Pomegranate' ? '🍇' : fruit === 'Banana' ? '🍌' : fruit === 'Orange' ? '🍊' : '🍉'} {fruit}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Consignment Items */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-extrabold text-xs text-gray-900 uppercase tracking-wider">
-                    Consignment Items ({poItems.length})
-                  </h4>
-                  <button
-                    type="button"
-                    onClick={() => handleAddFruitChip('Kashmir Apples')}
-                    className="text-xs text-[#087A3E] font-bold hover:underline flex items-center gap-1"
-                  >
-                    <Plus size={13} /> + Add Item Row
-                  </button>
-                </div>
-
-                {poItems.map((item, idx) => (
-                  <div
-                    key={item.id}
-                    className="p-3 bg-gray-50 border border-gray-200 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end"
-                  >
-                    <div className="sm:col-span-4">
-                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Fruit Variety *</label>
-                      <select
-                        value={item.fruitName}
-                        onChange={(e) => handlePoItemChange(idx, 'fruitName', e.target.value)}
-                        className="w-full h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white"
-                        required
-                      >
-                        {VENDOR_WHITELISTED_FRUITS.map((f) => (
-                          <option key={f} value={f}>
-                            {f}
-                          </option>
-                        ))}
-                      </select>
+              {/* Dynamic Fruit Sizing & Pricing */}
+              {isApple ? (
+                /* Apple Mandi Layer Grading Box Matrix (4L, 5L, Roll, Total, Amount) */
+                <div className="p-3.5 bg-gradient-to-br from-red-50/60 via-amber-50/30 to-emerald-50/40 border border-amber-200/80 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-extrabold text-red-700 tracking-wider block">
+                        🍎 Apple Mandi Layer Box Grading (4L / 5L / Roll)
+                      </span>
+                      <p className="text-[11px] text-gray-600">
+                        Standard wholesale apple telescopic cartons (~20-22 Kg/box). Enter box count and per-box mandi rate.
+                      </p>
                     </div>
+                    <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-lg text-[11px] font-black">
+                      Kashmir Apples
+                    </span>
+                  </div>
 
-                    <div className="sm:col-span-3">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-amber-200/60 text-gray-600 font-black text-[10px] uppercase">
+                          <th className="py-2 px-2">Layer Grade</th>
+                          <th className="py-2 px-2 text-right">No. of Boxes</th>
+                          <th className="py-2 px-2 text-right">Rate (₹ / Box)</th>
+                          <th className="py-2 px-2 text-right">Subtotal (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 font-bold">
+                        {/* 4L */}
+                        <tr className="hover:bg-white/60">
+                          <td className="py-2 px-2">
+                            <div className="font-extrabold text-gray-900">4L (4-Layer Large Size)</div>
+                            <span className="text-[10px] text-gray-500">Premium large size</span>
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={layer4LBoxes}
+                              onChange={(e) => setLayer4LBoxes(e.target.value)}
+                              placeholder="0"
+                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={layer4LRate}
+                              onChange={(e) => setLayer4LRate(e.target.value)}
+                              placeholder="₹"
+                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-right text-emerald-800 font-black">
+                            ₹{apple4LAmount.toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+
+                        {/* 5L */}
+                        <tr className="hover:bg-white/60">
+                          <td className="py-2 px-2">
+                            <div className="font-extrabold text-gray-900">5L (5-Layer Medium Size)</div>
+                            <span className="text-[10px] text-gray-500">Standard market volume</span>
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={layer5LBoxes}
+                              onChange={(e) => setLayer5LBoxes(e.target.value)}
+                              placeholder="0"
+                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={layer5LRate}
+                              onChange={(e) => setLayer5LRate(e.target.value)}
+                              placeholder="₹"
+                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-right text-emerald-800 font-black">
+                            ₹{apple5LAmount.toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+
+                        {/* Roll */}
+                        <tr className="hover:bg-white/60">
+                          <td className="py-2 px-2">
+                            <div className="font-extrabold text-gray-900">Roll (Roller Mixed Running)</div>
+                            <span className="text-[10px] text-gray-500">Mandi roller bulk pack</span>
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={rollBoxes}
+                              onChange={(e) => setRollBoxes(e.target.value)}
+                              placeholder="0"
+                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-right">
+                            <input
+                              type="number"
+                              min="0"
+                              value={rollRate}
+                              onChange={(e) => setRollRate(e.target.value)}
+                              placeholder="₹"
+                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                            />
+                          </td>
+                          <td className="py-2 px-2 text-right text-emerald-800 font-black">
+                            ₹{appleRollAmount.toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+                      </tbody>
+                      <tfoot>
+                        <tr className="border-t-2 border-emerald-300 bg-emerald-100/40">
+                          <td className="py-2.5 px-2 text-gray-900 font-black uppercase text-[11px]">
+                            Total Consignment
+                          </td>
+                          <td className="py-2.5 px-2 text-right font-black text-gray-900">
+                            {totalAppleBoxes.toLocaleString('en-IN')} Boxes
+                          </td>
+                          <td className="py-2.5 px-2 text-right text-gray-500 text-[10px]">
+                            Combined Total
+                          </td>
+                          <td className="py-2.5 px-2 text-right text-base font-black text-emerald-800">
+                            ₹{totalAppleAmount.toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                /* Other Fruit Sizing Form */
+                <div className="p-3.5 bg-emerald-50/40 border border-emerald-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider block">
+                        Fruit Commodity Sizing &amp; Pricing
+                      </span>
+                      <p className="text-[11px] text-gray-600">
+                        Enter quantity, billing unit, and wholesale mandi rate per unit.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[11px] font-black">
+                      {selectedFruit}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
+                    <div>
                       <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Grade / Variety</label>
                       <input
                         type="text"
-                        value={item.varietyGrade}
-                        onChange={(e) => handlePoItemChange(idx, 'varietyGrade', e.target.value)}
-                        placeholder="Grade A / Export"
-                        className="w-full h-8 px-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 bg-white"
+                        value={otherGrade}
+                        onChange={(e) => setOtherGrade(e.target.value)}
+                        placeholder="e.g. Export Grade A"
+                        className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 bg-white"
                       />
                     </div>
-
-                    <div className="sm:col-span-2">
+                    <div>
                       <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Quantity</label>
                       <input
                         type="number"
                         min="1"
-                        value={item.quantity}
-                        onChange={(e) => handlePoItemChange(idx, 'quantity', e.target.value)}
+                        value={otherQuantity}
+                        onChange={(e) => setOtherQuantity(e.target.value)}
                         placeholder="Qty"
-                        className="w-full h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right"
+                        className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right"
                         required
                       />
                     </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Rate (₹)</label>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Unit</label>
+                      <select
+                        value={otherUnit}
+                        onChange={(e) => setOtherUnit(e.target.value)}
+                        className="w-full h-9 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white"
+                      >
+                        <option value="BOX">BOX</option>
+                        <option value="CRATE">CRATE</option>
+                        <option value="TON">TON</option>
+                        <option value="KG">KG</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Rate (₹ / {otherUnit})</label>
                       <input
                         type="number"
                         min="1"
-                        value={item.ratePerUnit}
-                        onChange={(e) => handlePoItemChange(idx, 'ratePerUnit', e.target.value)}
+                        value={otherRate}
+                        onChange={(e) => setOtherRate(e.target.value)}
                         placeholder="Rate ₹"
-                        className="w-full h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right"
+                        className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right"
                         required
                       />
                     </div>
-
-                    <div className="sm:col-span-1 flex items-center justify-center">
-                      {poItems.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemovePoItem(idx)}
-                          className="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center cursor-pointer transition"
-                          title="Remove item"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
                   </div>
-                ))}
+
+                  <div className="p-2.5 bg-white rounded-xl border border-emerald-200 flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-700">Calculated Consignment Value:</span>
+                    <span className="text-sm font-black text-emerald-800">₹{otherTotalAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Dispatch & Transport Proof Details (Vehicle photo, Transport bill photo, vehicle number, driver) */}
+              <div className="p-3.5 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-3">
+                <span className="text-[10px] uppercase font-black text-blue-900 tracking-wider block flex items-center gap-1.5">
+                  <Truck size={14} className="text-blue-700" /> Dispatch &amp; Logistics Proof (Upload now for instant 70% advance release)
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">Vehicle / Truck Number</label>
+                    <input
+                      type="text"
+                      value={supplyVehicleNumber}
+                      onChange={(e) => setSupplyVehicleNumber(e.target.value.toUpperCase())}
+                      placeholder="e.g. TS09UB4521"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white uppercase"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">Transporter Name</label>
+                    <input
+                      type="text"
+                      value={supplyTransporterName}
+                      onChange={(e) => setSupplyTransporterName(e.target.value)}
+                      placeholder="e.g. New Golden Roadways"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">Driver Contact Number</label>
+                    <input
+                      type="tel"
+                      value={supplyDriverPhone}
+                      onChange={(e) => setSupplyDriverPhone(e.target.value)}
+                      placeholder="e.g. 9848012345"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {/* Vehicle Photo Upload */}
+                  <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5">
+                    <label className="block text-[11px] font-bold text-gray-800">
+                      📸 Dispatch Photo (Vehicle &amp; Loaded Cartons)
+                    </label>
+                    <p className="text-[10px] text-gray-500">
+                      Clear photo showing vehicle with loaded fruit boxes and number plate.
+                    </p>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/jpg"
+                      onChange={handleSupplyVehiclePhotoChange}
+                      className="w-full text-[11px] text-gray-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-bold file:bg-emerald-700 file:text-white hover:file:bg-emerald-800 file:cursor-pointer"
+                    />
+                    {supplyVehiclePhotoPreview && (
+                      <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
+                        <img
+                          src={supplyVehiclePhotoPreview}
+                          alt="Vehicle Preview"
+                          className="h-24 w-auto object-contain rounded"
+                        />
+                        <span className="text-[9px] text-emerald-700 font-bold block mt-0.5">Vehicle Photo Attached ✓</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Transport Bill Photo Upload */}
+                  <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5">
+                    <label className="block text-[11px] font-bold text-gray-800">
+                      🧾 Transport Bill Photo (Bilty / LR Receipt)
+                    </label>
+                    <p className="text-[10px] text-gray-500">
+                      Clear photo or PDF receipt from transporter / consignment note.
+                    </p>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/jpg,application/pdf"
+                      onChange={handleSupplyTransportBillChange}
+                      className="w-full text-[11px] text-gray-600 file:mr-2 file:py-1 file:px-2.5 file:rounded-md file:border-0 file:text-[11px] file:font-bold file:bg-blue-700 file:text-white hover:file:bg-blue-800 file:cursor-pointer"
+                    />
+                    {supplyTransportBillPreview && (
+                      <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
+                        {supplyTransportBillFile?.type === 'application/pdf' ? (
+                          <span className="text-xs text-blue-800 font-bold">📄 PDF Document ({supplyTransportBillFile.name})</span>
+                        ) : (
+                          <img
+                            src={supplyTransportBillPreview}
+                            alt="Bilty Preview"
+                            className="h-24 w-auto object-contain rounded"
+                          />
+                        )}
+                        <span className="text-[9px] text-blue-700 font-bold block mt-0.5">Transport Bill Attached ✓</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* 70% Auto-Advance Policy Settlement Breakdown */}
-              {(() => {
-                const totalVal = poItems.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
-                const advanceVal = Math.round(totalVal * 0.70);
-                const pendingVal = Math.max(0, totalVal - advanceVal);
-
-                return (
-                  <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-400 rounded-2xl space-y-2">
-                    <span className="text-[10px] uppercase font-black text-[#064D2B] tracking-wider block flex items-center gap-1.5">
-                      <Sparkles size={13} className="text-emerald-700" /> 70% Automatic Advance Settlement Guarantee
+              <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-400 rounded-2xl space-y-2">
+                <span className="text-[10px] uppercase font-black text-[#064D2B] tracking-wider block flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-emerald-700" /> 70% Automatic Advance Settlement Guarantee
+                </span>
+                <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                  <div className="bg-white p-2 rounded-xl border border-emerald-200">
+                    <span className="text-[9px] text-gray-500 uppercase font-bold block">Total Consignment</span>
+                    <strong className="text-sm font-black text-gray-900 block mt-0.5">
+                      ₹{grandSupplyTotal.toLocaleString('en-IN')}
+                    </strong>
+                    <span className="text-[8px] text-gray-400 block">
+                      {isApple ? `${totalAppleBoxes} Boxes` : `${otherQuantity} ${otherUnit}`}
                     </span>
-                    <div className="grid grid-cols-3 gap-2 text-center pt-1">
-                      <div className="bg-white p-2 rounded-xl border border-emerald-200">
-                        <span className="text-[9px] text-gray-500 uppercase font-bold block">Total Consignment</span>
-                        <strong className="text-sm font-black text-gray-900 block mt-0.5">
-                          ₹{totalVal.toLocaleString('en-IN')}
-                        </strong>
-                      </div>
-
-                      <div className="bg-white p-2 rounded-xl border border-emerald-300 shadow-2xs">
-                        <span className="text-[9px] text-emerald-800 uppercase font-extrabold block">70% Auto Advance</span>
-                        <strong className="text-sm font-black text-emerald-700 block mt-0.5">
-                          ₹{advanceVal.toLocaleString('en-IN')}
-                        </strong>
-                        <span className="text-[8px] text-emerald-600 block">Paid on Dispatch</span>
-                      </div>
-
-                      <div className="bg-white p-2 rounded-xl border border-gray-200">
-                        <span className="text-[9px] text-gray-500 uppercase font-bold block">30% Balance Due</span>
-                        <strong className="text-sm font-black text-gray-700 block mt-0.5">
-                          ₹{pendingVal.toLocaleString('en-IN')}
-                        </strong>
-                        <span className="text-[8px] text-gray-400 block">Settled on Delivery</span>
-                      </div>
-                    </div>
                   </div>
-                );
-              })()}
+
+                  <div className="bg-white p-2 rounded-xl border border-emerald-300 shadow-2xs">
+                    <span className="text-[9px] text-emerald-800 uppercase font-extrabold block">70% Auto Advance</span>
+                    <strong className="text-sm font-black text-emerald-700 block mt-0.5">
+                      ₹{autoAdvanceAmount.toLocaleString('en-IN')}
+                    </strong>
+                    <span className="text-[8px] text-emerald-600 block">Released on Dispatch Proof</span>
+                  </div>
+
+                  <div className="bg-white p-2 rounded-xl border border-gray-200">
+                    <span className="text-[9px] text-gray-500 uppercase font-bold block">30% Balance Due</span>
+                    <strong className="text-sm font-black text-gray-700 block mt-0.5">
+                      ₹{pendingBalanceAmount.toLocaleString('en-IN')}
+                    </strong>
+                    <span className="text-[8px] text-gray-400 block">Settled on Mandi Delivery</span>
+                  </div>
+                </div>
+              </div>
 
               {/* Consignment Remarks */}
               <div>

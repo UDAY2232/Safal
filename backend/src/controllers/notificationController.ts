@@ -5,6 +5,17 @@ import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
 
 function getScopedNotificationWhere(userId?: string, role?: string) {
+  if (role === 'VENDOR') {
+    // Vendors are external fruit suppliers. They ONLY see notifications specifically addressed
+    // to their userId or VENDOR role. They NEVER see internal company POs, employee CDs, or admin alerts.
+    return {
+      OR: [
+        { userId: userId || '__none__' },
+        { recipientRole: 'VENDOR' },
+      ],
+    };
+  }
+
   if (role === 'EMPLOYEE') {
     // Employees ONLY see notifications directed to their specific userId,
     // or broadcast notices sent by Admin/Accountant specifically to all employees or all company.

@@ -11,7 +11,7 @@ import { clearDashboardCache } from './adminController.js';
  * Queries all existing POs for the current calendar year to find the true numeric maximum,
  * preventing any race conditions, deletions, or multiple-employee conflicts.
  */
-async function generateNextPONumber(tx: any): Promise<string> {
+export async function generateNextPONumber(tx: any): Promise<string> {
   const currentYear = new Date().getFullYear();
   const prefix = `PO/SF/${currentYear}/`;
 

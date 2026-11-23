@@ -8,6 +8,7 @@ import {
   Menu,
   Scale,
   MessageSquare,
+  Truck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -31,7 +32,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const items = isVendor
     ? [
         { label: 'Dashboard', shortLabel: 'Dashboard', icon: Home, page: 'Dashboard' },
-        { label: 'Purchase Orders', shortLabel: 'PO', icon: ShoppingCart, page: 'Purchase Order (PO)' },
+        { label: 'Supply POs', shortLabel: 'Supply PO', icon: ShoppingCart, page: 'Supply Consignments' },
+        { label: 'Dispatch', shortLabel: 'Dispatch', icon: Truck, page: 'Ready for Dispatch' },
         { label: 'QC Slips', shortLabel: 'QC', icon: Scale, page: 'Weighbridge & QC Slips' },
         { label: 'Helpdesk', shortLabel: 'Support', icon: MessageSquare, page: 'WhatsApp Helpdesk & Hubs' },
       ]

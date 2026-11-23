@@ -234,6 +234,8 @@ export const api = {
   getVendorProfile: () => request<{ vendor: any }>('/vendor/profile'),
   updateVendorProfile: (data: any) => request<any>('/vendor/profile', { method: 'PUT', body: JSON.stringify(data) }),
   getVendorPOs: () => request<any[]>('/vendor/purchase-orders'),
+  createVendorSupplyPO: (formData: FormData) =>
+    request<any>('/vendor/supply-po', { method: 'POST', body: formData }),
   submitPODispatch: (formData: FormData) => request<any>('/vendor/dispatch', { method: 'POST', body: formData }),
   getVendorDashboardStats: () => request<any>('/vendor/dashboard-stats'),
   submitHubQCInspection: (poId: string, formData: FormData) =>

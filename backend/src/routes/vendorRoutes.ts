@@ -12,6 +12,7 @@ import {
   toggleVendorKycLock,
   updateVendorByAdmin,
   submitHubQCInspection,
+  createVendorSupplyPO,
 } from '../controllers/vendorController.js';
 
 const router = Router();
@@ -20,6 +21,15 @@ const router = Router();
 router.get('/profile', authenticateToken, getVendorProfile);
 router.put('/profile', authenticateToken, updateVendorProfile);
 router.get('/purchase-orders', authenticateToken, getVendorPOs);
+router.post(
+  '/supply-po',
+  authenticateToken,
+  upload.fields([
+    { name: 'vehiclePhoto', maxCount: 1 },
+    { name: 'transportBill', maxCount: 1 },
+  ]),
+  createVendorSupplyPO
+);
 router.post(
   '/dispatch',
   authenticateToken,
