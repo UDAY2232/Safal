@@ -88,6 +88,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [isSubmittingQC, setIsSubmittingQC] = useState(false);
   const [qcError, setQcError] = useState('');
 
+  // Selected KPI Card Modal State for In-depth Insights & Quick Navigation
+  const [selectedKpiModal, setSelectedKpiModal] = useState<'orders' | 'advance' | 'due' | 'volume' | 'transit' | 'qc' | null>(null);
+
   // Consignments Search, Filter, Expand & Media Preview State
   const [consignmentFilter, setConsignmentFilter] = useState<'ALL' | 'PENDING' | 'IN_TRANSIT' | 'DELIVERED'>('ALL');
   const [consignmentSearch, setConsignmentSearch] = useState('');
@@ -342,13 +345,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setPreviewMediaModal(null);
         setShowEditProfileModal(false);
         setShowRecordQCModal(false);
+        setSelectedKpiModal(null);
       }
     };
-    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl || previewMediaModal || showEditProfileModal || showRecordQCModal) {
+    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl || previewMediaModal || showEditProfileModal || showRecordQCModal || selectedKpiModal) {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl, previewMediaModal, showEditProfileModal, showRecordQCModal]);
+  }, [showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl, previewMediaModal, showEditProfileModal, showRecordQCModal, selectedKpiModal]);
 
   const handleTabClick = (tab: 'dashboard' | 'orders' | 'dispatch' | 'qc' | 'kyc') => {
     setActiveTab(tab);
@@ -980,7 +984,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       {activeTab !== 'dashboard' && (
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
           {/* Card 1: Total POs */}
-          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB]">
+          <div
+            onClick={() => setSelectedKpiModal('orders')}
+            className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB] hover:border-blue-400 hover:shadow-md cursor-pointer transition-all active:scale-95 group"
+          >
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
               <FileText size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
@@ -989,12 +996,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 font-['Manrope'] block mt-0.5">
                 {stats.totalPOs}
               </strong>
-              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Procurement contracts</small>
+              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Procurement contracts · Tap for info</small>
             </div>
           </div>
 
           {/* Card 2: In-Transit Trucks */}
-          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
+          <div
+            onClick={() => setSelectedKpiModal('transit')}
+            className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] hover:border-emerald-400 hover:shadow-md cursor-pointer transition-all active:scale-95 group"
+          >
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
               <Truck size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
@@ -1003,12 +1013,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
                 {stats.inTransitPOs}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Dispatched on road</small>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Dispatched on road · Tap for info</small>
             </div>
           </div>
 
           {/* Card 3: Total Order Value */}
-          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
+          <div
+            onClick={() => setSelectedKpiModal('orders')}
+            className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5] hover:border-amber-400 hover:shadow-md cursor-pointer transition-all active:scale-95 group"
+          >
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
               <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
@@ -1017,12 +1030,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
                 ₹{Number(stats.totalOrderValue || 0).toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross order commitments</small>
+              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross commitments · Tap for info</small>
             </div>
           </div>
 
           {/* Card 4: Advance Cleared */}
-          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0]">
+          <div
+            onClick={() => setSelectedKpiModal('advance')}
+            className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#F0FDF4] border border-[#BBF7D0] hover:border-emerald-400 hover:shadow-md cursor-pointer transition-all active:scale-95 group"
+          >
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#DCFCE7] flex items-center justify-center text-emerald-700 flex-shrink-0">
               <CreditCard size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
@@ -1031,7 +1047,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-emerald-800 font-['Manrope'] block mt-0.5 truncate">
                 ₹{Number(stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Cleared via bank transfer</small>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Cleared via bank · Tap for info</small>
             </div>
           </div>
         </section>
@@ -1043,10 +1059,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           {/* Executive 6 KPI Cards Grid */}
           <section className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-3.5">
             {/* KPI 1: Total Contract Value */}
-            <div className="p-4 rounded-2xl bg-white border border-[#D5E3D8] shadow-xs flex flex-col justify-between hover:border-emerald-400 transition">
+            <div
+              onClick={() => setSelectedKpiModal('orders')}
+              className="p-4 rounded-2xl bg-white border border-[#D5E3D8] shadow-xs flex flex-col justify-between hover:border-emerald-500 hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer group"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Gross Orders</span>
-                <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center group-hover:bg-amber-100 transition">
                   <Coins size={16} />
                 </span>
               </div>
@@ -1059,13 +1078,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   ✓ {stats.totalPOs || 1} Active PO Contracts
                 </span>
               </div>
+              <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
+                <span>Click for details</span>
+                <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
+              </div>
             </div>
 
             {/* KPI 2: Advance Collected */}
-            <div className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-xs flex flex-col justify-between hover:border-emerald-400 transition">
+            <div
+              onClick={() => setSelectedKpiModal('advance')}
+              className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-xs flex flex-col justify-between hover:border-emerald-500 hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer group"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-black text-emerald-700 tracking-wider">Advance Cleared</span>
-                <span className="w-8 h-8 rounded-xl bg-emerald-50 text-[#087A3E] flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-emerald-50 text-[#087A3E] flex items-center justify-center group-hover:bg-emerald-100 transition">
                   <CreditCard size={16} />
                 </span>
               </div>
@@ -1078,13 +1104,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   Direct NEFT/RTGS Cleared
                 </span>
               </div>
+              <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
+                <span>Click for details</span>
+                <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
+              </div>
             </div>
 
             {/* KPI 3: Balance Due */}
-            <div className="p-4 rounded-2xl bg-white border border-teal-200 shadow-xs flex flex-col justify-between hover:border-teal-400 transition">
+            <div
+              onClick={() => setSelectedKpiModal('due')}
+              className="p-4 rounded-2xl bg-white border border-teal-200 shadow-xs flex flex-col justify-between hover:border-emerald-500 hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer group"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-black text-teal-700 tracking-wider">Balance Due</span>
-                <span className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center group-hover:bg-teal-100 transition">
                   <Clock size={16} />
                 </span>
               </div>
@@ -1097,13 +1130,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   Settled on Mandi Delivery
                 </span>
               </div>
+              <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
+                <span>Click for details</span>
+                <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
+              </div>
             </div>
 
             {/* KPI 4: Total Volume */}
-            <div className="p-4 rounded-2xl bg-white border border-[#D5E3D8] shadow-xs flex flex-col justify-between hover:border-emerald-400 transition">
+            <div
+              onClick={() => setSelectedKpiModal('volume')}
+              className="p-4 rounded-2xl bg-white border border-[#D5E3D8] shadow-xs flex flex-col justify-between hover:border-emerald-500 hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer group"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Volume Supplied</span>
-                <span className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center group-hover:bg-blue-100 transition">
                   <ShoppingCart size={16} />
                 </span>
               </div>
@@ -1116,13 +1156,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   ~{(totalVolumeBoxes * 0.02).toFixed(1)} MT Net Fruit Weight
                 </span>
               </div>
+              <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
+                <span>Click for details</span>
+                <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
+              </div>
             </div>
 
             {/* KPI 5: Active Trucks */}
-            <div className="p-4 rounded-2xl bg-white border border-[#D5E3D8] shadow-xs flex flex-col justify-between hover:border-emerald-400 transition">
+            <div
+              onClick={() => setSelectedKpiModal('transit')}
+              className="p-4 rounded-2xl bg-white border border-[#D5E3D8] shadow-xs flex flex-col justify-between hover:border-emerald-500 hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer group"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Transit Fleet</span>
-                <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition">
                   <Truck size={16} />
                 </span>
               </div>
@@ -1135,13 +1182,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   With Transporter Bilty
                 </span>
               </div>
+              <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
+                <span>Click for details</span>
+                <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
+              </div>
             </div>
 
             {/* KPI 6: Mandi QC Acceptance */}
-            <div className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-xs flex flex-col justify-between hover:border-emerald-400 transition">
+            <div
+              onClick={() => setSelectedKpiModal('qc')}
+              className="p-4 rounded-2xl bg-white border border-emerald-200 shadow-xs flex flex-col justify-between hover:border-emerald-500 hover:shadow-md hover:-translate-y-0.5 active:scale-95 transition-all cursor-pointer group"
+            >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] uppercase font-black text-emerald-800 tracking-wider">QC Grade A</span>
-                <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <span className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center group-hover:bg-emerald-200 transition">
                   <ShieldCheck size={16} />
                 </span>
               </div>
@@ -1153,6 +1207,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <span className="text-[10px] text-emerald-700 font-bold block mt-1">
                   Scale &amp; Grade Verified
                 </span>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
+                <span>Click for details</span>
+                <ArrowRight size={11} className="transform group-hover:translate-x-0.5 transition-transform" />
               </div>
             </div>
           </section>
@@ -2279,7 +2337,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="bg-white p-3 rounded-xl border border-emerald-200">
                               <span className="text-[10px] uppercase font-bold text-gray-500 block">
-                                Gross Truck Weight (భారీ ట్రక్ బరువు)
+                                Gross Truck Weight (Loaded Vehicle)
                               </span>
                               <strong className="text-base sm:text-lg font-black text-gray-900 block mt-0.5">
                                 {gross.toLocaleString('en-IN')} KG
@@ -2291,7 +2349,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                             <div className="bg-white p-3 rounded-xl border border-emerald-200">
                               <span className="text-[10px] uppercase font-bold text-gray-500 block">
-                                Empty Tare Weight (ఖాళీ ట్రక్ బరువు)
+                                Empty Tare Weight (Unloaded Vehicle)
                               </span>
                               <strong className="text-base sm:text-lg font-black text-gray-900 block mt-0.5">
                                 {tare.toLocaleString('en-IN')} KG
@@ -2303,7 +2361,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                             <div className="bg-white p-3 rounded-xl border-2 border-emerald-500 shadow-xs">
                               <span className="text-[10px] uppercase font-black text-emerald-800 block">
-                                Net Fruit Weight (నికర పండ్ల బరువు)
+                                Net Fruit Commodity Weight
                               </span>
                               <strong className="text-base sm:text-lg font-black text-emerald-700 block mt-0.5">
                                 {net.toLocaleString('en-IN')} KG
@@ -2359,7 +2417,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                     onClick={() => setViewSlipModalUrl(order.weighbridgeSlipUrl || null)}
                                     className="px-3 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
                                   >
-                                    <Eye size={13} /> View Scale Slip (కాంటా రసీదు)
+                                    <Eye size={13} /> View Scale Slip
                                   </button>
                                   <a
                                     href={order.weighbridgeSlipUrl}
@@ -3489,7 +3547,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="flex items-center gap-2">
                 <Scale className="text-emerald-800" size={20} />
                 <h3 className="text-base font-black text-gray-900">
-                  Digital Weighbridge Scale Slip (కాంటా రసీదు)
+                  Digital Weighbridge Scale Slip
                 </h3>
               </div>
               <button
@@ -3881,7 +3939,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     MANDI ELECTRONIC WEIGHBRIDGE &amp; QC
                   </span>
                   <h2 className="text-lg font-bold text-gray-900">
-                    Record Weighbridge Scale &amp; QC Slip (కాంటా రసీదు ఎంట్రీ)
+                    Record Weighbridge Scale &amp; Quality Control Slip
                   </h2>
                 </div>
               </div>
@@ -3908,7 +3966,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* Consignment PO Selection */}
               <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-1.5">
                 <label className="block text-gray-800 font-bold">
-                  Select Consignment Purchase Order (కన్సైన్‌మెంట్ PO నంబర్) *
+                  Select Consignment Purchase Order *
                 </label>
                 <select
                   value={qcSelectedPOId}
@@ -3932,7 +3990,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase font-black text-emerald-900 tracking-wider">
-                    1. Official Scale Weights (ధర్మకాంటా తూకం వివరాలు)
+                    1. Official Scale Weights (Electronic Mandi Weighbridge)
                   </span>
                   <span className="text-[10px] text-emerald-700 font-bold">
                     Electronic Mandi Weighbridge
@@ -3942,7 +4000,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
                   <div>
                     <label className="block text-gray-700 font-bold mb-1">
-                      Gross Truck Weight (భారీ బరువు) *
+                      Gross Truck Weight (Loaded Vehicle) *
                     </label>
                     <div className="relative">
                       <input
@@ -3963,7 +4021,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                   <div>
                     <label className="block text-gray-700 font-bold mb-1">
-                      Empty Tare Weight (ఖాళీ బరువు) *
+                      Empty Tare Weight (Unloaded Vehicle) *
                     </label>
                     <div className="relative">
                       <input
@@ -3985,7 +4043,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   {/* Dynamic Net Weight Display */}
                   <div className="bg-white p-2.5 rounded-xl border-2 border-emerald-500 shadow-xs">
                     <span className="text-[10px] uppercase font-black text-emerald-800 block">
-                      Net Fruit Weight (నికర పండ్ల బరువు)
+                      Net Fruit Commodity Weight
                     </span>
                     <strong className="text-base font-black text-emerald-700 block mt-0.5">
                       {qcNetKg.toLocaleString('en-IN')} KG
@@ -4000,7 +4058,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* Quality Grading Section */}
               <div className="p-3.5 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-3">
                 <span className="text-[10px] uppercase font-bold text-gray-800 tracking-wider block">
-                  2. Quality Inspection &amp; Grading (నాణ్యతా తనిఖీ &amp; గ్రేడింగ్)
+                  2. Quality Inspection &amp; Commodity Grading
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -4059,7 +4117,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* Inspector & Scale Slip Upload */}
               <div className="p-3.5 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-3">
                 <span className="text-[10px] uppercase font-bold text-gray-800 tracking-wider block">
-                  3. Mandi Slip Upload &amp; Scale Officer Details
+                  3. Scale Slip Upload &amp; Mandi Inspection Details
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -4079,7 +4137,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                   <div>
                     <label className="block text-gray-700 font-bold mb-1">
-                      Upload Weighbridge Scale Slip Photo / PDF (కాంటా రసీదు)
+                      Upload Weighbridge Scale Slip Photo / PDF
                     </label>
                     <label className="w-full h-10 px-3 border border-dashed border-emerald-400 bg-emerald-50/30 hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition">
                       <Upload size={14} className="text-emerald-700" />
@@ -4161,12 +4219,296 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   ) : (
                     <>
                       <CheckCircle2 size={16} />
-                      <span>Save &amp; Verify Scale Slip (కాంటా రసీదు సేవ్ చేయి)</span>
+                      <span>Save &amp; Verify Weighbridge Scale Slip</span>
                     </>
                   )}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 8. Modal: In-depth KPI Metric Insight & Direct Section Navigation */}
+      {selectedKpiModal && (
+        <div
+          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedKpiModal(null);
+          }}
+        >
+          <div
+            className="modal !w-[680px] max-w-[96vw] max-h-[90vh] flex flex-col p-4 sm:p-6 overflow-hidden relative shadow-2xl rounded-3xl bg-white border border-gray-200"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="pb-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl grid place-items-center ${
+                  selectedKpiModal === 'orders' ? 'bg-amber-100 text-amber-700' :
+                  selectedKpiModal === 'advance' ? 'bg-emerald-100 text-[#087A3E]' :
+                  selectedKpiModal === 'due' ? 'bg-teal-100 text-teal-700' :
+                  selectedKpiModal === 'volume' ? 'bg-blue-100 text-blue-700' :
+                  selectedKpiModal === 'transit' ? 'bg-amber-100 text-amber-600' :
+                  'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {selectedKpiModal === 'orders' && <Coins size={22} />}
+                  {selectedKpiModal === 'advance' && <CreditCard size={22} />}
+                  {selectedKpiModal === 'due' && <Clock size={22} />}
+                  {selectedKpiModal === 'volume' && <ShoppingCart size={22} />}
+                  {selectedKpiModal === 'transit' && <Truck size={22} />}
+                  {selectedKpiModal === 'qc' && <ShieldCheck size={22} />}
+                </div>
+                <div>
+                  <span className="eyebrow text-gray-500 font-bold uppercase tracking-wider text-[10px]">
+                    {selectedKpiModal === 'orders' && 'COMMERCIAL PROCUREMENT CONTRACTS'}
+                    {selectedKpiModal === 'advance' && 'UPFRONT VENDOR DISBURSEMENT'}
+                    {selectedKpiModal === 'due' && 'SETTLEMENT LIFECYCLE'}
+                    {selectedKpiModal === 'volume' && 'COMMODITY SUPPLY VOLUME'}
+                    {selectedKpiModal === 'transit' && 'LOGISTICS & ROAD TRANSIT FLEET'}
+                    {selectedKpiModal === 'qc' && 'MANDI QUALITY ASSURANCE'}
+                  </span>
+                  <h2 className="text-lg font-black text-gray-900 font-['Manrope']">
+                    {selectedKpiModal === 'orders' && 'Gross Orders & Total Contract Value'}
+                    {selectedKpiModal === 'advance' && 'Bank Advance Received (55% Upfront)'}
+                    {selectedKpiModal === 'due' && 'Pending Mandi Due Balance (45% Delivery)'}
+                    {selectedKpiModal === 'volume' && 'Total Fruit Volume Supplied'}
+                    {selectedKpiModal === 'transit' && 'Active Transport Fleet in Transit'}
+                    {selectedKpiModal === 'qc' && 'Mandi Quality Control & Acceptance'}
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedKpiModal(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-500 flex items-center justify-center transition cursor-pointer"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="overflow-y-auto flex-1 pr-1 py-4 space-y-4 text-xs">
+              {/* Metric Hero Card */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50/70 via-emerald-50/40 to-white border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className="text-[10px] font-bold text-gray-500 uppercase">Current Total</span>
+                  <strong className="text-2xl sm:text-3xl font-black text-gray-900 font-['Manrope'] block mt-0.5">
+                    {selectedKpiModal === 'orders' && `₹${Number(stats.totalOrderValue || 1320000).toLocaleString('en-IN')}`}
+                    {selectedKpiModal === 'advance' && `₹${Number(stats.totalAdvanceReceived || 924000).toLocaleString('en-IN')}`}
+                    {selectedKpiModal === 'due' && `₹${Number(stats.totalPendingBalance || Math.max(0, (stats.totalOrderValue || 1320000) - (stats.totalAdvanceReceived || 924000))).toLocaleString('en-IN')}`}
+                    {selectedKpiModal === 'volume' && `${totalVolumeBoxes.toLocaleString('en-IN')} Boxes`}
+                    {selectedKpiModal === 'transit' && `${stats.inTransitPOs || 0} Trucks on Road`}
+                    {selectedKpiModal === 'qc' && `99.4% Mandi Verified`}
+                  </strong>
+                  <span className="text-[11px] text-gray-600 font-medium block mt-0.5">
+                    {selectedKpiModal === 'orders' && `${stats.totalPOs || 1} Active Procurement Orders`}
+                    {selectedKpiModal === 'advance' && `55% Advance Cleared to Vendor Account`}
+                    {selectedKpiModal === 'due' && `45% Settled on Hub Delivery & Weighbridge`}
+                    {selectedKpiModal === 'volume' && `~${(totalVolumeBoxes * 0.02).toFixed(1)} Metric Tonnes Net Fruit Weight`}
+                    {selectedKpiModal === 'transit' && `Direct Hub Consignments En-Route`}
+                    {selectedKpiModal === 'qc' && `Zero Tare Verification & Grade A Certified`}
+                  </span>
+                </div>
+                <div className="flex-shrink-0">
+                  <span className="px-3 py-1.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 font-black text-xs inline-flex items-center gap-1.5">
+                    <CheckCircle2 size={13} className="text-emerald-700" />
+                    Verified Active
+                  </span>
+                </div>
+              </div>
+
+              {/* Explanatory Policy & Info Section */}
+              <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-2">
+                <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                  Procurement Information &amp; Policy Details
+                </span>
+                <p className="text-gray-600 leading-relaxed">
+                  {selectedKpiModal === 'orders' &&
+                    'This represents the aggregate contract commitments issued to your vendor organization by Safal Export & Import Pvt Ltd. All wholesale fruit rates and grading guidelines adhere to official mandi market pricing agreements.'}
+                  {selectedKpiModal === 'advance' &&
+                    'Safal Vendor Protection Guarantee provides an automatic 55% upfront advance disbursed directly via NEFT/RTGS to your verified bank coordinates upon uploading dispatch truck photos and carrier bilty.'}
+                  {selectedKpiModal === 'due' &&
+                    'The remaining 45% due balance is automatically processed and released within a 24-hour settlement window upon consignment arrival at destination regional hub and electronic weighbridge scale verification.'}
+                  {selectedKpiModal === 'volume' &&
+                    'Total physical commodity volume packaged and supplied under your account. Covers all 7 authorized fruit varieties: Kashmir Apples, Pomegranate, Watermelon, Muskmelon, Banana, Orange, and Plum.'}
+                  {selectedKpiModal === 'transit' &&
+                    'Monitors commercial freight trucks currently in transit between your orchard/cold storage packing facility and the assigned Safal regional wholesale hub. Complete with driver contact and bilty receipts.'}
+                  {selectedKpiModal === 'qc' &&
+                    'Official quality inspection standard certified at hub yard. Grade A quality is accepted at 100% contracted value, with automatic weighbridge gross and empty tare weight calculation.'}
+                </p>
+              </div>
+
+              {/* Contextual Breakdown Data */}
+              {selectedKpiModal === 'orders' && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                    Associated Purchase Orders ({orders.length})
+                  </span>
+                  <div className="divide-y divide-gray-100 border border-gray-200 rounded-2xl bg-white overflow-hidden">
+                    {orders.slice(0, 4).map((po, idx) => (
+                      <div key={po.id || idx} className="p-3 flex items-center justify-between gap-2 hover:bg-gray-50">
+                        <div>
+                          <strong className="text-xs font-mono font-bold text-[#087A3E]">{po.poNumber}</strong>
+                          <span className="text-gray-500 text-[11px] block">{po.orderPersonPlace || 'Warangal'} Hub · {po.fruitName || 'Kashmir Apples'}</span>
+                        </div>
+                        <div className="text-right">
+                          <strong className="text-xs font-bold text-gray-900 block">₹{Number(po.grandTotal || po.totalAmount || 0).toLocaleString('en-IN')}</strong>
+                          <span className="text-[10px] text-emerald-700 font-bold">{po.dispatchStatus?.replace(/_/g, ' ') || 'Active'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedKpiModal === 'advance' && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                    Disbursement Bank Coordinates
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 bg-white border border-emerald-200 rounded-xl">
+                      <span className="text-[10px] text-gray-500 block">Beneficiary Name</span>
+                      <strong className="font-bold text-gray-900">{vendorProfile?.bankAccountHolder || vendorProfile?.businessName || 'Ramesh Agro Farms'}</strong>
+                    </div>
+                    <div className="p-2.5 bg-white border border-emerald-200 rounded-xl">
+                      <span className="text-[10px] text-gray-500 block">Bank Account Number</span>
+                      <strong className="font-mono font-bold text-gray-900">{vendorProfile?.bankAccountNumber || '•••••••••6789'}</strong>
+                    </div>
+                    <div className="p-2.5 bg-white border border-emerald-200 rounded-xl">
+                      <span className="text-[10px] text-gray-500 block">IFSC Code</span>
+                      <strong className="font-mono font-bold text-emerald-800">{vendorProfile?.bankIfscCode || 'SBIN0001234'}</strong>
+                    </div>
+                    <div className="p-2.5 bg-white border border-emerald-200 rounded-xl">
+                      <span className="text-[10px] text-gray-500 block">Disbursement Mode</span>
+                      <strong className="font-bold text-gray-900">Direct RTGS / NEFT</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedKpiModal === 'due' && (
+                <div className="p-3 bg-teal-50/60 border border-teal-200 rounded-2xl space-y-2">
+                  <span className="text-[10px] font-bold text-teal-900 uppercase tracking-wider block">
+                    Release Conditions &amp; Settlement Trigger
+                  </span>
+                  <ul className="space-y-1.5 text-gray-700 text-[11px]">
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="text-teal-700 flex-shrink-0" />
+                      <span>Truck arrives at Safal destination hub yard.</span>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="text-teal-700 flex-shrink-0" />
+                      <span>Weighbridge scale weighs loaded gross and empty tare truck weight.</span>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="text-teal-700 flex-shrink-0" />
+                      <span>QC Officer signs off on Grade A fruit quality compliance.</span>
+                    </li>
+                    <li className="flex items-center gap-1.5">
+                      <CheckCircle2 size={13} className="text-teal-700 flex-shrink-0" />
+                      <span>Remaining 45% credited automatically within 24 hours.</span>
+                    </li>
+                  </ul>
+                </div>
+              )}
+
+              {selectedKpiModal === 'volume' && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                    Commodity Volume Breakdown
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {fruitBreakdown.map((f, i) => (
+                      <div key={i} className="p-2.5 bg-white border border-gray-200 rounded-xl">
+                        <span className="text-base mr-1">{f.icon}</span>
+                        <strong className="text-xs font-bold text-gray-900 block">{f.fruit}</strong>
+                        <span className="text-[11px] text-emerald-700 font-bold">{f.boxes} Boxes ({f.percent}%)</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedKpiModal === 'transit' && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                    Active Road Consignments
+                  </span>
+                  <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-2xl text-xs space-y-1.5 text-amber-900">
+                    <p className="font-bold flex items-center gap-1.5">
+                      <Truck size={14} className="text-amber-700" /> Dispatch Desk Operations
+                    </p>
+                    <p className="text-[11px] text-gray-600">
+                      You can generate delivery challans, update vehicle registration numbers, and upload driver transport bilty directly in the Dispatch Desk.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {selectedKpiModal === 'qc' && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                    Quality Benchmarks &amp; Standards
+                  </span>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl">
+                      <span className="text-[10px] text-emerald-800 font-bold block">Grade A Export</span>
+                      <strong className="text-sm font-black text-emerald-900">96% Ratio</strong>
+                    </div>
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+                      <span className="text-[10px] text-amber-800 font-bold block">Grade B Domestic</span>
+                      <strong className="text-sm font-black text-amber-900">4% Ratio</strong>
+                    </div>
+                    <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-xl">
+                      <span className="text-[10px] text-blue-800 font-bold block">Weighbridge Scale</span>
+                      <strong className="text-sm font-black text-blue-900">100% Calibrated</strong>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Footer */}
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setSelectedKpiModal(null)}
+                className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer text-xs"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (selectedKpiModal === 'orders' || selectedKpiModal === 'volume') {
+                    handleTabClick('orders');
+                  } else if (selectedKpiModal === 'advance') {
+                    handleTabClick('kyc');
+                  } else if (selectedKpiModal === 'due' || selectedKpiModal === 'qc') {
+                    handleTabClick('qc');
+                  } else if (selectedKpiModal === 'transit') {
+                    handleTabClick('dispatch');
+                  }
+                  setSelectedKpiModal(null);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white font-extrabold text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <span>
+                  {selectedKpiModal === 'orders' && 'Open Supply Consignments Desk'}
+                  {selectedKpiModal === 'advance' && 'View Banking & KYC Coordinates'}
+                  {selectedKpiModal === 'due' && 'Track Weighbridge & Settlement'}
+                  {selectedKpiModal === 'volume' && 'View Supply Consignments Desk'}
+                  {selectedKpiModal === 'transit' && 'Open Ready for Dispatch Desk'}
+                  {selectedKpiModal === 'qc' && 'Open Weighbridge & QC Slips Desk'}
+                </span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
           </div>
         </div>
       )}
