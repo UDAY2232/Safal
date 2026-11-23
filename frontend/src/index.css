@@ -140,7 +140,12 @@ button { cursor:pointer; }
 .report-card button:hover { background:#eaf6ec; border-color:#99cfab; }.settings-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }.settings-card { display:flex; align-items:center; gap:13px; padding:18px; text-align:left; border:1px solid #dfebe1; border-radius:14px; background:#fff; color:#577160; }.settings-card:hover { border-color:#a6d2ad; transform:translateY(-1px); }.settings-icon { display:grid; place-items:center; width:43px; height:43px; flex:0 0 auto; color:#087a3e; background:#e7f5e9; border-radius:11px; }.settings-card strong,.settings-card small { display:block; }.settings-card strong { color:#294d37; font:700 13px Manrope,sans-serif; }.settings-card small { margin-top:5px; color:#83988a; font-size:11px; }.settings-card > svg { margin-left:auto; }.empty-module { display:flex; min-height:340px; align-items:center; justify-content:center; flex-direction:column; text-align:center; border:1px dashed #bfd8c3; border-radius:16px; background:#fbfefb; }.empty-module-icon { display:grid; place-items:center; width:58px; height:58px; color:#087a3e; background:#e7f5e9; border-radius:17px; }.empty-module h2 { margin:17px 0 6px; color:#274d35; font:800 20px Manrope,sans-serif; }.empty-module p { margin:0 0 19px; color:#809489; font-size:12px; }.empty-module .primary-button { min-height:40px; }.toast { position:fixed; right:22px; bottom:22px; z-index:60; display:flex; align-items:center; gap:8px; padding:13px 17px; border:1px solid #a5d1ad; border-radius:10px; color:#185b30; background:#effaf1; box-shadow:0 12px 30px #164c2925; font-size:12px; font-weight:700; }.toast svg { color:#239d50; }
 @media(min-width:1025px) and (max-width:1200px){.dashboard-grid,.dashboard-grid.lower-grid{grid-template-columns:1fr}.dashboard-stats{grid-template-columns:repeat(2,1fr)}.sidebar{width:210px}.sidebar.sidebar-collapsed{width:74px}.nav-item{font-size:12px}.report-grid,.settings-grid{grid-template-columns:1fr}}
 @media(max-width:1024px){
-  .notification-panel{right:0; top:44px; width:min(calc(100vw - 20px), 320px); z-index:70}
+  .dashboard-grid,
+  .dashboard-grid.lower-grid{
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+  .notification-panel{right:0; top:44px; width:min(calc(100vw - 20px), 340px); z-index:70}
   .dashboard-stats{grid-template-columns:1fr 1fr}
   .section-toolbar{flex-wrap:wrap}
   .section-toolbar .search-field{flex-basis:100%}

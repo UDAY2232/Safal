@@ -753,9 +753,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               View reports <ArrowRight size={14} />
             </button>
           </div>
-          <div className="h-64 w-full">
+          <div className="h-64 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={charts.monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+              <BarChart data={charts.monthlyData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <XAxis dataKey="month" stroke="#888" fontSize={11} />
                 <YAxis stroke="#888" fontSize={10} tickFormatter={(v) => `₹${v / 1000}k`} />
                 <Tooltip

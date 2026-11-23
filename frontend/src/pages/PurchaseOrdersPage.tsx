@@ -185,7 +185,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           <div className="h-1 w-64 bg-[#087A3E] rounded-full mt-2 ml-1" />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2.5">
           {/* Direct Settle Due POs / CDs Button */}
           <button
             onClick={() => {
@@ -194,14 +194,14 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 setDuePaymentPO(dueOrders[0]);
               }
             }}
-            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold shadow-xs transition border ${
+            className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition border ${
               activeSection === 'due'
                 ? 'bg-rose-50 text-rose-800 border-rose-300 ring-2 ring-rose-200'
                 : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
             }`}
           >
-            <CreditCard size={17} />
-            <span>{isCD ? 'Due CD Tracker' : 'Due Tracker'}</span>
+            <CreditCard size={16} />
+            <span className="truncate">{isCD ? 'Due CD Tracker' : 'Due Tracker'}</span>
             {dueOrders.length > 0 && (
               <span className="px-1.5 py-0.5 rounded-full text-xs bg-rose-600 text-white font-extrabold ml-0.5">
                 {dueOrders.length}
@@ -212,20 +212,20 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           {/* Create CD / PO Button */}
           <button
             onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-sm font-bold rounded-xl shadow-md transition"
+            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-5 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition"
           >
-            <Plus size={18} /> {isCD ? 'Create CD [Customer Due]' : 'Create PO'}
+            <Plus size={16} /> <span className="truncate">{isCD ? 'Create CD' : 'Create PO'}</span>
           </button>
         </div>
       </div>
 
       {/* Primary Section Switcher Tabs: All POs / CDs vs Pending Verification vs Due Tracker */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs">
-        <div className="flex items-center gap-2">
+      <div className="bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2 min-w-max">
           <button
             type="button"
             onClick={() => setActiveSection('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
               activeSection === 'all'
                 ? 'bg-[#064D2B] text-white shadow-sm'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -238,7 +238,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <button
               type="button"
               onClick={() => setActiveSection('pending_verification')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
                 activeSection === 'pending_verification'
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
@@ -257,39 +257,35 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           <button
             type="button"
             onClick={() => setActiveSection('due')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
               activeSection === 'due'
                 ? 'bg-rose-700 text-white shadow-sm'
                 : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
             }`}
+            title="Orders requiring due payment collection"
           >
-            <CreditCard size={15} /> {isCD ? 'Due CDs Section' : 'Due POs Section'}
-            {dueOrders.length > 0 && (
-              <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-rose-500 text-white">
-                {dueOrders.length}
-              </span>
-            )}
+            <CreditCard size={15} /> {isCD ? `Due CDs Section (${dueOrders.length})` : `Due POs Section (${dueOrders.length})`}
           </button>
         </div>
 
         {activeSection === 'due' && (
-          <div className="text-xs text-rose-800 font-bold px-2 flex items-center gap-1.5">
+          <div className="text-xs text-rose-800 font-bold px-2 flex items-center gap-1.5 whitespace-nowrap">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
             <span>Total Outstanding Due: <strong>₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></span>
           </div>
         )}
         {activeSection === 'pending_verification' && (
-          <div className="text-xs text-amber-800 font-bold px-2 flex items-center gap-1.5">
+          <div className="text-xs text-amber-800 font-bold px-2 flex items-center gap-1.5 whitespace-nowrap">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
             <span>Pending Verification: <strong>{pendingVerificationOrders.length} Records</strong></span>
           </div>
         )}
       </div>
 
-      {/* 2. Stat Cards Dynamic Based on Section */}
+      {/* 2. Stat Cards Dynamic Based on Section - One by One on Mobile */}
       {activeSection === 'all' ? (
         /* ALL POs STAT CARDS */
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 lg:gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           <div className="stat-card blue flex items-center gap-3.5 p-4 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB]">
             <div className="w-12 h-12 rounded-xl bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
               <FileText size={24} strokeWidth={2.2} />
@@ -348,7 +344,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </section>
       ) : (
         /* DUE POs DEDICATED STAT CARDS (Avaru thiskunaru, Due antha undhi, Antha complete chesaru) */
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 lg:gap-4">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
           {/* Card 1: Due POs Count */}
           <div className="stat-card blue flex items-center gap-3.5 p-4 rounded-2xl bg-[#FFF5F5] border border-[#FED7D7]">
             <div className="w-12 h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-rose-700 flex-shrink-0">

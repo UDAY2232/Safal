@@ -3,6 +3,7 @@ dotenv.config();
 
 import { app } from './app.js';
 import { ensureAccountantSeed } from './utils/initAccountant.js';
+import { cleanupDummyOrders } from './utils/cleanupDummy.js';
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 
@@ -11,8 +12,9 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🌐 API ready at http://0.0.0.0:${PORT}/api`);
   try {
     await ensureAccountantSeed();
+    await cleanupDummyOrders();
   } catch (err) {
-    console.error('Error during startup accountant seed:', err);
+    console.error('Error during startup tasks:', err);
   }
 });
 

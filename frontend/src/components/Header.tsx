@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { Notification } from '../types';
+import type { Notification as AppNotification } from '../types';
 import { SendNoticeModal } from './SendNoticeModal';
 
 interface HeaderProps {
@@ -39,16 +39,78 @@ export const Header: React.FC<HeaderProps> = ({
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNoticeModal, setShowNoticeModal] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
 
   const navRef = useRef<HTMLDivElement>(null);
+  const lastNotifIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushStatus(Notification.permission);
+    } else {
+      setPushStatus('unsupported');
+    }
+  }, []);
+
+  const requestPushPermission = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    try {
+      const res = await Notification.requestPermission();
+      setPushStatus(res);
+      if (res === 'granted') {
+        new Notification('SAFAL Alerts Enabled ✓', {
+          body: 'You will now receive instant mobile notifications for orders, dues & approvals.',
+          icon: '/favicon.ico',
+        });
+      }
+    } catch (e) {
+      console.warn('Notification permission error:', e);
+    }
+  };
+
+  const sendTestPush = () => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification('SAFAL Mobile Alert (Test)', {
+        body: 'Mobile notifications are working perfectly on this device! ✓',
+        icon: '/favicon.ico',
+      });
+    }
+  };
 
   const loadNotifications = useCallback(async () => {
     try {
       const res = await api.getNotifications();
-      setNotifications(res.notifications || []);
-      setUnreadCount(res.unreadCount || 0);
+      const list = res.notifications || [];
+      const count = res.unreadCount || 0;
+      setNotifications(list);
+      setUnreadCount(count);
+
+      // Check for newly arrived unread notification to trigger native mobile push
+      if (list.length > 0 && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+        const top = list[0];
+        if (!top.isRead && lastNotifIdRef.current && top.id !== lastNotifIdRef.current) {
+          try {
+            new Notification(top.title || 'SAFAL Update', {
+              body: top.message || 'New activity recorded in SAFAL.',
+              icon: '/favicon.ico',
+              tag: top.id,
+            });
+          } catch {
+            if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+              navigator.serviceWorker.ready.then((reg) => {
+                reg.showNotification(top.title || 'SAFAL Update', {
+                  body: top.message || 'New activity recorded in SAFAL.',
+                  icon: '/favicon.ico',
+                  tag: top.id,
+                });
+              });
+            }
+          }
+        }
+        lastNotifIdRef.current = top.id;
+      }
     } catch {}
   }, []);
 
@@ -210,6 +272,33 @@ export const Header: React.FC<HeaderProps> = ({
                   {unreadCount > 0 && (
                     <button onClick={markAllRead} className="text-[11px] text-[#087a3e] font-semibold hover:underline">
                       Mark all read
+                    </button>
+                  )}
+                </div>
+
+                {/* Mobile Device Push Alerts Banner */}
+                <div className="mb-2 p-2 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${pushStatus === 'granted' ? 'bg-emerald-600' : 'bg-amber-500 animate-pulse'}`} />
+                    <span className="text-[10px] font-bold text-emerald-950 truncate">
+                      {pushStatus === 'granted' ? 'Mobile Phone Alerts: Active ✓' : 'Enable Mobile Device Alerts'}
+                    </span>
+                  </div>
+                  {pushStatus === 'granted' ? (
+                    <button
+                      type="button"
+                      onClick={sendTestPush}
+                      className="px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-[10px] font-extrabold text-[#087a3e] hover:bg-emerald-100 transition shrink-0 cursor-pointer"
+                    >
+                      Test
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={requestPushPermission}
+                      className="px-2.5 py-0.5 rounded-md bg-[#087a3e] hover:bg-[#066131] text-[10px] font-extrabold text-white transition shrink-0 cursor-pointer shadow-xs"
+                    >
+                      Enable
                     </button>
                   )}
                 </div>

@@ -1049,6 +1049,31 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
 
     clearDashboardCache();
 
+    try {
+      if (req.user?.role === 'EMPLOYEE' || paymentProofUrl) {
+        await prisma.notification.create({
+          data: {
+            recipientRole: 'ADMIN',
+            title: paymentProofUrl ? `Payment Proof Uploaded: ${po.poNumber}` : `Due Payment Recorded: ${po.poNumber}`,
+            message: `${req.user?.name || 'Staff'} submitted ₹${paymentAmount.toLocaleString('en-IN')} payment for ${po.poNumber}.${paymentProofUrl ? ' Proof attached for verification.' : ''}`,
+            linkUrl: '/orders?type=CD',
+          },
+        });
+      }
+      if (newStatus === 'CLOSED' && po.createdById && req.user?.id !== po.createdById) {
+        await prisma.notification.create({
+          data: {
+            userId: po.createdById,
+            title: `Customer Due Settled & Closed: ${po.poNumber}`,
+            message: `Your Customer Due ${po.poNumber} has been verified and marked as CLOSED by Admin.`,
+            linkUrl: '/orders?type=CD',
+          },
+        });
+      }
+    } catch (notifErr) {
+      console.warn('Failed to dispatch notification:', notifErr);
+    }
+
     await createAuditLog({
       userId: req.user?.id,
       userName: req.user?.name || 'User',
@@ -1060,7 +1085,6 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
-    clearDashboardCache();
     return res.json(updated);
   } catch (error) {
     console.error('Error recording due payment:', error);
