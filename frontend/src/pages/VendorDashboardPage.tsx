@@ -1672,7 +1672,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   Wholesale Procurement Supply Desk
                 </span>
                 <h2 className="text-base sm:text-lg font-black text-gray-900 font-['Manrope']">
-                  Fruit Supply Consignments (పండ్ల సప్లై కన్సైన్‌మెంట్లు)
+                  Fruit Supply Consignments
                 </h2>
                 <p className="text-xs text-gray-600 mt-0.5">
                   Direct fruit supply dispatches to SAFAL Regional Hubs.
@@ -2896,7 +2896,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-rose-800 tracking-wider block">
-                        🍇 Pomegranate (దానిమ్మ) Consignment Entry
+                        🍇 Pomegranate Consignment Entry
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Standard wholesale pomegranate telescopic boxes / crates. Enter number of boxes and rate per box.
@@ -2910,7 +2910,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        No. of Boxes (మొత్తం బాక్సులు) *
+                        No. of Boxes *
                       </label>
                       <input
                         type="number"
@@ -2952,7 +2952,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider block">
-                        🍉 Watermelon (పుచ్చకాయ) Harvest Weighment
+                        🍉 Watermelon Harvest Weighment
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Bulk truckload mandi weighbridge harvest. Enter total weight and wholesale unit rate.
@@ -3039,7 +3039,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-amber-900 tracking-wider block">
-                        🍈 Muskmelon (కర్బూజ) Loaded Weighment
+                        🍈 Muskmelon Loaded Weighment
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Sweet melon farm loaded weighbridge load. Enter total weight and wholesale rate.
@@ -3126,7 +3126,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-yellow-900 tracking-wider block">
-                        🍌 Banana (అరటి) Wholesale Crates
+                        🍌 Banana Wholesale Crates
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Green Cavendish / Robusta farm crates. Enter total box count and rate per box.
@@ -3140,7 +3140,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Total Boxes (మొత్తం బాక్సులు) *
+                        Total Boxes *
                       </label>
                       <input
                         type="number"
@@ -3182,7 +3182,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-orange-900 tracking-wider block">
-                        🍊 Orange (నారింజ / Santra) Caliber &amp; Count Grading
+                        🍊 Orange (Citrus) Caliber &amp; Count Grading
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Wholesale citrus caliber count selection. Choose caliber count and enter total box quantity.
@@ -3196,7 +3196,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   {/* Mandi Caliber Counts Selection Chips */}
                   <div>
                     <label className="block text-[11px] font-extrabold text-orange-950 mb-1.5 flex items-center justify-between">
-                      <span>Counts Selection (కౌంట్స్ సెలెక్షన్):</span>
+                      <span>Counts Selection:</span>
                       <span className="text-[10px] text-orange-700 font-bold">Standard 36 - 105 Mandi Calibers</span>
                     </label>
                     <div className="flex flex-wrap gap-1.5">
@@ -3220,7 +3220,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Total Box (మొత్తం బాక్సులు) *
+                        Total Boxes *
                       </label>
                       <input
                         type="number"
@@ -3264,7 +3264,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-purple-900 tracking-wider block">
-                        🍑 Plum (Plam / ఆలూబుఖారా) Consignment Entry
+                        🍑 Plum Consignment Entry
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Fresh farm stone fruit cartons/crates. Enter total box count and rate per box.
@@ -3278,7 +3278,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Total Box (మొత్తం బాక్సులు) *
+                        Total Boxes *
                       </label>
                       <input
                         type="number"
