@@ -250,6 +250,7 @@ export async function getVendorPOs(req: AuthRequest, res: Response) {
       },
       include: {
         items: true,
+        financialRecord: true,
         supplier: {
           select: {
             name: true,
@@ -531,6 +532,7 @@ export async function getVendorOperationsForAdmin(req: AuthRequest, res: Respons
       },
       include: {
         items: true,
+        financialRecord: true,
         supplier: {
           select: {
             id: true,
