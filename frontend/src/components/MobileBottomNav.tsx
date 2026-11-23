@@ -29,6 +29,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   const items = isVendor
     ? [
         { label: 'Dashboard', shortLabel: 'Dashboard', icon: Home, page: 'Dashboard' },
+        { label: 'Purchase Orders', shortLabel: 'PO', icon: ShoppingCart, page: 'Purchase Order (PO)' },
       ]
     : isEmployee
     ? [

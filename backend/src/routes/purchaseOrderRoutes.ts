@@ -29,7 +29,7 @@ router.get('/:id/pdf', downloadPurchaseOrderPDF);
 router.delete('/:id', requireRole('ADMIN'), deletePurchaseOrder);
 
 // Creating & submitting POs
-router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createPurchaseOrder);
+router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE', 'VENDOR'), createPurchaseOrder);
 router.post('/due-orders', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createDuePurchaseOrder);
 router.post('/legacy-due', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createDuePurchaseOrder);
 router.post('/:id/submit', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), submitPurchaseOrder);

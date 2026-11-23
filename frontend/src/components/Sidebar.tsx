@@ -43,7 +43,7 @@ interface NavEntry {
 
 const navItems: NavEntry[] = [
   { label: 'Dashboard', icon: Home, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE', 'VENDOR'] },
-  { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT', 'VENDOR'] },
   { label: 'Customer Due (CD)', icon: CreditCard, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Attendance', icon: Clock, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },

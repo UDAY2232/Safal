@@ -106,9 +106,24 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
     // Strict Role-based visibility:
     // Whichever CD an employee created, ONLY that record is visible to that employee.
     // ALL POs and CDs are visible to ADMIN and ACCOUNTANT.
+    // Vendors see only their own supply orders (matched via vendorProfileId, supplierCode, or createdById).
     if (req.user?.role === 'EMPLOYEE') {
       where.createdById = req.user.id;
       where.poNumber = { startsWith: 'CD/' };
+    } else if (req.user?.role === 'VENDOR') {
+      const vProf = await prisma.vendorProfile.findUnique({
+        where: { userId: req.user.id },
+      });
+      if (vProf) {
+        where.OR = [
+          { vendorProfileId: vProf.id },
+          { supplier: { supplierCode: vProf.vendorId } },
+          { supplier: { name: { contains: vProf.businessName, mode: 'insensitive' } } },
+          { createdById: req.user.id },
+        ];
+      } else {
+        where.createdById = req.user.id;
+      }
     } else if (req.query.myOrders === 'true' && req.user?.id) {
       where.createdById = req.user.id;
     }
@@ -449,11 +464,25 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
     const pending = pendingAmount !== undefined && pendingAmount !== null && pendingAmount !== ''
       ? Number(pendingAmount)
       : Math.max(0, grandTotal - advance);
-    const initialStatus = submitForApproval ? 'PENDING_APPROVAL' : 'DRAFT';
+    const isVendorUser = req.user?.role === 'VENDOR';
+    const initialStatus = isVendorUser ? 'PENDING_APPROVAL' : submitForApproval ? 'PENDING_APPROVAL' : 'DRAFT';
 
-    // Resolve vendorProfileId if supplier is a registered Vendor (supplierCode starts with VND-)
+    // Resolve vendorProfileId if supplier is a registered Vendor (supplierCode starts with VND-) or user is VENDOR
     let linkedVendorProfileId: string | null = req.body.vendorProfileId || null;
-    if (!linkedVendorProfileId && resolvedSupplierId) {
+    if (isVendorUser) {
+      const vProf = await prisma.vendorProfile.findUnique({
+        where: { userId: req.user!.id },
+      });
+      if (vProf) {
+        linkedVendorProfileId = vProf.id;
+        const sup = await prisma.supplier.findFirst({
+          where: { supplierCode: vProf.vendorId },
+        });
+        if (sup) {
+          resolvedSupplierId = sup.id;
+        }
+      }
+    } else if (!linkedVendorProfileId && resolvedSupplierId) {
       const sup = await prisma.supplier.findUnique({
         where: { id: resolvedSupplierId },
         select: { supplierCode: true },
@@ -469,7 +498,7 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       }
     }
 
-    const isVendorProcurement = Boolean(linkedVendorProfileId) || req.body.isVendor === true;
+    const isVendorProcurement = Boolean(linkedVendorProfileId) || req.body.isVendor === true || isVendorUser;
     let autoAdvanceCalculated: number | null = null;
     let finalAdvance = advance;
     let finalPending = pending;
@@ -557,12 +586,12 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       }
     }
 
-    // Create Notification if submitted for approval
-    if (submitForApproval) {
+    // Create Notification if submitted for approval or created by Vendor
+    if (submitForApproval || isVendorUser) {
       await prisma.notification.create({
         data: {
           recipientRole: 'ADMIN',
-          title: 'New PO Awaiting Approval',
+          title: isVendorUser ? 'New Vendor Supply PO Created' : 'New PO Awaiting Approval',
           message: `${newPO.poNumber} from ${newPO.supplier.name} for ₹${grandTotal.toLocaleString('en-IN')} submitted by ${req.user!.name}`,
           type: 'ACTION_REQUIRED',
           linkUrl: `/purchase-orders/${newPO.id}`,

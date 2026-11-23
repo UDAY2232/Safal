@@ -22,6 +22,8 @@ import {
   MapPin,
   Sparkles,
   ShoppingCart,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -29,9 +31,10 @@ import { PurchaseOrder, VENDOR_WHITELISTED_LOCATIONS, VENDOR_WHITELISTED_FRUITS 
 
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
+  onCreatePO?: () => void;
 }
 
-export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNotify }) => {
+export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNotify, onCreatePO }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>({
     totalPOs: 0,
@@ -58,6 +61,129 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
   const [transportBillPreview, setTransportBillPreview] = useState<string>('');
   const [isSubmittingDispatch, setIsSubmittingDispatch] = useState(false);
   const [dispatchError, setDispatchError] = useState('');
+
+  // Vendor PO Creation Modal State
+  const [showCreatePOModal, setShowCreatePOModal] = useState(false);
+  const [targetHub, setTargetHub] = useState<string>('Warangal');
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
+  const [poNotes, setPoNotes] = useState('');
+  const [poItems, setPoItems] = useState<Array<{
+    id: string;
+    fruitName: string;
+    varietyGrade: string;
+    quantity: number | string;
+    unit: string;
+    ratePerUnit: number | string;
+    lineTotal: number;
+  }>>([
+    {
+      id: '1',
+      fruitName: 'Kashmir Apples',
+      varietyGrade: 'Grade A Export Quality',
+      quantity: 500,
+      unit: 'BOX',
+      ratePerUnit: 1100,
+      lineTotal: 550000,
+    },
+  ]);
+  const [isSubmittingPO, setIsSubmittingPO] = useState(false);
+  const [createPOError, setCreatePOError] = useState('');
+
+  const handleAddFruitChip = (fruit: string) => {
+    setPoItems((prev) => [
+      ...prev,
+      {
+        id: String(prev.length + 1),
+        fruitName: fruit,
+        varietyGrade: 'Grade A Export Quality',
+        quantity: 100,
+        unit: 'BOX',
+        ratePerUnit: 1000,
+        lineTotal: 100000,
+      },
+    ]);
+  };
+
+  const handlePoItemChange = (index: number, field: string, val: any) => {
+    setPoItems((prev) => {
+      const updated = [...prev];
+      const item = { ...updated[index], [field]: val };
+      const qty = Number(item.quantity) || 0;
+      const rate = Number(item.ratePerUnit) || 0;
+      item.lineTotal = qty * rate;
+      updated[index] = item;
+      return updated;
+    });
+  };
+
+  const handleRemovePoItem = (index: number) => {
+    if (poItems.length <= 1) return;
+    setPoItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmitVendorPO = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatePOError('');
+    if (poItems.length === 0) {
+      setCreatePOError('Please add at least one fruit consignment item.');
+      return;
+    }
+    const invalidFruit = poItems.find(
+      (it) => !VENDOR_WHITELISTED_FRUITS.includes(it.fruitName as any)
+    );
+    if (invalidFruit) {
+      setCreatePOError(`Fruit "${invalidFruit.fruitName}" is not allowed. Vendors can only supply whitelisted fruits.`);
+      return;
+    }
+    const grandTotal = poItems.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
+    if (grandTotal <= 0) {
+      setCreatePOError('Total consignment value must be greater than 0.');
+      return;
+    }
+
+    try {
+      setIsSubmittingPO(true);
+      const advance = Math.round(grandTotal * 0.70);
+      const pending = grandTotal - advance;
+
+      await api.createPurchaseOrder({
+        supplierId: vendorProfile?.vendorId || 'VND-001',
+        isVendor: true,
+        orderPersonName: vendorProfile?.contactPerson || user?.name || 'Authorized Vendor',
+        orderPersonPlace: targetHub,
+        deliveryAddress: `${targetHub} Regional Hub Receiving Desk`,
+        poDate: new Date().toISOString(),
+        expectedDeliveryDate: expectedDeliveryDate || null,
+        grandTotal,
+        totalAmount: grandTotal,
+        advanceAmount: advance,
+        pendingAmount: pending,
+        fruitName: poItems.map((i) => `${i.fruitName} (${i.quantity} ${i.unit})`).join(', '),
+        notes: poNotes ? `Vendor Consignment: ${poNotes}` : `Vendor consignment supply for ${targetHub} Hub (70% Auto-Advance Policy)`,
+        items: poItems.map((it) => ({
+          fruitName: it.fruitName,
+          category: 'Fresh Fruits',
+          varietyGrade: it.varietyGrade || 'Grade A Export Quality',
+          quantity: Number(it.quantity) || 1,
+          unit: it.unit || 'BOX',
+          ratePerUnit: Number(it.ratePerUnit) || 0,
+          discountPercent: 0,
+          taxPercent: 0,
+          lineTotal: it.lineTotal,
+        })),
+        submitForApproval: true,
+      });
+
+      setShowCreatePOModal(false);
+      onNotify('Supply PO submitted successfully! Safal Operations Desk has been notified.');
+      await loadData();
+      setActiveTab('orders');
+    } catch (err: any) {
+      setCreatePOError(err.message || 'Failed to submit supply PO.');
+    } finally {
+      setIsSubmittingPO(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -200,6 +326,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
             <span className="px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-300/40 text-emerald-100 text-xs font-extrabold inline-flex items-center gap-1.5">
               <ShieldCheck size={14} className="text-emerald-300" /> Verified Partner
             </span>
+            <button
+              onClick={() => setShowCreatePOModal(true)}
+              className="px-4 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-gray-950 text-xs font-black transition shadow-md inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
+            >
+              <Plus size={15} /> + Create Supply PO
+            </button>
             <button
               onClick={() => setActiveTab('kyc')}
               className="px-3.5 py-1.5 rounded-xl bg-white text-[#064D2B] hover:bg-emerald-50 text-xs font-extrabold transition shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
@@ -418,9 +550,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
                 Official procurement orders issued by SAFAL Export &amp; Import Pvt Ltd.
               </p>
             </div>
-            <span className="text-xs text-gray-500">
-              Showing <strong>{orders.length}</strong> orders
-            </span>
+            <div className="flex items-center gap-2.5">
+              <span className="text-xs text-gray-500">
+                Showing <strong>{orders.length}</strong> orders
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowCreatePOModal(true)}
+                className="px-3.5 py-1.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Plus size={14} /> + Create Supply PO
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto w-full">
@@ -799,6 +940,259 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({ onNoti
                 >
                   <CheckCircle2 size={15} />
                   {isSubmittingDispatch ? 'Uploading Evidence...' : 'Submit Dispatch Proof'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Vendor Create Supply PO Modal */}
+      {showCreatePOModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-70 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">
+                  Wholesale Procurement Supply
+                </span>
+                <h3 className="text-lg font-black text-gray-900 mt-0.5 font-['Manrope']">
+                  Create Consignment Supply PO
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Vendor Partner: <strong className="text-emerald-800">{vendorProfile?.businessName || user?.name}</strong> ({vendorProfile?.vendorId || 'VND-001'})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreatePOModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {createPOError && (
+              <div className="p-3 my-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold border border-red-200">
+                {createPOError}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmitVendorPO} className="overflow-y-auto flex-1 pr-1 py-3 space-y-4 text-xs">
+              {/* Destination Hub and Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Destination Regional Hub *
+                  </label>
+                  <select
+                    value={targetHub}
+                    onChange={(e) => setTargetHub(e.target.value)}
+                    className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-bold text-gray-900 bg-emerald-50/20 focus:border-emerald-600 focus:outline-none"
+                    required
+                  >
+                    {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc} Hub
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] text-gray-500 mt-0.5 block">
+                    Strictly restricted to 8 whitelisted hubs.
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Expected Dispatch / Delivery Date
+                  </label>
+                  <input
+                    type="date"
+                    value={expectedDeliveryDate}
+                    onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+                    className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* 7 Whitelisted Fruits Quick Selection Chips */}
+              <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-2xl">
+                <span className="text-[10px] uppercase font-bold text-[#064D2B] tracking-wider block mb-1.5 flex items-center justify-between">
+                  <span>Quick Add Whitelisted Fruits (Tap to Add)</span>
+                  <span className="text-emerald-700 font-bold">7 Allowed Varieties</span>
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {VENDOR_WHITELISTED_FRUITS.map((fruit) => (
+                    <button
+                      key={fruit}
+                      type="button"
+                      onClick={() => handleAddFruitChip(fruit)}
+                      className="px-2.5 py-1 bg-white hover:bg-emerald-100 text-[#064D2B] border border-emerald-300 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus size={11} /> {fruit}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Consignment Items */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-xs text-gray-900 uppercase tracking-wider">
+                    Consignment Items ({poItems.length})
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => handleAddFruitChip('Kashmir Apples')}
+                    className="text-xs text-[#087A3E] font-bold hover:underline flex items-center gap-1"
+                  >
+                    <Plus size={13} /> + Add Item Row
+                  </button>
+                </div>
+
+                {poItems.map((item, idx) => (
+                  <div
+                    key={item.id}
+                    className="p-3 bg-gray-50 border border-gray-200 rounded-xl grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end"
+                  >
+                    <div className="sm:col-span-4">
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Fruit Variety *</label>
+                      <select
+                        value={item.fruitName}
+                        onChange={(e) => handlePoItemChange(idx, 'fruitName', e.target.value)}
+                        className="w-full h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white"
+                        required
+                      >
+                        {VENDOR_WHITELISTED_FRUITS.map((f) => (
+                          <option key={f} value={f}>
+                            {f}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="sm:col-span-3">
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Grade / Variety</label>
+                      <input
+                        type="text"
+                        value={item.varietyGrade}
+                        onChange={(e) => handlePoItemChange(idx, 'varietyGrade', e.target.value)}
+                        placeholder="Grade A / Export"
+                        className="w-full h-8 px-2 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 bg-white"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Quantity</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.quantity}
+                        onChange={(e) => handlePoItemChange(idx, 'quantity', e.target.value)}
+                        placeholder="Qty"
+                        className="w-full h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right"
+                        required
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Rate (₹)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.ratePerUnit}
+                        onChange={(e) => handlePoItemChange(idx, 'ratePerUnit', e.target.value)}
+                        placeholder="Rate ₹"
+                        className="w-full h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right"
+                        required
+                      />
+                    </div>
+
+                    <div className="sm:col-span-1 flex items-center justify-center">
+                      {poItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePoItem(idx)}
+                          className="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center cursor-pointer transition"
+                          title="Remove item"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 70% Auto-Advance Policy Settlement Breakdown */}
+              {(() => {
+                const totalVal = poItems.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
+                const advanceVal = Math.round(totalVal * 0.70);
+                const pendingVal = Math.max(0, totalVal - advanceVal);
+
+                return (
+                  <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-400 rounded-2xl space-y-2">
+                    <span className="text-[10px] uppercase font-black text-[#064D2B] tracking-wider block flex items-center gap-1.5">
+                      <Sparkles size={13} className="text-emerald-700" /> 70% Automatic Advance Settlement Guarantee
+                    </span>
+                    <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                      <div className="bg-white p-2 rounded-xl border border-emerald-200">
+                        <span className="text-[9px] text-gray-500 uppercase font-bold block">Total Consignment</span>
+                        <strong className="text-sm font-black text-gray-900 block mt-0.5">
+                          ₹{totalVal.toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+
+                      <div className="bg-white p-2 rounded-xl border border-emerald-300 shadow-2xs">
+                        <span className="text-[9px] text-emerald-800 uppercase font-extrabold block">70% Auto Advance</span>
+                        <strong className="text-sm font-black text-emerald-700 block mt-0.5">
+                          ₹{advanceVal.toLocaleString('en-IN')}
+                        </strong>
+                        <span className="text-[8px] text-emerald-600 block">Paid on Dispatch</span>
+                      </div>
+
+                      <div className="bg-white p-2 rounded-xl border border-gray-200">
+                        <span className="text-[9px] text-gray-500 uppercase font-bold block">30% Balance Due</span>
+                        <strong className="text-sm font-black text-gray-700 block mt-0.5">
+                          ₹{pendingVal.toLocaleString('en-IN')}
+                        </strong>
+                        <span className="text-[8px] text-gray-400 block">Settled on Delivery</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Consignment Remarks */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">
+                  Consignment &amp; Transport Remarks (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={poNotes}
+                  onChange={(e) => setPoNotes(e.target.value)}
+                  placeholder="e.g. Cold storage packed Grade A Apples for delivery to Warangal mandi"
+                  className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowCreatePOModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPO}
+                  className="px-5 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white font-black shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <ShoppingCart size={15} />
+                  {isSubmittingPO ? 'Submitting Supply PO...' : 'Submit Consignment PO'}
                 </button>
               </div>
             </form>

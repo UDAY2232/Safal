@@ -195,14 +195,14 @@ function MainApp() {
           {/* Primary View: Dashboard (Kept persistently mounted for 0ms instantaneous tab switching) */}
           <div style={{ display: activePage === 'Dashboard' ? 'block' : 'none' }}>
             {user?.role === 'VENDOR' ? (
-              <VendorDashboardPage onNotify={notify} />
+              <VendorDashboardPage onNotify={notify} onCreatePO={() => setShowCreatePO(true)} />
             ) : (
               <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
             )}
           </div>
           {activePage === 'Attendance' && user?.role !== 'VENDOR' && <AttendancePage user={user} />}
           {/* Purchase Order (PO) and Customer Due (CD) Management */}
-          {(activePage === 'Purchase Order (PO)' || activePage === 'Customer Due (CD)') && user?.role !== 'VENDOR' && (
+          {(activePage === 'Purchase Order (PO)' || activePage === 'Customer Due (CD)') && (
             <PurchaseOrdersPage
               key={user?.role === 'EMPLOYEE' || activePage === 'Customer Due (CD)' ? 'cd-page' : 'po-page'}
               mode={user?.role === 'EMPLOYEE' || activePage === 'Customer Due (CD)' ? 'CD' : 'PO'}
