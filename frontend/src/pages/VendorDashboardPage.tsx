@@ -335,6 +335,32 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     }
   }, [activePage]);
 
+  // Load Admin-Fixed Fruit Procurement Rates from application settings
+  useEffect(() => {
+    const fetchAdminRates = async () => {
+      try {
+        const settings = await api.getSettings();
+        if (settings && settings.fruitProcurementRates) {
+          const r = settings.fruitProcurementRates;
+          if (r.apples) {
+            if (r.apples.layer4L) setLayer4LRate(String(r.apples.layer4L));
+            if (r.apples.layer5L) setLayer5LRate(String(r.apples.layer5L));
+            if (r.apples.roll) setRollRate(String(r.apples.roll));
+          }
+          if (r.pomegranate) setPomegranateRate(String(r.pomegranate));
+          if (r.watermelon) setWatermelonRate(String(r.watermelon));
+          if (r.muskmelon) setMuskmelonRate(String(r.muskmelon));
+          if (r.banana) setBananaRate(String(r.banana));
+          if (r.orange) setOrangeRate(String(r.orange));
+          if (r.plum) setPlumRate(String(r.plum));
+        }
+      } catch (err) {
+        console.warn('Could not load fruit procurement rates from settings:', err);
+      }
+    };
+    fetchAdminRates();
+  }, []);
+
   // Global Escape key listener to close any open modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -2748,7 +2774,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           : 'bg-white hover:bg-emerald-100 text-[#064D2B] border border-emerald-300'
                       }`}
                     >
-                      {fruit === 'Kashmir Apples' ? '🍎' : fruit === 'Pomegranate' ? '🍇' : fruit === 'Banana' ? '🍌' : fruit === 'Orange' ? '🍊' : '🍉'} {fruit}
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
+                      {fruit}
                     </button>
                   ))}
                 </div>
@@ -2761,7 +2788,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-red-700 tracking-wider block">
-                        🍎 Apple Mandi Layer Box Grading (4L / 5L / Roll)
+                        Apple Mandi Layer Box Grading (4L / 5L / Roll)
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Wholesale apple telescopic cartons (~20-22 Kg/box). Enter box counts.
@@ -2901,7 +2928,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-rose-800 tracking-wider block">
-                        🍇 Pomegranate Consignment Entry
+                        Pomegranate Consignment Entry
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Standard wholesale pomegranate telescopic boxes / crates.
@@ -2952,7 +2979,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider block">
-                        🍉 Watermelon Harvest Weighment
+                        Watermelon Harvest Weighment
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Bulk truckload mandi weighbridge harvest.
@@ -3034,7 +3061,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-amber-900 tracking-wider block">
-                        🍈 Muskmelon Loaded Weighment
+                        Muskmelon Loaded Weighment
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Sweet melon farm loaded weighbridge load.
@@ -3116,7 +3143,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-yellow-900 tracking-wider block">
-                        🍌 Banana Wholesale Crates
+                        Banana Wholesale Crates
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Green Cavendish / Robusta farm crates.
@@ -3167,7 +3194,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-orange-900 tracking-wider block">
-                        🍊 Orange (Citrus) Caliber &amp; Count Grading
+                        Orange (Citrus) Caliber &amp; Count Grading
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Wholesale citrus caliber count selection.
@@ -3244,7 +3271,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] uppercase font-extrabold text-purple-900 tracking-wider block">
-                        🍑 Plum Consignment Entry
+                        Plum Consignment Entry
                       </span>
                       <p className="text-[11px] text-gray-600">
                         Fresh farm stone fruit cartons/crates.

@@ -25,6 +25,19 @@ const defaultSettings: Record<string, any> = {
   ],
   departments: ['Procurement', 'Finance & Accounts', 'Logistics & Supply', 'Operations', 'Quality Control'],
   wageTypes: ['Monthly Salary', 'Daily Wages', 'Hourly Wages'],
+  fruitProcurementRates: {
+    apples: {
+      layer4L: 1200,
+      layer5L: 1100,
+      roll: 700,
+    },
+    pomegranate: 950,
+    watermelon: 14000,
+    muskmelon: 18000,
+    banana: 550,
+    orange: 780,
+    plum: 850,
+  },
 };
 
 export async function getSettings(_req: AuthRequest, res: Response) {

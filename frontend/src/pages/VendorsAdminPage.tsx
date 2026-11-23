@@ -35,6 +35,9 @@ import {
   Coins,
   Download,
   Filter,
+  Tag,
+  Save,
+  Check,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -57,7 +60,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [loading, setLoading] = useState(true);
 
   // CD-style navigation & filter state
-  const [activeSection, setActiveSection] = useState<'all' | 'transit' | 'weighbridge' | 'directory'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'transit' | 'weighbridge' | 'rates' | 'directory'>('all');
   const [viewMode, setViewMode] = useState<'reference' | 'financial'>('reference');
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
@@ -77,6 +80,26 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [editTransportCost, setEditTransportCost] = useState<number>(35000);
   const [editHamaliCost, setEditHamaliCost] = useState<number>(5000);
   const [savingPL, setSavingPL] = useState(false);
+
+  // Admin Fruit Procurement Rates Desk State (Fixed by Admin for all Vendors)
+  const [fruitRates, setFruitRates] = useState<{
+    apples: { layer4L: number; layer5L: number; roll: number };
+    pomegranate: number;
+    watermelon: number;
+    muskmelon: number;
+    banana: number;
+    orange: number;
+    plum: number;
+  }>({
+    apples: { layer4L: 1200, layer5L: 1100, roll: 700 },
+    pomegranate: 950,
+    watermelon: 14000,
+    muskmelon: 18000,
+    banana: 550,
+    orange: 780,
+    plum: 850,
+  });
+  const [savingFruitRates, setSavingFruitRates] = useState(false);
 
   // Form state for creating vendor
   const [businessName, setBusinessName] = useState('');
@@ -98,15 +121,32 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const loadVendorsAndOperations = async () => {
     try {
       setLoading(true);
-      const [vData, opData] = await Promise.allSettled([
+      const [vData, opData, settingsData] = await Promise.allSettled([
         api.getAllVendors(),
         api.getVendorOperationsForAdmin(),
+        api.getSettings(),
       ]);
       if (vData.status === 'fulfilled') {
         setVendors(Array.isArray(vData.value) ? vData.value : []);
       }
       if (opData.status === 'fulfilled') {
         setOperations(Array.isArray(opData.value) ? opData.value : []);
+      }
+      if (settingsData.status === 'fulfilled' && settingsData.value?.fruitProcurementRates) {
+        const r = settingsData.value.fruitProcurementRates;
+        setFruitRates({
+          apples: {
+            layer4L: Number(r.apples?.layer4L) || 1200,
+            layer5L: Number(r.apples?.layer5L) || 1100,
+            roll: Number(r.apples?.roll) || 700,
+          },
+          pomegranate: Number(r.pomegranate) || 950,
+          watermelon: Number(r.watermelon) || 14000,
+          muskmelon: Number(r.muskmelon) || 18000,
+          banana: Number(r.banana) || 550,
+          orange: Number(r.orange) || 780,
+          plum: Number(r.plum) || 850,
+        });
       }
     } catch (err: any) {
       console.error('Failed to load vendors & operations:', err);
@@ -120,6 +160,25 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     loadVendorsAndOperations();
   }, []);
 
+  const handleSaveFruitRates = async () => {
+    if (!isAdmin) {
+      onNotify('Only Administrator can modify fruit procurement rates');
+      return;
+    }
+    try {
+      setSavingFruitRates(true);
+      await api.updateSettings({
+        fruitProcurementRates: fruitRates,
+      });
+      onNotify('Fruit procurement rates successfully saved and enforced for all vendors!');
+    } catch (err: any) {
+      console.error('Failed to update fruit rates:', err);
+      onNotify(err.message || 'Failed to save fruit rates');
+    } finally {
+      setSavingFruitRates(false);
+    }
+  };
+
   // Standard Mock Consignments to ensure robust display if database has fewer items
   const defaultMockOperations = [
     {
@@ -129,7 +188,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       orderPersonPlace: 'Warangal',
       vendorName: 'Ramesh Agro Farms & Cold Storage',
       vendorCode: 'VND-001',
-      commodity: '🍎 Kashmir Apples',
+      commodity: 'Kashmir Apples',
       volume: '1,200 Boxes',
       items: [{ fruitName: 'Kashmir Apples', quantity: 1200, unit: 'BOX', lineTotal: 1320000 }],
       grandTotal: 1320000,
@@ -162,7 +221,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       orderPersonPlace: 'Tirupati',
       vendorName: 'Rayalaseema Pomegranate Orchards',
       vendorCode: 'VND-002',
-      commodity: '🍇 Pomegranate',
+      commodity: 'Pomegranate',
       volume: '650 Boxes',
       items: [{ fruitName: 'Bhagwa Pomegranate', quantity: 650, unit: 'BOX', lineTotal: 845000 }],
       grandTotal: 845000,
@@ -195,7 +254,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       orderPersonPlace: 'Vijayawada',
       vendorName: 'Krishna Valley Agro Producer Co.',
       vendorCode: 'VND-003',
-      commodity: '🍉 Watermelon',
+      commodity: 'Watermelon',
       volume: '15 MT Bulk',
       items: [{ fruitName: 'Sugar Baby Watermelon', quantity: 15, unit: 'MT', lineTotal: 345000 }],
       grandTotal: 345000,
@@ -545,7 +604,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
 
   return (
     <div className="space-y-5">
-      {/* 1. Page Header matching Customer Due (CD) Management layout */}
+      {/* 1. Page Header matching Customer Due (CD) Management layout (Zero raw emojis) */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -612,7 +671,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         </div>
       </div>
 
-      {/* 2. Primary Section Switcher Tabs matching Customer Due */}
+      {/* 2. Primary Section Switcher Tabs matching Customer Due (Zero raw emojis) */}
       <div className="bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-2 min-w-max">
           <button
@@ -651,6 +710,19 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
             <Scale size={15} /> Mandi Weighbridge &amp; QC Slips ({weighbridgeConsignments.length})
           </button>
 
+          {/* New Tab: Admin Fruit Procurement Rates Desk */}
+          <button
+            type="button"
+            onClick={() => setActiveSection('rates')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeSection === 'rates'
+                ? 'bg-[#087A3E] text-white shadow-sm ring-2 ring-emerald-300 font-extrabold'
+                : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+            }`}
+          >
+            <Coins size={15} /> Fruit Procurement Rates (7 Items)
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveSection('directory')}
@@ -665,15 +737,21 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         </div>
 
         {activeSection === 'transit' && (
-          <div className="text-xs text-rose-800 font-bold px-2 pt-2 flex items-center gap-1.5 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+          <div className="text-xs text-rose-800 font-bold px-2 pt-2 flex items-center gap-2 whitespace-nowrap">
+            <Truck size={14} className="text-rose-600 animate-pulse" />
             <span>Active Fleets in Transit: <strong>{transitCount} Trucks on Road · 55% Auto-Advance Disbursed</strong></span>
           </div>
         )}
         {activeSection === 'weighbridge' && (
-          <div className="text-xs text-amber-800 font-bold px-2 pt-2 flex items-center gap-1.5 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+          <div className="text-xs text-amber-800 font-bold px-2 pt-2 flex items-center gap-2 whitespace-nowrap">
+            <Scale size={14} className="text-amber-600 animate-pulse" />
             <span>Mandi Weighbridge Scale Verification: <strong>Zero-Tare Calibrated Electronic Scale Receipts</strong></span>
+          </div>
+        )}
+        {activeSection === 'rates' && (
+          <div className="text-xs text-emerald-900 font-bold px-2 pt-2 flex items-center gap-2 whitespace-nowrap">
+            <Lock size={14} className="text-emerald-700" />
+            <span>Admin Fruit Rates Desk: <strong>Rates configured here are strictly locked and enforced across all vendor order forms.</strong></span>
           </div>
         )}
       </div>
@@ -745,137 +823,503 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         </div>
       </section>
 
-      {/* 4. Search & Filter Bar matching Customer Due */}
-      <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm p-4">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
-          {/* Search PO Number / Vendor / Commodity */}
-          <div className="flex-1 flex items-center gap-2 px-3.5 py-2.5 bg-white border border-[#CBD9CE] rounded-xl text-xs text-[#274837] focus-within:border-[#087A3E] focus-within:ring-2 focus-within:ring-emerald-100 transition">
-            <Search size={16} className="text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search PO Number / Vendor / Commodity / Truck / Driver..."
-              className="w-full bg-transparent outline-none text-xs text-gray-800 placeholder-gray-400 font-medium"
-            />
-          </div>
+      {/* 4. Search & Filter Bar (Shown on Consignments view) */}
+      {activeSection !== 'rates' && (
+        <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm p-4">
+          <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+            {/* Search PO Number / Vendor / Commodity */}
+            <div className="flex-1 flex items-center gap-2 px-3.5 py-2.5 bg-white border border-[#CBD9CE] rounded-xl text-xs text-[#274837] focus-within:border-[#087A3E] focus-within:ring-2 focus-within:ring-emerald-100 transition">
+              <Search size={16} className="text-gray-400 flex-shrink-0" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search PO Number / Vendor / Commodity / Truck / Driver..."
+                className="w-full bg-transparent outline-none text-xs text-gray-800 placeholder-gray-400 font-medium"
+              />
+            </div>
 
-          {/* Date Range: From Date -> To Date */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#CBD9CE] rounded-xl text-xs text-gray-600">
-            <Calendar size={16} className="text-gray-400 flex-shrink-0" />
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="bg-transparent outline-none text-xs text-gray-700 font-medium"
-              placeholder="From Date"
-              title="From Date"
-            />
-            <ArrowRight size={13} className="text-gray-400 flex-shrink-0" />
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="bg-transparent outline-none text-xs text-gray-700 font-medium"
-              placeholder="To Date"
-              title="To Date"
-            />
-          </div>
+            {/* Date Range: From Date -> To Date */}
+            <div className="flex items-center gap-2 px-3 py-2 bg-white border border-[#CBD9CE] rounded-xl text-xs text-gray-600">
+              <Calendar size={16} className="text-gray-400 flex-shrink-0" />
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="bg-transparent outline-none text-xs text-gray-700 font-medium"
+                placeholder="From Date"
+                title="From Date"
+              />
+              <ArrowRight size={13} className="text-gray-400 flex-shrink-0" />
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="bg-transparent outline-none text-xs text-gray-700 font-medium"
+                placeholder="To Date"
+                title="To Date"
+              />
+            </div>
 
-          {/* Hub Dropdown */}
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#CBD9CE] rounded-xl text-xs text-gray-700 min-w-[140px]">
-            <span className="font-semibold text-gray-500 whitespace-nowrap">Hub:</span>
-            <select
-              value={hubFilter}
-              onChange={(e) => setHubFilter(e.target.value)}
-              className="bg-transparent outline-none font-bold text-gray-800 flex-1 cursor-pointer"
-            >
-              <option value="All">All Hubs</option>
-              {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Hub Dropdown */}
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#CBD9CE] rounded-xl text-xs text-gray-700 min-w-[140px]">
+              <span className="font-semibold text-gray-500 whitespace-nowrap">Hub:</span>
+              <select
+                value={hubFilter}
+                onChange={(e) => setHubFilter(e.target.value)}
+                className="bg-transparent outline-none font-bold text-gray-800 flex-1 cursor-pointer"
+              >
+                <option value="All">All Hubs</option>
+                {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Status Dropdown */}
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#CBD9CE] rounded-xl text-xs text-gray-700 min-w-[140px]">
-            <span className="font-semibold text-gray-500 whitespace-nowrap">Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-transparent outline-none font-bold text-gray-800 flex-1 cursor-pointer"
-            >
-              <option value="All">All</option>
-              <option value="IN_TRANSIT">In Transit</option>
-              <option value="DELIVERED">Delivered</option>
-              <option value="OPEN">Open</option>
-              <option value="CLOSED">Closed</option>
-            </select>
-          </div>
+            {/* Status Dropdown */}
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#CBD9CE] rounded-xl text-xs text-gray-700 min-w-[140px]">
+              <span className="font-semibold text-gray-500 whitespace-nowrap">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="bg-transparent outline-none font-bold text-gray-800 flex-1 cursor-pointer"
+              >
+                <option value="All">All</option>
+                <option value="IN_TRANSIT">In Transit</option>
+                <option value="DELIVERED">Delivered</option>
+                <option value="OPEN">Open</option>
+                <option value="CLOSED">Closed</option>
+              </select>
+            </div>
 
-          {/* Search Button */}
-          <button
-            type="button"
-            onClick={() => loadVendorsAndOperations()}
-            className="px-6 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Search size={15} /> Search
-          </button>
-        </div>
-
-        {/* View Toggle Bar & Export matching Customer Due */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3.5 border-t border-gray-100">
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">View Style:</span>
+            {/* Search Button */}
             <button
               type="button"
-              onClick={() => setViewMode('reference')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                viewMode === 'reference'
-                  ? 'bg-[#087A3E] text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              onClick={() => loadVendorsAndOperations()}
+              className="px-6 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs font-bold rounded-xl shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
             >
-              Standard (Reference View)
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('financial')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
-                viewMode === 'financial'
-                  ? 'bg-[#087A3E] text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              Extended Financial P&amp;L View
+              <Search size={15} /> Search
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500">
-              Showing <strong>{activeSection === 'directory' ? filteredVendors.length : filteredConsignments.length}</strong>{' '}
-              {activeSection === 'directory' ? 'vendors' : 'vendor consignments'}
-            </span>
-            <button
-              type="button"
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-200 rounded-lg text-xs font-bold transition cursor-pointer"
-            >
-              <ArrowDownToLine size={14} /> Export CSV
-            </button>
+          {/* View Toggle Bar & Export matching Customer Due */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-3.5 border-t border-gray-100">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">View Style:</span>
+              <button
+                type="button"
+                onClick={() => setViewMode('reference')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  viewMode === 'reference'
+                    ? 'bg-[#087A3E] text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Standard (Reference View)
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('financial')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  viewMode === 'financial'
+                    ? 'bg-[#087A3E] text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Extended Financial P&amp;L View
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-gray-500">
+                Showing <strong>{activeSection === 'directory' ? filteredVendors.length : filteredConsignments.length}</strong>{' '}
+                {activeSection === 'directory' ? 'vendors' : 'vendor consignments'}
+              </span>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-200 rounded-lg text-xs font-bold transition cursor-pointer"
+              >
+                <ArrowDownToLine size={14} /> Export CSV
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* 5. Main Content Tables based on Active Section */}
+
+      {/* SECTION: ADMIN FRUIT PROCUREMENT RATES DESK (7 WHITELISTED FRUITS) */}
+      {activeSection === 'rates' && (
+        <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden p-5 space-y-5">
+          {/* Desk Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-100 text-[#087A3E] rounded-2xl">
+                <Coins size={24} />
+              </div>
+              <div>
+                <h2 className="text-lg font-extrabold text-gray-900 font-['Manrope']">
+                  Wholesale Fruit Procurement Rates Desk (Fixed by Admin)
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Configure wholesale mandi procurement rates for all 7 whitelisted fruits. Vendors only enter box counts; prices are locked to these admin rates.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="px-3 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-bold inline-flex items-center gap-1.5">
+                <Lock size={12} className="text-emerald-700" />
+                Locked for Vendors ✓
+              </span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={handleSaveFruitRates}
+                  disabled={savingFruitRates}
+                  className="px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs font-black rounded-xl shadow-md transition inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Save size={14} />
+                  {savingFruitRates ? 'Saving Rates...' : 'Save & Enforce Rates'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Banner notification */}
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
+            <AlertCircle size={16} className="text-amber-700 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="block font-bold">Safal Corporate Pricing Policy:</strong>
+              Vendors cannot edit rates. Whenever a vendor logs in to create a consignment supply PO, these exact rates are automatically populated and locked. Any changes saved here apply immediately.
+            </div>
+          </div>
+
+          {/* 7 Fruits Pricing Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* 1. Kashmir Apples */}
+            <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">1. Kashmir Apples</h3>
+                  <span className="text-[10px] text-gray-500">Telescopic Cartons (~20-22 Kg/box)</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                  BOX
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">4L (4-Layer Large Size)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.apples.layer4L}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          apples: { ...fruitRates.apples, layer4L: Number(e.target.value) || 0 },
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">5L (5-Layer Medium Size)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.apples.layer5L}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          apples: { ...fruitRates.apples, layer5L: Number(e.target.value) || 0 },
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Roll (Roller Mixed Run)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.apples.roll}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          apples: { ...fruitRates.apples, roll: Number(e.target.value) || 0 },
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Bhagwa Pomegranate */}
+            <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">2. Bhagwa Pomegranate</h3>
+                  <span className="text-[10px] text-gray-500">Wholesale Box (~10-12 Kg/box)</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                  BOX
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Procurement Rate (₹ / Box)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.pomegranate}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          pomegranate: Number(e.target.value) || 0,
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400 block mt-1">
+                    Standard Bhagwa export-quality carton
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Watermelon */}
+            <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">3. Watermelon (Sugar Baby)</h3>
+                  <span className="text-[10px] text-gray-500">Bulk Truckload Mandi Weighbridge</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                  TON
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Procurement Rate (₹ / Ton)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.watermelon}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          watermelon: Number(e.target.value) || 0,
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold block mt-1">
+                    ≈ ₹{Math.round(fruitRates.watermelon / 1000)} / Kg net fruit rate
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Muskmelon */}
+            <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">4. Muskmelon (Kharbuja)</h3>
+                  <span className="text-[10px] text-gray-500">Bulk Sweet Melon Harvest</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                  TON
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Procurement Rate (₹ / Ton)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.muskmelon}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          muskmelon: Number(e.target.value) || 0,
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-bold block mt-1">
+                    ≈ ₹{Math.round(fruitRates.muskmelon / 1000)} / Kg net fruit rate
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 5. Banana */}
+            <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">5. Banana (Grand Naine)</h3>
+                  <span className="text-[10px] text-gray-500">13-14 Kg Export Corrugated Box</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                  BOX
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Procurement Rate (₹ / Box)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.banana}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          banana: Number(e.target.value) || 0,
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400 block mt-1">
+                    Standard Cavendish/Grand Naine cluster pack
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Orange */}
+            <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">6. Orange (Nagpur / Kinnow)</h3>
+                  <span className="text-[10px] text-gray-500">Count Graded Fruit Carton</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                  BOX
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Procurement Rate (₹ / Box)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.orange}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          orange: Number(e.target.value) || 0,
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400 block mt-1">
+                    Applies across counts: 36, 42, 45, 54, 60, 72, 90, 105
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 7. Plum */}
+            <div className="p-4 rounded-2xl border border-gray-200 bg-white shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+                <div>
+                  <h3 className="font-extrabold text-sm text-gray-900">7. Plum (Black Amber)</h3>
+                  <span className="text-[10px] text-gray-500">Fresh Orchard Harvest Box</span>
+                </div>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-900 border border-emerald-200">
+                  BOX
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Procurement Rate (₹ / Box)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      value={fruitRates.plum}
+                      onChange={(e) =>
+                        setFruitRates({
+                          ...fruitRates,
+                          plum: Number(e.target.value) || 0,
+                        })
+                      }
+                      disabled={!isAdmin}
+                      className="w-full h-8 pl-7 pr-3 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-400 block mt-1">
+                    Standard high-firmness plum pack
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Save Bar */}
+          {isAdmin && (
+            <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+              <span className="text-xs text-gray-500">
+                Clicking save updates the live pricing matrix across the database and all vendor portals.
+              </span>
+              <button
+                type="button"
+                onClick={handleSaveFruitRates}
+                disabled={savingFruitRates}
+                className="px-6 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs font-black rounded-xl shadow-md transition inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 size={16} />
+                {savingFruitRates ? 'Enforcing Rates...' : 'Save & Enforce Rates for All Vendors'}
+              </button>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* SECTION: ALL VENDOR CONSIGNMENTS */}
       {activeSection === 'all' && (
         <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
           {viewMode === 'reference' ? (
-            /* STANDARD REFERENCE VIEW TABLE */
+            /* STANDARD REFERENCE VIEW TABLE (Zero raw emojis) */
             <div className="table-scroll-wrap overflow-x-auto w-full">
               <table className="w-full border-collapse min-w-[1050px] text-xs">
                 <thead>
@@ -953,12 +1397,14 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                 {vCode}
                               </span>
-                              <span className="text-[10px] text-gray-500 font-semibold truncate">📍 {hub}</span>
+                              <span className="text-[10px] text-gray-500 font-semibold truncate flex items-center gap-0.5">
+                                <MapPin size={10} className="text-emerald-700" /> {hub}
+                              </span>
                             </div>
                           </td>
                           <td className="py-3.5 px-4 border-r border-gray-100">
                             <span className="font-bold text-gray-800 block truncate max-w-[150px]">
-                              {op.commodity || '🍎 Kashmir Apples'}
+                              {(op.commodity || 'Kashmir Apples').replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
                             </span>
                             <span className="text-[11px] text-gray-500 font-mono font-semibold">
                               {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
@@ -974,8 +1420,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             <span className="font-bold text-emerald-800 font-mono block">
                               ₹{advAmt.toLocaleString('en-IN')}
                             </span>
-                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 inline-block mt-0.5">
-                              ✓ CLEARED
+                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5 mt-0.5">
+                              <CheckCircle2 size={9} /> CLEARED
                             </span>
                           </td>
                           <td className="text-right py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
@@ -996,18 +1442,18 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                   : 'bg-amber-100 text-amber-900 border border-amber-300'
                               }`}
                             >
-                              {status === 'IN_TRANSIT' ? '🚚 In Transit' : status}
+                              {status === 'IN_TRANSIT' ? 'In Transit' : status}
                             </span>
                           </td>
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <span className="font-mono text-[11px] font-bold text-gray-900 block">
-                              🚛 {truck}
+                            <span className="font-mono text-[11px] font-bold text-gray-900 flex items-center justify-center gap-1">
+                              <Truck size={12} className="text-gray-500" /> {truck}
                             </span>
                             <a
                               href={`tel:${driver}`}
-                              className="text-[10px] font-semibold text-blue-700 hover:underline block mt-0.5"
+                              className="text-[10px] font-semibold text-blue-700 hover:underline flex items-center justify-center gap-1 mt-0.5"
                             >
-                              📞 {driver}
+                              <Phone size={10} className="text-blue-600" /> {driver}
                             </a>
                           </td>
                           <td className="text-center py-3.5 px-4 whitespace-nowrap">
@@ -1019,7 +1465,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                 title="Open Mandi P&L Dossier"
                               >
                                 <Calculator size={11} className="text-amber-800" />
-                                <span>💰 P&amp;L Dossier</span>
+                                <span>P&amp;L Dossier</span>
                               </button>
 
                               {vehiclePhoto && (
@@ -1057,7 +1503,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
               </table>
             </div>
           ) : (
-            /* EXTENDED FINANCIAL AUDIT & P&L VIEW TABLE (As requested: Price, Closing Price, Profits/Loss) */
+            /* EXTENDED FINANCIAL AUDIT & P&L VIEW TABLE (Zero raw emojis) */
             <div className="table-scroll-wrap overflow-x-auto w-full">
               <table className="w-full border-collapse min-w-[1100px] text-xs">
                 <thead>
@@ -1117,7 +1563,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                           </td>
                           <td className="py-3.5 px-3 border-r border-gray-100">
                             <span className="font-semibold text-gray-800 block truncate max-w-[140px]">
-                              {op.commodity || '🍎 Kashmir Apples'}
+                              {(op.commodity || 'Kashmir Apples').replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
                             </span>
                             <span className="text-[10px] text-gray-500 font-mono font-bold">
                               {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
@@ -1210,7 +1656,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         </section>
       )}
 
-      {/* SECTION: ACTIVE IN TRANSIT */}
+      {/* SECTION: ACTIVE IN TRANSIT (Zero raw emojis) */}
       {activeSection === 'transit' && (
         <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
           <div className="p-4 bg-gradient-to-r from-rose-50/80 via-amber-50/50 to-emerald-50/40 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1273,21 +1719,25 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                         <span className="text-[10px] text-emerald-800 font-mono font-bold">{vCode}</span>
                       </td>
                       <td className="py-3.5 px-4 border-r border-gray-100">
-                        <span className="font-bold text-gray-800 block truncate max-w-[140px]">{op.commodity}</span>
+                        <span className="font-bold text-gray-800 block truncate max-w-[140px]">
+                          {(op.commodity || '').replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
+                        </span>
                         <span className="text-[10px] text-gray-500 font-mono">{fin.totalQty} {fin.unit}s</span>
                       </td>
                       <td className="text-center py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-800">
-                          📍 {hub}
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-800 flex items-center justify-center gap-1">
+                          <MapPin size={10} className="text-emerald-700" /> {hub}
                         </span>
                       </td>
                       <td className="text-center py-3.5 px-4 font-mono font-bold text-gray-900 border-r border-gray-100 whitespace-nowrap">
-                        🚛 {truck}
+                        <span className="flex items-center justify-center gap-1">
+                          <Truck size={12} className="text-gray-500" /> {truck}
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 border-r border-gray-100">
                         <strong className="text-gray-900 block truncate text-[11px]">{transporter}</strong>
-                        <a href={`tel:${driver}`} className="text-blue-700 hover:underline text-[10px] font-medium block">
-                          📞 {driver}
+                        <a href={`tel:${driver}`} className="text-blue-700 hover:underline text-[10px] font-medium flex items-center gap-1">
+                          <Phone size={10} className="text-blue-600" /> {driver}
                         </a>
                       </td>
                       <td className="text-center py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
@@ -1314,7 +1764,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       </td>
                       <td className="text-right py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
                         <strong className="text-emerald-900 block font-mono">₹{advAmt.toLocaleString('en-IN')}</strong>
-                        <span className="text-[10px] text-emerald-700 font-bold">✓ CLEARED</span>
+                        <span className="text-[10px] text-emerald-700 font-bold inline-flex items-center gap-0.5">
+                          <CheckCircle2 size={10} /> CLEARED
+                        </span>
                       </td>
                       <td className="text-center py-3.5 px-4 whitespace-nowrap">
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-300">
@@ -1330,7 +1782,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         </section>
       )}
 
-      {/* SECTION: MANDI WEIGHBRIDGE & SCALE SLIPS */}
+      {/* SECTION: MANDI WEIGHBRIDGE & SCALE SLIPS (Zero raw emojis) */}
       {activeSection === 'weighbridge' && (
         <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -1473,7 +1925,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         </section>
       )}
 
-      {/* SECTION: WHOLESALE VENDORS DIRECTORY */}
+      {/* SECTION: WHOLESALE VENDORS DIRECTORY (Zero raw emojis) */}
       {activeSection === 'directory' && (
         <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
@@ -1541,8 +1993,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                           <span className="text-gray-500 text-[11px] block">{vendor.phone}</span>
                         </td>
                         <td className="text-center py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-900 border border-emerald-200">
-                            📍 {vendor.primaryLocation}
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-900 border border-emerald-200 inline-flex items-center gap-1">
+                            <MapPin size={10} className="text-emerald-700" /> {vendor.primaryLocation}
                           </span>
                         </td>
                         <td className="text-center py-3.5 px-4 border-r border-gray-100 whitespace-nowrap font-mono text-[11px]">
@@ -1702,7 +2154,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 >
                   {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
                     <option key={loc} value={loc}>
-                      📍 {loc}
+                      {loc}
                     </option>
                   ))}
                 </select>
@@ -2025,7 +2477,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                     <strong className="text-sm font-black text-emerald-900 block font-mono">
                       ₹{Math.round(fin.baseCost * 0.55).toLocaleString('en-IN')}
                     </strong>
-                    <span className="text-[10px] text-emerald-700 font-bold">✓ Direct Bank Cleared</span>
+                    <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
+                      <CheckCircle2 size={10} /> Direct Bank Cleared
+                    </span>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-gray-500 uppercase font-bold block">
