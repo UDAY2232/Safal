@@ -14,7 +14,9 @@ app.listen(PORT, '0.0.0.0', async () => {
   try {
     await ensureAccountantSeed();
     await cleanupDummyOrders();
-    await ensureDefaultVendor();
+    if (process.env.SEED_DEFAULT_VENDOR === 'true') {
+      await ensureDefaultVendor();
+    }
   } catch (err) {
     console.error('Error during startup tasks:', err);
   }

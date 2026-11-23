@@ -4413,15 +4413,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2.5 bg-white border border-emerald-200 rounded-xl">
                       <span className="text-[10px] text-gray-500 block">Beneficiary Name</span>
-                      <strong className="font-bold text-gray-900">{vendorProfile?.bankAccountHolder || vendorProfile?.businessName || 'Ramesh Agro Farms'}</strong>
+                      <strong className="font-bold text-gray-900">{vendorProfile?.bankAccountHolder || vendorProfile?.businessName || '-'}</strong>
                     </div>
                     <div className="p-2.5 bg-white border border-emerald-200 rounded-xl">
                       <span className="text-[10px] text-gray-500 block">Bank Account Number</span>
-                      <strong className="font-mono font-bold text-gray-900">{vendorProfile?.bankAccountNumber || '•••••••••6789'}</strong>
+                      <strong className="font-mono font-bold text-gray-900">{vendorProfile?.bankAccountNumber || '-'}</strong>
                     </div>
                     <div className="p-2.5 bg-white border border-emerald-200 rounded-xl">
                       <span className="text-[10px] text-gray-500 block">IFSC Code</span>
-                      <strong className="font-mono font-bold text-emerald-800">{vendorProfile?.bankIfscCode || 'SBIN0001234'}</strong>
+                      <strong className="font-mono font-bold text-emerald-800">{vendorProfile?.bankIfscCode || '-'}</strong>
                     </div>
                     <div className="p-2.5 bg-white border border-emerald-200 rounded-xl">
                       <span className="text-[10px] text-gray-500 block">Disbursement Mode</span>

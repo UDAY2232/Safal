@@ -72,66 +72,6 @@ export async function ensureDefaultVendor() {
 
       console.log('✓ Seeded default vendor VND-001 (Ramesh Agro Farms) successfully.');
     }
-
-    // Ensure sample active PO for VND-001 so dispatch workflow can be tested immediately
-    const vendorProfile = await prisma.vendorProfile.findFirst({
-      where: { vendorId: 'VND-001' },
-    });
-    if (vendorProfile) {
-      const existingPO = await prisma.purchaseOrder.findFirst({
-        where: {
-          OR: [
-            { vendorProfileId: vendorProfile.id },
-            { poNumber: 'PO/SF/2026/020' },
-          ],
-        },
-      });
-      if (!existingPO) {
-        const adminUser = await prisma.user.findFirst({ where: { role: 'ADMIN' } });
-        const sup = await prisma.supplier.findFirst({ where: { supplierCode: 'VND-001' } });
-        if (adminUser && sup) {
-          const grandTotal = 1320000;
-          const advance = Math.round(grandTotal * 0.70); // 9,24,000 (70%)
-          const pending = grandTotal - advance; // 3,96,000
-          await prisma.purchaseOrder.create({
-            data: {
-              poNumber: 'PO/SF/2026/020',
-              poDate: new Date(),
-              expectedDeliveryDate: new Date(Date.now() + 86400000 * 3),
-              supplierId: sup.id,
-              vendorProfileId: vendorProfile.id,
-              createdById: adminUser.id,
-              deliveryAddress: 'Enumamula Fruit Market, Warangal Hub',
-              orderPersonPlace: 'Warangal Hub',
-              subtotal: grandTotal,
-              discountTotal: 0,
-              taxTotal: 0,
-              grandTotal,
-              advanceAmount: advance,
-              pendingAmount: pending,
-              autoAdvanceCalculated: advance,
-              status: 'APPROVED',
-              dispatchStatus: 'PENDING_DISPATCH',
-              notes: 'Wholesale Kashmir Apples consignment (70% Advance cleared) | Warangal Hub',
-              items: {
-                create: [
-                  {
-                    fruitName: 'Kashmir Apples',
-                    category: 'Fresh Fruits',
-                    varietyGrade: 'Grade A Export Quality',
-                    quantity: 1200,
-                    unit: 'BOX',
-                    ratePerUnit: 1100,
-                    lineTotal: grandTotal,
-                  },
-                ],
-              },
-            },
-          });
-          console.log('✓ Created initial sample PO for VND-001: PO/SF/2026/020');
-        }
-      }
-    }
   } catch (err) {
     console.error('Error seeding default vendor:', err);
   }

@@ -5,6 +5,7 @@ export async function cleanupDummyOrders() {
     const dummyOrders = await prisma.purchaseOrder.findMany({
       where: {
         OR: [
+          { poNumber: 'PO/SF/2026/020' },
           { poNumber: { equals: 'po number', mode: 'insensitive' } },
           { poNumber: { equals: 'po number ', mode: 'insensitive' } },
           { poNumber: { contains: 'po number', mode: 'insensitive' } },
@@ -21,6 +22,9 @@ export async function cleanupDummyOrders() {
     if (dummyOrders.length > 0) {
       console.log(`[CLEANUP] Found ${dummyOrders.length} dummy order(s) to remove:`, dummyOrders.map(o => o.poNumber));
       for (const order of dummyOrders) {
+        await prisma.purchaseOrderItem.deleteMany({
+          where: { purchaseOrderId: order.id },
+        });
         await prisma.purchaseOrder.delete({
           where: { id: order.id },
         });
