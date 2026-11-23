@@ -374,6 +374,8 @@ export const Header: React.FC<HeaderProps> = ({
                     ? 'Admin'
                     : user?.role === 'ACCOUNTANT'
                     ? 'Accountant'
+                    : user?.role === 'VENDOR'
+                    ? 'Vendor Partner'
                     : 'Employee'}
                 </span>
               </div>
@@ -387,7 +389,13 @@ export const Header: React.FC<HeaderProps> = ({
                   <p className="text-[10px] text-gray-400 uppercase font-semibold">Signed in as</p>
                   <p className="text-xs font-bold text-gray-800 truncate">{user?.email}</p>
                   <span className="inline-block mt-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
-                    {user?.role === 'ADMIN' ? 'Full Administrator' : user?.role === 'ACCOUNTANT' ? 'Accountant Console' : 'Employee Operations'}
+                    {user?.role === 'ADMIN'
+                      ? 'Full Administrator'
+                      : user?.role === 'ACCOUNTANT'
+                      ? 'Accountant Console'
+                      : user?.role === 'VENDOR'
+                      ? 'Authorized Vendor'
+                      : 'Employee Operations'}
                   </span>
                 </div>
                 {user?.role === 'ADMIN' && (

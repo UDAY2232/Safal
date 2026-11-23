@@ -16,7 +16,16 @@ import {
   FileText,
   AlertCircle,
   Briefcase,
+  Truck,
+  ShieldCheck,
+  Lock,
+  MapPin,
+  Building2,
+  Phone,
+  User,
+  X,
 } from 'lucide-react';
+import { VENDOR_WHITELISTED_LOCATIONS } from '../types';
 import {
   ResponsiveContainer,
   BarChart,
@@ -105,6 +114,96 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   const [duePaymentOrder, setDuePaymentOrder] = useState<any | null>(null);
   const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
 
+  // Vendor Network state
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [loadingVendors, setLoadingVendors] = useState<boolean>(false);
+  const [showAddVendorModal, setShowAddVendorModal] = useState<boolean>(false);
+  const [submittingVendor, setSubmittingVendor] = useState<boolean>(false);
+  const [vendorFormError, setVendorFormError] = useState<string>('');
+
+  // Add Vendor form state
+  const [vBusinessName, setVBusinessName] = useState('');
+  const [vContactPerson, setVContactPerson] = useState('');
+  const [vPhone, setVPhone] = useState('');
+  const [vEmail, setVEmail] = useState('');
+  const [vPrimaryLocation, setVPrimaryLocation] = useState<string>(VENDOR_WHITELISTED_LOCATIONS[0]);
+  const [vAadhar, setVAadhar] = useState('');
+  const [vPan, setVPan] = useState('');
+  const [vBankAcc, setVBankAcc] = useState('');
+  const [vBankIfsc, setVBankIfsc] = useState('');
+  const [vBankHolder, setVBankHolder] = useState('');
+  const [vBankName, setVBankName] = useState('');
+  const [vBankBranch, setVBankBranch] = useState('');
+  const [vPassword, setVPassword] = useState('Safal@2026');
+
+  const loadVendors = async () => {
+    try {
+      setLoadingVendors(true);
+      const res = await api.getAllVendors();
+      setVendors(Array.isArray(res) ? res : []);
+    } catch (e) {
+      console.warn('Failed to load vendors:', e);
+    } finally {
+      setLoadingVendors(false);
+    }
+  };
+
+  const handleCreateVendor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVendorFormError('');
+    if (!vBusinessName || !vContactPerson || !vPhone || !vAadhar || !vPan || !vBankAcc || !vBankIfsc || !vBankHolder) {
+      setVendorFormError('Please fill all mandatory fields (Business Name, Contact, Phone, Aadhaar, PAN, Bank Details).');
+      return;
+    }
+    const cleanAadhaar = vAadhar.replace(/\D/g, '');
+    if (cleanAadhaar.length !== 12) {
+      setVendorFormError('Aadhaar number must be exactly 12 digits.');
+      return;
+    }
+    if (vPan.trim().length !== 10) {
+      setVendorFormError('PAN number must be exactly 10 alphanumeric characters.');
+      return;
+    }
+    try {
+      setSubmittingVendor(true);
+      await api.createVendorByAdmin({
+        businessName: vBusinessName.trim(),
+        contactPerson: vContactPerson.trim(),
+        phone: vPhone.trim(),
+        email: vEmail.trim() || undefined,
+        primaryLocation: vPrimaryLocation,
+        aadharNumber: cleanAadhaar,
+        panNumber: vPan.trim().toUpperCase(),
+        bankAccountNumber: vBankAcc.trim(),
+        bankIfscCode: vBankIfsc.trim().toUpperCase(),
+        bankAccountHolder: vBankHolder.trim(),
+        bankName: vBankName.trim() || undefined,
+        bankBranch: vBankBranch.trim() || undefined,
+        password: vPassword || 'Safal@2026',
+        isKycLocked: true,
+      });
+      setShowAddVendorModal(false);
+      setVBusinessName('');
+      setVContactPerson('');
+      setVPhone('');
+      setVEmail('');
+      setVAadhar('');
+      setVPan('');
+      setVBankAcc('');
+      setVBankIfsc('');
+      setVBankHolder('');
+      setVBankName('');
+      setVBankBranch('');
+      await loadVendors();
+      await refreshDashboard();
+      alert('Vendor registered successfully with permanent KYC freeze!');
+    } catch (err: any) {
+      setVendorFormError(err.message || 'Failed to register vendor.');
+    } finally {
+      setSubmittingVendor(false);
+    }
+  };
+
   const refreshDashboard = async () => {
     try {
       const res = await api.getAdminDashboard();
@@ -150,6 +249,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
       }
     }
     loadData();
+    loadVendors();
     return () => {
       isMounted = false;
     };
@@ -819,6 +919,157 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
       </div>
 
       {/* Lower Tables Grid */}
+      {/* VENDOR OPERATIONS & PROCUREMENT NETWORK SECTION */}
+      <section className="dashboard-panel border-2 border-emerald-500/20 bg-gradient-to-b from-white to-[#F7FAF8] shadow-sm rounded-2xl overflow-hidden p-4 sm:p-6 mt-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#D5E3D8]">
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-[#064D2B] text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-emerald-700" />
+                Vendor Procurement &amp; Logistics
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">
+                8 Regional Hubs
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold">
+                70% Auto-Advance Policy
+              </span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-2 font-['Manrope']">
+              Direct Farmer &amp; Wholesale Vendor Network
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Wholesale procurement contracts across 8 regional hubs with verified, locked bank KYCs.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowAddVendorModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus size={15} /> Add Vendor
+            </button>
+            <button
+              type="button"
+              onClick={onCreatePO}
+              className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#064D2B] border border-emerald-200 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <ShoppingCart size={15} /> Create Vendor PO
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('Vendors (KYC)')}
+              className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              Manage KYC <ArrowRight size={13} />
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Mini Vendor KPI Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 my-4">
+          <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Registered Vendors</span>
+            <p className="text-xl font-black text-[#064D2B] mt-1">{vendors.length}</p>
+            <span className="text-[10px] font-bold text-emerald-600 block mt-0.5">✓ KYC Frozen &amp; Active</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-amber-100 shadow-2xs">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Procurement Hubs</span>
+            <p className="text-xl font-black text-amber-700 mt-1">8 Cities</p>
+            <span className="text-[10px] text-gray-500 truncate block mt-0.5">Chennai, Hyd, Wgl, Vja...</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-blue-100 shadow-2xs">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Dispatches</span>
+            <p className="text-xl font-black text-blue-700 mt-1">
+              {recentPOs.filter((p: any) => p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchStatus === 'IN_TRANSIT').length}
+            </p>
+            <span className="text-[10px] text-blue-600 font-bold block mt-0.5">Trucks on Road</span>
+          </div>
+
+          <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">70% Advance Outlay</span>
+            <p className="text-xl font-black text-emerald-800 mt-1">
+              {formatCurrency(
+                recentPOs.reduce((sum: number, p: any) => sum + Number(p.advanceAmount || 0), 0)
+              )}
+            </p>
+            <span className="text-[10px] text-gray-500 block mt-0.5">Auto-Allocated</span>
+          </div>
+        </div>
+
+        {/* Registered Vendors Table */}
+        <div className="table-wrap bg-white rounded-xl border border-[#D5E3D8] overflow-hidden">
+          <table>
+            <thead>
+              <tr>
+                <th>Vendor ID</th>
+                <th>Business / Trade Name</th>
+                <th>Contact Person</th>
+                <th>Primary Hub</th>
+                <th>KYC Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vendors.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-6 text-gray-400 text-xs">
+                    {loadingVendors ? 'Loading vendor network...' : 'No vendors registered yet. Click "+ Add Vendor" to register a wholesale supplier.'}
+                  </td>
+                </tr>
+              ) : (
+                vendors.slice(0, 5).map((v) => (
+                  <tr key={v.id} className="hover:bg-emerald-50/30 transition">
+                    <td>
+                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded font-mono font-black text-xs">
+                        {v.vendorId}
+                      </span>
+                    </td>
+                    <td className="font-bold text-gray-900">
+                      {v.businessName}
+                      <span className="block text-[10px] text-gray-400 font-normal">{v.phone}</span>
+                    </td>
+                    <td className="text-gray-700 font-medium text-xs">{v.contactPerson}</td>
+                    <td>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-800 bg-gray-100 px-2 py-0.5 rounded-md">
+                        <MapPin size={11} className="text-emerald-700" /> {v.primaryLocation}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        <Lock size={10} className="text-emerald-700" /> KYC Frozen
+                      </span>
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={onCreatePO}
+                          className="text-xs text-[#087A3E] hover:text-[#064D2B] font-bold inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          + Issue PO
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onNavigate('Vendors (KYC)')}
+                          className="text-xs text-gray-500 hover:text-gray-800 font-semibold cursor-pointer"
+                        >
+                          Details &rarr;
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       {/* Lower Tables Stacked Vertically (Recent POs on top full-width, Expense Claims Needing Attention directly below) */}
       <div className="space-y-6 mt-6">
         <section className="dashboard-panel">
@@ -1078,6 +1329,235 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             refreshDashboard();
           }}
         />
+      )}
+
+      {/* Admin Fast Add Vendor Modal */}
+      {showAddVendorModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 z-70 animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">
+                  Wholesale Procurement Partner
+                </span>
+                <h3 className="text-lg font-black text-gray-900 mt-0.5 font-['Manrope']">
+                  Register New Vendor (KYC Frozen)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddVendorModal(false)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {vendorFormError && (
+              <div className="p-3 my-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold border border-red-200">
+                {vendorFormError}
+              </div>
+            )}
+
+            <form onSubmit={handleCreateVendor} className="overflow-y-auto flex-1 pr-1 py-3 space-y-4 text-xs">
+              {/* Business & Contact */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Business / Firm Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={vBusinessName}
+                    onChange={(e) => setVBusinessName(e.target.value)}
+                    placeholder="e.g. Ramesh Agro Farms & Cold Storage"
+                    className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Authorized Contact Person *</label>
+                  <input
+                    type="text"
+                    required
+                    value={vContactPerson}
+                    onChange={(e) => setVContactPerson(e.target.value)}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Phone, Email, Location */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Phone Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={vPhone}
+                    onChange={(e) => setVPhone(e.target.value)}
+                    placeholder="10-digit mobile"
+                    className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Login Email (Optional)</label>
+                  <input
+                    type="email"
+                    value={vEmail}
+                    onChange={(e) => setVEmail(e.target.value)}
+                    placeholder="vendor@safalexports.com"
+                    className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Primary Delivery Hub *</label>
+                  <select
+                    value={vPrimaryLocation}
+                    onChange={(e) => setVPrimaryLocation(e.target.value)}
+                    className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                  >
+                    {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc} Hub
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Tax Records: Aadhaar & PAN */}
+              <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl space-y-2">
+                <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider block">
+                  Statutory Tax &amp; Identity (Permanently Frozen)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Aadhaar Number (12 digits) *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={12}
+                      value={vAadhar}
+                      onChange={(e) => setVAadhar(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456789012"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">PAN Card Number (10 chars) *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={10}
+                      value={vPan}
+                      onChange={(e) => setVPan(e.target.value.toUpperCase())}
+                      placeholder="ABCDE1234F"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Banking Details */}
+              <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-2">
+                <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block flex items-center gap-1">
+                  <Lock size={12} /> Direct Settlement Bank Account (Permanently Frozen)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Account Number *</label>
+                    <input
+                      type="text"
+                      required
+                      value={vBankAcc}
+                      onChange={(e) => setVBankAcc(e.target.value)}
+                      placeholder="Account number"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">IFSC Code *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={11}
+                      value={vBankIfsc}
+                      onChange={(e) => setVBankIfsc(e.target.value.toUpperCase())}
+                      placeholder="SBIN0001234"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Account Holder Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={vBankHolder}
+                      onChange={(e) => setVBankHolder(e.target.value)}
+                      placeholder="Beneficiary name"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      value={vBankName}
+                      onChange={(e) => setVBankName(e.target.value)}
+                      placeholder="e.g. State Bank of India"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Branch Name</label>
+                    <input
+                      type="text"
+                      value={vBankBranch}
+                      onChange={(e) => setVBankBranch(e.target.value)}
+                      placeholder="e.g. Warangal Main Branch"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">Initial Portal Password</label>
+                <input
+                  type="text"
+                  value={vPassword}
+                  onChange={(e) => setVPassword(e.target.value)}
+                  placeholder="Safal@2026"
+                  className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                />
+                <span className="text-[10px] text-gray-400 mt-1 block">
+                  Vendor can log in using either sequential Vendor ID (e.g. VND-002) or email.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowAddVendorModal(false)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingVendor}
+                  className="px-5 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white font-black shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <Lock size={14} />
+                  {submittingVendor ? 'Registering & Freezing KYC...' : 'Register & Lock Vendor (KYC)'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </>
   );

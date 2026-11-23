@@ -13,6 +13,7 @@ import {
   User,
   MapPin,
   Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Supplier } from '../types';
@@ -40,6 +41,8 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const isCD = mode === 'CD' || isEmployee;
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [registeredVendors, setRegisteredVendors] = useState<any[]>([]);
+  const [selectedVendorId, setSelectedVendorId] = useState<string>('');
   const [supplierName, setSupplierName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderPersonName, setOrderPersonName] = useState(() => {
@@ -68,13 +71,37 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   useEffect(() => {
     async function loadSuppliers() {
       try {
-        const list = await api.getSuppliers();
+        const [list, vList] = await Promise.all([
+          api.getSuppliers(),
+          !isCD ? api.getAllVendors().catch(() => []) : Promise.resolve([]),
+        ]);
         setSuppliers(list);
-        if (list.length > 0 && !supplierName && !isCD) setSupplierName(list[0].name);
+        setRegisteredVendors(Array.isArray(vList) ? vList : []);
+        if (list.length > 0 && !supplierName && !isCD && (!vList || vList.length === 0)) setSupplierName(list[0].name);
       } catch {}
     }
     loadSuppliers();
   }, [isCD]);
+
+  const handleVendorSelect = (vendorProfileId: string) => {
+    setSelectedVendorId(vendorProfileId);
+    if (!vendorProfileId) return;
+    const v = registeredVendors.find((item) => item.id === vendorProfileId || item.vendorId === vendorProfileId);
+    if (v) {
+      setSupplierName(v.businessName);
+      if (v.phone) setCustomerPhone(v.phone);
+      if (v.primaryLocation) {
+        setDeliveryAddress(`${v.primaryLocation} Regional Hub Receiving Desk`);
+        setOrderPersonPlace(`${v.primaryLocation} Hub`);
+      }
+      const curTot = Number(totalAmount) || 0;
+      if (curTot > 0) {
+        const adv = Math.round(curTot * 0.70);
+        setAdvanceAmount(String(adv));
+        setPendingAmount(String(curTot - adv));
+      }
+    }
+  };
 
   // Handle item updates and auto-compute line totals and totalAmount
   const handleItemChange = (index: number, field: keyof CDLineItem, val: any) => {
@@ -183,6 +210,8 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
 
       await api.createPurchaseOrder({
         supplierId: finalSupplierId,
+        vendorProfileId: selectedVendorId || undefined,
+        isVendor: Boolean(selectedVendorId),
         customerPhone: customerPhone.trim(),
         orderPersonName: orderPersonName.trim(),
         poDate: poDate || new Date().toISOString(),
@@ -258,6 +287,36 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
             <h3 className="font-extrabold text-xs text-[#064D2B] uppercase tracking-wider flex items-center gap-2">
               <User size={15} /> {isCD ? 'Customer / Buyer & Shop Details' : 'Customer & Shop Details'}
             </h3>
+
+            {!isCD && registeredVendors.length > 0 && (
+              <div className="p-3 bg-white border-2 border-emerald-500/30 rounded-xl space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-black text-[#064D2B] uppercase tracking-wider flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-emerald-700" /> Select Registered Vendor Partner (KYC Verified)
+                  </label>
+                  <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    70% Auto-Advance Policy
+                  </span>
+                </div>
+                <select
+                  value={selectedVendorId}
+                  onChange={(e) => handleVendorSelect(e.target.value)}
+                  className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-bold text-gray-900 bg-emerald-50/30 focus:border-emerald-600 focus:outline-none"
+                >
+                  <option value="">-- Manual Supplier or Select Registered Vendor --</option>
+                  {registeredVendors.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.vendorId} • {v.businessName} ({v.primaryLocation} Hub) - {v.contactPerson}
+                    </option>
+                  ))}
+                </select>
+                {selectedVendorId && (
+                  <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                    ✓ Linked to Vendor Portal. Vendor will receive this PO for post-dispatch verification.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               {/* Customer / Shop Name */}

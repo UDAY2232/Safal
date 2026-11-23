@@ -205,12 +205,13 @@ export async function getVendorPOs(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Vendor profile not found' });
     }
 
-    // Match either via vendorProfileId OR via supplierCode matching vendorId
+    // Match either via vendorProfileId OR via supplierCode matching vendorId OR supplier name containing vendor business name
     const pos = await prisma.purchaseOrder.findMany({
       where: {
         OR: [
           { vendorProfileId: profile.id },
           { supplier: { supplierCode: profile.vendorId } },
+          { supplier: { name: { contains: profile.businessName, mode: 'insensitive' } } },
         ],
       },
       include: {
@@ -389,6 +390,7 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
         OR: [
           { vendorProfileId: profile.id },
           { supplier: { supplierCode: profile.vendorId } },
+          { supplier: { name: { contains: profile.businessName, mode: 'insensitive' } } },
         ],
       },
     });

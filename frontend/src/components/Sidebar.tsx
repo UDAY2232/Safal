@@ -117,6 +117,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'Full Administrator'
                 : currentRole === 'ACCOUNTANT'
                 ? 'Accountant Console'
+                : currentRole === 'VENDOR'
+                ? 'Authorized Vendor'
                 : 'Employee Operations'}
             </p>
           </div>
@@ -144,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
           <span className="text-[9px] font-black text-emerald-300 uppercase tracking-tighter mt-1">
-            {currentRole === 'ADMIN' ? 'ADM' : currentRole === 'ACCOUNTANT' ? 'ACC' : 'EMP'}
+            {currentRole === 'ADMIN' ? 'ADM' : currentRole === 'ACCOUNTANT' ? 'ACC' : currentRole === 'VENDOR' ? 'VND' : 'EMP'}
           </span>
         </div>
       )}
@@ -182,6 +184,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ? 'Full Administrator'
                 : user?.role === 'ACCOUNTANT'
                 ? 'Accountant'
+                : user?.role === 'VENDOR'
+                ? 'Vendor Partner'
                 : 'Field Operations'}
             </span>
           </div>
