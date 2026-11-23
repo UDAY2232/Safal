@@ -254,7 +254,12 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Notifications Panel Dropdown */}
             {showNotifications && (
-              <div className="notification-panel">
+              <>
+                <div
+                  className="fixed inset-0 z-60 bg-black/20 lg:hidden"
+                  onClick={() => setShowNotifications(false)}
+                />
+                <div className="notification-panel">
                 <div className="notification-panel-head flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
                   <div className="flex items-center gap-2">
                     <strong className="text-xs font-bold text-gray-800">System Notifications</strong>
@@ -343,6 +348,7 @@ export const Header: React.FC<HeaderProps> = ({
                   View all audit logs <ArrowRight size={13} />
                 </button>
               </div>
+              </>
             )}
           </div>
 

@@ -145,7 +145,16 @@ button { cursor:pointer; }
     grid-template-columns: 1fr !important;
     gap: 16px !important;
   }
-  .notification-panel{right:0; top:44px; width:min(calc(100vw - 20px), 340px); z-index:70}
+  .notification-panel{
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    top: 52px !important;
+    width: auto !important;
+    max-width: 380px !important;
+    margin: 0 auto !important;
+    z-index: 100 !important;
+  }
   .dashboard-stats{grid-template-columns:1fr 1fr}
   .section-toolbar{flex-wrap:wrap}
   .section-toolbar .search-field{flex-basis:100%}

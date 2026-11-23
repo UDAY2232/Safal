@@ -148,10 +148,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     return (Date.now() - orderTime) < ONE_DAY_MS;
   }) : [];
 
-  // Pending verification CDs (awaiting Admin/Accountant approval with proof)
-  const pendingVerificationOrders = isCD ? orders.filter((o) => {
+  // Pending verification records (awaiting Admin/Accountant approval or with proof)
+  const pendingVerificationOrders = orders.filter((o) => {
     return o.status === 'PENDING_APPROVAL' || (Boolean(o.paymentProofUrl) && o.status !== 'CLOSED');
-  }) : [];
+  });
 
   const displayedOrders = activeSection === 'pending_verification' 
     ? pendingVerificationOrders 
@@ -167,6 +167,13 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
   const totalCompletedAmount = dueOrders.reduce((sum, o) => sum + Number(o.advanceAmount || 0), 0);
   const totalDueCommitment = dueOrders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
+
+  const pendingVerificationTotalValue = pendingVerificationOrders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
+  const pendingVerificationDueBalance = pendingVerificationOrders.reduce((sum, o) => {
+    const adv = Number(o.advanceAmount || 0);
+    return sum + Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+  }, 0);
+  const pendingVerificationWithProof = pendingVerificationOrders.filter((o) => Boolean(o.paymentProofUrl)).length;
 
   return (
     <div className="space-y-5">
@@ -234,7 +241,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <ShoppingCart size={15} /> {isCD ? `All Customer Dues (${orders.length})` : `All Purchase Orders (${orders.length})`}
           </button>
 
-          {isCD && (
+          {(isCD || pendingVerificationOrders.length > 0) && (
             <button
               type="button"
               onClick={() => setActiveSection('pending_verification')}
@@ -243,9 +250,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                   ? 'bg-amber-600 text-white shadow-sm'
                   : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
               }`}
-              title="Customer dues with submitted proof awaiting review and closing"
+              title="Orders with submitted proof or awaiting approval"
             >
-              <Clock size={15} /> Pending Verification
+              <Clock size={15} /> {isCD ? 'Pending Verification' : 'Pending Approval'}
               {pendingVerificationOrders.length > 0 && (
                 <span className="inline-flex items-center justify-center px-1.5 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-white">
                   {pendingVerificationOrders.length}
@@ -282,124 +289,179 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         )}
       </div>
 
-      {/* 2. Stat Cards Dynamic Based on Section - One by One on Mobile */}
+      {/* 2. Stat Cards Dynamic Based on Section - Side by Side (2-Columns on Mobile) */}
       {activeSection === 'all' ? (
         /* ALL POs STAT CARDS */
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-          <div className="stat-card blue flex items-center gap-3.5 p-4 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB]">
-            <div className="w-12 h-12 rounded-xl bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
-              <FileText size={24} strokeWidth={2.2} />
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
+          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
+              <FileText size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-bold text-[#1E293B] block">
-                {isCD ? (isEmployee ? 'My Total CDs' : 'Total Customer Dues (CD)') : 'Total PO'}
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+                {isCD ? (isEmployee ? 'My Total CDs' : 'Total Customer Dues') : 'Total PO'}
               </span>
-              <strong className="text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block mt-0.5">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block mt-0.5">
                 {orders.length}
               </strong>
             </div>
           </div>
 
-          <div className="stat-card green flex items-center gap-3.5 p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
-            <div className="w-12 h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
-              <Hourglass size={24} strokeWidth={2.2} />
+          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+              <Hourglass size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-bold text-[#1E293B] block">
-                {isCD ? (isEmployee ? 'Within 1-Day Window' : 'Due Today (<1 Day Grace)') : 'Open PO'}
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+                {isCD ? (isEmployee ? 'Within 1-Day Window' : 'Due Today (<1 Day)') : 'Open PO'}
               </span>
-              <strong className="text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
                 {isCD ? activeGraceCDs.length : openCount}
               </strong>
             </div>
           </div>
 
-          <div className="stat-card rose flex items-center gap-3.5 p-4 rounded-2xl bg-[#FEEFEF] border border-[#FCD8D8]">
-            <div className="w-12 h-12 rounded-xl bg-[#FFDADA] flex items-center justify-center text-[#D32F2F] flex-shrink-0">
-              <CreditCard size={24} strokeWidth={2.2} />
+          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEEFEF] border border-[#FCD8D8]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FFDADA] flex items-center justify-center text-[#D32F2F] flex-shrink-0">
+              <CreditCard size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-bold text-[#1E293B] block">
-                {isCD ? (isEmployee ? 'Due CD Tracker (>1 Day)' : 'Due Tracker (>1 Day Overdue)') : 'Closed PO'}
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+                {isCD ? (isEmployee ? 'Due CD (>1 Day)' : 'Due Tracker (>1 Day)') : 'Closed PO'}
               </span>
-              <strong className="text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5">
                 {isCD ? dueOrders.length : closedCount}
               </strong>
             </div>
           </div>
 
-          <div className="stat-card gold flex items-center gap-3.5 p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
-            <div className="w-12 h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
-              <Coins size={24} strokeWidth={2.2} />
+          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+              <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0 flex-1">
-              <span className="text-xs font-bold text-[#1E293B] block">
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
                 {isCD ? (isEmployee ? 'My Total CD Amount' : 'Total CD Amount') : 'Total PO Amount'}
               </span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 whitespace-nowrap overflow-visible">
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
                 ₹ {totalAmount.toLocaleString('en-IN')}
               </strong>
             </div>
           </div>
         </section>
-      ) : (
-        /* DUE POs DEDICATED STAT CARDS (Avaru thiskunaru, Due antha undhi, Antha complete chesaru) */
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4">
-          {/* Card 1: Due POs Count */}
-          <div className="stat-card blue flex items-center gap-3.5 p-4 rounded-2xl bg-[#FFF5F5] border border-[#FED7D7]">
-            <div className="w-12 h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-rose-700 flex-shrink-0">
-              <CreditCard size={24} strokeWidth={2.2} />
+      ) : activeSection === 'pending_verification' ? (
+        /* PENDING VERIFICATION DEDICATED STAT CARDS (Count, Total Value, Due Balance, Proof Attached) */
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
+          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FFFBEB] border border-[#FDE68A]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEF3C7] flex items-center justify-center text-amber-700 flex-shrink-0">
+              <Clock size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
             <div className="min-w-0">
-              <span className="text-xs font-bold text-gray-700 block">Pending Due Orders</span>
-              <strong className="text-2xl lg:text-3xl font-black text-rose-800 font-['Manrope'] block mt-0.5">
+              <span className="text-[11px] sm:text-xs font-bold text-amber-900 block truncate">Pending Review</span>
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-900 font-['Manrope'] block mt-0.5">
+                {pendingVerificationOrders.length}
+              </strong>
+              <small className="text-[10px] text-amber-700 hidden sm:block truncate">Requires Decision</small>
+            </div>
+          </div>
+
+          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+              <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-800 block truncate">Total Pending Value</span>
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
+                ₹{pendingVerificationTotalValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </strong>
+              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross commitment</small>
+            </div>
+          </div>
+
+          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
+              <AlertCircle size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] sm:text-xs font-bold text-red-900 block truncate">Pending Due Balance</span>
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-red-700 font-['Manrope'] block mt-0.5 truncate">
+                ₹{pendingVerificationDueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              </strong>
+              <small className="text-[10px] text-red-600 hidden sm:block truncate">Awaiting collection</small>
+            </div>
+          </div>
+
+          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+              <CheckCircle2 size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 block truncate">Proofs Attached</span>
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
+                {pendingVerificationWithProof}
+              </strong>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Receipts uploaded</small>
+            </div>
+          </div>
+        </section>
+      ) : (
+        /* DUE POs DEDICATED STAT CARDS (Avaru thiskunaru, Due antha undhi, Antha complete chesaru) */
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
+          {/* Card 1: Due POs Count */}
+          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FFF5F5] border border-[#FED7D7]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-rose-700 flex-shrink-0">
+              <CreditCard size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-700 block truncate">Pending Due Orders</span>
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-rose-800 font-['Manrope'] block mt-0.5">
                 {dueOrders.length}
               </strong>
-              <small className="text-[10px] text-gray-500">Orders requiring settlement</small>
+              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Orders requiring settlement</small>
             </div>
           </div>
 
           {/* Card 2: Total Due Balance */}
-          <div className="stat-card rose flex items-center gap-3.5 p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5]">
-            <div className="w-12 h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
-              <AlertCircle size={24} strokeWidth={2.2} />
+          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
+              <AlertCircle size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
-            <div className="min-w-0">
-              <span className="text-xs font-bold text-red-900 block">Pending Due Balance</span>
-              <strong className="text-xl lg:text-2xl font-black text-red-700 font-['Manrope'] block mt-0.5 truncate">
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] sm:text-xs font-bold text-red-900 block truncate">Pending Due Balance</span>
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-red-700 font-['Manrope'] block mt-0.5 truncate">
                 ₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </strong>
-              <small className="text-[10px] text-red-600 font-semibold">Total outstanding due balance</small>
+              <small className="text-[10px] text-red-600 hidden sm:block truncate">Total outstanding due</small>
             </div>
           </div>
 
           {/* Card 3: Advance Paid */}
-          <div className="stat-card green flex items-center gap-3.5 p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
-            <div className="w-12 h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
-              <CheckCircle2 size={24} strokeWidth={2.2} />
+          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+              <CheckCircle2 size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
-            <div className="min-w-0">
-              <span className="text-xs font-bold text-emerald-900 block">Advance Paid / Cleared</span>
-              <strong className="text-xl lg:text-2xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5 truncate">
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 block truncate">Advance Paid / Cleared</span>
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5 truncate">
                 ₹{totalCompletedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </strong>
-              <small className="text-[10px] text-emerald-700 font-semibold">Cleared / Paid upfront</small>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Cleared / Paid upfront</small>
             </div>
           </div>
 
           {/* Card 4: Total Commitment */}
-          <div className="stat-card gold flex items-center gap-3.5 p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
-            <div className="w-12 h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
-              <Coins size={24} strokeWidth={2.2} />
+          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+              <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
             </div>
-            <div className="min-w-0">
-              <span className="text-xs font-bold text-gray-800 block">
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-800 block truncate">
                 {isCD ? 'Total Due CD Value' : 'Total Due PO Value'}
               </span>
-              <strong className="text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
                 ₹{totalDueCommitment.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </strong>
-              <small className="text-[10px] text-gray-500">Gross total commitment</small>
+              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross total commitment</small>
             </div>
           </div>
         </section>
@@ -495,7 +557,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
           <div className="flex items-center gap-3">
             <span className="text-xs text-gray-500">
-              Showing <strong>{activeSection === 'due' ? dueOrders.length : orders.length}</strong> {isCD ? 'customer dues' : 'purchase orders'}
+              Showing <strong>{displayedOrders.length}</strong> {isCD ? 'customer dues' : 'purchase orders'}
             </span>
             <button
               onClick={handleExportCSV}

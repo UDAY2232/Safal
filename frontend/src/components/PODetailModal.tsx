@@ -186,7 +186,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
 
   return (
     <div className="modal-backdrop">
-      <div className="modal !w-[940px] max-w-[96vw] max-h-[92vh] flex flex-col p-6 overflow-hidden">
+      <div className="modal !w-[940px] max-w-[96vw] max-h-[92vh] flex flex-col p-3.5 sm:p-5 md:p-6 overflow-hidden">
         {/* Header */}
         <div className="modal-header pb-3 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-3">
@@ -566,26 +566,26 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="modal-actions pt-3 border-t border-gray-100 flex items-center justify-between gap-2 flex-shrink-0">
+        {/* Footer Actions - Responsive Wrap for Mobile & Desktop */}
+        <div className="pt-3 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 flex-shrink-0">
           <button
             type="button"
             onClick={handleDownloadPDF}
             disabled={isDownloading}
-            className="secondary-button !border-emerald-700 !text-emerald-800 hover:!bg-emerald-50 inline-flex items-center gap-1.5 transition disabled:opacity-50"
+            className="secondary-button !border-emerald-700 !text-emerald-800 hover:!bg-emerald-50 inline-flex items-center justify-center gap-1.5 transition disabled:opacity-50 w-full sm:w-auto"
           >
             <Download size={14} className={isDownloading ? 'animate-bounce' : ''} />
             {isDownloading ? 'Downloading...' : 'Download PDF'}
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
             {isAdmin && order.status === 'PENDING_APPROVAL' && (
               <>
                 <button
                   type="button"
                   onClick={() => setShowRejectInput(true)}
                   disabled={isProcessing}
-                  className="px-3 py-2 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 rounded-lg font-bold text-xs transition"
+                  className="px-3 py-2 bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 rounded-xl font-bold text-xs transition flex-1 sm:flex-none text-center cursor-pointer"
                 >
                   Reject {isCD ? 'CD' : 'PO'}
                 </button>
@@ -593,7 +593,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                   type="button"
                   onClick={handleApprove}
                   disabled={isProcessing}
-                  className="primary-button inline-flex items-center gap-1.5"
+                  className="primary-button inline-flex items-center justify-center gap-1.5 flex-1 sm:flex-none cursor-pointer"
                 >
                   <Check size={15} /> Approve {isCD ? 'CD' : 'PO'}
                 </button>
@@ -611,7 +611,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                     onClose();
                     onOpenDuePayment(order);
                   }}
-                  className="secondary-button !border-rose-400 !text-rose-800 hover:!bg-rose-50 inline-flex items-center gap-1.5 transition"
+                  className="secondary-button !border-rose-400 !text-rose-800 hover:!bg-rose-50 inline-flex items-center justify-center gap-1.5 transition flex-1 sm:flex-none cursor-pointer"
                 >
                   <CreditCard size={14} /> Submit Due Payment
                 </button>
@@ -622,7 +622,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 type="button"
                 onClick={handleClosePO}
                 disabled={isProcessing || pendingDue > 0}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs transition ${
+                className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-bold text-xs transition flex-1 sm:flex-none ${
                   pendingDue > 0
                     ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed opacity-60'
                     : 'primary-button !bg-gray-800 cursor-pointer'
@@ -648,14 +648,14 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 type="button"
                 onClick={handleDeletePO}
                 disabled={isProcessing}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-xs transition disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 rounded-xl font-bold text-xs transition disabled:opacity-50 cursor-pointer flex-1 sm:flex-none"
                 title="Permanently delete this record"
               >
                 <Trash2 size={14} /> Delete
               </button>
             )}
 
-            <button type="button" className="secondary-button" onClick={onClose}>
+            <button type="button" className="secondary-button flex-1 sm:flex-none" onClick={onClose}>
               Close
             </button>
           </div>
