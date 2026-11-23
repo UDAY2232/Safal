@@ -2651,7 +2651,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           }}
         >
           <div
-            className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+            className="bg-white rounded-3xl max-w-3xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
             style={{ zIndex: 10000 }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2778,35 +2778,35 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </div>
 
                   <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden">
-                    <table className="w-full text-xs text-left">
+                    <table className="w-full table-fixed text-xs text-left">
                       <thead>
-                        <tr className="bg-[#064D2B] text-white font-black text-[10px] uppercase">
-                          <th className="py-2.5 px-3">Layer Grade</th>
-                          <th className="py-2.5 px-2 text-right">No. of Boxes</th>
-                          <th className="py-2.5 px-2 text-right">Admin Rate (₹)</th>
-                          <th className="py-2.5 px-3 text-right">Subtotal (₹)</th>
+                        <tr className="bg-[#064D2B] text-white font-black text-[10px] uppercase tracking-wider">
+                          <th className="w-[32%] py-2.5 px-3">Layer Grade</th>
+                          <th className="w-[22%] py-2.5 px-2 text-center">No. of Boxes</th>
+                          <th className="w-[22%] py-2.5 px-2 text-right">Admin Rate</th>
+                          <th className="w-[24%] py-2.5 px-3 text-right">Subtotal</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 font-bold">
                         {/* 4L */}
                         <tr className="hover:bg-gray-50/60">
                           <td className="py-2.5 px-3">
-                            <div className="font-extrabold text-gray-900">4L (4-Layer Large Size)</div>
-                            <span className="text-[10px] text-gray-500 font-medium">Premium large size</span>
+                            <div className="font-extrabold text-gray-900 leading-tight">4L (Large)</div>
+                            <span className="text-[10px] text-gray-500 font-medium leading-none block">Premium 4-Layer</span>
                           </td>
-                          <td className="py-2.5 px-2 text-right">
+                          <td className="py-2.5 px-2 text-center">
                             <input
                               type="number"
                               min="0"
                               value={layer4LBoxes}
                               onChange={(e) => setLayer4LBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-20 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-full max-w-[85px] h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
                           <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
-                              <Lock size={10} className="text-gray-400" /> ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
+                            <span className="inline-flex items-center justify-end gap-1 px-2 py-1 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
+                              <Lock size={10} className="text-amber-600 flex-shrink-0" /> ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
@@ -2817,22 +2817,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         {/* 5L */}
                         <tr className="hover:bg-gray-50/60">
                           <td className="py-2.5 px-3">
-                            <div className="font-extrabold text-gray-900">5L (5-Layer Medium Size)</div>
-                            <span className="text-[10px] text-gray-500 font-medium">Standard market volume</span>
+                            <div className="font-extrabold text-gray-900 leading-tight">5L (Medium)</div>
+                            <span className="text-[10px] text-gray-500 font-medium leading-none block">Standard 5-Layer</span>
                           </td>
-                          <td className="py-2.5 px-2 text-right">
+                          <td className="py-2.5 px-2 text-center">
                             <input
                               type="number"
                               min="0"
                               value={layer5LBoxes}
                               onChange={(e) => setLayer5LBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-20 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-full max-w-[85px] h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
                           <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
-                              <Lock size={10} className="text-gray-400" /> ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
+                            <span className="inline-flex items-center justify-end gap-1 px-2 py-1 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
+                              <Lock size={10} className="text-amber-600 flex-shrink-0" /> ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
@@ -2843,22 +2843,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         {/* Roll */}
                         <tr className="hover:bg-gray-50/60">
                           <td className="py-2.5 px-3">
-                            <div className="font-extrabold text-gray-900">Roll (Roller Mixed Running)</div>
-                            <span className="text-[10px] text-gray-500 font-medium">Mandi bulk pack</span>
+                            <div className="font-extrabold text-gray-900 leading-tight">Roll (Running)</div>
+                            <span className="text-[10px] text-gray-500 font-medium leading-none block">Mandi Bulk Pack</span>
                           </td>
-                          <td className="py-2.5 px-2 text-right">
+                          <td className="py-2.5 px-2 text-center">
                             <input
                               type="number"
                               min="0"
                               value={rollBoxes}
                               onChange={(e) => setRollBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-20 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-full max-w-[85px] h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
                           <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
-                              <Lock size={10} className="text-gray-400" /> ₹{Number(rollRate || 700).toLocaleString('en-IN')}
+                            <span className="inline-flex items-center justify-end gap-1 px-2 py-1 bg-amber-50 rounded-lg border border-amber-200 text-amber-900 font-mono font-bold text-xs" title="Fixed Wholesale Rate by Admin">
+                              <Lock size={10} className="text-amber-600 flex-shrink-0" /> ₹{Number(rollRate || 700).toLocaleString('en-IN')}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
@@ -2867,17 +2867,17 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         </tr>
                       </tbody>
                       <tfoot>
-                        <tr className="border-t-2 border-emerald-300 bg-emerald-50/90">
-                          <td className="py-2.5 px-3 text-gray-900 font-black uppercase text-[11px]">
+                        <tr className="border-t-2 border-emerald-300 bg-emerald-50/90 font-black">
+                          <td className="py-2.5 px-3 text-gray-900 uppercase text-[10px] font-black">
                             Total Consignment
                           </td>
-                          <td className="py-2.5 px-2 text-right font-black text-gray-900">
+                          <td className="py-2.5 px-2 text-center font-black text-gray-900 text-xs">
                             {totalAppleBoxes.toLocaleString('en-IN')} Boxes
                           </td>
-                          <td className="py-2.5 px-2 text-right text-gray-500 font-bold text-[10px]">
-                            Fixed Admin Total
+                          <td className="py-2.5 px-2 text-right text-amber-800 font-bold text-[10px]">
+                            <span className="inline-flex items-center gap-0.5"><Lock size={9} /> Fixed Rate</span>
                           </td>
-                          <td className="py-2.5 px-3 text-right text-base font-black text-emerald-800 font-mono">
+                          <td className="py-2.5 px-3 text-right text-sm sm:text-base font-black text-emerald-800 font-mono">
                             ₹{totalAppleAmount.toLocaleString('en-IN')}
                           </td>
                         </tr>
@@ -2927,7 +2927,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div className="grid grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
                         No. of Boxes *
@@ -3019,7 +3019,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div className="grid grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
                         Total Weight ({watermelonUnit}) *
@@ -3112,7 +3112,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div className="grid grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
                         Total Weight ({muskmelonUnit}) *
@@ -3175,7 +3175,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div className="grid grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
                         Total Boxes *
@@ -3261,7 +3261,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div className="grid grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
                         Total Boxes *
@@ -3325,7 +3325,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div className="grid grid-cols-2 gap-3 items-end">
                     <div>
                       <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
                         Total Boxes *
@@ -3735,7 +3735,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           }}
         >
           <div
-            className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+            className="bg-white rounded-3xl max-w-3xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
             style={{ zIndex: 10000 }}
             onClick={(e) => e.stopPropagation()}
           >
