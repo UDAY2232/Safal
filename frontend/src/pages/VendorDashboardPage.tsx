@@ -2767,20 +2767,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </span>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto rounded-xl border border-emerald-200 bg-white/70">
                     <table className="w-full text-xs text-left">
                       <thead>
-                        <tr className="border-b border-amber-200/60 text-gray-600 font-black text-[10px] uppercase">
-                          <th className="py-2 px-2">Layer Grade</th>
-                          <th className="py-2 px-2 text-right">No. of Boxes</th>
-                          <th className="py-2 px-2 text-right">Rate (₹ / Box)</th>
-                          <th className="py-2 px-2 text-right">Subtotal (₹)</th>
+                        <tr className="bg-[#064D2B] text-white font-black text-[10px] uppercase">
+                          <th className="py-2.5 px-3">Layer Grade</th>
+                          <th className="py-2.5 px-2 text-right">No. of Boxes</th>
+                          <th className="py-2.5 px-2 text-right">Rate (₹ / Box)</th>
+                          <th className="py-2.5 px-3 text-right">Subtotal (₹)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 font-bold">
                         {/* 4L */}
-                        <tr className="hover:bg-white/60">
-                          <td className="py-2 px-2">
+                        <tr className="hover:bg-white">
+                          <td className="py-2 px-3">
                             <div className="font-extrabold text-gray-900">4L (4-Layer Large Size)</div>
                             <span className="text-[10px] text-gray-500">Premium large size</span>
                           </td>
@@ -2791,7 +2791,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               value={layer4LBoxes}
                               onChange={(e) => setLayer4LBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-20 sm:w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
                           <td className="py-2 px-2 text-right">
@@ -2801,17 +2801,17 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               value={layer4LRate}
                               onChange={(e) => setLayer4LRate(e.target.value)}
                               placeholder="₹"
-                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-20 sm:w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
-                          <td className="py-2 px-2 text-right text-emerald-800 font-black">
+                          <td className="py-2 px-3 text-right text-emerald-800 font-black">
                             ₹{apple4LAmount.toLocaleString('en-IN')}
                           </td>
                         </tr>
 
                         {/* 5L */}
-                        <tr className="hover:bg-white/60">
-                          <td className="py-2 px-2">
+                        <tr className="hover:bg-white">
+                          <td className="py-2 px-3">
                             <div className="font-extrabold text-gray-900">5L (5-Layer Medium Size)</div>
                             <span className="text-[10px] text-gray-500">Standard market volume</span>
                           </td>
@@ -2822,7 +2822,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               value={layer5LBoxes}
                               onChange={(e) => setLayer5LBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-20 sm:w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
                           <td className="py-2 px-2 text-right">
@@ -2832,17 +2832,17 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               value={layer5LRate}
                               onChange={(e) => setLayer5LRate(e.target.value)}
                               placeholder="₹"
-                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-20 sm:w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
-                          <td className="py-2 px-2 text-right text-emerald-800 font-black">
+                          <td className="py-2 px-3 text-right text-emerald-800 font-black">
                             ₹{apple5LAmount.toLocaleString('en-IN')}
                           </td>
                         </tr>
 
                         {/* Roll */}
-                        <tr className="hover:bg-white/60">
-                          <td className="py-2 px-2">
+                        <tr className="hover:bg-white">
+                          <td className="py-2 px-3">
                             <div className="font-extrabold text-gray-900">Roll (Roller Mixed Running)</div>
                             <span className="text-[10px] text-gray-500">Mandi roller bulk pack</span>
                           </td>
@@ -2853,7 +2853,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               value={rollBoxes}
                               onChange={(e) => setRollBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-20 sm:w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
                           <td className="py-2 px-2 text-right">
@@ -2863,31 +2863,46 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               value={rollRate}
                               onChange={(e) => setRollRate(e.target.value)}
                               placeholder="₹"
-                              className="w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
+                              className="w-20 sm:w-24 h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none"
                             />
                           </td>
-                          <td className="py-2 px-2 text-right text-emerald-800 font-black">
+                          <td className="py-2 px-3 text-right text-emerald-800 font-black">
                             ₹{appleRollAmount.toLocaleString('en-IN')}
                           </td>
                         </tr>
                       </tbody>
                       <tfoot>
-                        <tr className="border-t-2 border-emerald-300 bg-emerald-100/40">
-                          <td className="py-2.5 px-2 text-gray-900 font-black uppercase text-[11px]">
+                        <tr className="border-t-2 border-emerald-300 bg-emerald-50/90">
+                          <td className="py-2.5 px-3 text-gray-900 font-black uppercase text-[11px]">
                             Total Consignment
                           </td>
                           <td className="py-2.5 px-2 text-right font-black text-gray-900">
                             {totalAppleBoxes.toLocaleString('en-IN')} Boxes
                           </td>
-                          <td className="py-2.5 px-2 text-right text-gray-500 text-[10px]">
-                            Combined Total
+                          <td className="py-2.5 px-2 text-right text-gray-600 font-black text-xs">
+                            Total Amount:
                           </td>
-                          <td className="py-2.5 px-2 text-right text-base font-black text-emerald-800">
+                          <td className="py-2.5 px-3 text-right text-base font-black text-emerald-800">
                             ₹{totalAppleAmount.toLocaleString('en-IN')}
                           </td>
                         </tr>
                       </tfoot>
                     </table>
+                  </div>
+
+                  {/* Prominent Total Apple Amount Summary Card */}
+                  <div className="p-3 bg-white rounded-xl border border-emerald-300 flex items-center justify-between shadow-xs">
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 block">Total Apple Amount:</span>
+                      <span className="text-[10px] text-gray-500 font-bold">
+                        {totalAppleBoxes.toLocaleString('en-IN')} Boxes (4L: {layer4LBoxes || 0}, 5L: {layer5LBoxes || 0}, Roll: {rollBoxes || 0})
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-base sm:text-lg font-black text-emerald-800 block">
+                        ₹{totalAppleAmount.toLocaleString('en-IN')}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ) : isPomegranate ? (
