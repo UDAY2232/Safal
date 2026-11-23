@@ -22,6 +22,7 @@ import {
   LucideIcon,
   ShieldCheck,
   Scale,
+  User,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Role } from '../types';
@@ -47,6 +48,7 @@ const navItems: NavEntry[] = [
   { label: 'Supply Consignments', icon: ShoppingCart, roles: ['VENDOR'] },
   { label: 'Ready for Dispatch', icon: Truck, roles: ['VENDOR'] },
   { label: 'Weighbridge & QC Slips', icon: Scale, roles: ['VENDOR'] },
+  { label: 'Profile', icon: User, roles: ['VENDOR'] },
   { label: 'Purchase Order (PO)', icon: ShoppingCart, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Customer Due (CD)', icon: CreditCard, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Attendance', icon: Clock, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },

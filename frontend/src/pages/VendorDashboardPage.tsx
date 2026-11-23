@@ -31,6 +31,8 @@ import {
   ChevronUp,
   Search,
   Image as ImageIcon,
+  Edit3,
+  Pencil,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -89,9 +91,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [poNotes, setPoNotes] = useState('');
 
-  // Selected Fruit & Layer Breakdown
+  // Selected Fruit & Commodity States
   const [selectedFruit, setSelectedFruit] = useState<string>('Kashmir Apples');
-  // Dynamic Apple Layer Sizing (4L, 5L, Roll, Total, Amount)
+
+  // 1. Kashmir Apples Layer Breakdown (4L, 5L, Roll, Total, Amount)
   const [layer4LBoxes, setLayer4LBoxes] = useState<string>('200');
   const [layer4LRate, setLayer4LRate] = useState<string>('1200');
   const [layer5LBoxes, setLayer5LBoxes] = useState<string>('250');
@@ -99,11 +102,56 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [rollBoxes, setRollBoxes] = useState<string>('50');
   const [rollRate, setRollRate] = useState<string>('700');
 
-  // Other Fruit Sizing
+  // 2. Pomegranate (No. Of boxes, Total amount)
+  const [pomegranateBoxes, setPomegranateBoxes] = useState<string>('300');
+  const [pomegranateRate, setPomegranateRate] = useState<string>('950');
+
+  // 3. Watermelon (Total weight in Ton/Kg, Total amount)
+  const [watermelonWeight, setWatermelonWeight] = useState<string>('15');
+  const [watermelonUnit, setWatermelonUnit] = useState<'TON' | 'KG'>('TON');
+  const [watermelonRate, setWatermelonRate] = useState<string>('14000');
+
+  // 4. Muskmelon (Total weight in Ton/Kg, Total amount)
+  const [muskmelonWeight, setMuskmelonWeight] = useState<string>('8');
+  const [muskmelonUnit, setMuskmelonUnit] = useState<'TON' | 'KG'>('TON');
+  const [muskmelonRate, setMuskmelonRate] = useState<string>('18000');
+
+  // 5. Banana (Total boxes, Total amount)
+  const [bananaBoxes, setBananaBoxes] = useState<string>('400');
+  const [bananaRate, setBananaRate] = useState<string>('550');
+
+  // 6. Orange (Total box, Counts 36/42/45/54/60/72/74/90/105, Total amount)
+  const ORANGE_COUNTS = ['36', '42', '45', '54', '60', '72', '74', '90', '105'] as const;
+  const [orangeCount, setOrangeCount] = useState<string>('54');
+  const [orangeBoxes, setOrangeBoxes] = useState<string>('350');
+  const [orangeRate, setOrangeRate] = useState<string>('780');
+
+  // 7. Plum (Total box, Total amount)
+  const [plumBoxes, setPlumBoxes] = useState<string>('200');
+  const [plumRate, setPlumRate] = useState<string>('850');
+
+  // Other Fruit Sizing Fallback
   const [otherQuantity, setOtherQuantity] = useState<string>('500');
   const [otherUnit, setOtherUnit] = useState<string>('BOX');
   const [otherRate, setOtherRate] = useState<string>('950');
   const [otherGrade, setOtherGrade] = useState<string>('Grade A Export Quality');
+
+  // Profile Edit State
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [editBusinessName, setEditBusinessName] = useState('');
+  const [editContactPerson, setEditContactPerson] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPrimaryLocation, setEditPrimaryLocation] = useState('Warangal');
+  const [editBankAccountNumber, setEditBankAccountNumber] = useState('');
+  const [editBankIfscCode, setEditBankIfscCode] = useState('');
+  const [editBankAccountHolder, setEditBankAccountHolder] = useState('');
+  const [editBankName, setEditBankName] = useState('');
+  const [editBankBranch, setEditBankBranch] = useState('');
+  const [editPanNumber, setEditPanNumber] = useState('');
+  const [editAadharNumber, setEditAadharNumber] = useState('');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [profileUpdateError, setProfileUpdateError] = useState('');
 
   // Supply Creation Direct Dispatch Proof Uploads
   const [supplyVehicleNumber, setSupplyVehicleNumber] = useState<string>('');
@@ -119,14 +167,43 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
   // Dynamic calculations for Fruit Supply
   const isApple = selectedFruit === 'Kashmir Apples' || selectedFruit.toLowerCase().includes('apple');
+  const isPomegranate = selectedFruit === 'Pomegranate';
+  const isWatermelon = selectedFruit === 'Watermelon';
+  const isMuskmelon = selectedFruit === 'Muskmelon';
+  const isBanana = selectedFruit === 'Banana';
+  const isOrange = selectedFruit === 'Orange';
+  const isPlum = selectedFruit === 'Plum';
+
   const apple4LAmount = (Number(layer4LBoxes) || 0) * (Number(layer4LRate) || 0);
   const apple5LAmount = (Number(layer5LBoxes) || 0) * (Number(layer5LRate) || 0);
   const appleRollAmount = (Number(rollBoxes) || 0) * (Number(rollRate) || 0);
   const totalAppleBoxes = (Number(layer4LBoxes) || 0) + (Number(layer5LBoxes) || 0) + (Number(rollBoxes) || 0);
   const totalAppleAmount = apple4LAmount + apple5LAmount + appleRollAmount;
 
+  const pomegranateTotalAmount = (Number(pomegranateBoxes) || 0) * (Number(pomegranateRate) || 0);
+  const watermelonTotalAmount = (Number(watermelonWeight) || 0) * (Number(watermelonRate) || 0);
+  const muskmelonTotalAmount = (Number(muskmelonWeight) || 0) * (Number(muskmelonRate) || 0);
+  const bananaTotalAmount = (Number(bananaBoxes) || 0) * (Number(bananaRate) || 0);
+  const orangeTotalAmount = (Number(orangeBoxes) || 0) * (Number(orangeRate) || 0);
+  const plumTotalAmount = (Number(plumBoxes) || 0) * (Number(plumRate) || 0);
   const otherTotalAmount = (Number(otherQuantity) || 0) * (Number(otherRate) || 0);
-  const grandSupplyTotal = isApple ? totalAppleAmount : otherTotalAmount;
+
+  const grandSupplyTotal = isApple
+    ? totalAppleAmount
+    : isPomegranate
+    ? pomegranateTotalAmount
+    : isWatermelon
+    ? watermelonTotalAmount
+    : isMuskmelon
+    ? muskmelonTotalAmount
+    : isBanana
+    ? bananaTotalAmount
+    : isOrange
+    ? orangeTotalAmount
+    : isPlum
+    ? plumTotalAmount
+    : otherTotalAmount;
+
   const autoAdvanceAmount = Math.round(grandSupplyTotal * 0.55);
   const pendingBalanceAmount = Math.max(0, grandSupplyTotal - autoAdvanceAmount);
 
@@ -138,6 +215,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       setActiveTab('dispatch');
     } else if (activePage === 'Supply Consignments') {
       setActiveTab('orders');
+    } else if (activePage === 'Profile' || activePage === 'Vendor Profile') {
+      setActiveTab('kyc');
     }
   }, [activePage]);
 
@@ -149,13 +228,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setSelectedPOForDispatch(null);
         setViewSlipModalUrl(null);
         setPreviewMediaModal(null);
+        setShowEditProfileModal(false);
       }
     };
-    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl || previewMediaModal) {
+    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl || previewMediaModal || showEditProfileModal) {
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl]);
+  }, [showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl, previewMediaModal, showEditProfileModal]);
 
   const handleTabClick = (tab: 'orders' | 'dispatch' | 'qc' | 'kyc') => {
     setActiveTab(tab);
@@ -166,9 +246,71 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         onNavigate('Ready for Dispatch');
       } else if (tab === 'orders') {
         onNavigate('Supply Consignments');
+      } else if (tab === 'kyc') {
+        onNavigate('Profile');
       } else {
         onNavigate('Dashboard');
       }
+    }
+  };
+
+  const openEditProfileModal = () => {
+    if (vendorProfile) {
+      setEditBusinessName(vendorProfile.businessName || '');
+      setEditContactPerson(vendorProfile.contactPerson || '');
+      setEditPhone(vendorProfile.phone || '');
+      setEditEmail(vendorProfile.email || '');
+      setEditPrimaryLocation(vendorProfile.primaryLocation || 'Warangal');
+      setEditBankAccountNumber(vendorProfile.bankAccountNumber || '');
+      setEditBankIfscCode(vendorProfile.bankIfscCode || '');
+      setEditBankAccountHolder(vendorProfile.bankAccountHolder || vendorProfile.businessName || '');
+      setEditBankName(vendorProfile.bankName || '');
+      setEditBankBranch(vendorProfile.bankBranch || '');
+      setEditPanNumber(vendorProfile.panNumber || '');
+      setEditAadharNumber(vendorProfile.aadharNumber || '');
+    }
+    setProfileUpdateError('');
+    setShowEditProfileModal(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileUpdateError('');
+    if (!editBusinessName.trim()) {
+      setProfileUpdateError('Business Name is required');
+      return;
+    }
+    if (!editContactPerson.trim()) {
+      setProfileUpdateError('Contact Person Name is required');
+      return;
+    }
+    if (!editPhone.trim()) {
+      setProfileUpdateError('Phone Number is required');
+      return;
+    }
+    try {
+      setIsUpdatingProfile(true);
+      const res = await api.updateVendorProfile({
+        businessName: editBusinessName.trim(),
+        contactPerson: editContactPerson.trim(),
+        phone: editPhone.trim(),
+        email: editEmail.trim(),
+        primaryLocation: editPrimaryLocation,
+        bankAccountNumber: editBankAccountNumber.trim(),
+        bankIfscCode: editBankIfscCode.trim(),
+        bankAccountHolder: editBankAccountHolder.trim(),
+        bankName: editBankName.trim(),
+        bankBranch: editBankBranch.trim(),
+        panNumber: editPanNumber.trim(),
+        aadharNumber: editAadharNumber.trim(),
+      });
+      setShowEditProfileModal(false);
+      onNotify(res.message || 'Vendor Profile updated successfully!');
+      await loadData();
+    } catch (err: any) {
+      setProfileUpdateError(err.message || 'Failed to update profile');
+    } finally {
+      setIsUpdatingProfile(false);
     }
   };
 
@@ -205,6 +347,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       if (!layer5LRate) setLayer5LRate('1100');
       if (!rollBoxes) setRollBoxes('50');
       if (!rollRate) setRollRate('700');
+    } else if (fruit === 'Pomegranate') {
+      if (!pomegranateBoxes) setPomegranateBoxes('300');
+      if (!pomegranateRate) setPomegranateRate('950');
+    } else if (fruit === 'Watermelon') {
+      if (!watermelonWeight) setWatermelonWeight('15');
+      if (!watermelonRate) setWatermelonRate('14000');
+    } else if (fruit === 'Muskmelon') {
+      if (!muskmelonWeight) setMuskmelonWeight('8');
+      if (!muskmelonRate) setMuskmelonRate('18000');
+    } else if (fruit === 'Banana') {
+      if (!bananaBoxes) setBananaBoxes('400');
+      if (!bananaRate) setBananaRate('550');
+    } else if (fruit === 'Orange') {
+      if (!orangeBoxes) setOrangeBoxes('350');
+      if (!orangeRate) setOrangeRate('780');
+      if (!orangeCount) setOrangeCount('54');
+    } else if (fruit === 'Plum') {
+      if (!plumBoxes) setPlumBoxes('200');
+      if (!plumRate) setPlumRate('850');
     } else {
       if (!otherQuantity) setOtherQuantity('500');
       if (!otherRate) setOtherRate('950');
@@ -237,6 +398,84 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         formData.append('layer5LRate', String(Number(layer5LRate) || 0));
         formData.append('rollBoxes', String(Number(rollBoxes) || 0));
         formData.append('rollRate', String(Number(rollRate) || 0));
+      } else if (isPomegranate) {
+        const items = [
+          {
+            fruitName: 'Pomegranate',
+            category: 'Fresh Fruits',
+            varietyGrade: 'Wholesale Mandi Crates',
+            quantity: Number(pomegranateBoxes) || 0,
+            unit: 'BOX',
+            ratePerUnit: Number(pomegranateRate) || 0,
+            lineTotal: pomegranateTotalAmount,
+          },
+        ];
+        formData.append('items', JSON.stringify(items));
+      } else if (isWatermelon) {
+        const items = [
+          {
+            fruitName: 'Watermelon',
+            category: 'Fresh Fruits',
+            varietyGrade: 'Farm Harvest Bulk Weighment',
+            quantity: Number(watermelonWeight) || 0,
+            unit: watermelonUnit,
+            ratePerUnit: Number(watermelonRate) || 0,
+            lineTotal: watermelonTotalAmount,
+          },
+        ];
+        formData.append('items', JSON.stringify(items));
+      } else if (isMuskmelon) {
+        const items = [
+          {
+            fruitName: 'Muskmelon',
+            category: 'Fresh Fruits',
+            varietyGrade: 'Fresh Sweet Melon Bulk Load',
+            quantity: Number(muskmelonWeight) || 0,
+            unit: muskmelonUnit,
+            ratePerUnit: Number(muskmelonRate) || 0,
+            lineTotal: muskmelonTotalAmount,
+          },
+        ];
+        formData.append('items', JSON.stringify(items));
+      } else if (isBanana) {
+        const items = [
+          {
+            fruitName: 'Banana',
+            category: 'Fresh Fruits',
+            varietyGrade: 'Green Cavendish Wholesale Crates',
+            quantity: Number(bananaBoxes) || 0,
+            unit: 'BOX',
+            ratePerUnit: Number(bananaRate) || 0,
+            lineTotal: bananaTotalAmount,
+          },
+        ];
+        formData.append('items', JSON.stringify(items));
+      } else if (isOrange) {
+        const items = [
+          {
+            fruitName: 'Orange',
+            category: 'Fresh Fruits',
+            varietyGrade: `Count ${orangeCount} Caliber Grade`,
+            quantity: Number(orangeBoxes) || 0,
+            unit: 'BOX',
+            ratePerUnit: Number(orangeRate) || 0,
+            lineTotal: orangeTotalAmount,
+          },
+        ];
+        formData.append('items', JSON.stringify(items));
+      } else if (isPlum) {
+        const items = [
+          {
+            fruitName: 'Plum',
+            category: 'Fresh Fruits',
+            varietyGrade: 'Wholesale Farm Packed Boxes',
+            quantity: Number(plumBoxes) || 0,
+            unit: 'BOX',
+            ratePerUnit: Number(plumRate) || 0,
+            lineTotal: plumTotalAmount,
+          },
+        ];
+        formData.append('items', JSON.stringify(items));
       } else {
         const items = [
           {
@@ -483,7 +722,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               onClick={() => handleTabClick('kyc')}
               className="px-3.5 py-1.5 rounded-xl bg-white text-[#064D2B] hover:bg-emerald-50 text-xs font-extrabold transition shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
             >
-              <Lock size={13} /> View Frozen KYC
+              <User size={13} /> Vendor Profile &amp; KYC
             </button>
           </div>
         </div>
@@ -531,11 +770,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           onClick={() => handleTabClick('kyc')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
             activeTab === 'kyc'
-              ? 'bg-emerald-800 text-white shadow-xs'
+              ? 'bg-[#064D2B] text-white shadow-xs'
               : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
           }`}
         >
-          <Lock size={15} /> Frozen KYC &amp; Bank Profile
+          <User size={15} /> Vendor Profile &amp; KYC
         </button>
       </div>
 
@@ -1109,35 +1348,52 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         </section>
       )}
 
-      {/* 6. Tab Content: Frozen KYC & Bank Profile */}
+      {/* 6. Tab Content: Vendor Profile & KYC */}
       {activeTab === 'kyc' && (
         <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm p-6 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
             <div>
               <div className="flex items-center gap-2">
                 <ShieldCheck className="text-emerald-700" size={24} />
-                <h2 className="text-xl font-extrabold text-gray-900">Vendor Verification &amp; Banking Dossier</h2>
+                <h2 className="text-xl font-extrabold text-gray-900">Vendor Profile &amp; Banking Dossier</h2>
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                Official financial registration details recorded with Safal Export and Import Pvt Ltd.
+                Official commercial registration and direct disbursement details registered with Safal Export and Import Pvt Ltd.
               </p>
             </div>
-            <div className="px-4 py-1.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black inline-flex items-center gap-2 self-start sm:self-auto">
-              <Lock size={14} className="text-emerald-800" />
-              <span>KYC Profile Permanently Frozen</span>
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              <span className="px-3.5 py-1.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black inline-flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-emerald-800" />
+                <span>Verified Partner</span>
+              </span>
+              <button
+                type="button"
+                onClick={openEditProfileModal}
+                className="px-4 py-1.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-black transition shadow-sm inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
+              >
+                <Edit3 size={14} /> Update Profile
+              </button>
             </div>
           </div>
 
-          {/* Locked Profile Alert */}
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs flex items-start gap-2.5">
-            <Lock className="text-amber-700 flex-shrink-0 mt-0.5" size={16} />
-            <div>
-              <strong className="block font-bold">Immutability &amp; Financial Security Protocol:</strong>
-              <span>
-                To protect against unauthorized account modifications and divertment of payment funds, your bank account details, Aadhaar, and PAN records are permanently locked.
-                If you need to update your registered bank account, please submit a physical letter with cancelled cheque to the Safal Corporate Finance Desk.
-              </span>
+          {/* Profile Management Notice */}
+          <div className="p-3.5 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-950 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <Building2 className="text-emerald-700 flex-shrink-0 mt-0.5" size={16} />
+              <div>
+                <strong className="block font-bold">Authorized Vendor Profile &amp; Bank Disbursement Desk:</strong>
+                <span className="text-emerald-800">
+                  Update your contact person, phone number, primary delivery hub, and bank NEFT/RTGS disbursement coordinates directly. All 55% auto-advance settlements will be routed to your registered account.
+                </span>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={openEditProfileModal}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition flex items-center gap-1.5 flex-shrink-0 cursor-pointer shadow-xs self-start sm:self-auto"
+            >
+              <Pencil size={13} /> Edit Profile Details
+            </button>
           </div>
 
           {/* Details Grid */}
@@ -1894,8 +2150,432 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </table>
                   </div>
                 </div>
+              ) : isPomegranate ? (
+                /* Pomegranate Consignment Sizing Form (No. of boxes, Total amount) */
+                <div className="p-3.5 bg-gradient-to-br from-rose-50/70 via-red-50/30 to-amber-50/30 border border-rose-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-extrabold text-rose-800 tracking-wider block">
+                        🍇 Pomegranate (దానిమ్మ) Consignment Entry
+                      </span>
+                      <p className="text-[11px] text-gray-600">
+                        Standard wholesale pomegranate telescopic boxes / crates. Enter number of boxes and rate per box.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-rose-100 text-rose-900 rounded-lg text-[11px] font-black">
+                      Pomegranate
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        No. of Boxes (మొత్తం బాక్సులు) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={pomegranateBoxes}
+                        onChange={(e) => setPomegranateBoxes(e.target.value)}
+                        placeholder="e.g. 300"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-rose-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Rate (₹ / Box) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={pomegranateRate}
+                        onChange={(e) => setPomegranateRate(e.target.value)}
+                        placeholder="₹ per Box"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-rose-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-rose-200 flex items-center justify-between shadow-xs">
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 block">Total Pomegranate Amount:</span>
+                      <span className="text-[10px] text-gray-500">{pomegranateBoxes || 0} Boxes @ ₹{pomegranateRate || 0} / Box</span>
+                    </div>
+                    <span className="text-base font-black text-rose-800">₹{pomegranateTotalAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              ) : isWatermelon ? (
+                /* Watermelon Consignment Sizing Form (Total weight, Total amount) */
+                <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-green-50/40 border border-emerald-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider block">
+                        🍉 Watermelon (పుచ్చకాయ) Harvest Weighment
+                      </span>
+                      <p className="text-[11px] text-gray-600">
+                        Bulk truckload mandi weighbridge harvest. Enter total weight and wholesale unit rate.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 rounded-lg text-[11px] font-black">
+                      Watermelon
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-gray-700">Billing Weighment Unit:</span>
+                    <div className="flex rounded-lg border border-emerald-300 overflow-hidden text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWatermelonUnit('TON');
+                          if (watermelonRate === '14') setWatermelonRate('14000');
+                        }}
+                        className={`px-3 py-1 cursor-pointer transition ${
+                          watermelonUnit === 'TON' ? 'bg-[#064D2B] text-white' : 'bg-white text-emerald-900 hover:bg-emerald-50'
+                        }`}
+                      >
+                        TON (Tons)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWatermelonUnit('KG');
+                          if (watermelonRate === '14000') setWatermelonRate('14');
+                        }}
+                        className={`px-3 py-1 cursor-pointer transition ${
+                          watermelonUnit === 'KG' ? 'bg-[#064D2B] text-white' : 'bg-white text-emerald-900 hover:bg-emerald-50'
+                        }`}
+                      >
+                        KG (Kilograms)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Total Weight ({watermelonUnit}) *
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0.1"
+                        value={watermelonWeight}
+                        onChange={(e) => setWatermelonWeight(e.target.value)}
+                        placeholder={`e.g. ${watermelonUnit === 'TON' ? '15' : '15000'}`}
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Rate (₹ / {watermelonUnit}) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={watermelonRate}
+                        onChange={(e) => setWatermelonRate(e.target.value)}
+                        placeholder={`₹ per ${watermelonUnit}`}
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-emerald-200 flex items-center justify-between shadow-xs">
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 block">Total Watermelon Amount:</span>
+                      <span className="text-[10px] text-gray-500">{watermelonWeight || 0} {watermelonUnit} @ ₹{watermelonRate || 0} / {watermelonUnit}</span>
+                    </div>
+                    <span className="text-base font-black text-emerald-800">₹{watermelonTotalAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              ) : isMuskmelon ? (
+                /* Muskmelon Consignment Sizing Form (Total weight, Total amount) */
+                <div className="p-3.5 bg-gradient-to-br from-amber-50/70 via-yellow-50/30 to-emerald-50/30 border border-amber-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-extrabold text-amber-900 tracking-wider block">
+                        🍈 Muskmelon (కర్బూజ) Loaded Weighment
+                      </span>
+                      <p className="text-[11px] text-gray-600">
+                        Sweet melon farm loaded weighbridge load. Enter total weight and wholesale rate.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-amber-100 text-amber-900 rounded-lg text-[11px] font-black">
+                      Muskmelon
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-gray-700">Billing Weighment Unit:</span>
+                    <div className="flex rounded-lg border border-amber-300 overflow-hidden text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMuskmelonUnit('TON');
+                          if (muskmelonRate === '18') setMuskmelonRate('18000');
+                        }}
+                        className={`px-3 py-1 cursor-pointer transition ${
+                          muskmelonUnit === 'TON' ? 'bg-amber-700 text-white' : 'bg-white text-amber-900 hover:bg-amber-50'
+                        }`}
+                      >
+                        TON (Tons)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMuskmelonUnit('KG');
+                          if (muskmelonRate === '18000') setMuskmelonRate('18');
+                        }}
+                        className={`px-3 py-1 cursor-pointer transition ${
+                          muskmelonUnit === 'KG' ? 'bg-amber-700 text-white' : 'bg-white text-amber-900 hover:bg-amber-50'
+                        }`}
+                      >
+                        KG (Kilograms)
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Total Weight ({muskmelonUnit}) *
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0.1"
+                        value={muskmelonWeight}
+                        onChange={(e) => setMuskmelonWeight(e.target.value)}
+                        placeholder={`e.g. ${muskmelonUnit === 'TON' ? '8' : '8000'}`}
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-amber-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Rate (₹ / {muskmelonUnit}) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={muskmelonRate}
+                        onChange={(e) => setMuskmelonRate(e.target.value)}
+                        placeholder={`₹ per ${muskmelonUnit}`}
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-amber-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-amber-200 flex items-center justify-between shadow-xs">
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 block">Total Muskmelon Amount:</span>
+                      <span className="text-[10px] text-gray-500">{muskmelonWeight || 0} {muskmelonUnit} @ ₹{muskmelonRate || 0} / {muskmelonUnit}</span>
+                    </div>
+                    <span className="text-base font-black text-amber-900">₹{muskmelonTotalAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              ) : isBanana ? (
+                /* Banana Consignment Sizing Form (Total boxes, Total amount) */
+                <div className="p-3.5 bg-gradient-to-br from-yellow-50/70 via-amber-50/30 to-lime-50/40 border border-yellow-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-extrabold text-yellow-900 tracking-wider block">
+                        🍌 Banana (అరటి) Wholesale Crates
+                      </span>
+                      <p className="text-[11px] text-gray-600">
+                        Green Cavendish / Robusta farm crates. Enter total box count and rate per box.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-yellow-100 text-yellow-900 rounded-lg text-[11px] font-black">
+                      Banana
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Total Boxes (మొత్తం బాక్సులు) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={bananaBoxes}
+                        onChange={(e) => setBananaBoxes(e.target.value)}
+                        placeholder="e.g. 400"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-yellow-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Rate (₹ / Box) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={bananaRate}
+                        onChange={(e) => setBananaRate(e.target.value)}
+                        placeholder="₹ per Box"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-yellow-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-yellow-200 flex items-center justify-between shadow-xs">
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 block">Total Banana Amount:</span>
+                      <span className="text-[10px] text-gray-500">{bananaBoxes || 0} Boxes @ ₹{bananaRate || 0} / Box</span>
+                    </div>
+                    <span className="text-base font-black text-yellow-950">₹{bananaTotalAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              ) : isOrange ? (
+                /* Orange Consignment Sizing Form (Total box, Counts 36/42/45/54/60/72/74/90/105, Total amount) */
+                <div className="p-3.5 bg-gradient-to-br from-orange-50/70 via-amber-50/30 to-red-50/30 border border-orange-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-extrabold text-orange-900 tracking-wider block">
+                        🍊 Orange (నారింజ / Santra) Caliber &amp; Count Grading
+                      </span>
+                      <p className="text-[11px] text-gray-600">
+                        Wholesale citrus caliber count selection. Choose caliber count and enter total box quantity.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-orange-100 text-orange-900 rounded-lg text-[11px] font-black">
+                      Orange
+                    </span>
+                  </div>
+
+                  {/* Mandi Caliber Counts Selection Chips */}
+                  <div>
+                    <label className="block text-[11px] font-extrabold text-orange-950 mb-1.5 flex items-center justify-between">
+                      <span>Counts Selection (కౌంట్స్ సెలెక్షన్):</span>
+                      <span className="text-[10px] text-orange-700 font-bold">Standard 36 - 105 Mandi Calibers</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {ORANGE_COUNTS.map((cnt) => (
+                        <button
+                          key={cnt}
+                          type="button"
+                          onClick={() => setOrangeCount(cnt)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 cursor-pointer ${
+                            orangeCount === cnt
+                              ? 'bg-orange-600 text-white shadow-sm ring-2 ring-orange-400'
+                              : 'bg-white hover:bg-orange-100 text-orange-900 border border-orange-300'
+                          }`}
+                        >
+                          <span>Count {cnt}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Total Box (మొత్తం బాక్సులు) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={orangeBoxes}
+                        onChange={(e) => setOrangeBoxes(e.target.value)}
+                        placeholder="e.g. 350"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-orange-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Rate (₹ / Box) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={orangeRate}
+                        onChange={(e) => setOrangeRate(e.target.value)}
+                        placeholder="₹ per Box"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-orange-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-orange-200 flex items-center justify-between shadow-xs">
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 block">
+                        Total Orange Amount (Grade: <strong className="text-orange-900">Count {orangeCount}</strong>):
+                      </span>
+                      <span className="text-[10px] text-gray-500">{orangeBoxes || 0} Boxes (Count {orangeCount}) @ ₹{orangeRate || 0} / Box</span>
+                    </div>
+                    <span className="text-base font-black text-orange-800">₹{orangeTotalAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              ) : isPlum ? (
+                /* Plum Consignment Sizing Form (Total box, Total amount) */
+                <div className="p-3.5 bg-gradient-to-br from-purple-50/70 via-fuchsia-50/30 to-rose-50/30 border border-purple-200 rounded-2xl space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] uppercase font-extrabold text-purple-900 tracking-wider block">
+                        🍑 Plum (Plam / ఆలూబుఖారా) Consignment Entry
+                      </span>
+                      <p className="text-[11px] text-gray-600">
+                        Fresh farm stone fruit cartons/crates. Enter total box count and rate per box.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-purple-100 text-purple-900 rounded-lg text-[11px] font-black">
+                      Plum
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Total Box (మొత్తం బాక్సులు) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={plumBoxes}
+                        onChange={(e) => setPlumBoxes(e.target.value)}
+                        placeholder="e.g. 200"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-purple-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Rate (₹ / Box) *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={plumRate}
+                        onChange={(e) => setPlumRate(e.target.value)}
+                        placeholder="₹ per Box"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-purple-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white rounded-xl border border-purple-200 flex items-center justify-between shadow-xs">
+                    <div>
+                      <span className="text-xs font-bold text-gray-700 block">Total Plum Amount:</span>
+                      <span className="text-[10px] text-gray-500">{plumBoxes || 0} Boxes @ ₹{plumRate || 0} / Box</span>
+                    </div>
+                    <span className="text-base font-black text-purple-900">₹{plumTotalAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
               ) : (
-                /* Other Fruit Sizing Form */
+                /* Fallback Sizing Form */
                 <div className="p-3.5 bg-emerald-50/40 border border-emerald-200 rounded-2xl space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
@@ -2281,6 +2961,247 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+      {/* 10. Modal: Edit Vendor Profile & Bank Details */}
+      {showEditProfileModal && (
+        <div
+          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowEditProfileModal(false);
+          }}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <h3 className="text-lg font-black font-['Manrope'] text-gray-900 flex items-center gap-2">
+                  <Edit3 size={18} className="text-[#087A3E]" />
+                  Update Vendor Profile &amp; Banking Dossier
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Update commercial business name, contact person, primary delivery hub, and bank disbursement details.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEditProfileModal(false)}
+                className="w-9 h-9 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 flex items-center justify-center transition cursor-pointer"
+                title="Close modal (Esc)"
+                aria-label="Close modal"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {profileUpdateError && (
+              <div className="p-3 my-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold border border-red-200 flex-shrink-0">
+                {profileUpdateError}
+              </div>
+            )}
+
+            {/* Edit Form */}
+            <form onSubmit={handleSaveProfile} className="overflow-y-auto flex-1 pr-1 py-3 space-y-4 text-xs">
+              {/* Commercial Entity Details */}
+              <div className="p-3.5 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-3">
+                <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">
+                  Commercial Identity &amp; Contact Details
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Business / Trade Name *</label>
+                    <input
+                      type="text"
+                      value={editBusinessName}
+                      onChange={(e) => setEditBusinessName(e.target.value)}
+                      placeholder="e.g. Ramesh Agro Farms & Cold Storage"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Authorized Contact Person *</label>
+                    <input
+                      type="text"
+                      value={editContactPerson}
+                      onChange={(e) => setEditContactPerson(e.target.value)}
+                      placeholder="e.g. Ramesh Kumar"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Phone Number *</label>
+                    <input
+                      type="tel"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      placeholder="e.g. 9848012345"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      placeholder="e.g. ramesh.agro@safal.in"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-gray-700 font-bold mb-1">Primary Regional Delivery Hub *</label>
+                    <select
+                      value={editPrimaryLocation}
+                      onChange={(e) => setEditPrimaryLocation(e.target.value)}
+                      className="w-full h-10 px-3 border border-emerald-300 rounded-xl text-xs font-bold text-gray-900 bg-emerald-50/20 focus:border-emerald-600 focus:outline-none"
+                      required
+                    >
+                      {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
+                        <option key={loc} value={loc}>
+                          {loc} Regional Hub
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-[10px] text-gray-500 mt-0.5 block">
+                      Restricted to Safal 8 official whitelisted AP/Telangana procurement hubs.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Disbursement Banking Coordinates */}
+              <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-3">
+                <span className="text-[10px] uppercase font-black text-emerald-900 tracking-wider block">
+                  Official Disbursement Bank Coordinates (55% Auto-Advance Routing)
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Bank Account Number *</label>
+                    <input
+                      type="text"
+                      value={editBankAccountNumber}
+                      onChange={(e) => setEditBankAccountNumber(e.target.value)}
+                      placeholder="Account Number"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">IFSC Code *</label>
+                    <input
+                      type="text"
+                      value={editBankIfscCode}
+                      onChange={(e) => setEditBankIfscCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. SBIN0001234"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white uppercase focus:border-emerald-600 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Account Holder Beneficiary Name *</label>
+                    <input
+                      type="text"
+                      value={editBankAccountHolder}
+                      onChange={(e) => setEditBankAccountHolder(e.target.value)}
+                      placeholder="Beneficiary Name as in Bank"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Bank &amp; Branch Name</label>
+                    <input
+                      type="text"
+                      value={editBankName ? `${editBankName}${editBankBranch ? ` - ${editBankBranch}` : ''}` : ''}
+                      onChange={(e) => {
+                        const parts = e.target.value.split('-');
+                        setEditBankName(parts[0]?.trim() || '');
+                        setEditBankBranch(parts[1]?.trim() || '');
+                      }}
+                      placeholder="e.g. State Bank of India - Warangal Main"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Statutory Tax & Identity */}
+              <div className="p-3.5 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-3">
+                <span className="text-[10px] uppercase font-bold text-gray-800 tracking-wider block">
+                  Statutory Tax &amp; Identity Records
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Permanent Account Number (PAN)</label>
+                    <input
+                      type="text"
+                      value={editPanNumber}
+                      onChange={(e) => setEditPanNumber(e.target.value.toUpperCase())}
+                      placeholder="e.g. ABCDE1234F"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white uppercase focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Aadhaar Card Number</label>
+                    <input
+                      type="text"
+                      value={editAadharNumber}
+                      onChange={(e) => setEditAadharNumber(e.target.value)}
+                      placeholder="12-digit Aadhaar"
+                      className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-gray-200 flex items-center justify-end gap-3 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowEditProfileModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingProfile}
+                  className="px-6 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white font-extrabold text-xs shadow-md transition inline-flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isUpdatingProfile ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Saving Profile...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={16} />
+                      <span>Save Profile Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

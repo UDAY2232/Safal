@@ -96,8 +96,10 @@ export async function getVendorProfile(req: AuthRequest, res: Response) {
         email: profile.email || profile.user.email,
         primaryLocation: profile.primaryLocation,
         aadharNumberMasked: maskAadhaar(profile.aadharNumber),
+        aadharNumber: profile.aadharNumber,
         panNumber: profile.panNumber,
         bankAccountNumberMasked: maskBankAccount(profile.bankAccountNumber),
+        bankAccountNumber: profile.bankAccountNumber,
         bankIfscCode: profile.bankIfscCode,
         bankAccountHolder: profile.bankAccountHolder,
         bankName: profile.bankName,
@@ -116,8 +118,8 @@ export async function getVendorProfile(req: AuthRequest, res: Response) {
 
 /**
  * PUT /api/vendor/profile
- * Allows vendor to edit profile ONLY IF isKycLocked === false.
- * If isKycLocked === true, strictly rejects any edits.
+ * Allows vendor to update business name, contact person, phone, primary location,
+ * banking coordinates and tax IDs.
  */
 export async function updateVendorProfile(req: AuthRequest, res: Response) {
   try {
@@ -133,16 +135,12 @@ export async function updateVendorProfile(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Vendor profile not found' });
     }
 
-    if (profile.isKycLocked) {
-      return res.status(403).json({
-        error:
-          'Profile & Bank details are permanently locked to guarantee financial compliance. Contact Safal Administrator to request modifications.',
-      });
-    }
-
     const {
+      businessName,
       contactPerson,
       phone,
+      email,
+      primaryLocation,
       bankAccountNumber,
       bankIfscCode,
       bankAccountHolder,
@@ -152,20 +150,55 @@ export async function updateVendorProfile(req: AuthRequest, res: Response) {
       panNumber,
     } = req.body;
 
+    if (primaryLocation && !isValidVendorLocation(primaryLocation)) {
+      return res.status(400).json({
+        error: `Invalid primary hub location "${primaryLocation}". Must be one of: ${VENDOR_WHITELISTED_LOCATIONS.join(', ')}`,
+      });
+    }
+
     const updated = await prisma.vendorProfile.update({
       where: { id: profile.id },
       data: {
-        contactPerson: contactPerson || profile.contactPerson,
-        phone: phone || profile.phone,
-        bankAccountNumber: bankAccountNumber || profile.bankAccountNumber,
+        businessName: businessName?.trim() || profile.businessName,
+        contactPerson: contactPerson?.trim() || profile.contactPerson,
+        phone: phone?.trim() || profile.phone,
+        email: email !== undefined ? (email ? email.trim() : null) : profile.email,
+        primaryLocation: primaryLocation || profile.primaryLocation,
+        bankAccountNumber: bankAccountNumber?.trim() || profile.bankAccountNumber,
         bankIfscCode: bankIfscCode ? bankIfscCode.toUpperCase().trim() : profile.bankIfscCode,
-        bankAccountHolder: bankAccountHolder || profile.bankAccountHolder,
-        bankName: bankName || profile.bankName,
-        bankBranch: bankBranch || profile.bankBranch,
-        aadharNumber: aadharNumber || profile.aadharNumber,
+        bankAccountHolder: bankAccountHolder?.trim() || profile.bankAccountHolder,
+        bankName: bankName?.trim() || profile.bankName,
+        bankBranch: bankBranch?.trim() || profile.bankBranch,
+        aadharNumber: aadharNumber?.trim() || profile.aadharNumber,
         panNumber: panNumber ? panNumber.toUpperCase().trim() : profile.panNumber,
       },
     });
+
+    // Synchronize linked supplier record if exists
+    if (businessName || contactPerson || phone) {
+      await prisma.supplier.updateMany({
+        where: {
+          OR: [
+            { supplierCode: profile.vendorId },
+            { name: profile.businessName },
+          ],
+        },
+        data: {
+          name: businessName?.trim() || profile.businessName,
+          contactPerson: contactPerson?.trim() || profile.contactPerson,
+          phone: phone?.trim() || profile.phone,
+        },
+      }).catch((err) => console.warn('Supplier sync error on vendor profile update:', err));
+
+      // Keep user display name synced
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: {
+          name: contactPerson?.trim() || businessName?.trim() || req.user.name,
+          phone: phone?.trim() || undefined,
+        },
+      }).catch((err) => console.warn('User sync error on vendor profile update:', err));
+    }
 
     await createAuditLog({
       userId: req.user.id,
