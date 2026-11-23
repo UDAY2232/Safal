@@ -184,6 +184,7 @@ function MainApp() {
           {user?.role !== 'VENDOR' &&
             activePage !== 'Purchase Order (PO)' &&
             activePage !== 'Customer Due (CD)' &&
+            activePage !== 'Vendors (KYC)' &&
             activePage !== 'Dashboard' &&
             activePage !== 'Attendance' && (
             <PageHeading
