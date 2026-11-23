@@ -530,17 +530,6 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
             )}
           </button>
 
-          {/* Issue Vendor Consignment PO Button */}
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => setShowCreatePOModal(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition cursor-pointer"
-            >
-              <Plus size={16} /> <span className="truncate">+ Issue Vendor PO</span>
-            </button>
-          )}
-
           {/* Register Vendor Button */}
           {isAdmin && (
             <button
@@ -549,9 +538,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 setShowRegisterModal(true);
                 setFormError('');
               }}
-              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 bg-emerald-800 hover:bg-emerald-700 text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition cursor-pointer"
+              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition cursor-pointer"
             >
-              <User size={16} /> <span className="truncate">+ Register Vendor</span>
+              <Plus size={16} /> <span className="truncate">Register New Vendor</span>
             </button>
           )}
         </div>
