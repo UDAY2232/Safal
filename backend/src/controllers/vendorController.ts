@@ -539,7 +539,7 @@ export async function getVendorOperationsForAdmin(req: AuthRequest, res: Respons
             name: true,
             supplierCode: true,
             phone: true,
-            primaryLocation: true,
+            address: true,
           },
         },
         vendorProfile: {
