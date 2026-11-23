@@ -155,43 +155,6 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [viewSlipModalUrl, setViewSlipModalUrl] = useState<string | null>(null);
   const [selectedSupportPOId, setSelectedSupportPOId] = useState<string>('');
 
-  // Synchronize activeTab when navigation changes from the left sidebar
-  useEffect(() => {
-    if (activePage === 'Weighbridge & QC Slips') {
-      setActiveTab('qc');
-    } else if (activePage === 'WhatsApp Helpdesk & Hubs') {
-      setActiveTab('support');
-    }
-  }, [activePage]);
-
-  // Global Escape key listener to close any open modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowCreatePOModal(false);
-        setSelectedPOForDispatch(null);
-        setViewSlipModalUrl(null);
-      }
-    };
-    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl]);
-
-  const handleTabClick = (tab: 'orders' | 'dispatch' | 'qc' | 'support' | 'kyc') => {
-    setActiveTab(tab);
-    if (onNavigate) {
-      if (tab === 'qc') {
-        onNavigate('Weighbridge & QC Slips');
-      } else if (tab === 'support') {
-        onNavigate('WhatsApp Helpdesk & Hubs');
-      } else {
-        onNavigate('Dashboard');
-      }
-    }
-  };
-
   // Dispatch Modal state
   const [selectedPOForDispatch, setSelectedPOForDispatch] = useState<PurchaseOrder | null>(null);
   const [vehicleNumber, setVehicleNumber] = useState('');
@@ -230,6 +193,43 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   ]);
   const [isSubmittingPO, setIsSubmittingPO] = useState(false);
   const [createPOError, setCreatePOError] = useState('');
+
+  // Synchronize activeTab when navigation changes from the left sidebar
+  useEffect(() => {
+    if (activePage === 'Weighbridge & QC Slips') {
+      setActiveTab('qc');
+    } else if (activePage === 'WhatsApp Helpdesk & Hubs') {
+      setActiveTab('support');
+    }
+  }, [activePage]);
+
+  // Global Escape key listener to close any open modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowCreatePOModal(false);
+        setSelectedPOForDispatch(null);
+        setViewSlipModalUrl(null);
+      }
+    };
+    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl) {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl]);
+
+  const handleTabClick = (tab: 'orders' | 'dispatch' | 'qc' | 'support' | 'kyc') => {
+    setActiveTab(tab);
+    if (onNavigate) {
+      if (tab === 'qc') {
+        onNavigate('Weighbridge & QC Slips');
+      } else if (tab === 'support') {
+        onNavigate('WhatsApp Helpdesk & Hubs');
+      } else {
+        onNavigate('Dashboard');
+      }
+    }
+  };
 
   const handleAddFruitChip = (fruit: string) => {
     setPoItems((prev) => [
