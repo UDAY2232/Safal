@@ -204,8 +204,7 @@ function MainApp() {
                 (user?.role === 'VENDOR' &&
                   (activePage === 'Supply Consignments' ||
                     activePage === 'Ready for Dispatch' ||
-                    activePage === 'Weighbridge & QC Slips' ||
-                    activePage === 'WhatsApp Helpdesk & Hubs'))
+                    activePage === 'Weighbridge & QC Slips'))
                   ? 'block'
                   : 'none',
             }}
