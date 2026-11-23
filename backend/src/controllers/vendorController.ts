@@ -793,8 +793,8 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
  */
 export async function submitHubQCInspection(req: AuthRequest, res: Response) {
   try {
-    if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'ACCOUNTANT')) {
-      return res.status(403).json({ error: 'Admin or Accountant access required' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
     }
 
     const { id } = req.params;
@@ -819,6 +819,22 @@ export async function submitHubQCInspection(req: AuthRequest, res: Response) {
 
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    // If caller is a Vendor, ensure the PO belongs to this vendor
+    if (req.user.role === 'VENDOR') {
+      const profile = await prisma.vendorProfile.findUnique({
+        where: { userId: req.user.id },
+      });
+      if (
+        !profile ||
+        (po.vendorProfileId &&
+          po.vendorProfileId !== profile.id &&
+          po.supplier?.supplierCode !== profile.vendorId &&
+          !po.supplier?.name?.includes(profile.businessName))
+      ) {
+        return res.status(403).json({ error: 'You are only authorized to record weighbridge slips for your own consignments' });
+      }
     }
 
     const gross = Number(weighbridgeGrossKg) || 0;
