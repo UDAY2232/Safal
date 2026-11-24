@@ -310,7 +310,7 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
     // Handle files from multer
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
     let vehiclePhotoUrl = req.body.vehiclePhotoUrl;
-    let transportBillUrl = req.body.transportBillUrl;
+    let transportBillUrl = req.body.transportBillUrl || req.body.vendorSignature;
 
     if (files && files['vehiclePhoto'] && files['vehiclePhoto'][0]) {
       vehiclePhotoUrl = `/uploads/${files['vehiclePhoto'][0].filename}`;
@@ -318,6 +318,8 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
 
     if (files && files['transportBill'] && files['transportBill'][0]) {
       transportBillUrl = `/uploads/${files['transportBill'][0].filename}`;
+    } else if (files && files['vendorSignature'] && files['vendorSignature'][0]) {
+      transportBillUrl = `/uploads/${files['vendorSignature'][0].filename}`;
     }
 
     if (!vehiclePhotoUrl) {
@@ -330,7 +332,7 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
     if (!transportBillUrl) {
       return res.status(400).json({
         error:
-          'Transport Bill / Bilty (LR Copy) is required! Please upload the transport document.',
+          'Vendor Digital E-Signature or Transport Bill is required! Please complete your signature or upload transport bilty.',
       });
     }
 

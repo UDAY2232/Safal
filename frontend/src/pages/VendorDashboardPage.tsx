@@ -894,81 +894,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         formData.append('items', JSON.stringify(items));
       }
 
-      // Enforce strict mandatory requirement for Dispatch Photo (Vehicle & Cartons) and Digital E-Signature
-      const missing: string[] = [];
-      if (!supplyVehiclePhotoFile) {
-        missing.push('Dispatch Photo (Vehicle & Loaded Cartons with number plate)');
-      }
-      if (!vendorSignatureData && !supplyTransportBillFile) {
-        missing.push('Vendor Digital E-Signature & Authorization (Sign on pad or attach slip)');
-      }
-      if (missing.length > 0) {
-        setCreatePOError('Dispatch Photo and Vendor Digital E-Signature are required!');
-        setMissingImagesPopup({
-          open: true,
-          title: 'Mandatory Consignment Verification Required',
-          missingItems: missing,
-          targetAction: 'supply',
-        });
-        return;
-      }
-
-      if (supplyVehicleNumber.trim()) {
-        formData.append('dispatchVehicleNumber', supplyVehicleNumber.trim().toUpperCase());
-      }
-      if (supplyTransporterName.trim()) {
-        formData.append('transporterName', supplyTransporterName.trim());
-      }
-      if (supplyDriverPhone.trim()) {
-        formData.append('driverPhone', supplyDriverPhone.trim());
-      }
-
-      // Auto-compress photos before upload to prevent HTTP 413 (Request Entity Too Large)
-      if (supplyVehiclePhotoFile) {
-        try {
-          const comp = await compressImageBlob(supplyVehiclePhotoFile, 1280, 0.75);
-          formData.append('vehiclePhoto', comp);
-        } catch {
-          formData.append('vehiclePhoto', supplyVehiclePhotoFile);
-        }
-      }
-
-      if (vendorSignatureData) {
-        try {
-          const blobRes = await fetch(vendorSignatureData);
-          const sigBlob = await blobRes.blob();
-          const sigFile = new File([sigBlob], 'vendor_signature.png', { type: 'image/png' });
-          formData.append('transportBill', sigFile);
-          formData.append('vendorSignature', vendorSignatureData);
-        } catch {
-          if (supplyTransportBillFile) {
-            formData.append('transportBill', supplyTransportBillFile);
-          }
-        }
-      } else if (supplyTransportBillFile) {
-        try {
-          const comp = await compressImageBlob(supplyTransportBillFile, 1280, 0.75);
-          formData.append('transportBill', comp);
-        } catch {
-          formData.append('transportBill', supplyTransportBillFile);
-        }
-      }
-
+      // Step 1: Submit PO Request (Awaiting Admin Vehicle Allotment)
       const res = await api.createVendorSupplyPO(formData);
       setShowCreatePOModal(false);
-      onNotify(res.message || 'Consignment Supply PO submitted successfully!');
+      onNotify(res.message || 'Consignment PO requested! Awaiting Safal Hub vehicle allotment.');
 
       // Reset form fields
       setStartingLocation('');
-      setVendorSignatureData('');
-      clearSignature();
-      setSupplyVehicleNumber('');
-      setSupplyTransporterName('');
-      setSupplyDriverPhone('');
-      setSupplyVehiclePhotoFile(null);
-      setSupplyVehiclePhotoPreview('');
-      setSupplyTransportBillFile(null);
-      setSupplyTransportBillPreview('');
+      setPoNotes('');
 
       await loadData();
       setActiveTab('orders');
@@ -1065,17 +998,17 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
     const missing: string[] = [];
     if (!vehiclePhotoFile) {
-      missing.push('Vehicle Photo (with clear number plate)');
+      missing.push('Dispatch Vehicle Photo (with clear number plate & loaded fruit boxes)');
     }
-    if (!transportBillFile) {
-      missing.push('Transport Bill / Bilty (LR Copy)');
+    if (!vendorSignatureData && !transportBillFile) {
+      missing.push('Vendor Digital E-Signature & Authorization (Sign on pad)');
     }
 
     if (missing.length > 0) {
-      setDispatchError('Please upload both the Vehicle Photo and Transport Bill before submitting.');
+      setDispatchError('Please provide both the Dispatch Vehicle Photo and Vendor Digital E-Signature before submitting.');
       setMissingImagesPopup({
         open: true,
-        title: 'Dispatch Evidence Required',
+        title: 'Dispatch Verification Required',
         missingItems: missing,
         targetAction: 'dispatch',
       });
@@ -1092,10 +1025,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       formData.append('transporterName', transporterName.trim());
       formData.append('driverPhone', driverPhone.trim());
       formData.append('vehiclePhoto', vehiclePhotoFile);
-      formData.append('transportBill', transportBillFile);
+
+      let finalBill = transportBillFile;
+      if (!finalBill && vendorSignatureData) {
+        try {
+          const sigBlob = await (await fetch(vendorSignatureData)).blob();
+          finalBill = new File([sigBlob], 'vendor_signature.png', { type: 'image/png' });
+        } catch (e) {
+          console.warn('Signature conversion error:', e);
+        }
+      }
+      if (finalBill) {
+        formData.append('transportBill', finalBill);
+      }
+      if (vendorSignatureData) {
+        formData.append('vendorSignature', vendorSignatureData);
+      }
 
       const res = await api.submitPODispatch(formData);
-      onNotify(res.message || 'Consignment dispatch submitted successfully! Safal Head Office notified.');
+      onNotify(res.message || 'Consignment dispatch authorized and submitted! Highway in-transit live tracking is now active.');
 
       // Reset modal state
       setSelectedPOForDispatch(null);
@@ -1106,6 +1054,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       setVehiclePhotoPreview('');
       setTransportBillFile(null);
       setTransportBillPreview('');
+      setVendorSignatureData('');
+      clearSignature();
 
       // Reload data
       loadData();
@@ -1114,6 +1064,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     } finally {
       setIsSubmittingDispatch(false);
     }
+  };
+
+  const openDispatchModal = (po: PurchaseOrder) => {
+    setSelectedPOForDispatch(po);
+    setVehicleNumber(po.dispatchVehicleNumber || '');
+    setTransporterName(po.transporterName || '');
+    setDriverPhone(po.driverPhone || '');
+    setVehiclePhotoFile(null);
+    setVehiclePhotoPreview(po.vehiclePhotoUrl ? (po.vehiclePhotoUrl.startsWith('/') ? `/api${po.vehiclePhotoUrl}` : po.vehiclePhotoUrl) : '');
+    setTransportBillFile(null);
+    setTransportBillPreview(po.transportBillUrl ? (po.transportBillUrl.startsWith('/') ? `/api${po.transportBillUrl}` : po.transportBillUrl) : '');
+    setVendorSignatureData('');
+    clearSignature();
+    setDispatchError('');
   };
 
   // 1. Cleared / Completed Consignments (Strictly 0 remaining balance due & verified settlement)
@@ -1633,41 +1597,121 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </div>
 
                   {/* Animated Asphalt Highway Bar */}
-                  <div className="relative h-20 sm:h-24 bg-gradient-to-b from-gray-950 via-slate-900 to-gray-950 rounded-2xl border-2 border-emerald-500/40 overflow-hidden shadow-inner flex items-center">
+                  <div className="relative h-24 sm:h-28 bg-gradient-to-b from-gray-950 via-slate-900 to-gray-950 rounded-2xl border-2 border-emerald-500/40 overflow-hidden shadow-inner flex items-center">
                     {/* Highway Lane Borders */}
-                    <div className="absolute inset-x-0 top-1.5 h-[1px] bg-white/20" />
-                    <div className="absolute inset-x-0 bottom-1.5 h-[1px] bg-white/20" />
+                    <div className="absolute inset-x-0 top-2 h-[1px] bg-white/20" />
+                    <div className="absolute inset-x-0 bottom-2 h-[1px] bg-white/20" />
 
                     {/* Animated moving road center dashed line */}
                     <div 
-                      className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1.5 opacity-90"
+                      className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-2 opacity-90 pointer-events-none"
                       style={{
                         backgroundImage: 'repeating-linear-gradient(90deg, #FBBF24 0, #FBBF24 24px, transparent 24px, transparent 48px)',
                         backgroundSize: '48px 100%',
-                        animation: 'highwayDash 0.8s linear infinite',
+                        animation: 'highwayDash 0.6s linear infinite',
                       }}
                     />
 
-                    {/* Animated Moving Truck Container */}
+                    {/* Animated Small Transparent SAFAL Reefer Truck */}
                     <div 
-                      className="absolute top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none select-none z-10"
+                      className="absolute top-1/2 -translate-y-1/2 pointer-events-none select-none z-10"
                       style={{
-                        animation: 'truckPatrol 18s ease-in-out infinite',
+                        animation: 'truckHighwayCruise 15s cubic-bezier(0.25, 0.1, 0.25, 1) infinite',
                       }}
                     >
-                      <div className="relative group">
-                        <img
-                          src="/safal-transit-truck.png"
-                          alt="SAFAL Cold Chain Reefer Truck"
-                          className="h-14 sm:h-16 w-auto object-contain drop-shadow-[0_4px_12px_rgba(16,185,129,0.4)]"
-                          style={{
-                            animation: 'truckSuspension 1s ease-in-out infinite alternate',
-                          }}
-                        />
+                      <div className="relative flex items-center" style={{ animation: 'truckSuspension 0.8s ease-in-out infinite alternate' }}>
                         {/* Floating Truck Badge */}
-                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-700/95 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow whitespace-nowrap border border-emerald-400/60 font-mono">
-                          {activeTruck}
+                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-900/95 text-white text-[9px] font-black px-2 py-0.5 rounded shadow-lg border border-emerald-400 font-mono whitespace-nowrap z-20 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block animate-ping" />
+                          <span>{activeTruck}</span>
                         </div>
+
+                        {/* Crisp Transparent Vector SAFAL Reefer Truck */}
+                        <svg width="124" height="54" viewBox="0 0 134 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_8px_18px_rgba(16,185,129,0.35)]">
+                          <defs>
+                            <linearGradient id="headlightBeam" x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor="#FDE047" stopOpacity="0.8" />
+                              <stop offset="60%" stopColor="#FDE047" stopOpacity="0.25" />
+                              <stop offset="100%" stopColor="#FDE047" stopOpacity="0" />
+                            </linearGradient>
+                            <linearGradient id="reeferGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                              <stop offset="0%" stopColor="#FFFFFF" />
+                              <stop offset="100%" stopColor="#E2E8F0" />
+                            </linearGradient>
+                            <linearGradient id="cabinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor="#0A9448" />
+                              <stop offset="100%" stopColor="#044D25" />
+                            </linearGradient>
+                          </defs>
+
+                          {/* Forward Headlight Light Beam */}
+                          <polygon points="124,38 178,24 178,50" fill="url(#headlightBeam)" opacity="0.45" />
+
+                          {/* Chassis & Underside */}
+                          <rect x="8" y="42" width="118" height="4" rx="2" fill="#0F172A" />
+
+                          {/* Reefer Box Trailer (White/Silver with SAFAL Logo) */}
+                          <rect x="8" y="10" width="80" height="34" rx="3" fill="url(#reeferGrad)" stroke="#CBD5E1" strokeWidth="1.2" />
+                          {/* Reefer Top Cooling Unit (ThermoKing/Carrier) */}
+                          <rect x="10" y="5" width="16" height="7" rx="1.5" fill="#64748B" stroke="#475569" strokeWidth="0.8" />
+                          {/* Active Cooling LED */}
+                          <circle cx="23" cy="8.5" r="1.2" fill="#06B6D4" className="animate-pulse" />
+
+                          {/* SAFAL Green Leaf Logo & Text on Trailer Body */}
+                          <g transform="translate(18, 17)">
+                            {/* Green Leaf Icon */}
+                            <path d="M 0 10 C 0 3, 7 0, 11 0 C 11 7, 8 13, 0 13 Z" fill="#10B981" />
+                            <path d="M 1 11 C 4 8, 8 5, 11 0" stroke="#047857" strokeWidth="0.8" fill="none" />
+                            {/* Text SAFAL */}
+                            <text x="14" y="10" fill="#064D2B" fontSize="11" fontWeight="900" fontFamily="sans-serif" letterSpacing="0.5">SAFAL</text>
+                            {/* Cold Chain subtext */}
+                            <text x="1" y="19" fill="#047857" fontSize="5" fontWeight="800" fontFamily="sans-serif" letterSpacing="0.8">COLD-CHAIN EXPRESS</text>
+                          </g>
+
+                          {/* Reefer Vertical Ribs */}
+                          <line x1="86" y1="11" x2="86" y2="43" stroke="#CBD5E1" strokeWidth="1" />
+                          <line x1="8" y1="11" x2="8" y2="43" stroke="#CBD5E1" strokeWidth="1" />
+
+                          {/* Truck Cabin (Emerald Green Aerodynamic Cab) */}
+                          <path d="M 88 44 L 88 18 Q 98 17 106 20 L 119 28 Q 124 32 124 37 L 124 44 Z" fill="url(#cabinGrad)" stroke="#064D2B" strokeWidth="1" />
+                          {/* Windshield Glass */}
+                          <path d="M 103 21 L 115 28 L 103 28 Z" fill="#0F172A" />
+                          <path d="M 104 22 L 113 27.5 L 104 27.5 Z" fill="#38BDF8" opacity="0.6" />
+                          {/* Driver Silhouette */}
+                          <circle cx="106" cy="25" r="2" fill="#0F172A" />
+                          {/* Chrome Front Grille */}
+                          <rect x="122" y="36" width="3" height="7" rx="1" fill="#E2E8F0" />
+                          {/* Xenon Headlight Bulb */}
+                          <circle cx="123" cy="38" r="2.2" fill="#FDE047" stroke="#FEF08A" strokeWidth="0.8" />
+
+                          {/* Wheels (3 Axles: 1 Steer at x=112, 2 Tandem at x=26 and x=48) */}
+                          {/* Wheel 1 (Rear 1) */}
+                          <g transform="translate(26, 44)">
+                            <circle cx="0" cy="0" r="7.5" fill="#0F172A" stroke="#1E293B" strokeWidth="1.5" />
+                            <circle cx="0" cy="0" r="4.2" fill="#94A3B8" />
+                            <circle cx="0" cy="0" r="1.8" fill="#F1F5F9" />
+                            <line x1="-3.5" y1="0" x2="3.5" y2="0" stroke="#475569" strokeWidth="1" style={{ animation: 'wheelSpin 0.5s linear infinite', transformOrigin: '0px 0px' }} />
+                            <line x1="0" y1="-3.5" x2="0" y2="3.5" stroke="#475569" strokeWidth="1" style={{ animation: 'wheelSpin 0.5s linear infinite', transformOrigin: '0px 0px' }} />
+                          </g>
+
+                          {/* Wheel 2 (Rear 2) */}
+                          <g transform="translate(48, 44)">
+                            <circle cx="0" cy="0" r="7.5" fill="#0F172A" stroke="#1E293B" strokeWidth="1.5" />
+                            <circle cx="0" cy="0" r="4.2" fill="#94A3B8" />
+                            <circle cx="0" cy="0" r="1.8" fill="#F1F5F9" />
+                            <line x1="-3.5" y1="0" x2="3.5" y2="0" stroke="#475569" strokeWidth="1" style={{ animation: 'wheelSpin 0.5s linear infinite', transformOrigin: '0px 0px' }} />
+                            <line x1="0" y1="-3.5" x2="0" y2="3.5" stroke="#475569" strokeWidth="1" style={{ animation: 'wheelSpin 0.5s linear infinite', transformOrigin: '0px 0px' }} />
+                          </g>
+
+                          {/* Wheel 3 (Front Steer) */}
+                          <g transform="translate(112, 44)">
+                            <circle cx="0" cy="0" r="7.5" fill="#0F172A" stroke="#1E293B" strokeWidth="1.5" />
+                            <circle cx="0" cy="0" r="4.2" fill="#94A3B8" />
+                            <circle cx="0" cy="0" r="1.8" fill="#F1F5F9" />
+                            <line x1="-3.5" y1="0" x2="3.5" y2="0" stroke="#475569" strokeWidth="1" style={{ animation: 'wheelSpin 0.5s linear infinite', transformOrigin: '0px 0px' }} />
+                            <line x1="0" y1="-3.5" x2="0" y2="3.5" stroke="#475569" strokeWidth="1" style={{ animation: 'wheelSpin 0.5s linear infinite', transformOrigin: '0px 0px' }} />
+                          </g>
+                        </svg>
                       </div>
                     </div>
                   </div>
@@ -1692,16 +1736,21 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     0% { background-position: 0 0; }
                     100% { background-position: -48px 0; }
                   }
-                  @keyframes truckPatrol {
-                    0% { left: 4%; transform: translateY(-50%) scaleX(1); }
-                    48% { left: calc(96% - 100px); transform: translateY(-50%) scaleX(1); }
-                    50% { left: calc(96% - 100px); transform: translateY(-50%) scaleX(-1); }
-                    98% { left: 4%; transform: translateY(-50%) scaleX(-1); }
-                    100% { left: 4%; transform: translateY(-50%) scaleX(1); }
+                  @keyframes wheelSpin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
                   }
                   @keyframes truckSuspension {
                     0% { transform: translateY(0); }
                     100% { transform: translateY(-2px); }
+                  }
+                  @keyframes truckHighwayCruise {
+                    0% { left: 2%; opacity: 1; }
+                    86% { left: calc(98% - 134px); opacity: 1; }
+                    90% { left: calc(98% - 134px); opacity: 1; }
+                    94% { left: calc(98% - 134px); opacity: 0; }
+                    96% { left: 2%; opacity: 0; }
+                    100% { left: 2%; opacity: 1; }
                   }
                 `}</style>
               </div>
@@ -1735,11 +1784,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-center gap-5 justify-center py-2">
-                  <div className="relative w-44 h-44 sm:w-52 sm:h-52 mx-auto flex-shrink-0 flex items-center justify-center">
+                  <div className="relative w-48 h-48 sm:w-56 sm:h-56 mx-auto flex-shrink-0 flex items-center justify-center">
                     <svg viewBox="0 0 320 320" className="w-full h-full transform -rotate-90 select-none">
                       {(() => {
-                        const radius = 98;
-                        const circumference = 2 * Math.PI * radius; // ~615.75
+                        const radius = 104;
+                        const circumference = 2 * Math.PI * radius; // ~653.45
                         let accumulatedPercent = 0;
                         return fruitBreakdown.map((item, idx) => {
                           const strokeDasharray = `${(item.percent / 100) * circumference} ${circumference}`;
@@ -1753,7 +1802,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               r={radius}
                               fill="transparent"
                               stroke={item.color}
-                              strokeWidth="30"
+                              strokeWidth="24"
                               strokeDasharray={strokeDasharray}
                               strokeDashoffset={strokeDashoffset}
                               className="transition-all duration-500 hover:opacity-85 cursor-pointer"
@@ -1763,12 +1812,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       })()}
                     </svg>
                     {/* Center Content */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-2">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-3">
                       <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Total Volume</span>
-                      <strong className="text-xl sm:text-2xl font-black text-gray-900 font-['Manrope'] block my-0.5">
+                      <strong className="text-2xl sm:text-3xl font-black text-gray-900 font-['Manrope'] block my-0.5">
                         {totalVolumeBoxes.toLocaleString('en-IN')}
                       </strong>
-                      <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                      <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
                         Boxes Supplied
                       </span>
                     </div>
@@ -2071,13 +2120,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     )}
                     <button
                       type="button"
-                      onClick={() => {
-                        setSelectedPOForDispatch(po);
-                        setVehicleNumber(po.dispatchVehicleNumber || '');
-                      }}
+                      onClick={() => openDispatchModal(po)}
                       className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
                     >
-                      <Truck size={13} /> Dispatch
+                      <Truck size={13} /> Load &amp; Sign Dispatch
                     </button>
                   </div>
                 </div>
@@ -2246,13 +2292,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedPOForDispatch(pendingDispatchOrders[0]);
-                  setDispatchError('');
-                }}
+                onClick={() => openDispatchModal(pendingDispatchOrders[0])}
                 className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap self-start sm:self-auto active:scale-95"
               >
-                <Upload size={14} /> Dispatch PO: {pendingDispatchOrders[0].poNumber}
+                <Truck size={14} /> Load &amp; Sign Dispatch: {pendingDispatchOrders[0].poNumber}
               </button>
             </div>
           )}
@@ -2532,13 +2575,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             {isPendingDispatch && (
                               <button
                                 type="button"
-                                onClick={() => {
-                                  setSelectedPOForDispatch(po);
-                                  setDispatchError('');
-                                }}
+                                onClick={() => openDispatchModal(po)}
                                 className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] transition shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95"
                               >
-                                <Upload size={11} /> Dispatch
+                                <Truck size={11} /> Load &amp; Sign
                               </button>
                             )}
                           </div>
@@ -2926,12 +2966,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   type="button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedPOForDispatch(po);
-                                    setDispatchError('');
+                                    openDispatchModal(po);
                                   }}
                                   className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
                                 >
-                                  <Upload size={11} /> Dispatch
+                                  <Truck size={11} /> Load &amp; Sign
                                 </button>
                               )}
                             </div>
@@ -3508,31 +3547,41 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         </section>
       )}
 
-      {/* 6. Modal: Submit Vehicle Photo & Transport Bill */}
+      {/* 6. Modal: Submit Vehicle Photo & Transport Bill (Step 2: Dispatch & Authorization) */}
       {selectedPOForDispatch && (
         <div
-          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
-          style={{ zIndex: 9999 }}
+          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 9999, backgroundColor: 'rgba(6, 45, 25, 0.85)' }}
           onClick={(e) => {
             if (e.target === e.currentTarget && !cameraModalConfig.open) setSelectedPOForDispatch(null);
           }}
         >
           <div
-            className="modal !w-[680px] max-w-[96vw] max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden relative"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[94vh] flex flex-col relative"
             style={{ zIndex: 10000 }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="modal-header pb-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+            <div className="pb-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 grid place-items-center">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 grid place-items-center">
                   <Truck size={22} />
                 </div>
                 <div>
-                  <span className="eyebrow text-amber-800 font-bold">LOGISTICS &amp; DISPATCH PROOF</span>
-                  <h2 className="text-lg font-bold text-gray-900">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">
+                      CONSIGNMENT DISPATCH &amp; AUTHORIZATION
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-black">
+                      Vehicle Allotted
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-black text-gray-900 font-['Manrope'] mt-0.5">
                     Dispatch Order: {selectedPOForDispatch.poNumber}
                   </h2>
+                  <p className="text-[11px] text-gray-500 font-medium">
+                    Route: <strong className="text-gray-800">{selectedPOForDispatch.orderPersonPlace || 'Farm Origin'}</strong> ➔ <strong className="text-emerald-800">{selectedPOForDispatch.deliveryAddress || 'Regional Hub'}</strong>
+                  </p>
                 </div>
               </div>
               <button
@@ -3559,207 +3608,332 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               )}
 
-              {/* Vehicle Registration Number */}
-              <div>
-                <label className="block text-gray-700 font-bold mb-1">
-                  Vehicle Registration Number *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={vehicleNumber}
-                  onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
-                  placeholder="e.g. AP 39 TB 1234 or TS 08 UB 5678"
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl font-mono text-xs font-bold text-gray-900 focus:border-[#087A3E] focus:ring-2 focus:ring-emerald-100 outline-none uppercase"
-                />
-                <span className="text-[10px] text-gray-400 mt-1 block">
-                  Enter the exact registration number matching the truck number plate.
-                </span>
-              </div>
-
-              {/* Transporter Details */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-700 font-bold mb-1">Transporter / Agency Name</label>
-                  <input
-                    type="text"
-                    value={transporterName}
-                    onChange={(e) => setTransporterName(e.target.value)}
-                    placeholder="e.g. VRL Logistics / Sharma Roadlines"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 font-bold mb-1">Driver Contact Phone</label>
-                  <input
-                    type="text"
-                    value={driverPhone}
-                    onChange={(e) => setDriverPhone(e.target.value)}
-                    placeholder="e.g. 9876543210"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 outline-none"
-                  />
-                </div>
-              </div>
-
-              {/* File 1: Vehicle Photo with Number Plate Clearly Visible */}
-              <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
+              {/* Section 1: Allotted Logistics Vehicle Details */}
+              <div className="p-3.5 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="block text-amber-950 font-bold text-xs">
-                    1. Vehicle Photo (Number Plate MUST be clearly visible) *
+                  <span className="text-[10px] uppercase font-black text-gray-700 tracking-wider flex items-center gap-1.5">
+                    <Truck size={14} className="text-[#087A3E]" /> Allotted Logistics Vehicle Details
                   </span>
-                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                    Mandatory
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-600">
-                  Take a photo of the truck where the number plate and loaded fruit boxes/crates are clearly visible. Live timestamp, GPS, and device info will be stamped automatically.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 items-center">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openCameraModal(
-                        'Vehicle Dispatch Photo',
-                        'VEHICLE DISPATCH PHOTO',
-                        selectedPOForDispatch?.poNumber,
-                        (file, preview) => {
-                          setVehiclePhotoFile(file);
-                          setVehiclePhotoPreview(preview);
-                        }
-                      )
-                    }
-                    className="h-11 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
-                  >
-                    <Camera size={15} className="text-emerald-300" />
-                    <span>Open Camera (Live Capture)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => dispatchVehicleInputRef.current?.click()}
-                    className="h-11 px-3 border-2 border-dashed border-emerald-400 bg-white hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group"
-                  >
-                    <div className="w-6 h-6 rounded-md bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
-                      <Upload size={13} />
-                    </div>
-                    <span className="text-xs font-bold text-emerald-900 truncate">
-                      {vehiclePhotoFile ? vehiclePhotoFile.name : 'Choose from Files'}
-                    </span>
-                  </button>
-                  <input
-                    ref={dispatchVehicleInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/jpg"
-                    onChange={handleVehiclePhotoChange}
-                    style={{ display: 'none' }}
-                  />
+                  <span className="text-[10px] font-bold text-gray-500">Safal Regional Allotment</span>
                 </div>
 
-                {vehiclePhotoPreview && (
-                  <div className="mt-2 p-2 bg-white rounded-xl border border-emerald-300 flex items-center justify-between gap-3 shadow-2xs">
-                    <div className="flex items-center gap-2.5">
-                      <img
-                        src={vehiclePhotoPreview}
-                        alt="Vehicle Preview"
-                        className="h-16 w-20 object-cover rounded-lg border border-gray-200"
-                      />
-                      <div>
-                        <span className="text-xs text-emerald-800 font-bold flex items-center gap-1">
-                          <CheckCircle2 size={13} className="text-emerald-600" /> Vehicle Photo Attached ✓
-                        </span>
-                        <span className="text-[10px] text-gray-500 block">
-                          {vehiclePhotoFile?.name} ({(Number(vehiclePhotoFile?.size || 0) / 1024).toFixed(1)} KB)
-                        </span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setVehiclePhotoFile(null);
-                        setVehiclePhotoPreview('');
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                      title="Remove"
-                    >
-                      <X size={16} />
-                    </button>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Vehicle Registration Number *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={vehicleNumber}
+                      onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                      placeholder="e.g. TS09UB4521"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl font-mono text-xs font-bold text-gray-900 focus:border-[#087A3E] focus:ring-2 focus:ring-emerald-100 outline-none uppercase bg-white"
+                    />
                   </div>
-                )}
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Transporter / Agency Name</label>
+                    <input
+                      type="text"
+                      value={transporterName}
+                      onChange={(e) => setTransporterName(e.target.value)}
+                      placeholder="e.g. New Golden Roadways"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 outline-none bg-white font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Driver Contact Phone</label>
+                    <input
+                      type="text"
+                      value={driverPhone}
+                      onChange={(e) => setDriverPhone(e.target.value)}
+                      placeholder="e.g. 9848012345"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 outline-none bg-white font-medium"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* File 2: Transport Bill / Bilty Upload */}
-              <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="block text-blue-950 font-bold text-xs">
-                    2. Transport Bill / Bilty / LR (Lorry Receipt) *
-                  </span>
-                  <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full border border-blue-300">
-                    Mandatory
-                  </span>
-                </div>
-                <p className="text-[11px] text-gray-600">
-                  Upload photo of transporter's consignment note / freight receipt or PDF document. Current timestamp &amp; GPS location will be stamped automatically upon upload.
-                </p>
-
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => dispatchTransportInputRef.current?.click()}
-                    className="h-11 px-3 border-2 border-dashed border-blue-400 bg-white hover:bg-blue-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group w-full"
-                  >
-                    <div className="w-6 h-6 rounded-md bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
-                      <Upload size={13} />
-                    </div>
-                    <span className="text-xs font-bold text-blue-900 truncate">
-                      {transportBillFile ? transportBillFile.name : 'Choose Transport Bilty Document / Photo (Image or PDF)'}
+              {/* Section 2: Apple Mandi Layer Box Grading & Contract Pricing (Image 3) */}
+              <div className="p-3 sm:p-4 bg-gradient-to-br from-red-50/60 via-amber-50/30 to-emerald-50/40 border border-amber-200/80 rounded-2xl space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] sm:text-xs uppercase font-extrabold text-red-700 tracking-wider block">
+                      APPLE MANDI LAYER BOX GRADING (4L / 5L / ROLL)
                     </span>
-                  </button>
-                  <input
-                    ref={dispatchTransportInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/jpg,application/pdf"
-                    onChange={handleTransportBillChange}
-                    style={{ display: 'none' }}
-                  />
+                    <p className="text-[10px] sm:text-[11px] text-gray-600 mt-0.5">
+                      Wholesale apple telescopic cartons (~20-22 Kg/box). Fixed contract rates.
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-red-100 text-red-800 rounded-lg text-[10px] sm:text-[11px] font-black flex-shrink-0">
+                    {selectedPOForDispatch.commodity || 'Kashmir Apples'}
+                  </span>
                 </div>
 
-                {transportBillPreview && (
-                  <div className="mt-2 p-2 bg-white rounded-xl border border-blue-300 flex items-center justify-between gap-3 shadow-2xs">
-                    <div className="flex items-center gap-2.5">
-                      {transportBillFile?.type === 'application/pdf' ? (
-                        <div className="w-12 h-12 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
-                          <FileText size={22} />
+                {/* Mandi 3-Column Responsive Matrix (Fits 100% on both Mobile and Laptop) */}
+                <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden w-full divide-y divide-gray-100">
+                  <div className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center px-2.5 sm:px-3 py-2">
+                    <div className="w-[42%] text-left">LAYER GRADE</div>
+                    <div className="w-[30%] text-center">NO. OF BOXES</div>
+                    <div className="w-[28%] text-right">RATE (₹)</div>
+                  </div>
+
+                  {/* If items array exists on PO */}
+                  {selectedPOForDispatch.items && selectedPOForDispatch.items.length > 0 ? (
+                    selectedPOForDispatch.items.map((it: any, idx: number) => (
+                      <div key={idx} className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
+                        <div className="w-[42%] pr-1">
+                          <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">
+                            {it.varietyGrade || it.fruitName}
+                          </div>
+                          <span className="text-[10px] text-gray-500 font-medium block">
+                            {it.varietyGrade?.includes('4L') ? 'Premium 4-Layer' : it.varietyGrade?.includes('5L') ? 'Standard 5-Layer' : it.varietyGrade?.includes('Roll') ? 'Mandi Bulk Pack' : it.fruitName}
+                          </span>
                         </div>
-                      ) : (
-                        <img
-                          src={transportBillPreview}
-                          alt="Bilty Preview"
-                          className="h-16 w-20 object-cover rounded-lg border border-gray-200"
-                        />
-                      )}
-                      <div>
-                        <span className="text-xs text-blue-800 font-bold flex items-center gap-1">
-                          <CheckCircle2 size={13} className="text-blue-600" /> Transport Bill Attached ✓
-                        </span>
-                        <span className="text-[10px] text-gray-500 block truncate max-w-[200px]">
-                          {transportBillFile?.name} ({(Number(transportBillFile?.size || 0) / 1024).toFixed(1)} KB)
-                        </span>
+                        <div className="w-[30%] flex justify-center font-black text-gray-900 text-xs sm:text-sm">
+                          {Number(it.quantity || 0).toLocaleString('en-IN')} Boxes
+                        </div>
+                        <div className="w-[28%] text-right font-mono font-bold text-xs sm:text-sm text-gray-900">
+                          ₹{Number(it.ratePerUnit || 0).toLocaleString('en-IN')}
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <>
+                      {/* Standard fallback row display matching PO totals */}
+                      <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
+                        <div className="w-[42%] pr-1">
+                          <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">4L (Large)</div>
+                          <span className="text-[10px] text-gray-500 font-medium block">Premium 4-Layer</span>
+                        </div>
+                        <div className="w-[30%] flex justify-center font-black text-gray-900 text-xs sm:text-sm">
+                          200 Boxes
+                        </div>
+                        <div className="w-[28%] text-right font-mono font-bold text-xs sm:text-sm text-gray-900">
+                          ₹1,200
+                        </div>
+                      </div>
+                      <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
+                        <div className="w-[42%] pr-1">
+                          <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">5L (Medium)</div>
+                          <span className="text-[10px] text-gray-500 font-medium block">Standard 5-Layer</span>
+                        </div>
+                        <div className="w-[30%] flex justify-center font-black text-gray-900 text-xs sm:text-sm">
+                          250 Boxes
+                        </div>
+                        <div className="w-[28%] text-right font-mono font-bold text-xs sm:text-sm text-gray-900">
+                          ₹1,100
+                        </div>
+                      </div>
+                      <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
+                        <div className="w-[42%] pr-1">
+                          <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">Roll (Running)</div>
+                          <span className="text-[10px] text-gray-500 font-medium block">Mandi Bulk Pack</span>
+                        </div>
+                        <div className="w-[30%] flex justify-center font-black text-gray-900 text-xs sm:text-sm">
+                          50 Boxes
+                        </div>
+                        <div className="w-[28%] text-right font-mono font-bold text-xs sm:text-sm text-gray-900">
+                          ₹700
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Total Row */}
+                  <div className="flex items-center px-2.5 sm:px-3 py-2.5 bg-emerald-50/90 font-black border-t-2 border-emerald-300 text-xs">
+                    <div className="w-[42%] uppercase text-[10px] sm:text-xs text-gray-900 font-black">
+                      TOTAL CONSIGNMENT
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTransportBillFile(null);
-                        setTransportBillPreview('');
-                      }}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
-                      title="Remove"
-                    >
-                      <X size={16} />
-                    </button>
+                    <div className="w-[30%] text-center text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
+                      {(selectedPOForDispatch.items?.reduce((s: number, it: any) => s + (it.quantity || 0), 0) || selectedPOForDispatch.grossVolumeBoxes || 500).toLocaleString('en-IN')} Boxes
+                    </div>
+                    <div className="w-[28%] text-right text-[10px] sm:text-xs text-gray-600 font-bold whitespace-nowrap">
+                      Mandi Rate
+                    </div>
                   </div>
-                )}
+                </div>
+
+                {/* Total Apple Amount */}
+                <div className="p-3 bg-white rounded-xl border border-emerald-300 flex items-center justify-between shadow-xs">
+                  <div>
+                    <span className="text-xs font-bold text-gray-700 block">Total Apple Amount:</span>
+                    <span className="text-[10px] text-gray-500 font-bold">
+                      {(selectedPOForDispatch.items?.reduce((s: number, it: any) => s + (it.quantity || 0), 0) || selectedPOForDispatch.grossVolumeBoxes || 500).toLocaleString('en-IN')} Boxes procurement settlement
+                    </span>
+                  </div>
+                  <span className="text-base sm:text-lg font-black text-emerald-800 font-mono">
+                    ₹{Number(selectedPOForDispatch.grandTotal || selectedPOForDispatch.subtotal || 550000).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Section 3: Dispatch & Logistics Proof Documentation (Image 4) */}
+              <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded-2xl space-y-3">
+                <span className="text-[10px] uppercase font-black text-blue-900 tracking-wider block flex items-center gap-1.5">
+                  <Truck size={14} className="text-blue-700" /> Dispatch &amp; Logistics Proof Documentation
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* File 1: Vehicle Photo with Number Plate Clearly Visible */}
+                  <div className={`p-3 bg-white border rounded-xl space-y-2 transition shadow-2xs ${
+                    vehiclePhotoFile ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-amber-300'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="block text-gray-900 font-bold text-xs flex items-center gap-1.5">
+                        <Camera size={14} className="text-emerald-700" />
+                        <span>Dispatch Vehicle Photo <span className="text-red-600 font-black">*</span></span>
+                      </span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                        vehiclePhotoFile ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-red-100 text-red-800 border-red-300 animate-pulse'
+                      }`}>
+                        {vehiclePhotoFile ? 'Photo Attached ✓' : '* Mandatory'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-500">
+                      Clear photo showing truck number plate and loaded cartons. Timestamp &amp; GPS stamped automatically.
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-2 pt-0.5 items-center">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openCameraModal(
+                            'Dispatch Vehicle Photo',
+                            'VEHICLE DISPATCH PHOTO',
+                            selectedPOForDispatch?.poNumber,
+                            (file, preview) => {
+                              setVehiclePhotoFile(file);
+                              setVehiclePhotoPreview(preview);
+                            }
+                          )
+                        }
+                        className="h-9 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs flex items-center justify-center gap-1 shadow-xs transition cursor-pointer"
+                      >
+                        <Camera size={13} className="text-emerald-300" />
+                        <span>Live Camera</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => dispatchVehicleInputRef.current?.click()}
+                        className="h-9 px-2 border-2 border-dashed border-emerald-400 bg-white hover:bg-emerald-50 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition shadow-2xs group"
+                      >
+                        <Upload size={12} className="text-emerald-700" />
+                        <span className="text-xs font-bold text-emerald-900 truncate">
+                          {vehiclePhotoFile ? vehiclePhotoFile.name : 'Choose File'}
+                        </span>
+                      </button>
+                      <input
+                        ref={dispatchVehicleInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={handleVehiclePhotoChange}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+
+                    {vehiclePhotoPreview && (
+                      <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={vehiclePhotoPreview}
+                            alt="Vehicle Preview"
+                            className="h-12 w-16 object-cover rounded border border-gray-200"
+                          />
+                          <div>
+                            <span className="text-[11px] text-emerald-800 font-bold block">Vehicle Photo Attached ✓</span>
+                            <span className="text-[9px] text-gray-400">Verified Plate Image</span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setVehiclePhotoFile(null);
+                            setVehiclePhotoPreview('');
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-600 rounded"
+                          title="Remove"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* File 2: Vendor Digital E-Signature Pad (Image 4) */}
+                  <div className={`p-3 bg-white border rounded-xl space-y-2 transition shadow-2xs ${
+                    vendorSignatureData || transportBillFile ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-emerald-300'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="block text-gray-900 font-bold text-xs flex items-center gap-1.5">
+                        <Pencil size={14} className="text-emerald-700" />
+                        <span>Vendor Digital E-Signature <span className="text-red-600 font-black">*</span></span>
+                      </span>
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                        vendorSignatureData || transportBillFile ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-red-100 text-red-800 border-red-300 animate-pulse'
+                      }`}>
+                        {vendorSignatureData || transportBillFile ? 'Signed ✓' : '* Sign Below'}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-500">
+                      Sign using finger or stylus on mobile screen to authorize consignment release.
+                    </p>
+
+                    {/* Interactive Canvas Pad */}
+                    <div className="relative border-2 border-dashed border-emerald-400 rounded-lg bg-gray-50/70 overflow-hidden shadow-inner">
+                      <canvas
+                        ref={signatureCanvasRef}
+                        width={460}
+                        height={130}
+                        onMouseDown={startDrawingSignature}
+                        onMouseMove={drawSignature}
+                        onMouseUp={stopDrawingSignature}
+                        onMouseLeave={stopDrawingSignature}
+                        onTouchStart={startDrawingSignature}
+                        onTouchMove={drawSignature}
+                        onTouchEnd={stopDrawingSignature}
+                        className="w-full h-24 sm:h-28 bg-white cursor-crosshair touch-none select-none block"
+                      />
+                      {!vendorSignatureData && !isDrawingSignature && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-400 text-xs font-medium">
+                          ✍ Touch &amp; draw signature here with finger...
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-1.5 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={clearSignature}
+                        className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[11px] font-bold rounded-lg transition cursor-pointer"
+                      >
+                        Clear Signature
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => dispatchTransportInputRef.current?.click()}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-[11px] font-bold rounded-lg border border-emerald-300 transition cursor-pointer flex items-center gap-1"
+                      >
+                        <Upload size={11} />
+                        <span>Or Upload Slip</span>
+                      </button>
+                      <input
+                        ref={dispatchTransportInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg,application/pdf"
+                        onChange={handleTransportBillChange}
+                        style={{ display: 'none' }}
+                      />
+                    </div>
+
+                    {vendorSignatureData && (
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <CheckCircle2 size={12} className="text-emerald-600" /> Digital Signature Captured ✓
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Footer */}
@@ -3774,10 +3948,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmittingDispatch}
-                  className="primary-button !bg-[#064D2B] hover:!bg-[#087A3E] inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl bg-[#064D2B] hover:bg-[#087A3E] text-white font-black shadow-md inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  <CheckCircle2 size={15} />
-                  {isSubmittingDispatch ? 'Uploading Evidence...' : 'Submit Dispatch Proof'}
+                  <Truck size={15} />
+                  {isSubmittingDispatch ? 'Submitting Dispatch...' : '🚚 Submit Consignment Dispatch & Sign'}
                 </button>
               </div>
             </form>
@@ -3957,100 +4131,95 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </span>
                   </div>
 
-                  {/* Mandi 3-Column Table (Fits 100% on both Mobile and Laptop without cut-off) */}
-                  <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden w-full">
-                    <table className="w-full text-xs text-left border-collapse table-fixed">
-                      <thead>
-                        <tr className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider">
-                          <th className="w-[40%] py-2.5 px-2 sm:px-3">LAYER GRADE</th>
-                          <th className="w-[30%] py-2.5 px-1 text-center">NO. OF BOXES</th>
-                          <th className="w-[30%] py-2.5 px-2 sm:px-3 text-right">RATE (₹)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 font-bold">
-                        {/* 4L */}
-                        <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-2 sm:px-3">
-                            <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">4L (Large)</div>
-                            <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Premium 4-Layer</span>
-                          </td>
-                          <td className="py-2.5 px-1 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              value={layer4LBoxes}
-                              onChange={(e) => setLayer4LBoxes(e.target.value)}
-                              placeholder="0"
-                              className="w-14 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
-                            />
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-right">
-                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
-                              ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
-                            </span>
-                          </td>
-                        </tr>
+                  {/* Mandi 3-Column Responsive Matrix (Fits 100% on both Mobile and Laptop without horizontal cut-off) */}
+                  <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden w-full divide-y divide-gray-100">
+                    <div className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center px-2.5 sm:px-3 py-2.5">
+                      <div className="w-[42%] text-left">LAYER GRADE</div>
+                      <div className="w-[30%] text-center">NO. OF BOXES</div>
+                      <div className="w-[28%] text-right">RATE (₹)</div>
+                    </div>
 
-                        {/* 5L */}
-                        <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-2 sm:px-3">
-                            <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">5L (Medium)</div>
-                            <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Standard 5-Layer</span>
-                          </td>
-                          <td className="py-2.5 px-1 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              value={layer5LBoxes}
-                              onChange={(e) => setLayer5LBoxes(e.target.value)}
-                              placeholder="0"
-                              className="w-14 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
-                            />
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-right">
-                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
-                              ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
-                            </span>
-                          </td>
-                        </tr>
+                    {/* 4L Row */}
+                    <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
+                      <div className="w-[42%] pr-1">
+                        <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">4L (Large)</div>
+                        <span className="text-[10px] text-gray-500 font-medium block">Premium 4-Layer</span>
+                      </div>
+                      <div className="w-[30%] flex justify-center">
+                        <input
+                          type="number"
+                          min="0"
+                          value={layer4LBoxes}
+                          onChange={(e) => setLayer4LBoxes(e.target.value)}
+                          placeholder="0"
+                          className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                        />
+                      </div>
+                      <div className="w-[28%] text-right">
+                        <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
+                          ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
 
-                        {/* Roll */}
-                        <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-2 sm:px-3">
-                            <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">Roll (Running)</div>
-                            <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Mandi Bulk Pack</span>
-                          </td>
-                          <td className="py-2.5 px-1 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              value={rollBoxes}
-                              onChange={(e) => setRollBoxes(e.target.value)}
-                              placeholder="0"
-                              className="w-14 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
-                            />
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-3 text-right">
-                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
-                              ₹{Number(rollRate || 700).toLocaleString('en-IN')}
-                            </span>
-                          </td>
-                        </tr>
-                      </tbody>
-                      <tfoot>
-                        <tr className="border-t-2 border-emerald-300 bg-emerald-50/90 font-black">
-                          <td className="py-2.5 px-2.5 sm:px-4 text-gray-900 uppercase text-[10px] sm:text-xs font-black">
-                            TOTAL CONSIGNMENT
-                          </td>
-                          <td className="py-2.5 px-1 sm:px-2 text-center font-black text-gray-900 text-xs sm:text-sm whitespace-nowrap">
-                            {totalAppleBoxes.toLocaleString('en-IN')} Boxes
-                          </td>
-                          <td className="py-2.5 px-2 sm:px-4 text-right text-gray-500 font-bold text-[10px] sm:text-xs whitespace-nowrap">
-                            Mandi Rate
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                    {/* 5L Row */}
+                    <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
+                      <div className="w-[42%] pr-1">
+                        <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">5L (Medium)</div>
+                        <span className="text-[10px] text-gray-500 font-medium block">Standard 5-Layer</span>
+                      </div>
+                      <div className="w-[30%] flex justify-center">
+                        <input
+                          type="number"
+                          min="0"
+                          value={layer5LBoxes}
+                          onChange={(e) => setLayer5LBoxes(e.target.value)}
+                          placeholder="0"
+                          className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                        />
+                      </div>
+                      <div className="w-[28%] text-right">
+                        <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
+                          ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Roll Row */}
+                    <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
+                      <div className="w-[42%] pr-1">
+                        <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">Roll (Running)</div>
+                        <span className="text-[10px] text-gray-500 font-medium block">Mandi Bulk Pack</span>
+                      </div>
+                      <div className="w-[30%] flex justify-center">
+                        <input
+                          type="number"
+                          min="0"
+                          value={rollBoxes}
+                          onChange={(e) => setRollBoxes(e.target.value)}
+                          placeholder="0"
+                          className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                        />
+                      </div>
+                      <div className="w-[28%] text-right">
+                        <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
+                          ₹{Number(rollRate || 700).toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Total Row */}
+                    <div className="flex items-center px-2.5 sm:px-3 py-2.5 bg-emerald-50/90 font-black border-t-2 border-emerald-300 text-xs">
+                      <div className="w-[42%] uppercase text-[10px] sm:text-xs text-gray-900 font-black">
+                        TOTAL CONSIGNMENT
+                      </div>
+                      <div className="w-[30%] text-center text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
+                        {totalAppleBoxes.toLocaleString('en-IN')} Boxes
+                      </div>
+                      <div className="w-[28%] text-right text-[10px] sm:text-xs text-gray-600 font-bold whitespace-nowrap">
+                        Mandi Rate
+                      </div>
+                    </div>
                   </div>
 
                   {/* Prominent Total Apple Amount Summary Card */}
@@ -4532,242 +4701,31 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               )}
 
-              {/* Dispatch & Transport Proof Details (Vehicle photo, Transport bill photo, vehicle number, driver) */}
-              <div className="p-3.5 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-3">
-                <span className="text-[10px] uppercase font-black text-blue-900 tracking-wider block flex items-center gap-1.5">
-                  <Truck size={14} className="text-blue-700" /> Dispatch &amp; Logistics Proof Documentation
-                </span>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">Vehicle / Truck Number</label>
-                    <input
-                      type="text"
-                      value={supplyVehicleNumber}
-                      onChange={(e) => setSupplyVehicleNumber(e.target.value.toUpperCase())}
-                      placeholder="e.g. TS09UB4521"
-                      className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white uppercase"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">Transporter Name</label>
-                    <input
-                      type="text"
-                      value={supplyTransporterName}
-                      onChange={(e) => setSupplyTransporterName(e.target.value)}
-                      placeholder="e.g. New Golden Roadways"
-                      className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-700 mb-0.5">Driver Contact Number</label>
-                    <input
-                      type="tel"
-                      value={supplyDriverPhone}
-                      onChange={(e) => setSupplyDriverPhone(e.target.value)}
-                      placeholder="e.g. 9848012345"
-                      className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 bg-white"
-                    />
-                  </div>
+              {/* Logistics Allotment Workflow Notice (Step 1) */}
+              <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white border border-emerald-200 rounded-2xl flex items-start gap-3 shadow-2xs">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#087A3E] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Truck size={18} />
                 </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                  {/* Vehicle Photo Upload */}
-                  <div className={`p-3 bg-white border rounded-xl space-y-1.5 transition ${
-                    supplyVehiclePhotoFile ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-red-300 bg-red-50/20'
-                  }`}>
-                    <div className="flex flex-wrap items-center justify-between gap-1">
-                      <label className="block text-xs font-black text-gray-900 flex items-center gap-1.5">
-                        <Camera size={14} className="text-emerald-700" />
-                        <span>Dispatch Vehicle Photo <span className="text-red-600 font-black">* (Mandatory)</span></span>
-                      </label>
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
-                        supplyVehiclePhotoFile
-                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                          : 'bg-red-100 text-red-800 border-red-300 animate-pulse'
-                      }`}>
-                        {supplyVehiclePhotoFile ? 'Photo Attached ✓' : '* Required / Mandatory'}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-gray-600">
-                      <strong className="text-red-600 font-bold">* Mandatory:</strong> Clear photo showing truck loaded with fruit cartons and visible number plate.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openCameraModal(
-                            'Dispatch Vehicle Photo',
-                            'VEHICLE DISPATCH PHOTO',
-                            undefined,
-                            (file, preview) => {
-                              setSupplyVehiclePhotoFile(file);
-                              setSupplyVehiclePhotoPreview(preview);
-                            }
-                          )
-                        }
-                        className="h-10 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
-                      >
-                        <Camera size={14} className="text-emerald-300" />
-                        <span>Live Camera</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => supplyVehicleInputRef.current?.click()}
-                        className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group"
-                      >
-                        <div className="w-5 h-5 rounded bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
-                          <Upload size={12} />
-                        </div>
-                        <span className="text-[11px] font-bold text-emerald-900 truncate">
-                          {supplyVehiclePhotoFile ? supplyVehiclePhotoFile.name : 'Choose File *'}
-                        </span>
-                      </button>
-                      <input
-                        ref={supplyVehicleInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/jpg"
-                        onChange={handleSupplyVehiclePhotoChange}
-                        style={{ display: 'none' }}
-                      />
-                    </div>
-                    {supplyVehiclePhotoPreview && (
-                      <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={supplyVehiclePhotoPreview}
-                            alt="Vehicle Preview"
-                            className="h-14 w-18 object-cover rounded"
-                          />
-                          <span className="text-[10px] text-emerald-700 font-bold block">Vehicle Photo Attached ✓</span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSupplyVehiclePhotoFile(null);
-                            setSupplyVehiclePhotoPreview('');
-                          }}
-                          className="p-1 text-gray-400 hover:text-red-500 rounded"
-                          title="Remove"
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Section 4: Vendor Digital E-Signature & Authorization */}
-                  <div className={`p-3 bg-white border rounded-2xl space-y-2.5 transition shadow-2xs ${
-                    vendorSignatureData || supplyTransportBillFile ? 'border-emerald-400 ring-1 ring-emerald-200' : 'border-emerald-300'
-                  }`}>
-                    <div className="flex flex-wrap items-center justify-between gap-1">
-                      <label className="block text-xs font-black text-gray-900 flex items-center gap-1.5">
-                        <Pencil size={14} className="text-emerald-700" />
-                        <span>Vendor Digital E-Signature &amp; Authorization <span className="text-red-600 font-black">* (Mandatory)</span></span>
-                      </label>
-                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
-                        vendorSignatureData || supplyTransportBillFile
-                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                          : 'bg-red-100 text-red-800 border-red-300 animate-pulse'
-                      }`}>
-                        {vendorSignatureData || supplyTransportBillFile ? 'E-Signature Attached ✓' : '* Sign Below / Required'}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-600">
-                      Sign directly on the signature pad using finger/stylus on mobile or mouse on desktop to authorize consignment release.
-                    </p>
-
-                    {/* Interactive Signature Canvas Pad */}
-                    <div className="relative border-2 border-dashed border-emerald-400 rounded-xl bg-gray-50/70 overflow-hidden shadow-inner">
-                      <canvas
-                        ref={signatureCanvasRef}
-                        width={520}
-                        height={160}
-                        onMouseDown={startDrawingSignature}
-                        onMouseMove={drawSignature}
-                        onMouseUp={stopDrawingSignature}
-                        onMouseLeave={stopDrawingSignature}
-                        onTouchStart={startDrawingSignature}
-                        onTouchMove={drawSignature}
-                        onTouchEnd={stopDrawingSignature}
-                        className="w-full h-32 sm:h-36 bg-white cursor-crosshair touch-none select-none block"
-                      />
-                      {!vendorSignatureData && !isDrawingSignature && (
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-400 text-xs font-medium">
-                          ✍ Touch &amp; draw signature here using finger...
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Signature Controls & Alternatives */}
-                    <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={clearSignature}
-                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition cursor-pointer"
-                        >
-                          Clear Signature
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => supplyTransportInputRef.current?.click()}
-                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold rounded-lg border border-emerald-300 transition cursor-pointer flex items-center gap-1"
-                        >
-                          <Upload size={12} />
-                          <span>Or Upload Signature / Slip</span>
-                        </button>
-                      </div>
-
-                      {vendorSignatureData && (
-                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md flex items-center gap-1">
-                          <CheckCircle2 size={12} className="text-emerald-600" />
-                          <span>Digital Signature Captured ✓</span>
-                        </span>
-                      )}
-                    </div>
-
-                    <input
-                      ref={supplyTransportInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/jpg,application/pdf"
-                      onChange={handleSupplyTransportBillChange}
-                      style={{ display: 'none' }}
-                    />
-
-                    {supplyTransportBillPreview && !vendorSignatureData && (
-                      <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
-                        {supplyTransportBillFile?.type === 'application/pdf' ? (
-                          <span className="text-xs text-blue-800 font-bold flex items-center gap-1">
-                            <FileText size={12} /> PDF Document ({supplyTransportBillFile.name})
-                          </span>
-                        ) : (
-                          <img
-                            src={supplyTransportBillPreview}
-                            alt="Signature Preview"
-                            className="h-20 w-auto object-contain rounded border border-gray-200"
-                          />
-                        )}
-                        <span className="text-[9px] text-emerald-700 font-bold block mt-0.5">Authorization Document Attached ✓</span>
-                      </div>
-                    )}
-                  </div>
+                <div>
+                  <h4 className="text-xs font-black text-gray-900 font-['Manrope']">
+                    Vehicle Allotment &amp; Farm Loading Process
+                  </h4>
+                  <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                    Submit your consignment PO request with farm origin and required fruit box quantities. Safal Regional Logistics Hub will review and allot an authorized refrigerated vehicle to your farm. Once the vehicle arrives at your location, you can confirm carton loading, take the truck photo, and digitally sign the dispatch authorization.
+                  </p>
                 </div>
               </div>
-
-
 
               {/* Consignment Remarks */}
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
-                  Consignment &amp; Transport Remarks (Optional)
+                  Consignment &amp; Farm Loading Remarks (Optional)
                 </label>
                 <input
                   type="text"
                   value={poNotes}
                   onChange={(e) => setPoNotes(e.target.value)}
-                  placeholder="e.g. Cold storage packed Grade A Apples for delivery to Warangal mandi"
+                  placeholder="e.g. Cold storage packed Grade A Apples ready for farm pickup to Warangal regional hub"
                   className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
                 />
               </div>
@@ -4790,8 +4748,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   disabled={isSubmittingPO}
                   className="px-5 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white font-black shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  <ShoppingCart size={15} />
-                  {isSubmittingPO ? 'Submitting Supply PO...' : 'Submit Consignment PO'}
+                  <Truck size={15} />
+                  {isSubmittingPO ? 'Submitting Supply PO...' : '🚀 Request Consignment PO & Vehicle Allotment'}
                 </button>
               </div>
             </form>
