@@ -432,13 +432,16 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
 
     const totalPOs = pos.length;
     const inTransitPOs = pos.filter(
-      (p) => p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchStatus === 'IN_TRANSIT'
+      (p) => (p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchStatus === 'IN_TRANSIT') && p.status !== 'CLOSED'
     ).length;
     const pendingDispatchPOs = pos.filter(
-      (p) => p.dispatchStatus === 'PENDING_DISPATCH' && p.status !== 'CLOSED' && p.status !== 'CANCELLED'
+      (p) => (!p.dispatchStatus || p.dispatchStatus === 'PENDING_DISPATCH') && p.status !== 'CLOSED' && p.status !== 'CANCELLED'
+    ).length;
+    const awaitingClearancePOs = pos.filter(
+      (p) => (p.dispatchStatus === 'DELIVERED_AT_HUB' || p.dispatchVehicleNumber) && p.status !== 'CLOSED'
     ).length;
     const deliveredPOs = pos.filter(
-      (p) => p.dispatchStatus === 'DELIVERED_AT_HUB' || p.status === 'CLOSED'
+      (p) => p.status === 'CLOSED'
     ).length;
 
     const totalOrderValue = pos.reduce((sum, p) => sum + Number(p.grandTotal || 0), 0);

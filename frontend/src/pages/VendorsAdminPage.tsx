@@ -412,6 +412,24 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     }
   };
 
+  const handleClearVendorPO = async (op: any) => {
+    const poNum = op.poNumber || 'PO';
+    if (
+      !window.confirm(
+        `Clear Vendor Consignment ${poNum}?\n\nThis confirms you have verified the consignment delivery, vehicle dispatch proof, and weighbridge scale slip. This PO will be marked as CLEARED in both Admin and Vendor dashboards.`
+      )
+    ) {
+      return;
+    }
+    try {
+      await api.closePurchaseOrder(op.id);
+      onNotify(`Consignment ${poNum} verified and marked as CLEARED! Vendor dashboard updated.`);
+      await loadVendorsAndOperations();
+    } catch (err: any) {
+      onNotify(err.message || 'Failed to clear consignment');
+    }
+  };
+
   const handleExportCSV = () => {
     try {
       const headers = [
@@ -1333,6 +1351,22 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                           </td>
                           <td className="text-center py-3.5 px-4 whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
+                              {status !== 'CLOSED' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleClearVendorPO(op)}
+                                  className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer"
+                                  title="Admin verify consignment & mark as Cleared"
+                                >
+                                  <CheckCircle2 size={11} />
+                                  <span>Clear PO</span>
+                                </button>
+                              ) : (
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded text-[9px] font-black inline-flex items-center gap-0.5">
+                                  <CheckCircle2 size={9} /> CLEARED ✓
+                                </span>
+                              )}
+
                               <button
                                 type="button"
                                 onClick={() => openPLModal(op)}
@@ -1653,9 +1687,25 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                         </span>
                       </td>
                       <td className="text-center py-3.5 px-4 whitespace-nowrap">
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-300">
-                          In Transit
-                        </span>
+                        {op.status === 'CLOSED' ? (
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
+                            <CheckCircle2 size={10} /> Cleared ✓
+                          </span>
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-300">
+                              In Transit
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleClearVendorPO(op)}
+                              className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-0.5 shadow-xs transition cursor-pointer"
+                              title="Verify consignment & clear PO"
+                            >
+                              <CheckCircle2 size={10} /> Clear
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );

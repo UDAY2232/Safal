@@ -810,7 +810,16 @@ export async function rejectPurchaseOrder(req: AuthRequest, res: Response) {
 export async function closePurchaseOrder(req: AuthRequest, res: Response) {
   try {
     const { id } = req.params;
-    const po = await prisma.purchaseOrder.findUnique({ where: { id } });
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        vendorProfile: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
 
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found' });
@@ -825,10 +834,10 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
     const advance = Number(po.advanceAmount || 0);
     const pending = Number(po.pendingAmount ?? Math.max(0, grandTotal - advance));
 
-    // Strict Rule: A PO can only be CLOSED if due is ₹0
-    if (pending > 0) {
+    // Strict Rule: For Customer Due (CD/...) records, it can only be CLOSED if due is ₹0
+    if (po.poNumber.startsWith('CD/') && pending > 0) {
       return res.status(400).json({
-        error: `Cannot close PO: Due of ₹${pending.toLocaleString('en-IN')} is still pending. Status must remain Open until Due is ₹0.`,
+        error: `Cannot close Customer Due: Due of ₹${pending.toLocaleString('en-IN')} is still pending. Status must remain Open until Due is ₹0.`,
       });
     }
 
@@ -843,15 +852,32 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
       where: { id },
       data: {
         status: 'CLOSED',
+        dispatchStatus: 'DELIVERED_AT_HUB',
         statusHistory: {
           create: {
             status: 'CLOSED',
             changedById: req.user!.id,
-            comment: 'Order completed and closed',
+            comment: po.poNumber.startsWith('CD/')
+              ? 'Customer Due verified and settled'
+              : 'Consignment delivery, vehicle evidence, and weighbridge slip verified and cleared by Admin',
           },
         },
       },
     });
+
+    // Notify Vendor if this is a vendor consignment PO
+    if (po.vendorProfile?.user?.id) {
+      await prisma.notification.create({
+        data: {
+          userId: po.vendorProfile.user.id,
+          recipientRole: 'VENDOR',
+          title: `Consignment Cleared: ${po.poNumber}`,
+          message: `Consignment PO ${po.poNumber} has been verified and cleared by Admin. Status in your dashboard is now Cleared ✓.`,
+          type: 'SUCCESS',
+          linkUrl: `/dashboard`,
+        },
+      });
+    }
 
     await createAuditLog({
       userId: req.user?.id,

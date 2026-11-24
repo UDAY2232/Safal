@@ -41,10 +41,12 @@ import {
   Package,
   Camera,
   ReceiptText,
+  AlertTriangle,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { PurchaseOrder, VENDOR_WHITELISTED_LOCATIONS, VENDOR_WHITELISTED_FRUITS } from '../types';
+import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
 
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
@@ -95,10 +97,47 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [selectedKpiModal, setSelectedKpiModal] = useState<'orders' | 'advance' | 'due' | 'volume' | 'transit' | 'qc' | null>(null);
 
   // Consignments Search, Filter, Expand & Media Preview State
-  const [consignmentFilter, setConsignmentFilter] = useState<'ALL' | 'PENDING' | 'IN_TRANSIT' | 'DELIVERED'>('ALL');
+  const [consignmentFilter, setConsignmentFilter] = useState<'ALL' | 'PENDING' | 'IN_TRANSIT' | 'AWAITING_CLEARANCE' | 'CLEARED' | 'DELIVERED'>('ALL');
   const [consignmentSearch, setConsignmentSearch] = useState('');
   const [expandedPOId, setExpandedPOId] = useState<string | null>(null);
   const [previewMediaModal, setPreviewMediaModal] = useState<{ url: string; title: string } | null>(null);
+
+  // Live Camera Capture Modal State (Attendance Mode with GPS & IST Watermark)
+  const [cameraModalConfig, setCameraModalConfig] = useState<{
+    open: boolean;
+    title: string;
+    documentType: string;
+    poNumber?: string;
+    onCapture: (file: File, previewUrl: string) => void;
+  }>({
+    open: false,
+    title: '',
+    documentType: '',
+    onCapture: () => {},
+  });
+
+  const openCameraModal = (
+    title: string,
+    documentType: string,
+    poNumber: string | undefined,
+    onCapture: (file: File, previewUrl: string) => void
+  ) => {
+    setCameraModalConfig({
+      open: true,
+      title,
+      documentType,
+      poNumber,
+      onCapture,
+    });
+  };
+
+  // Missing Images Warning Popup Alert State
+  const [missingImagesPopup, setMissingImagesPopup] = useState<{
+    open: boolean;
+    title: string;
+    missingItems: string[];
+    targetAction?: 'dispatch' | 'supply';
+  } | null>(null);
 
   // Dispatch Modal state
   const [selectedPOForDispatch, setSelectedPOForDispatch] = useState<PurchaseOrder | null>(null);
@@ -703,6 +742,23 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       }
 
       if (supplyVehicleNumber.trim()) {
+        const missing: string[] = [];
+        if (!supplyVehiclePhotoFile) {
+          missing.push('Dispatch Vehicle Photo (with visible number plate)');
+        }
+        if (!supplyTransportBillFile) {
+          missing.push('Transport Bill / Bilty (LR Copy)');
+        }
+        if (missing.length > 0) {
+          setCreatePOError('Please upload both the Vehicle Photo and Transport Bill before submitting.');
+          setMissingImagesPopup({
+            open: true,
+            title: 'Consignment Photos Required',
+            missingItems: missing,
+            targetAction: 'supply',
+          });
+          return;
+        }
         formData.append('dispatchVehicleNumber', supplyVehicleNumber.trim().toUpperCase());
       }
       if (supplyTransporterName.trim()) {
@@ -803,13 +859,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       return;
     }
 
+    const missing: string[] = [];
     if (!vehiclePhotoFile) {
-      setDispatchError('Please upload a clear photo of the vehicle showing the number plate');
-      return;
+      missing.push('Vehicle Photo (with clear number plate)');
+    }
+    if (!transportBillFile) {
+      missing.push('Transport Bill / Bilty (LR Copy)');
     }
 
-    if (!transportBillFile) {
-      setDispatchError('Please upload the Transport Bill / Bilty (LR Copy)');
+    if (missing.length > 0) {
+      setDispatchError('Please upload both the Vehicle Photo and Transport Bill before submitting.');
+      setMissingImagesPopup({
+        open: true,
+        title: 'Dispatch Evidence Required',
+        missingItems: missing,
+        targetAction: 'dispatch',
+      });
       return;
     }
 
@@ -856,12 +921,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   );
 
   const inTransitOrders = orders.filter(
-    (o) => o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'IN_TRANSIT'
+    (o) =>
+      (o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'IN_TRANSIT') &&
+      o.status !== 'CLOSED'
   );
 
-  const deliveredAndVerifiedOrders = orders.filter(
-    (o) => o.dispatchStatus === 'DELIVERED_AT_HUB' || o.status === 'CLOSED'
+  const awaitingClearanceOrders = orders.filter(
+    (o) =>
+      (o.dispatchStatus === 'DELIVERED_AT_HUB' || o.dispatchVehicleNumber || o.vehiclePhotoUrl) &&
+      o.status !== 'CLOSED'
   );
+
+  const clearedOrders = orders.filter((o) => o.status === 'CLOSED');
+  const deliveredAndVerifiedOrders = clearedOrders;
 
   const filteredOrders = orders.filter((po) => {
     if (consignmentFilter === 'PENDING') {
@@ -869,16 +941,27 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         po.dispatchStatus === 'LOADED_AND_DISPATCHED' ||
         po.dispatchStatus === 'IN_TRANSIT' ||
         po.dispatchStatus === 'DELIVERED_AT_HUB' ||
+        po.dispatchVehicleNumber ||
         po.status === 'CLOSED'
       ) {
         return false;
       }
     } else if (consignmentFilter === 'IN_TRANSIT') {
-      if (po.dispatchStatus !== 'LOADED_AND_DISPATCHED' && po.dispatchStatus !== 'IN_TRANSIT') {
+      if (
+        (po.dispatchStatus !== 'LOADED_AND_DISPATCHED' && po.dispatchStatus !== 'IN_TRANSIT') ||
+        po.status === 'CLOSED'
+      ) {
         return false;
       }
-    } else if (consignmentFilter === 'DELIVERED') {
-      if (po.dispatchStatus !== 'DELIVERED_AT_HUB' && po.status !== 'CLOSED') {
+    } else if (consignmentFilter === 'AWAITING_CLEARANCE') {
+      if (
+        (!po.dispatchVehicleNumber && po.dispatchStatus !== 'DELIVERED_AT_HUB' && !po.vehiclePhotoUrl) ||
+        po.status === 'CLOSED'
+      ) {
+        return false;
+      }
+    } else if (consignmentFilter === 'CLEARED' || consignmentFilter === 'DELIVERED') {
+      if (po.status !== 'CLOSED') {
         return false;
       }
     }
@@ -1768,14 +1851,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               </button>
               <button
                 type="button"
-                onClick={() => setConsignmentFilter('DELIVERED')}
+                onClick={() => setConsignmentFilter('AWAITING_CLEARANCE')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-                  consignmentFilter === 'DELIVERED'
+                  consignmentFilter === 'AWAITING_CLEARANCE'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                Awaiting Clearance ({awaitingClearanceOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setConsignmentFilter('CLEARED')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  consignmentFilter === 'CLEARED' || consignmentFilter === 'DELIVERED'
                     ? 'bg-emerald-700 text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                Delivered &amp; QC Verified ({deliveredAndVerifiedOrders.length})
+                Cleared ✓ ({clearedOrders.length})
               </button>
             </div>
 
@@ -1942,16 +2036,23 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Status */}
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 inline-flex items-center gap-1">
-                                <Truck size={12} /> In Transit
+                            {po.status === 'CLOSED' ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
+                                <CheckCircle2 size={12} className="text-emerald-700" /> Cleared ✓
                               </span>
-                            ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.status === 'CLOSED' ? (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-900 inline-flex items-center gap-1">
-                                <CheckCircle2 size={12} /> Delivered &amp; Verified
+                            ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.dispatchVehicleNumber || po.vehiclePhotoUrl ? (
+                              <span
+                                className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
+                                title="Consignment dispatched and submitted. Awaiting Admin physical verification & clearance."
+                              >
+                                <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance
+                              </span>
+                            ) : po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
+                                <Truck size={12} className="text-blue-700" /> In Transit
                               </span>
                             ) : (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 inline-flex items-center gap-1">
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-800 border border-gray-300 inline-flex items-center gap-1">
                                 <Clock size={12} /> Pending Dispatch
                               </span>
                             )}
@@ -2587,81 +2688,170 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
               {/* File 1: Vehicle Photo with Number Plate Clearly Visible */}
               <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
-                <label className="block text-amber-950 font-bold">
-                  1. Vehicle Photo (Number Plate MUST be clearly visible) *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-amber-950 font-bold">
+                    1. Vehicle Photo (Number Plate MUST be clearly visible) *
+                  </label>
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                    Mandatory
+                  </span>
+                </div>
                 <p className="text-[11px] text-gray-600">
-                  Take a photo of the truck where the number plate and loaded fruit boxes/crates are clearly visible.
+                  Take a photo of the truck where the number plate and loaded fruit boxes/crates are clearly visible. Live timestamp, GPS, and device info will be stamped automatically.
                 </p>
 
-                <label className="w-full h-11 px-3 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs">
-                  <Upload size={15} className="text-emerald-700" />
-                  <span className="text-xs font-bold text-emerald-900 truncate">
-                    {vehiclePhotoFile ? vehiclePhotoFile.name : 'Choose Vehicle Photo (with number plate)'}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/jpg"
-                    capture="environment"
-                    required
-                    onChange={handleVehiclePhotoChange}
-                    style={{ display: 'none' }}
-                    className="hidden"
-                  />
-                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openCameraModal(
+                        'Vehicle Dispatch Photo',
+                        'VEHICLE DISPATCH PHOTO',
+                        selectedPOForDispatch?.poNumber,
+                        (file, preview) => {
+                          setVehiclePhotoFile(file);
+                          setVehiclePhotoPreview(preview);
+                        }
+                      )
+                    }
+                    className="h-10 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
+                  >
+                    <Camera size={15} className="text-emerald-300" />
+                    <span>Open Camera (Live Capture)</span>
+                  </button>
+
+                  <label className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-white hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                    <div className="w-6 h-6 rounded-md bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
+                      <Upload size={13} />
+                    </div>
+                    <span className="text-xs font-bold text-emerald-900 truncate">
+                      {vehiclePhotoFile ? vehiclePhotoFile.name : 'Choose from Files'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/jpg"
+                      onChange={handleVehiclePhotoChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
 
                 {vehiclePhotoPreview && (
-                  <div className="mt-2 p-2 bg-white rounded-xl border border-gray-200 inline-block">
-                    <img
-                      src={vehiclePhotoPreview}
-                      alt="Vehicle Preview"
-                      className="h-32 object-contain rounded-lg"
-                    />
-                    <span className="text-[10px] text-emerald-700 font-bold block mt-1">Vehicle Photo Attached ✓</span>
+                  <div className="mt-2 p-2 bg-white rounded-xl border border-emerald-300 flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <img
+                        src={vehiclePhotoPreview}
+                        alt="Vehicle Preview"
+                        className="h-16 w-20 object-cover rounded-lg border border-gray-200"
+                      />
+                      <div>
+                        <span className="text-xs text-emerald-800 font-bold flex items-center gap-1">
+                          <CheckCircle2 size={13} className="text-emerald-600" /> Vehicle Photo Attached ✓
+                        </span>
+                        <span className="text-[10px] text-gray-500 block">
+                          {vehiclePhotoFile?.name} ({(Number(vehiclePhotoFile?.size || 0) / 1024).toFixed(1)} KB)
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVehiclePhotoFile(null);
+                        setVehiclePhotoPreview('');
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                      title="Remove"
+                    >
+                      <X size={16} />
+                    </button>
                   </div>
                 )}
               </div>
 
               {/* File 2: Transport Bill / Bilty Upload */}
               <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl space-y-2">
-                <label className="block text-blue-950 font-bold">
-                  2. Transport Bill / Bilty / LR (Lorry Receipt) *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-blue-950 font-bold">
+                    2. Transport Bill / Bilty / LR (Lorry Receipt) *
+                  </label>
+                  <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full border border-blue-300">
+                    Mandatory
+                  </span>
+                </div>
                 <p className="text-[11px] text-gray-600">
-                  Upload clear photo or PDF document of the transporter's consignment note or freight receipt.
+                  Take a photo of the transporter's consignment note / freight receipt or upload PDF document.
                 </p>
 
-                <label className="w-full h-11 px-3.5 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-xl flex items-center justify-center gap-2.5 cursor-pointer transition shadow-2xs group">
-                  <div className="w-7 h-7 rounded-lg bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
-                    <Upload size={14} />
-                  </div>
-                  <span className="text-xs font-bold text-blue-900 truncate">
-                    {transportBillFile ? transportBillFile.name : 'Choose Transport Bill (Bilty / LR) Image or PDF'}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/jpg,application/pdf"
-                    required
-                    onChange={handleTransportBillChange}
-                    style={{ display: 'none' }}
-                    className="hidden"
-                  />
-                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      openCameraModal(
+                        'Transport Bill / Bilty Photo',
+                        'TRANSPORT BILTY (LR)',
+                        selectedPOForDispatch?.poNumber,
+                        (file, preview) => {
+                          setTransportBillFile(file);
+                          setTransportBillPreview(preview);
+                        }
+                      )
+                    }
+                    className="h-10 px-3 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
+                  >
+                    <Camera size={15} className="text-blue-200" />
+                    <span>Open Camera (Snap Bilty)</span>
+                  </button>
+
+                  <label className="h-10 px-3 border-2 border-dashed border-blue-400 bg-white hover:bg-blue-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                    <div className="w-6 h-6 rounded-md bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
+                      <Upload size={13} />
+                    </div>
+                    <span className="text-xs font-bold text-blue-900 truncate">
+                      {transportBillFile ? transportBillFile.name : 'Choose File / PDF'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/jpg,application/pdf"
+                      onChange={handleTransportBillChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
 
                 {transportBillPreview && (
-                  <div className="mt-2 p-2 bg-white rounded-xl border border-gray-200 inline-block">
-                    {transportBillFile?.type === 'application/pdf' ? (
-                      <span className="text-xs text-blue-800 font-bold flex items-center gap-1">
-                        <FileText size={13} /> PDF Document Attached ({transportBillFile.name})
-                      </span>
-                    ) : (
-                      <img
-                        src={transportBillPreview}
-                        alt="Bilty Preview"
-                        className="h-32 object-contain rounded-lg"
-                      />
-                    )}
-                    <span className="text-[10px] text-emerald-700 font-bold block mt-1">Transport Bill Attached ✓</span>
+                  <div className="mt-2 p-2 bg-white rounded-xl border border-blue-300 flex items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      {transportBillFile?.type === 'application/pdf' ? (
+                        <div className="w-12 h-12 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
+                          <FileText size={22} />
+                        </div>
+                      ) : (
+                        <img
+                          src={transportBillPreview}
+                          alt="Bilty Preview"
+                          className="h-16 w-20 object-cover rounded-lg border border-gray-200"
+                        />
+                      )}
+                      <div>
+                        <span className="text-xs text-blue-800 font-bold flex items-center gap-1">
+                          <CheckCircle2 size={13} className="text-blue-600" /> Transport Bill Attached ✓
+                        </span>
+                        <span className="text-[10px] text-gray-500 block truncate max-w-[200px]">
+                          {transportBillFile?.name} ({(Number(transportBillFile?.size || 0) / 1024).toFixed(1)} KB)
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTransportBillFile(null);
+                        setTransportBillPreview('');
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                      title="Remove"
+                    >
+                      <X size={16} />
+                    </button>
                   </div>
                 )}
               </div>
@@ -3452,29 +3642,63 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <p className="text-[10px] text-gray-500">
                       Clear photo showing vehicle with loaded fruit boxes and number plate.
                     </p>
-                    <label className="w-full h-10 px-3 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
-                      <div className="w-6 h-6 rounded-md bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
-                        <Upload size={13} />
-                      </div>
-                      <span className="text-[11px] font-bold text-emerald-900 truncate">
-                        {supplyVehiclePhotoFile ? supplyVehiclePhotoFile.name : 'Choose Vehicle Dispatch Photo'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/jpg"
-                        onChange={handleSupplyVehiclePhotoChange}
-                        style={{ display: 'none' }}
-                        className="hidden"
-                      />
-                    </label>
-                    {supplyVehiclePhotoPreview && (
-                      <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
-                        <img
-                          src={supplyVehiclePhotoPreview}
-                          alt="Vehicle Preview"
-                          className="h-24 w-auto object-contain rounded"
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openCameraModal(
+                            'Dispatch Vehicle Photo',
+                            'VEHICLE DISPATCH PHOTO',
+                            undefined,
+                            (file, preview) => {
+                              setSupplyVehiclePhotoFile(file);
+                              setSupplyVehiclePhotoPreview(preview);
+                            }
+                          )
+                        }
+                        className="h-10 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                      >
+                        <Camera size={14} className="text-emerald-300" />
+                        <span>Live Camera</span>
+                      </button>
+
+                      <label className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                        <div className="w-5 h-5 rounded bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
+                          <Upload size={12} />
+                        </div>
+                        <span className="text-[11px] font-bold text-emerald-900 truncate">
+                          {supplyVehiclePhotoFile ? supplyVehiclePhotoFile.name : 'Choose File'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg"
+                          onChange={handleSupplyVehiclePhotoChange}
+                          style={{ display: 'none' }}
+                          className="hidden"
                         />
-                        <span className="text-[9px] text-emerald-700 font-bold block mt-0.5">Vehicle Photo Attached ✓</span>
+                      </label>
+                    </div>
+                    {supplyVehiclePhotoPreview && (
+                      <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={supplyVehiclePhotoPreview}
+                            alt="Vehicle Preview"
+                            className="h-14 w-18 object-cover rounded"
+                          />
+                          <span className="text-[10px] text-emerald-700 font-bold block">Vehicle Photo Attached ✓</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSupplyVehiclePhotoFile(null);
+                            setSupplyVehiclePhotoPreview('');
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 rounded"
+                          title="Remove"
+                        >
+                          <X size={14} />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -3488,21 +3712,42 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <p className="text-[10px] text-gray-500">
                       Clear photo or PDF receipt from transporter / consignment note.
                     </p>
-                    <label className="w-full h-10 px-3 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
-                      <div className="w-6 h-6 rounded-md bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
-                        <Upload size={13} />
-                      </div>
-                      <span className="text-[11px] font-bold text-blue-900 truncate">
-                        {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose Bilty / LR Document'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/jpg,application/pdf"
-                        onChange={handleSupplyTransportBillChange}
-                        style={{ display: 'none' }}
-                        className="hidden"
-                      />
-                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openCameraModal(
+                            'Transport Bill Photo',
+                            'TRANSPORT BILTY (LR)',
+                            undefined,
+                            (file, preview) => {
+                              setSupplyTransportBillFile(file);
+                              setSupplyTransportBillPreview(preview);
+                            }
+                          )
+                        }
+                        className="h-10 px-3 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
+                      >
+                        <Camera size={14} className="text-blue-200" />
+                        <span>Live Camera</span>
+                      </button>
+
+                      <label className="h-10 px-3 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                        <div className="w-5 h-5 rounded bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
+                          <Upload size={12} />
+                        </div>
+                        <span className="text-[11px] font-bold text-blue-900 truncate">
+                          {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose File / PDF'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg,application/pdf"
+                          onChange={handleSupplyTransportBillChange}
+                          style={{ display: 'none' }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                     {supplyTransportBillPreview && (
                       <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
                         {supplyTransportBillFile?.type === 'application/pdf' ? (
@@ -4173,24 +4418,51 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-gray-700 font-bold mb-1">
-                      Upload Weighbridge Scale Slip Photo / PDF
-                    </label>
-                    <label className="w-full h-11 px-3.5 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-xl flex items-center justify-center gap-2.5 cursor-pointer transition shadow-2xs group">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
-                        <Upload size={14} />
-                      </div>
-                      <span className="text-xs font-bold text-emerald-900 truncate">
-                        {qcSlipFile ? qcSlipFile.name : 'Choose Scale Slip Receipt Image / PDF'}
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-gray-700 font-bold">
+                        Upload Weighbridge Scale Slip Photo / PDF
+                      </label>
+                      <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                        Mandatory
                       </span>
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        onChange={handleQCSlipFileChange}
-                        style={{ display: 'none' }}
-                        className="hidden"
-                      />
-                    </label>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const poObj = orders.find((o) => o.id === qcSelectedPOId);
+                          openCameraModal(
+                            'Weighbridge Scale Slip Photo',
+                            'WEIGHBRIDGE SCALE SLIP',
+                            poObj?.poNumber,
+                            (file, preview) => {
+                              setQcSlipFile(file);
+                              setQcSlipPreview(preview);
+                            }
+                          );
+                        }}
+                        className="h-10 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
+                      >
+                        <Camera size={15} className="text-emerald-300" />
+                        <span>Live Camera (Slip)</span>
+                      </button>
+
+                      <label className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-white hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                        <div className="w-6 h-6 rounded-md bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
+                          <Upload size={13} />
+                        </div>
+                        <span className="text-xs font-bold text-emerald-900 truncate">
+                          {qcSlipFile ? qcSlipFile.name : 'Choose File / PDF'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*,application/pdf"
+                          onChange={handleQCSlipFileChange}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
                 </div>
 
@@ -4547,6 +4819,129 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   {selectedKpiModal === 'qc' && 'Open Weighbridge & QC Slips Desk'}
                 </span>
                 <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Camera Capture Modal (Attendance-style with IST time, GPS, Vendor Name & Device Stamped) */}
+      <VendorPhotoCaptureModal
+        isOpen={cameraModalConfig.open}
+        onClose={() => setCameraModalConfig((prev) => ({ ...prev, open: false }))}
+        title={cameraModalConfig.title}
+        documentType={cameraModalConfig.documentType}
+        poNumber={cameraModalConfig.poNumber}
+        vendorName={vendorProfile?.businessName || user?.name || 'Vendor Partner'}
+        vendorId={vendorProfile?.vendorId || 'VND-001'}
+        onCapture={cameraModalConfig.onCapture}
+      />
+
+      {/* Pop-up Alert when user clicks Submit without uploading required images */}
+      {missingImagesPopup && missingImagesPopup.open && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full border border-amber-300 overflow-hidden">
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-amber-500 to-amber-600 text-white flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0 border border-white/30">
+                <AlertTriangle size={22} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-extrabold text-white">Images Upload Required</h3>
+                <p className="text-[11px] text-amber-100 font-semibold">ఫోటోలు తప్పనిసరిగా అప్‌లోడ్ చేయాలి</p>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-4 text-xs">
+              <p className="text-gray-700 leading-relaxed font-medium">
+                You cannot submit this consignment without uploading the required photographic proof. Safal quality control requires tamper-proof photo verification:
+              </p>
+
+              <div className="space-y-2">
+                {missingImagesPopup.missingItems.map((item, i) => (
+                  <div
+                    key={i}
+                    className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl flex items-center gap-2.5 text-rose-900 font-bold"
+                  >
+                    <div className="w-5 h-5 rounded-full bg-rose-200 text-rose-800 flex items-center justify-center flex-shrink-0 text-[11px]">
+                      ✕
+                    </div>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 flex items-start gap-2">
+                <Camera size={15} className="text-amber-700 flex-shrink-0 mt-0.5" />
+                <span>
+                  Tip: Use the <strong>"Open Camera (Live Capture)"</strong> button to snap directly from your phone. Time, location, and device details will be stamped automatically!
+                </span>
+              </div>
+            </div>
+
+            <div className="p-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setMissingImagesPopup(null)}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-bold text-xs transition cursor-pointer"
+              >
+                Close &amp; Upload
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const missingFirst = missingImagesPopup.missingItems[0];
+                  const isSupply = missingImagesPopup.targetAction === 'supply';
+                  setMissingImagesPopup(null);
+                  if (missingFirst?.toLowerCase().includes('vehicle')) {
+                    if (isSupply) {
+                      openCameraModal(
+                        'Dispatch Vehicle Photo',
+                        'VEHICLE DISPATCH PHOTO',
+                        undefined,
+                        (file, preview) => {
+                          setSupplyVehiclePhotoFile(file);
+                          setSupplyVehiclePhotoPreview(preview);
+                        }
+                      );
+                    } else {
+                      openCameraModal(
+                        'Vehicle Dispatch Photo',
+                        'VEHICLE DISPATCH PHOTO',
+                        selectedPOForDispatch?.poNumber,
+                        (file, preview) => {
+                          setVehiclePhotoFile(file);
+                          setVehiclePhotoPreview(preview);
+                        }
+                      );
+                    }
+                  } else {
+                    if (isSupply) {
+                      openCameraModal(
+                        'Transport Bill Photo',
+                        'TRANSPORT BILTY (LR)',
+                        undefined,
+                        (file, preview) => {
+                          setSupplyTransportBillFile(file);
+                          setSupplyTransportBillPreview(preview);
+                        }
+                      );
+                    } else {
+                      openCameraModal(
+                        'Transport Bill / Bilty Photo',
+                        'TRANSPORT BILTY (LR)',
+                        selectedPOForDispatch?.poNumber,
+                        (file, preview) => {
+                          setTransportBillFile(file);
+                          setTransportBillPreview(preview);
+                        }
+                      );
+                    }
+                  }
+                }}
+                className="px-5 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-md transition cursor-pointer"
+              >
+                <Camera size={14} className="text-emerald-300" />
+                <span>Open Camera Now</span>
               </button>
             </div>
           </div>
