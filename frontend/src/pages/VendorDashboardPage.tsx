@@ -47,6 +47,7 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { PurchaseOrder, VENDOR_WHITELISTED_LOCATIONS, VENDOR_WHITELISTED_FRUITS } from '../types';
 import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
+import { PODetailModal } from '../components/PODetailModal';
 import { stampImageFile } from '../utils/watermark';
 
 interface VendorDashboardPageProps {
@@ -77,6 +78,43 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'orders' | 'dispatch' | 'qc' | 'kyc'>('dashboard');
   const [viewSlipModalUrl, setViewSlipModalUrl] = useState<string | null>(null);
+  const [selectedPODetail, setSelectedPODetail] = useState<any | null>(null);
+
+  // Dynamic Mandi Commercial Realization Calculations (5% Safal Platform Commission + 1% APMC Mandi Cess)
+  const derivedFinancialStats = React.useMemo(() => {
+    let grossContractValue = 0;
+    let totalAdvanceDisbursed = 0;
+    let totalSafalShare = 0;
+    let totalApmcShare = 0;
+    let totalNetPayable = 0;
+    let totalNetBalanceDue = 0;
+
+    for (const po of orders) {
+      const gross = Number(po.grandTotal || 0);
+      const settle = (po as any).settlementDetails;
+      const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(gross * 0.55));
+      const safal = Number(settle?.adminShareAmount ?? Math.round(gross * 0.05));
+      const apmc = Number(settle?.apmcShareAmount ?? Math.round(gross * 0.01));
+      const net = Number(settle?.netVendorPayable ?? Math.max(0, gross - (safal + apmc)));
+      const due = Number(settle?.finalBalanceDue ?? (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : Math.max(0, net - adv)));
+
+      grossContractValue += gross;
+      totalAdvanceDisbursed += adv;
+      totalSafalShare += safal;
+      totalApmcShare += apmc;
+      totalNetPayable += net;
+      totalNetBalanceDue += due;
+    }
+
+    return {
+      grossContractValue,
+      totalAdvanceDisbursed,
+      totalSafalShare,
+      totalApmcShare,
+      totalNetPayable,
+      totalNetBalanceDue,
+    };
+  }, [orders]);
 
   // Weighbridge & QC Slip Entry Modal State
   const [showRecordQCModal, setShowRecordQCModal] = useState(false);
@@ -985,20 +1023,24 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       o.status !== 'CLOSED'
   );
 
-  const awaitingClearanceOrders = orders.filter(
-    (o) =>
-      (o.dispatchStatus === 'DELIVERED_AT_HUB' || o.dispatchVehicleNumber || o.vehiclePhotoUrl) &&
-      o.status !== 'CLOSED'
-  );
-
-  const clearedOrders = orders.filter((o) => o.status === 'CLOSED');
+  const clearedOrders = orders.filter((o) => {
+    const settle = (o as any).settlementDetails;
+    const remainingDue = settle?.finalBalanceDue !== undefined
+      ? Number(settle.finalBalanceDue)
+      : Number(o.pendingAmount || 0);
+    return remainingDue === 0 && (Boolean(settle?.settlementCompleted) || (o.status === 'CLOSED' && Number(o.pendingAmount || 0) === 0));
+  });
   const deliveredAndVerifiedOrders = clearedOrders;
 
-  const completedOrders = orders.filter(
-    (o) =>
-      o.status === 'CLOSED' ||
-      o.dispatchStatus === 'DELIVERED_AT_HUB'
-  );
+  const awaitingClearanceOrders = orders.filter((o) => {
+    const isCleared = clearedOrders.some((c) => c.id === o.id);
+    return !isCleared && (o.dispatchStatus === 'DELIVERED_AT_HUB' || Boolean(o.dispatchVehicleNumber) || Boolean(o.vehiclePhotoUrl));
+  });
+
+  const completedOrders = orders.filter((o) => {
+    const isCleared = clearedOrders.some((c) => c.id === o.id);
+    return isCleared || o.dispatchStatus === 'DELIVERED_AT_HUB';
+  });
 
   const filteredDispatchTabOrders = orders.filter((o) => {
     if (dispatchTabFilter === 'PENDING') {
@@ -1186,7 +1228,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
       {/* Compact Stat Cards (Visible on secondary tabs: orders, dispatch, qc, kyc) */}
       {activeTab !== 'dashboard' && (
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
           {/* Card 1: Total POs */}
           <div
             onClick={() => setSelectedKpiModal('orders')}
@@ -1200,7 +1242,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 font-['Manrope'] block mt-0.5">
                 {stats.totalPOs}
               </strong>
-              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Procurement contracts · Tap for info</small>
+              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Procurement contracts · Tap info</small>
             </div>
           </div>
 
@@ -1217,7 +1259,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
                 {stats.inTransitPOs}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Dispatched on road · Tap for info</small>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Dispatched on road · Tap info</small>
             </div>
           </div>
 
@@ -1232,9 +1274,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="min-w-0 flex-1">
               <span className="text-[11px] sm:text-xs font-bold text-gray-800 block truncate">Total Contract Value</span>
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
-                ₹{Number(stats.totalOrderValue || 0).toLocaleString('en-IN')}
+                ₹{Number(derivedFinancialStats.grossContractValue || stats.totalOrderValue || 0).toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross commitments · Tap for info</small>
+              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross commitments · Tap info</small>
             </div>
           </div>
 
@@ -1249,9 +1291,26 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="min-w-0 flex-1">
               <span className="text-[11px] sm:text-xs font-bold text-emerald-950 block truncate">Advance Received</span>
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-emerald-800 font-['Manrope'] block mt-0.5 truncate">
-                ₹{Number(stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}
+                ₹{Number(derivedFinancialStats.totalAdvanceDisbursed || stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Cleared via bank · Tap for info</small>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">55% Disbursed · Tap for PO list</small>
+            </div>
+          </div>
+
+          {/* Card 5: Net Balance Due */}
+          <div
+            onClick={() => setSelectedKpiModal('due')}
+            className="stat-card orange flex items-center gap-2.5 sm:gap-3.5 p-3.5 sm:p-4 rounded-2xl bg-[#FFF7ED] border border-[#FED7AA] hover:border-amber-500 hover:shadow-md cursor-pointer transition-all active:scale-95 group"
+          >
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FFEDD5] flex items-center justify-center text-[#C2410C] flex-shrink-0">
+              <ReceiptText size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <span className="text-[11px] sm:text-xs font-bold text-amber-950 block truncate">Net Balance Due</span>
+              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-[#C2410C] font-['Manrope'] block mt-0.5 truncate">
+                ₹{Number(derivedFinancialStats.totalNetBalanceDue || stats.totalPendingBalance || 0).toLocaleString('en-IN')}
+              </strong>
+              <small className="text-[10px] text-amber-800 hidden sm:block truncate">Less 5% Co. &amp; 1% APMC · Tap info</small>
             </div>
           </div>
         </section>
@@ -1933,20 +1992,21 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 ) : (
                   filteredDispatchTabOrders.map((po, index) => {
                     const total = Number(po.grandTotal || po.totalAmount || 0);
-                    const settle = (po as any).settlementDetails || {
-                      advanceDisbursed: Boolean(po.advanceAmount > 0 || po.paymentProofUrl),
-                      advanceAmount: Number(po.advanceAmount || Math.round(total * 0.55)),
-                      advancePayingHub: po.orderPersonPlace || 'Warangal Hub',
-                      advanceProofUrl: po.paymentProofUrl || null,
-                      finalBalanceDue: Math.max(0, Math.round(total * 0.94) - Number(po.advanceAmount || Math.round(total * 0.55))),
-                      finalBalancePaid: Math.max(0, Math.round(total * 0.94) - Number(po.advanceAmount || Math.round(total * 0.55))),
-                      finalSettlementProofUrl: po.paymentProofUrl || null,
-                    };
-                    const advance = Number(settle.advanceAmount || Math.round(total * 0.55));
+                    const settle = (po as any).settlementDetails || {};
+                    const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                    const adminShare = Number(settle.adminShareAmount ?? Math.round(total * 0.05));
+                    const apmcShare = Number(settle.apmcShareAmount ?? Math.round(total * 0.01));
+                    const totalDeductions = adminShare + apmcShare;
+                    const netVendorPayable = Number(settle.netVendorPayable ?? Math.max(0, total - totalDeductions));
+                    const calculatedDue = Math.max(0, netVendorPayable - advance);
+                    const remainingDue = settle.finalBalanceDue !== undefined
+                      ? Number(settle.finalBalanceDue)
+                      : (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : (po.pendingAmount ? Number(po.pendingAmount) : calculatedDue));
+                    const isFullyCleared = remainingDue === 0 && (Boolean(settle.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
                     const isAppleConsignment = po.fruitName === 'Kashmir Apples' || po.fruitName?.toLowerCase().includes('apple') || po.items?.some(it => it.fruitName?.toLowerCase().includes('apple'));
                     const totalBoxes = po.items && po.items.length > 0 ? po.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0) : 0;
-                    const isPendingDispatch = (!po.dispatchStatus || po.dispatchStatus === 'PENDING_DISPATCH') && po.status !== 'CLOSED';
-                    const isInTransit = (po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT') && po.status !== 'CLOSED';
+                    const isPendingDispatch = (!po.dispatchStatus || po.dispatchStatus === 'PENDING_DISPATCH') && !isFullyCleared;
+                    const isInTransit = (po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT') && !isFullyCleared;
 
                     return (
                       <tr key={po.id} className="hover:bg-emerald-50/20 transition">
@@ -2083,17 +2143,17 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                         {/* Status */}
                         <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                          {po.status === 'CLOSED' ? (
+                          {isFullyCleared ? (
                             <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
                               <CheckCircle2 size={12} className="text-emerald-700" /> Cleared ✓
                             </span>
                           ) : po.dispatchStatus === 'DELIVERED_AT_HUB' ? (
                             <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
-                              <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance
+                              <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance (₹{remainingDue.toLocaleString('en-IN')} Due)
                             </span>
                           ) : isInTransit ? (
                             <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
-                              <Truck size={12} className="text-blue-700" /> In Transit
+                              <Truck size={12} className="text-blue-700" /> In Transit (₹{remainingDue.toLocaleString('en-IN')} Due)
                             </span>
                           ) : (
                             <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
@@ -2104,48 +2164,28 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                         {/* Action */}
                         <td className="text-center py-3.5 px-3 whitespace-nowrap">
-                          {po.status === 'CLOSED' ? (
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             <button
                               type="button"
                               onClick={() => setSelectedPODetail(po)}
-                              className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                              className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                              title="View full PO settlement statement"
                             >
-                              <Eye size={11} /> Settlement Statement
+                              <Eye size={11} /> Settlement Dossier
                             </button>
-                          ) : isPendingDispatch ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedPOForDispatch(po);
-                                setDispatchError('');
-                              }}
-                              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95"
-                            >
-                              <Upload size={12} /> Dispatch Truck
-                            </button>
-                          ) : isInTransit ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedPOForDispatch(po);
-                                setDispatchError('');
-                              }}
-                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg font-bold text-[10px] border border-blue-200 cursor-pointer inline-flex items-center gap-1"
-                            >
-                              <Edit3 size={11} /> Update Proof
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedPOForDispatch(po);
-                                setDispatchError('');
-                              }}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold text-[10px] border border-emerald-200 cursor-pointer inline-flex items-center gap-1"
-                            >
-                              <Eye size={11} /> View Proofs
-                            </button>
-                          )}
+                            {isPendingDispatch && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedPOForDispatch(po);
+                                  setDispatchError('');
+                                }}
+                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] transition shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95"
+                              >
+                                <Upload size={11} /> Dispatch
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -2271,10 +2311,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Consignment PO #</th>
                   <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Fruit &amp; Layer Breakdown</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Destination Hub</th>
-                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Consignment Value</th>
-                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Advance Paid</th>
-                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Balance Due</th>
-                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Logistics &amp; Proof</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Gross Value</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">55% Advance Paid</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Mandi Deductions (6%)</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Net Balance Due</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Status</th>
                   <th className="py-3 px-3 text-center font-bold">Action</th>
                 </tr>
@@ -2290,8 +2330,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 ) : (
                   filteredOrders.map((po, idx) => {
                     const total = Number(po.grandTotal || 0);
-                    const advance = Number(po.advanceAmount || Math.round(total * 0.55));
-                    const balance = Number(po.pendingAmount ?? Math.max(0, total - advance));
+                    const settle = (po as any).settlementDetails || {};
+                    const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                    const adminShare = Number(settle.adminShareAmount ?? Math.round(total * 0.05));
+                    const apmcShare = Number(settle.apmcShareAmount ?? Math.round(total * 0.01));
+                    const totalDeductions = adminShare + apmcShare;
+                    const netVendorPayable = Number(settle.netVendorPayable ?? Math.max(0, total - totalDeductions));
+                    const calculatedDue = Math.max(0, netVendorPayable - advance);
+                    const remainingDue = settle.finalBalanceDue !== undefined
+                      ? Number(settle.finalBalanceDue)
+                      : (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : (po.pendingAmount ? Number(po.pendingAmount) : calculatedDue));
+
+                    // STRICT CLEARANCE RULE: "1 ruppe unna clear radhu open ane vastadhi"
+                    const isFullyCleared = remainingDue === 0 && (Boolean(settle.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
                     const isExpanded = expandedPOId === po.id;
 
                     // Compute fruit summary & layer counts
@@ -2356,125 +2407,56 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Consignment Value */}
                           <td className="text-right py-3.5 px-3 font-black text-gray-900 border-r border-gray-100 whitespace-nowrap">
-                            ₹{total.toLocaleString('en-IN')}
-                          </td>
-
-                          {/* Advance Paid */}
-                          <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <strong className="text-emerald-700 font-black block">
-                              ₹{(po.settlementDetails?.advanceAmount || advance).toLocaleString('en-IN')}
+                            <strong className="font-mono font-black text-gray-900 block text-xs">
+                              ₹{total.toLocaleString('en-IN')}
                             </strong>
-                            {(po.settlementDetails?.advanceDisbursed || po.advanceAmount > 0) ? (
-                              <div className="flex items-center justify-end gap-1 mt-0.5">
-                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
-                                  Paid by {po.settlementDetails?.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
-                                </span>
-                                {(po.settlementDetails?.advanceProofUrl || po.paymentProofUrl) && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPreviewMediaModal({
-                                        url: (po.settlementDetails?.advanceProofUrl || po.paymentProofUrl)!,
-                                        title: `Advance Bank Payment Receipt: ${po.poNumber} (${po.settlementDetails?.advancePayingHub || 'Warangal Hub'})`,
-                                      });
-                                    }}
-                                    className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
-                                    title="View Advance Payment Proof Slip"
-                                  >
-                                    <Eye size={9} /> Slip
-                                  </button>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-[10px] text-gray-400 font-mono">Pending</span>
-                            )}
                           </td>
 
-                          {/* Balance Due */}
+                          {/* 55% Advance Paid */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {po.status === 'CLOSED' ? (
-                              <div>
-                                <strong className="text-emerald-700 font-black block font-mono">₹0.00</strong>
-                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
-                                  CLEARED ✓ (5% Admin &amp; 1% APMC Deducted)
-                                </span>
-                                {(po.settlementDetails?.finalSettlementProofUrl || po.paymentProofUrl) && (
-                                  <div className="mt-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPreviewMediaModal({
-                                          url: (po.settlementDetails?.finalSettlementProofUrl || po.paymentProofUrl)!,
-                                          title: `Final Settlement Receipt: ${po.poNumber} (${po.settlementDetails?.finalSettlingHub || 'Warangal Hub'})`,
-                                        });
-                                      }}
-                                      className="text-[9px] font-bold text-blue-700 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
-                                    >
-                                      <Eye size={9} /> Settlement Slip ↗
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div>
-                                <strong className="text-amber-900 font-black block font-mono">
-                                  ₹{(po.settlementDetails?.finalBalanceDue || balance).toLocaleString('en-IN')}
-                                </strong>
-                                <span className="text-[9px] text-gray-500 block mt-0.5">
-                                  Less 5% Admin + 1% APMC
-                                </span>
-                              </div>
-                            )}
+                            <strong className="text-emerald-700 font-black block font-mono text-xs">
+                              ₹{advance.toLocaleString('en-IN')}
+                            </strong>
+                            <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
+                              Paid by {settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
+                            </span>
                           </td>
 
-                          {/* Logistics & Proof */}
-                          <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {po.dispatchVehicleNumber ? (
-                              <div className="space-y-1">
-                                <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-900 border border-blue-200 font-black text-[10px] inline-flex items-center gap-1">
-                                  <Truck size={10} className="text-blue-700" /> {po.dispatchVehicleNumber}
+                          {/* Mandi Deductions (6%) */}
+                          <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            <div className="text-[10px] space-y-0.5">
+                              <div className="text-rose-700 font-bold font-mono">5% Safal: -₹{adminShare.toLocaleString('en-IN')}</div>
+                              <div className="text-rose-700 font-bold font-mono">1% APMC: -₹{apmcShare.toLocaleString('en-IN')}</div>
+                              <span className="text-[9px] font-black text-rose-900 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 inline-block mt-0.5">
+                                Total: -₹{totalDeductions.toLocaleString('en-IN')}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Net Balance Due */}
+                          <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            {isFullyCleared ? (
+                              <div>
+                                <strong className="text-emerald-700 font-black block font-mono text-xs">₹0.00</strong>
+                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
+                                  CLEARED ✓
                                 </span>
-                                <div className="flex items-center justify-center gap-1">
-                                  {po.vehiclePhotoUrl && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPreviewMediaModal({ url: po.vehiclePhotoUrl!, title: `Vehicle Photo: ${po.dispatchVehicleNumber}` });
-                                      }}
-                                      className="px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[9px] font-bold flex items-center gap-0.5 cursor-pointer"
-                                      title="View vehicle photo"
-                                    >
-                                      <Camera size={10} className="inline" /> Photo
-                                    </button>
-                                  )}
-                                  {po.transportBillUrl && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setPreviewMediaModal({ url: po.transportBillUrl!, title: `Transport Bill (Bilty): ${po.poNumber}` });
-                                      }}
-                                      className="px-1.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded text-[9px] font-bold flex items-center gap-0.5 cursor-pointer"
-                                      title="View transport bill"
-                                    >
-                                      <ReceiptText size={10} className="inline" /> Bilty
-                                    </button>
-                                  )}
-                                </div>
                               </div>
                             ) : (
-                              <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                Proof Pending
-                              </span>
+                              <div>
+                                <strong className="text-[#C2410C] font-black block font-mono text-sm">
+                                  ₹{remainingDue.toLocaleString('en-IN')}
+                                </strong>
+                                <span className="text-[9px] font-bold text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
+                                  OPEN (Due Pending)
+                                </span>
+                              </div>
                             )}
                           </td>
 
                           {/* Status */}
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {po.status === 'CLOSED' ? (
+                            {isFullyCleared ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
                                 <CheckCircle2 size={12} className="text-emerald-700" /> Cleared ✓
                               </span>
@@ -2483,11 +2465,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                 className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
                                 title="Consignment dispatched and submitted. Awaiting Admin physical verification & clearance."
                               >
-                                <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance
+                                <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance (₹{remainingDue.toLocaleString('en-IN')} Due)
                               </span>
                             ) : po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
-                                <Truck size={12} className="text-blue-700" /> In Transit
+                                <Truck size={12} className="text-blue-700" /> In Transit (₹{remainingDue.toLocaleString('en-IN')} Due)
                               </span>
                             ) : (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-800 border border-gray-300 inline-flex items-center gap-1">
@@ -2499,58 +2481,149 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           {/* Actions */}
                           <td className="text-center py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                              {po.status === 'CLOSED' ? (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedPODetail(po);
+                                }}
+                                className="px-2.5 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                                title="View full PO settlement statement & commercial realization"
+                              >
+                                <Eye size={11} /> Settlement Dossier
+                              </button>
+
+                              {po.dispatchStatus === 'PENDING_DISPATCH' && (
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedPODetail(po)}
-                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedPOForDispatch(po);
+                                    setDispatchError('');
+                                  }}
+                                  className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
                                 >
-                                  <Eye size={11} /> Settlement Statement
-                                </button>
-                              ) : po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedPOForDispatch(po)}
-                                  className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg font-bold text-[10px] border border-blue-200 cursor-pointer"
-                                  title="Update or re-upload dispatch proof"
-                                >
-                                  Update Proof
-                                </button>
-                              ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.weighbridgeScaleSlipUrl ? (
-                                <button
-                                  type="button"
-                                  onClick={() => setViewSlipModalUrl(po.weighbridgeScaleSlipUrl || null)}
-                                  className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-[10px] shadow-xs cursor-pointer inline-flex items-center gap-1"
-                                >
-                                  <Scale size={11} /> Scale Slip
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedPOForDispatch(po)}
-                                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition shadow-xs cursor-pointer inline-flex items-center gap-1"
-                                >
-                                  <Upload size={12} /> Dispatch
+                                  <Upload size={11} /> Dispatch
                                 </button>
                               )}
 
                               <button
                                 type="button"
-                                onClick={() => setSelectedPODetail(po)}
-                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg font-bold text-[10px] cursor-pointer inline-flex items-center gap-1"
-                                title="View full PO dossier"
-                              >
-                                <Eye size={10} /> Details
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setExpandedPOId(isExpanded ? null : po.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpandedPOId(isExpanded ? null : po.id);
+                                }}
                                 className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center cursor-pointer transition"
                                 title="Toggle item details breakdown"
                               >
                                 {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                               </button>
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Dedicated Slips & Receipts Row (Clean separated row per consignment) */}
+                        <tr className="bg-emerald-50/20 border-b-2 border-emerald-100" onClick={(e) => e.stopPropagation()}>
+                          <td colSpan={10} className="py-2.5 px-4">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase text-emerald-950 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
+                                  <FileText size={12} className="text-emerald-700" />
+                                  Verified Slips &amp; Documents
+                                </span>
+                                <span className="text-[11px] text-gray-500 font-medium hidden sm:inline">
+                                  (Click any document to inspect full-screen proof with timestamp &amp; watermark)
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {/* 1. Vehicle Photo */}
+                                {po.vehiclePhotoUrl ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewMediaModal({
+                                      url: po.vehiclePhotoUrl!,
+                                      title: `Vehicle Dispatch Photo: ${po.dispatchVehicleNumber || po.poNumber}`,
+                                    })}
+                                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                                    title="View vehicle photo"
+                                  >
+                                    <Camera size={11} className="text-emerald-600" />
+                                    <span>Vehicle Photo ({po.dispatchVehicleNumber || 'Loaded'})</span>
+                                    <Eye size={10} className="text-emerald-700 ml-0.5" />
+                                  </button>
+                                ) : (
+                                  <span className="px-2.5 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
+                                    <Camera size={11} /> Vehicle Photo Pending
+                                  </span>
+                                )}
+
+                                {/* 2. Transport Bilty */}
+                                {po.transportBillUrl ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewMediaModal({
+                                      url: po.transportBillUrl!,
+                                      title: `Transport Bill (Bilty / LR Receipt): ${po.poNumber}`,
+                                    })}
+                                    className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-800 border border-blue-300 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                                    title="View transport bill"
+                                  >
+                                    <ReceiptText size={11} className="text-blue-600" />
+                                    <span>Transport Bilty / LR</span>
+                                    <Eye size={10} className="text-blue-700 ml-0.5" />
+                                  </button>
+                                ) : (
+                                  <span className="px-2.5 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
+                                    <ReceiptText size={11} /> Bilty Pending
+                                  </span>
+                                )}
+
+                                {/* 3. 55% Advance Bank Slip */}
+                                {(settle.advanceProofUrl || po.paymentProofUrl) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewMediaModal({
+                                      url: (settle.advanceProofUrl || po.paymentProofUrl)!,
+                                      title: `55% Advance Bank Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
+                                    })}
+                                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-400 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                                    title="View advance payment receipt slip"
+                                  >
+                                    <CreditCard size={11} className="text-emerald-700" />
+                                    <span>55% Advance Slip (₹{advance.toLocaleString('en-IN')})</span>
+                                    <Eye size={10} className="text-emerald-800 ml-0.5" />
+                                  </button>
+                                ) : (
+                                  <span className="px-2.5 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
+                                    <CreditCard size={11} /> Advance Slip Pending
+                                  </span>
+                                )}
+
+                                {/* 4. Final Settlement Slip */}
+                                {settle.finalSettlementProofUrl ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setPreviewMediaModal({
+                                      url: settle.finalSettlementProofUrl!,
+                                      title: `Final Settlement Clearance Slip: ${po.poNumber} (${settle.finalSettlingHub || 'Warangal Hub'})`,
+                                    })}
+                                    className="px-2.5 py-1 bg-white hover:bg-purple-50 text-purple-900 border border-purple-300 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                                    title="View final commercial settlement receipt"
+                                  >
+                                    <Scale size={11} className="text-purple-700" />
+                                    <span>Final Settlement Slip</span>
+                                    <Eye size={10} className="text-purple-800 ml-0.5" />
+                                  </button>
+                                ) : isFullyCleared ? (
+                                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold">
+                                    Settlement Realized
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-semibold">
+                                    Settlement Slip Awaiting Clearance
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -5129,7 +5202,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   {selectedKpiModal === 'advance' &&
                     'Safal Vendor Protection Guarantee provides an automatic 55% upfront advance disbursed directly via NEFT/RTGS to your verified bank coordinates upon uploading dispatch truck photos and carrier bilty.'}
                   {selectedKpiModal === 'due' &&
-                    'The remaining 45% due balance is automatically processed and released within a 24-hour settlement window upon consignment arrival at destination regional hub and electronic weighbridge scale verification.'}
+                    'Net commercial realization balance due to vendor after 5% Safal Platform Commission and 1% APMC Mandi Market Cess deductions. A consignment strictly remains OPEN until the entire balance is disbursed in full with verified payment receipt.'}
                   {selectedKpiModal === 'volume' &&
                     'Total physical commodity volume packaged and supplied under your account. Covers all 7 authorized fruit varieties: Kashmir Apples, Pomegranate, Watermelon, Muskmelon, Banana, Orange, and Plum.'}
                   {selectedKpiModal === 'transit' &&
@@ -5163,8 +5236,92 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               )}
 
               {selectedKpiModal === 'advance' && (
-                <div className="space-y-2">
-                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-gray-700 uppercase tracking-wider block">
+                      Disbursed Upfront Advances by PO ({orders.length})
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      55% Auto Guarantee Cleared
+                    </span>
+                  </div>
+
+                  <div className="overflow-x-auto border border-gray-200 rounded-2xl bg-white shadow-2xs">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold text-[10px] uppercase">
+                          <th className="py-2.5 px-3">PO # &amp; Date</th>
+                          <th className="py-2.5 px-3">Hub Location</th>
+                          <th className="py-2.5 px-3 text-right">Gross Total</th>
+                          <th className="py-2.5 px-3 text-right text-emerald-800">55% Advance Received</th>
+                          <th className="py-2.5 px-3 text-center">Payment UTR</th>
+                          <th className="py-2.5 px-3 text-center">Receipt Slip</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {orders.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="py-6 text-center text-gray-400">
+                              No purchase orders found.
+                            </td>
+                          </tr>
+                        ) : (
+                          orders.map((po) => {
+                            const total = Number(po.grandTotal || 0);
+                            const settle = (po as any).settlementDetails;
+                            const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                            const proofUrl = settle?.advanceProofUrl || po.paymentProofUrl;
+                            const utr = settle?.advancePaymentUtr || po.paymentProofNotes || 'RTGS-MANDI-ADV';
+
+                            return (
+                              <tr key={po.id} className="hover:bg-emerald-50/20">
+                                <td className="py-2.5 px-3">
+                                  <strong className="font-mono text-emerald-900 block font-bold">{po.poNumber}</strong>
+                                  <span className="text-[10px] text-gray-500">
+                                    {po.poDate ? new Date(po.poDate).toLocaleDateString('en-GB') : '-'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold text-gray-800">
+                                  {settle?.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-gray-900">
+                                  ₹{total.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-700">
+                                  ₹{adv.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  <span className="text-[10px] font-mono font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+                                    {utr}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  {proofUrl ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewMediaModal({
+                                          url: proofUrl,
+                                          title: `55% Advance Bank Slip: ${po.poNumber} (${settle?.advancePayingHub || 'Warangal Hub'})`,
+                                        })
+                                      }
+                                      className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                                    >
+                                      <Eye size={10} /> View Slip ↗
+                                    </button>
+                                  ) : (
+                                    <span className="text-[10px] text-gray-400">Pending</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider block pt-2">
                     Disbursement Bank Coordinates
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
@@ -5189,28 +5346,131 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               )}
 
               {selectedKpiModal === 'due' && (
-                <div className="p-3 bg-teal-50/60 border border-teal-200 rounded-2xl space-y-2">
-                  <span className="text-[10px] font-bold text-teal-900 uppercase tracking-wider block">
-                    Release Conditions &amp; Settlement Trigger
-                  </span>
-                  <ul className="space-y-1.5 text-gray-700 text-[11px]">
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 size={13} className="text-teal-700 flex-shrink-0" />
-                      <span>Truck arrives at Safal destination hub yard.</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 size={13} className="text-teal-700 flex-shrink-0" />
-                      <span>Weighbridge scale weighs loaded gross and empty tare truck weight.</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 size={13} className="text-teal-700 flex-shrink-0" />
-                      <span>QC Officer signs off on Grade A fruit quality compliance.</span>
-                    </li>
-                    <li className="flex items-center gap-1.5">
-                      <CheckCircle2 size={13} className="text-teal-700 flex-shrink-0" />
-                      <span>Remaining 45% credited automatically within 24 hours.</span>
-                    </li>
-                  </ul>
+                <div className="space-y-3">
+                  {/* Commercial Matrix Card */}
+                  <div className="p-3.5 bg-gradient-to-br from-amber-50/80 via-orange-50/50 to-white border border-amber-200 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between border-b border-amber-100 pb-2">
+                      <span className="text-[10px] font-black uppercase text-amber-900 tracking-wider">
+                        Mandi Realization &amp; Deductions Matrix (5% Safal + 1% APMC)
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
+                        Commercial Formula
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                      <div className="p-2.5 bg-white rounded-xl border border-amber-100">
+                        <span className="text-[10px] text-gray-500 block">1. Gross Contract Value</span>
+                        <strong className="text-sm font-black text-gray-900 font-mono block mt-0.5">
+                          ₹{derivedFinancialStats.grossContractValue.toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-xl border border-rose-100">
+                        <span className="text-[10px] text-rose-700 font-bold block">2. Less 5% Safal Platform Share</span>
+                        <strong className="text-sm font-black text-rose-700 font-mono block mt-0.5">
+                          -₹{derivedFinancialStats.totalSafalShare.toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-xl border border-rose-100">
+                        <span className="text-[10px] text-rose-700 font-bold block">3. Less 1% APMC Mandi Cess</span>
+                        <strong className="text-sm font-black text-rose-700 font-mono block mt-0.5">
+                          -₹{derivedFinancialStats.totalApmcShare.toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-xl border border-emerald-100">
+                        <span className="text-[10px] text-emerald-800 font-bold block">4. Net Vendor Payable</span>
+                        <strong className="text-sm font-black text-emerald-800 font-mono block mt-0.5">
+                          ₹{derivedFinancialStats.totalNetPayable.toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+                      <div className="p-2.5 bg-white rounded-xl border border-blue-100">
+                        <span className="text-[10px] text-blue-800 font-bold block">5. Less 55% Advance Paid</span>
+                        <strong className="text-sm font-black text-blue-800 font-mono block mt-0.5">
+                          -₹{derivedFinancialStats.totalAdvanceDisbursed.toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+                      <div className="p-2.5 bg-gradient-to-r from-amber-100 to-orange-100 rounded-xl border border-amber-300">
+                        <span className="text-[10px] text-amber-950 font-black block">6. Net Remaining Balance Due</span>
+                        <strong className="text-base font-black text-[#C2410C] font-mono block mt-0.5">
+                          ₹{derivedFinancialStats.totalNetBalanceDue.toLocaleString('en-IN')}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Consignments Pending Balance Due Table */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] font-black text-gray-700 uppercase tracking-wider block">
+                      Consignments Breakdown &amp; Clearance Status ({orders.length})
+                    </span>
+                    <div className="overflow-x-auto border border-gray-200 rounded-2xl bg-white shadow-2xs">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold text-[10px] uppercase">
+                            <th className="py-2.5 px-3">PO # &amp; Date</th>
+                            <th className="py-2.5 px-3">Hub</th>
+                            <th className="py-2.5 px-3 text-right">Gross</th>
+                            <th className="py-2.5 px-3 text-right">55% Adv.</th>
+                            <th className="py-2.5 px-3 text-right text-rose-700">5% Co.</th>
+                            <th className="py-2.5 px-3 text-right text-rose-700">1% APMC</th>
+                            <th className="py-2.5 px-3 text-right font-black">Net Due</th>
+                            <th className="py-2.5 px-3 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {orders.map((po) => {
+                            const total = Number(po.grandTotal || 0);
+                            const settle = (po as any).settlementDetails;
+                            const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                            const safal = Number(settle?.adminShareAmount ?? Math.round(total * 0.05));
+                            const apmc = Number(settle?.apmcShareAmount ?? Math.round(total * 0.01));
+                            const net = Number(settle?.netVendorPayable ?? Math.max(0, total - (safal + apmc)));
+                            const due = Number(settle?.finalBalanceDue ?? (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : Math.max(0, net - adv)));
+                            const isCleared = due === 0 && (Boolean(settle?.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
+
+                            return (
+                              <tr key={po.id} className="hover:bg-amber-50/20">
+                                <td className="py-2.5 px-3">
+                                  <strong className="font-mono text-gray-900 block font-bold">{po.poNumber}</strong>
+                                  <span className="text-[10px] text-gray-500">
+                                    {po.poDate ? new Date(po.poDate).toLocaleDateString('en-GB') : '-'}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 font-semibold text-gray-800">
+                                  {po.orderPersonPlace || 'Warangal'}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-gray-900">
+                                  ₹{total.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
+                                  ₹{adv.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-rose-700 font-bold">
+                                  -₹{safal.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-rose-700 font-bold">
+                                  -₹{apmc.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-black text-amber-900">
+                                  ₹{due.toLocaleString('en-IN')}
+                                </td>
+                                <td className="py-2.5 px-3 text-center">
+                                  {isCleared ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
+                                      <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+                                      <Clock size={11} className="text-amber-700" /> OPEN ({due > 0 ? `₹${due.toLocaleString('en-IN')} Due` : 'Pending'})
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -5412,6 +5672,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* Purchase Order Dossier / Realization Statement Modal */}
+      {selectedPODetail && (
+        <PODetailModal
+          order={selectedPODetail}
+          onClose={() => setSelectedPODetail(null)}
+          onRefresh={loadData}
+          onNotify={onNotify}
+        />
       )}
     </div>
   );

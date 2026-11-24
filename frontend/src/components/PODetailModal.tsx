@@ -810,8 +810,14 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                     Commercial Mandi Settlement &amp; Realization Statement
                   </strong>
                 </div>
-                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-                  {order.status === 'CLOSED' ? 'Cleared ✓' : 'Settlement in Progress'}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  ((order as any).settlementDetails?.settlementCompleted && Number((order as any).settlementDetails?.finalBalanceDue || 0) === 0) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0)
+                    ? 'text-emerald-800 bg-emerald-100 border-emerald-300'
+                    : 'text-amber-800 bg-amber-100 border-amber-300'
+                }`}>
+                  {(((order as any).settlementDetails?.settlementCompleted && Number((order as any).settlementDetails?.finalBalanceDue || 0) === 0) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0))
+                    ? 'Cleared ✓'
+                    : 'OPEN - Due Pending'}
                 </span>
               </div>
 
@@ -887,32 +893,45 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 </div>
 
                 {/* Final Balance Status */}
-                <div className="flex items-center justify-between py-1.5 px-3 bg-amber-50 rounded-xl border border-amber-200 flex-wrap gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <strong className="text-amber-950">
-                      {order.status === 'CLOSED' ? 'Final Balance Settled & Cleared' : 'Final Balance Due'}
-                    </strong>
-                    {((order as any).settlementDetails?.finalSettlementProofUrl || (order.status === 'CLOSED' && order.paymentProofUrl)) && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setActiveDocPreview({
-                            url: (order as any).settlementDetails?.finalSettlementProofUrl || order.paymentProofUrl,
-                            title: `${order.poNumber} - Final Mandi Settlement Slip`,
-                          })
-                        }
-                        className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        <Eye size={10} /> View Settlement Slip ↗
-                      </button>
-                    )}
-                  </div>
-                  <strong className="font-mono text-amber-900 font-black text-sm">
-                    {order.status === 'CLOSED'
-                      ? `₹${((order as any).settlementDetails?.finalBalancePaid || Math.max(0, (grandTotal - (Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01))) - Number(order.advanceAmount || 0))).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (CLEARED ✓)`
-                      : `₹${Math.max(0, (grandTotal - (Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01))) - Number(order.advanceAmount || Math.round(grandTotal * 0.55))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
-                  </strong>
-                </div>
+                {(() => {
+                  const settle = (order as any).settlementDetails;
+                  const netPayable = grandTotal - (Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01));
+                  const advPaid = Number(order.advanceAmount || Math.round(grandTotal * 0.55));
+                  const calculatedDue = Math.max(0, netPayable - advPaid);
+                  const remainingDue = settle?.finalBalanceDue !== undefined ? Number(settle.finalBalanceDue) : (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0 ? 0 : calculatedDue);
+                  const isFullyCleared = remainingDue === 0 && (Boolean(settle?.settlementCompleted) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0));
+
+                  return (
+                    <div className={`flex items-center justify-between py-2 px-3 rounded-xl border flex-wrap gap-2 ${
+                      isFullyCleared ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-300'
+                    }`}>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <strong className={isFullyCleared ? 'text-emerald-950 font-black' : 'text-amber-950 font-black'}>
+                          {isFullyCleared ? 'Final Balance Settled & Realized' : 'Final Balance Due Pending'}
+                        </strong>
+                        {(settle?.finalSettlementProofUrl || (isFullyCleared && order.paymentProofUrl)) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveDocPreview({
+                                url: settle?.finalSettlementProofUrl || order.paymentProofUrl,
+                                title: `${order.poNumber} - Final Mandi Settlement Slip`,
+                              })
+                            }
+                            className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye size={10} /> View Settlement Slip ↗
+                          </button>
+                        )}
+                      </div>
+                      <strong className={`font-mono font-black text-sm ${isFullyCleared ? 'text-emerald-800' : 'text-[#C2410C]'}`}>
+                        {isFullyCleared
+                          ? `₹0.00 (CLEARED ✓)`
+                          : `₹${remainingDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (OPEN - Due Pending)`}
+                      </strong>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

@@ -431,7 +431,12 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
           { supplier: { name: { contains: profile.businessName, mode: 'insensitive' } } },
         ],
       },
+      include: {
+        financialRecord: true,
+      },
     });
+
+    const enriched = pos.map((p) => enrichPOWithSettlementDetails(p));
 
     const totalPOs = pos.length;
     const inTransitPOs = pos.filter(
@@ -443,16 +448,16 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
     const awaitingClearancePOs = pos.filter(
       (p) => (p.dispatchStatus === 'DELIVERED_AT_HUB' || p.dispatchVehicleNumber) && p.status !== 'CLOSED'
     ).length;
-    const deliveredPOs = pos.filter(
-      (p) => p.status === 'CLOSED'
+    const deliveredPOs = enriched.filter(
+      (p) => p.settlementDetails?.settlementCompleted && Number(p.settlementDetails?.finalBalanceDue || 0) === 0
     ).length;
 
-    const totalOrderValue = pos.reduce((sum, p) => sum + Number(p.grandTotal || 0), 0);
-    const totalAdvanceReceived = pos.reduce((sum, p) => sum + Number(p.advanceAmount || 0), 0);
-    const totalPendingBalance = pos.reduce((sum, p) => {
-      const adv = Number(p.advanceAmount || 0);
-      return sum + Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal || 0) - adv));
-    }, 0);
+    const totalOrderValue = enriched.reduce((sum, p) => sum + Number(p.grandTotal || 0), 0);
+    const totalAdvanceReceived = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.advanceAmount || p.advanceAmount || 0), 0);
+    const totalSafalShare = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.adminShareAmount || 0), 0);
+    const totalApmcShare = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.apmcShareAmount || 0), 0);
+    const totalNetPayable = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.netVendorPayable || 0), 0);
+    const totalPendingBalance = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.finalBalanceDue || 0), 0);
 
     return res.json({
       vendorId: profile.vendorId,
@@ -466,6 +471,9 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
         totalOrderValue,
         totalAdvanceReceived,
         totalPendingBalance,
+        totalSafalShare,
+        totalApmcShare,
+        totalNetPayable,
       },
       whitelistedLocations: VENDOR_WHITELISTED_LOCATIONS,
     });
@@ -1115,7 +1123,10 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
     }
 
     const autoAdvance = Math.round(grandTotal * 0.55);
-    const pendingBalance = Math.max(0, grandTotal - autoAdvance);
+    const adminShare = Math.round(grandTotal * 0.05);
+    const apmcShare = Math.round(grandTotal * 0.01);
+    const netVendorPayable = Math.max(0, grandTotal - (adminShare + apmcShare));
+    const pendingBalance = Math.max(0, netVendorPayable - autoAdvance);
 
     // Handle files if uploaded with creation
     const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
@@ -1424,8 +1435,12 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
     const hubName = settlingHub || po.orderPersonPlace || 'Warangal Hub';
     const payDate = paymentDate || new Date().toISOString().split('T')[0];
 
+    const isFullySettled = finalBalancePaid >= finalBalanceDue;
+    const remainingBalanceDue = Math.max(0, finalBalanceDue - finalBalancePaid);
+    const updatedStatus = isFullySettled ? 'CLOSED' : 'OPEN';
+
     const settlementPayload = {
-      settlementCompleted: true,
+      settlementCompleted: isFullySettled,
       grossConsignmentTotal: grandTotal,
       adminSharePercent: 5,
       adminShareAmount,
@@ -1434,7 +1449,7 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
       totalMandiDeductions: totalDeductions,
       netVendorPayable,
       advanceAlreadyPaid: advanceAmount,
-      finalBalanceDue: 0,
+      finalBalanceDue: remainingBalanceDue,
       finalBalancePaid,
       finalPaymentDate: payDate,
       finalPaymentMode: paymentMode,
@@ -1477,16 +1492,18 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
       return await tx.purchaseOrder.update({
         where: { id: po.id },
         data: {
-          status: 'CLOSED',
+          status: updatedStatus,
           dispatchStatus: 'DELIVERED_AT_HUB',
-          pendingAmount: 0,
+          pendingAmount: remainingBalanceDue,
           paymentProofUrl: settlementProofUrl || po.paymentProofUrl,
           paymentProofNotes: utrNumber ? `Final Settlement UTR: ${utrNumber}` : po.paymentProofNotes,
           statusHistory: {
             create: {
-              status: 'CLOSED',
+              status: updatedStatus,
               changedById: req.user!.id,
-              comment: `Final settlement of ₹${finalBalancePaid.toLocaleString('en-IN')} paid by ${hubName} (5% Admin Share: ₹${adminShareAmount.toLocaleString('en-IN')}, 1% APMC Cess: ₹${apmcShareAmount.toLocaleString('en-IN')}). Consignment Cleared ✓.`,
+              comment: isFullySettled
+                ? `Final settlement of ₹${finalBalancePaid.toLocaleString('en-IN')} paid by ${hubName} (5% Admin Share: ₹${adminShareAmount.toLocaleString('en-IN')}, 1% APMC Cess: ₹${apmcShareAmount.toLocaleString('en-IN')}). Consignment Cleared ✓.`
+                : `Partial payment of ₹${finalBalancePaid.toLocaleString('en-IN')} paid by ${hubName}. Remaining Due: ₹${remainingBalanceDue.toLocaleString('en-IN')} (Consignment remains OPEN).`,
             },
           },
         },
@@ -1507,8 +1524,10 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
           userId: vendorUserId,
           recipientRole: 'VENDOR',
           type: 'INFO',
-          title: `Consignment Closed & Cleared: ${po.poNumber}`,
-          message: `Final balance of ₹${finalBalancePaid.toLocaleString('en-IN')} settled by ${hubName} (after 5% Admin Share & 1% APMC Cess). Consignment is Cleared ✓. Digital statement & settlement slip available.`,
+          title: isFullySettled ? `Consignment Closed & Cleared: ${po.poNumber}` : `Consignment Payment Received: ${po.poNumber}`,
+          message: isFullySettled
+            ? `Final balance of ₹${finalBalancePaid.toLocaleString('en-IN')} settled by ${hubName} (after 5% Admin Share & 1% APMC Cess). Consignment is Cleared ✓. Digital statement & settlement slip available.`
+            : `Payment of ₹${finalBalancePaid.toLocaleString('en-IN')} received from ${hubName}. Remaining balance due: ₹${remainingBalanceDue.toLocaleString('en-IN')}. Consignment remains OPEN.`,
           linkUrl: '/dashboard',
         },
       }).catch(() => null);
@@ -1518,15 +1537,17 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
       userId: req.user.id,
       userName: req.user.name,
       userRole: req.user.role,
-      action: 'VENDOR_FINAL_SETTLEMENT_CLOSED',
+      action: isFullySettled ? 'VENDOR_FINAL_SETTLEMENT_CLOSED' : 'VENDOR_PARTIAL_PAYMENT_RECORDED',
       entityType: 'PURCHASE_ORDER',
       entityId: po.id,
-      details: `PO ${po.poNumber} final settlement: ₹${finalBalancePaid.toLocaleString('en-IN')} paid, 5% Admin Share: ₹${adminShareAmount}, 1% APMC: ₹${apmcShareAmount}`,
+      details: `PO ${po.poNumber} settlement: ₹${finalBalancePaid.toLocaleString('en-IN')} paid, remaining: ₹${remainingBalanceDue.toLocaleString('en-IN')}, 5% Admin Share: ₹${adminShareAmount}, 1% APMC: ₹${apmcShareAmount}`,
       ipAddress: req.ip,
     });
 
     return res.json({
-      message: `Consignment ${po.poNumber} settled and marked as CLEARED ✓! 5% Admin Share (₹${adminShareAmount.toLocaleString('en-IN')}) and 1% APMC Cess (₹${apmcShareAmount.toLocaleString('en-IN')}) realized.`,
+      message: isFullySettled
+        ? `Consignment ${po.poNumber} settled and marked as CLEARED ✓! 5% Admin Share (₹${adminShareAmount.toLocaleString('en-IN')}) and 1% APMC Cess (₹${apmcShareAmount.toLocaleString('en-IN')}) realized.`
+        : `Payment of ₹${finalBalancePaid.toLocaleString('en-IN')} recorded for ${po.poNumber}. Remaining Due: ₹${remainingBalanceDue.toLocaleString('en-IN')} (Consignment remains OPEN).`,
       purchaseOrder: enrichPOWithSettlementDetails(updated),
     });
   } catch (error: any) {

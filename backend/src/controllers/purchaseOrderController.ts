@@ -253,7 +253,7 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
       };
     });
 
-    return res.json(formatted);
+    return res.json(formatted.map(enrichPOWithSettlementDetails));
   } catch (error) {
     console.error('Error fetching purchase orders:', error);
     return res.status(500).json({ error: 'Failed to fetch purchase orders' });

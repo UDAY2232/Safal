@@ -89,12 +89,31 @@ export function enrichPOWithSettlementDetails(po: any): any {
     po.status === 'CLOSED'
   );
 
-  const finalBalanceDue = Math.max(0, netVendorPayable - advanceAmount);
-  const settlementCompleted = Boolean(po.status === 'CLOSED' || storedSettlement?.settlementCompleted);
+  // Total balance due before final settlement payment:
+  const fullBalanceDueBeforeSettlement = Math.max(0, netVendorPayable - advanceAmount);
 
+  // How much was paid during final settlement (if any)
   const finalBalancePaid = storedSettlement?.finalBalancePaid !== undefined
     ? Number(storedSettlement.finalBalancePaid)
-    : (settlementCompleted ? finalBalanceDue : 0);
+    : (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? fullBalanceDueBeforeSettlement : 0);
+
+  // Current remaining balance due:
+  let remainingDue = Math.max(0, fullBalanceDueBeforeSettlement - finalBalancePaid);
+  if (storedSettlement?.finalBalanceDue !== undefined) {
+    remainingDue = Number(storedSettlement.finalBalanceDue);
+  } else if (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0) {
+    remainingDue = 0;
+  }
+
+  // STRICT RULE: "unna balnce motham ithene vendor dashboard lo clear ani ani vastadhi 1 ruppe unna clear radhu open ane vastadhi"
+  // Consignment is ONLY CLEARED if remainingDue === 0 AND (settlementCompleted is true OR (po.status === 'CLOSED' && po.pendingAmount === 0))
+  const isFullyCleared = remainingDue === 0 && Boolean(
+    storedSettlement?.settlementCompleted ||
+    (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0)
+  );
+
+  const settlementCompleted = isFullyCleared;
+  const finalBalanceDue = isFullyCleared ? 0 : remainingDue;
 
   const settlementDetails: ConsignmentSettlementDetails = {
     advanceDisbursed,
