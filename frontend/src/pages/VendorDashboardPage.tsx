@@ -80,6 +80,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [viewSlipModalUrl, setViewSlipModalUrl] = useState<string | null>(null);
   const [selectedPODetail, setSelectedPODetail] = useState<any | null>(null);
 
+  // Weighbridge is strictly for bulk-weighment commodities (Watermelon & Muskmelon)
+  const isBulkWeighmentFruit = (fruitName?: string) => {
+    if (!fruitName) return false;
+    const f = fruitName.toLowerCase();
+    return f.includes('watermelon') || f.includes('water melon') || f.includes('muskmelon') || f.includes('musk melon') || f.includes('melon');
+  };
+
   // Dynamic Mandi Commercial Realization Calculations (Entered by Safal Accounts upon Mandi sales realization)
   const derivedFinancialStats = React.useMemo(() => {
     let grossContractValue = 0;
@@ -491,9 +498,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       setQcSelectedPOId(poIdOrOrder);
     } else if (poIdOrOrder && poIdOrOrder.id) {
       setQcSelectedPOId(poIdOrOrder.id);
-    } else if (orders.length > 0) {
-      const unweighed = orders.find((o) => !o.weighbridgeNetKg);
-      setQcSelectedPOId(unweighed ? unweighed.id : orders[0].id);
+    } else {
+      const bulkOrders = orders.filter((o) => isBulkWeighmentFruit(o.fruitName));
+      const unweighed = bulkOrders.find((o) => !o.weighbridgeNetKg);
+      setQcSelectedPOId(unweighed ? unweighed.id : (bulkOrders[0]?.id || ''));
     }
     setQcError('');
     setShowRecordQCModal(true);
@@ -1810,13 +1818,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2 self-start sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => openRecordQCModal(po.id)}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <Scale size={13} /> Record Scale Slip
-                    </button>
+                    {isBulkWeighmentFruit(po.fruitName) && (
+                      <button
+                        type="button"
+                        onClick={() => openRecordQCModal(po.id)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="Submit weighbridge gross & tare scale slip for bulk fruit"
+                      >
+                        <Scale size={13} /> Record Scale Slip
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -2395,7 +2406,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
           {/* Consignments Table */}
           <div className="overflow-x-auto w-full">
-            <table className="w-full border-collapse min-w-[950px] text-xs">
+            <table className="w-full border-collapse min-w-[1100px] text-xs">
               <thead>
                 <tr className="bg-[#064D2B] text-white">
                   <th className="py-3 px-3 text-center font-bold w-12 border-r border-[#085A33]">S.No.</th>
@@ -2404,7 +2415,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Destination Hub</th>
                   <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Gross Value</th>
                   <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Advance Amount</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Charges (6%)</th>
                   <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Net Balance Due</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Vendor Profit</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Status</th>
                   <th className="py-3 px-3 text-center font-bold">Action</th>
                 </tr>
@@ -2412,7 +2425,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <tbody className="divide-y divide-gray-200">
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="text-center py-12 text-gray-400">
+                    <td colSpan={11} className="text-center py-12 text-gray-400">
                       <ShoppingCart size={32} className="mx-auto mb-2 text-gray-300" />
                       No supply consignments found matching the criteria.
                     </td>
@@ -2517,13 +2530,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             </span>
                           </td>
 
-                          {/* Net Balance Due (0 until Safal Admin records Mandi sales realization) */}
+                          {/* Charges (6% Mandi: 5% Safal + 1% APMC) */}
+                          <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            <strong className="text-rose-600 font-black block font-mono text-xs">
+                              -₹{totalDeductions.toLocaleString('en-IN')}
+                            </strong>
+                            <span className="text-[9px] font-bold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200 inline-block mt-0.5">
+                              5% Safal (-₹{adminShare.toLocaleString('en-IN')}) + 1% APMC (-₹{apmcShare.toLocaleString('en-IN')})
+                            </span>
+                          </td>
+
+                          {/* Net Balance Due (Cleared shows actual Net Balance paid by Safal; 0 if pending sales realization) */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             {isFullyCleared ? (
                               <div>
-                                <strong className="text-emerald-700 font-black block font-mono text-xs">₹0.00</strong>
+                                <strong className="text-emerald-700 font-black block font-mono text-xs">
+                                  ₹{Number(settle.finalBalancePaid || (netVendorPayable - advance) || (total - advance)).toLocaleString('en-IN')}
+                                </strong>
                                 <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
-                                  CLEARED ✓
+                                  Cleared by Safal ✓
                                 </span>
                               </div>
                             ) : hasSettlementEntry && remainingDue > 0 ? (
@@ -2542,10 +2567,50 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-300 inline-block mt-0.5"
                                   title="Net balance due will appear once Safal accounts enters Mandi sales realization"
                                 >
-                                  Pending Mandi Realization
+                                  Pending Safal Realization
                                 </span>
                               </div>
                             )}
+                          </td>
+
+                          {/* Vendor Profit / Realized Gain */}
+                          <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            {(() => {
+                              const fin = (po as any).financialRecord;
+                              const hasPL = fin && fin.realizedProfitLoss !== null && fin.realizedProfitLoss !== undefined;
+                              if (hasPL) {
+                                const plVal = Number(fin.realizedProfitLoss);
+                                return (
+                                  <div>
+                                    <strong className={`block font-mono text-xs ${plVal >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                      {plVal >= 0 ? '+' : '-'}₹{Math.abs(Math.round(plVal)).toLocaleString('en-IN')}
+                                    </strong>
+                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full inline-block mt-0.5 ${
+                                      plVal >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                    }`}>
+                                      {plVal >= 0 ? 'Net Profit' : 'Loss'}
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              if (isFullyCleared) {
+                                return (
+                                  <div>
+                                    <strong className="text-emerald-700 font-mono text-xs block">
+                                      ₹{Number(settle.finalBalancePaid || (netVendorPayable - advance) || (total - advance)).toLocaleString('en-IN')}
+                                    </strong>
+                                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
+                                      Realized Net Gain
+                                    </span>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <span className="text-[10px] text-gray-400 italic">
+                                  Pending Realization
+                                </span>
+                              );
+                            })()}
                           </td>
 
                           {/* Status */}
@@ -2625,7 +2690,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                         {/* Dedicated Slips & Receipts Row (Clean separated row per consignment) */}
                         <tr className="bg-emerald-50/20 border-b-2 border-emerald-100" onClick={(e) => e.stopPropagation()}>
-                          <td colSpan={9} className="py-2.5 px-4">
+                          <td colSpan={11} className="py-2.5 px-4">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black uppercase text-emerald-950 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
@@ -2679,12 +2744,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   </span>
                                 )}
 
-                                {/* 3. Advance Payment Bank Slip */}
-                                {(settle.advanceProofUrl || po.paymentProofUrl) ? (
+                                {/* 3. Advance Payment Bank Slip (Strictly advance slip only - no cross-contamination) */}
+                                {settle.advanceProofUrl ? (
                                   <button
                                     type="button"
                                     onClick={() => setPreviewMediaModal({
-                                      url: (settle.advanceProofUrl || po.paymentProofUrl)!,
+                                      url: settle.advanceProofUrl!,
                                       title: `Advance Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
                                     })}
                                     className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-400 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
@@ -2700,7 +2765,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   </span>
                                 )}
 
-                                {/* 4. Final Settlement Slip */}
+                                {/* 4. Final Settlement Slip (Strictly settlement slip only) */}
                                 {settle.finalSettlementProofUrl ? (
                                   <button
                                     type="button"
@@ -3002,6 +3067,17 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             </div>
           </div>
 
+          {/* Bulk Fruit Weighbridge Policy Banner */}
+          <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-3 text-xs text-emerald-950">
+            <Scale size={22} className="text-emerald-700 flex-shrink-0" />
+            <div>
+              <strong className="block text-emerald-900 font-black">Weighbridge Scale Slip Policy Notice:</strong>
+              <span>
+                Electronic gross/tare weighbridge scale slips are strictly required for bulk-weight commodities (<strong>Watermelon &amp; Muskmelon</strong>). Boxed/crated fruits (<strong>Kashmir Apples, Pomegranates, Bananas, Oranges, Plums</strong>) are audited and verified upon arrival by standard crate count.
+              </span>
+            </div>
+          </div>
+
           {/* QC Cards List */}
           {(() => {
             const qcOrders = orders.filter(
@@ -3196,12 +3272,24 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             </div>
                           </div>
                         </div>
+                      ) : !isBulkWeighmentFruit(order.fruitName) ? (
+                        <div className="p-3 bg-emerald-50/80 rounded-xl border border-emerald-200 text-xs text-emerald-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <CheckCircle2 size={16} className="text-emerald-700 flex-shrink-0" />
+                            <span>
+                              Boxed Fruit Consignment ({order.fruitName || 'Kashmir Apples'}): Audited upon arrival by crate count ({order.items?.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0), 0) || 'Standard'} Cartons). Electronic weighbridge scale slip is not required for boxed fruits.
+                            </span>
+                          </div>
+                          <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black inline-flex items-center gap-1 whitespace-nowrap shadow-2xs">
+                            <CheckCircle2 size={13} className="text-emerald-700" /> Carton Count Verified ✓
+                          </span>
+                        </div>
                       ) : (
                         <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200 text-xs text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="flex items-center gap-2">
                             <Clock size={16} className="text-blue-600 flex-shrink-0" />
                             <span>
-                              Truck dispatched ({order.dispatchVehicleNumber || 'In Transit'}). Official weighbridge scale gross and empty tare weights pending.
+                              Bulk Fruit ({order.fruitName || 'Watermelon / Muskmelon'}). Official weighbridge gross &amp; tare weights pending.
                             </span>
                           </div>
                           <button
@@ -4915,15 +5003,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   className="w-full h-11 px-3 border border-emerald-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
                   required
                 >
-                  <option value="" disabled>-- Select Purchase Order --</option>
-                  {orders.map((po) => (
-                    <option key={po.id} value={po.id}>
-                      {po.poNumber} — {po.orderPersonPlace || 'Regional Hub'} — ₹{Number(po.totalOrderValue || 0).toLocaleString('en-IN')} ({po.dispatchStatus?.replace(/_/g, ' ') || 'Pending'})
-                    </option>
-                  ))}
+                  <option value="" disabled>-- Select Purchase Order (Watermelon / Muskmelon Bulk Only) --</option>
+                  {(() => {
+                    const bulkOrders = orders.filter((po) => isBulkWeighmentFruit(po.fruitName));
+                    if (bulkOrders.length === 0) {
+                      return (
+                        <option value="" disabled>
+                          No active Watermelon / Muskmelon consignments requiring electronic scale slips.
+                        </option>
+                      );
+                    }
+                    return bulkOrders.map((po) => (
+                      <option key={po.id} value={po.id}>
+                        {po.poNumber} — {po.fruitName} ({po.orderPersonPlace || 'Regional Hub'}) — ₹{Number(po.totalOrderValue || po.grandTotal || 0).toLocaleString('en-IN')}
+                      </option>
+                    ));
+                  })()}
                 </select>
                 <span className="text-[10px] text-gray-500 block">
-                  Select the consignment PO arriving at the destination regional hub yard.
+                  Electronic weighbridge gross/tare scale slips are strictly required for bulk weight fruits (Watermelon &amp; Muskmelon). Boxed consignments are verified by crate count.
                 </span>
               </div>
 

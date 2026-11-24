@@ -1276,7 +1276,7 @@ export async function disburseVendorAdvance(req: AuthRequest, res: Response) {
     }
 
     const file = req.file;
-    const advanceProofUrl = file ? `/uploads/${file.filename}` : (req.body.advanceProofUrl || po.paymentProofUrl || null);
+    const advanceProofUrl = file ? `/uploads/${file.filename}` : (req.body.advanceProofUrl || null);
 
     const grandTotal = Number(po.grandTotal || 0);
     const advanceAmount = Number(rawAdvanceAmount) > 0 ? Number(rawAdvanceAmount) : Math.round(grandTotal * 0.55);
@@ -1327,7 +1327,7 @@ export async function disburseVendorAdvance(req: AuthRequest, res: Response) {
         where: { id: po.id },
         data: {
           advanceAmount,
-          pendingAmount: pendingBalance,
+          pendingAmount: po.status === 'CLOSED' ? 0 : pendingBalance,
           paymentProofUrl: advanceProofUrl || po.paymentProofUrl,
           paymentProofNotes: utrNumber ? `Advance UTR: ${utrNumber}` : po.paymentProofNotes,
           dispatchStatus: po.dispatchStatus === 'PENDING_DISPATCH' ? 'LOADED_AND_DISPATCHED' : (po.dispatchStatus || 'IN_TRANSIT'),
@@ -1419,7 +1419,7 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
     }
 
     const file = req.file;
-    const settlementProofUrl = file ? `/uploads/${file.filename}` : (req.body.settlementProofUrl || po.paymentProofUrl || null);
+    const settlementProofUrl = file ? `/uploads/${file.filename}` : (req.body.settlementProofUrl || null);
 
     const grandTotal = Number(po.grandTotal || 0);
     const advanceAmount = Number(po.advanceAmount || 0);

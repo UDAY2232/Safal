@@ -479,7 +479,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     setAdvancePayingHub(op.orderPersonPlace || op.vendorProfile?.primaryLocation || 'Warangal Hub');
     setAdvanceNotes(op.settlementDetails?.advanceNotes || '');
     setAdvanceProofFile(null);
-    setAdvanceProofPreview(op.settlementDetails?.advanceProofUrl || op.paymentProofUrl || null);
+    setAdvanceProofPreview(op.settlementDetails?.advanceProofUrl || null);
   };
 
   const handleSubmitAdvance = async () => {
@@ -1452,23 +1452,42 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               ₹{settle.advanceAmount.toLocaleString('en-IN')}
                             </span>
                             {settle.advanceDisbursed ? (
-                              <div className="flex items-center justify-end gap-1 mt-0.5">
+                              <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
                                 <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5">
                                   <CheckCircle2 size={9} /> PAID ({settle.advancePayingHub || hub})
                                 </span>
-                                {settle.advanceProofUrl && (
+                                {settle.advanceProofUrl ? (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewDoc({
+                                          url: settle.advanceProofUrl!,
+                                          title: `${poCode} - Advance Payment Receipt (${settle.advancePayingHub || hub})`,
+                                        })
+                                      }
+                                      className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                      title="View Advance Bank Receipt Slip"
+                                    >
+                                      <Eye size={9} /> Slip
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => openAdvanceModal(op)}
+                                      className="px-1 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-[9px] font-bold cursor-pointer"
+                                      title="Edit or replace advance receipt slip"
+                                    >
+                                      Edit
+                                    </button>
+                                  </div>
+                                ) : (
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      setPreviewDoc({
-                                        url: settle.advanceProofUrl!,
-                                        title: `${poCode} - Advance Payment Receipt (${settle.advancePayingHub || hub})`,
-                                      })
-                                    }
-                                    className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
-                                    title="View Advance Bank Receipt Slip"
+                                    onClick={() => openAdvanceModal(op)}
+                                    className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs active:scale-95"
+                                    title="Upload Advance Bank Payment Slip"
                                   >
-                                    <Eye size={9} /> Slip
+                                    <Upload size={9} /> Upload Slip
                                   </button>
                                 )}
                               </div>
@@ -1476,9 +1495,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               <button
                                 type="button"
                                 onClick={() => openAdvanceModal(op)}
-                                className="mt-0.5 px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-xs active:scale-95"
+                                className="mt-0.5 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-xs active:scale-95"
                               >
-                                <CreditCard size={9} /> Pay Advance
+                                <CreditCard size={9} /> Pay Advance / Upload Slip
                               </button>
                             )}
                           </td>
@@ -1571,16 +1590,16 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                 </button>
                               )}
 
-                              {/* Pay Advance Action Button */}
-                              {!settle.advanceDisbursed && status !== 'CLOSED' && (
+                              {/* Pay Advance / Upload Advance Slip Action Button */}
+                              {!settle.advanceProofUrl && (
                                 <button
                                   type="button"
                                   onClick={() => openAdvanceModal(op)}
-                                  className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
-                                  title="Disburse advance payment & upload proof"
+                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                  title="Disburse advance payment or upload bank receipt proof"
                                 >
                                   <CreditCard size={11} />
-                                  <span>Pay Advance</span>
+                                  <span>{settle.advanceDisbursed ? 'Upload Advance Slip' : 'Pay Advance'}</span>
                                 </button>
                               )}
 
