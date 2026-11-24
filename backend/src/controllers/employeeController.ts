@@ -153,6 +153,42 @@ export async function getEmployeeById(req: AuthRequest, res: Response) {
   }
 }
 
+/**
+ * Generates sequential, collision-safe Employee ID: EMP-001, EMP-002, etc.
+ * Finds the highest numerical sequence among existing employee IDs and increments.
+ */
+export async function generateNextEmployeeId(tx: any = prisma): Promise<string> {
+  const existingEmployees = await tx.employee.findMany({
+    select: { employeeId: true },
+  });
+
+  let maxSeq = 0;
+  for (const emp of existingEmployees) {
+    if (emp.employeeId) {
+      const match = emp.employeeId.match(/EMP-(\d+)/i);
+      if (match && match[1]) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxSeq) {
+          maxSeq = num;
+        }
+      }
+    }
+  }
+
+  let nextSeq = maxSeq + 1;
+  while (true) {
+    const candidate = `EMP-${String(nextSeq).padStart(3, '0')}`;
+    const exists = await tx.employee.findUnique({
+      where: { employeeId: candidate },
+      select: { id: true },
+    });
+    if (!exists) {
+      return candidate;
+    }
+    nextSeq++;
+  }
+}
+
 export async function createEmployee(req: AuthRequest, res: Response) {
   try {
     const {
@@ -175,15 +211,17 @@ export async function createEmployee(req: AuthRequest, res: Response) {
 
     const normalizedEmail = String(email).toLowerCase().trim();
 
-    // Check if employee with email already exists
+    // Check if an employee with this email already exists
     const existingEmployee = await prisma.employee.findFirst({
-      where: { email: normalizedEmail },
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
     });
     if (existingEmployee) {
-      return res.status(400).json({ error: 'An employee with this email already exists' });
+      return res.status(400).json({
+        error: `An employee with email '${normalizedEmail}' already exists (${existingEmployee.fullName} - ${existingEmployee.employeeId})`,
+      });
     }
 
-    // Provision Login User if password provided
+    // Provision or Link Login User if password provided
     let userId: string | null = null;
     if (password && String(password).trim()) {
       const pwd = String(password).trim();
@@ -191,11 +229,35 @@ export async function createEmployee(req: AuthRequest, res: Response) {
         return res.status(400).json({ error: 'Login password must be at least 6 characters' });
       }
 
-      const existingUser = await prisma.user.findUnique({
-        where: { email: normalizedEmail },
+      const existingUser = await prisma.user.findFirst({
+        where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
       });
 
       if (existingUser) {
+        // Verify this user is not already assigned to another employee
+        const assignedEmployee = await prisma.employee.findFirst({
+          where: { userId: existingUser.id },
+        });
+        if (assignedEmployee) {
+          return res.status(400).json({
+            error: `User account '${normalizedEmail}' is already assigned to employee ${assignedEmployee.fullName} (${assignedEmployee.employeeId})`,
+          });
+        }
+
+        // Update password and profile details for the existing user
+        const passwordHash = await bcrypt.hash(pwd, 10);
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            passwordHash,
+            name: fullName.trim(),
+            role: 'EMPLOYEE',
+            phone: phone ? String(phone).trim() : existingUser.phone,
+            department: department || existingUser.department,
+            designation: designation ? String(designation).trim() : existingUser.designation,
+            isActive: true,
+          },
+        });
         userId = existingUser.id;
       } else {
         const passwordHash = await bcrypt.hash(pwd, 10);
@@ -205,16 +267,31 @@ export async function createEmployee(req: AuthRequest, res: Response) {
             passwordHash,
             name: fullName.trim(),
             role: 'EMPLOYEE',
+            phone: phone ? String(phone).trim() : null,
+            department: department || null,
+            designation: designation ? String(designation).trim() : null,
             isActive: true,
           },
         });
         userId = newUser.id;
       }
+    } else {
+      // If password wasn't provided, check if a user with this email already exists unlinked
+      const existingUser = await prisma.user.findFirst({
+        where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+      });
+      if (existingUser) {
+        const assignedEmployee = await prisma.employee.findFirst({
+          where: { userId: existingUser.id },
+        });
+        if (!assignedEmployee) {
+          userId = existingUser.id;
+        }
+      }
     }
 
-    // Auto-generate employeeId: EMP-001
-    const count = await prisma.employee.count();
-    const employeeId = `EMP-${String(count + 1).padStart(3, '0')}`;
+    // Auto-generate employeeId safely with zero collision risk
+    const employeeId = await generateNextEmployeeId();
 
     const newEmployee = await prisma.employee.create({
       data: {
@@ -222,9 +299,9 @@ export async function createEmployee(req: AuthRequest, res: Response) {
         userId,
         fullName: fullName.trim(),
         email: normalizedEmail,
-        phone,
+        phone: phone ? String(phone).trim() : null,
         department,
-        designation,
+        designation: String(designation).trim(),
         wageType,
         baseWageRate: Number(baseWageRate),
         joiningDate: joiningDate ? new Date(joiningDate) : new Date(),
@@ -244,9 +321,12 @@ export async function createEmployee(req: AuthRequest, res: Response) {
     });
 
     return res.status(201).json(newEmployee);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating employee:', error);
-    return res.status(500).json({ error: 'Failed to create employee' });
+    return res.status(500).json({
+      error: error?.message || 'Failed to create employee',
+      code: error?.code,
+    });
   }
 }
 
