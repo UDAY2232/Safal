@@ -1067,9 +1067,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   };
 
   const openDispatchModal = (po: PurchaseOrder) => {
+    const hasVehicle = Boolean(
+      po.dispatchVehicleNumber &&
+      po.dispatchVehicleNumber !== '-' &&
+      po.dispatchVehicleNumber.trim() !== ''
+    );
+    if (!hasVehicle) {
+      onNotify(`PO ${po.poNumber} is awaiting vehicle allotment by Safal Logistics Hub. Once allotted, loading & dispatch will unlock.`);
+      return;
+    }
     setSelectedPOForDispatch(po);
     setVehicleNumber(po.dispatchVehicleNumber || '');
-    setTransporterName(po.transporterName || '');
+    setTransporterName(po.transporterName || 'SAFAL Cold-Chain Express');
     setDriverPhone(po.driverPhone || '');
     setVehiclePhotoFile(null);
     setVehiclePhotoPreview(po.vehiclePhotoUrl ? (po.vehiclePhotoUrl.startsWith('/') ? `/api${po.vehiclePhotoUrl}` : po.vehiclePhotoUrl) : '');
@@ -1090,12 +1099,35 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   });
   const deliveredAndVerifiedOrders = clearedOrders;
 
-  // 2. Pending Dispatch (Waiting for vehicle loading & dispatch proof upload)
-  const pendingDispatchOrders = orders.filter((o) => {
+  // 2. Orders Awaiting Vehicle Allotment from Safal Hub
+  const awaitingAllotmentOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
+    const hasVehicle = Boolean(
+      o.dispatchVehicleNumber &&
+      o.dispatchVehicleNumber !== '-' &&
+      o.dispatchVehicleNumber.trim() !== ''
+    );
     return (
       !isCleared &&
-      !o.dispatchVehicleNumber &&
+      !hasVehicle &&
+      (!o.dispatchStatus || o.dispatchStatus === 'PENDING_DISPATCH' || o.status === 'PENDING_APPROVAL') &&
+      o.status !== 'CLOSED' &&
+      o.status !== 'CANCELLED' &&
+      o.status !== 'REJECTED'
+    );
+  });
+
+  // 3. Ready for Loading & Dispatch (Vehicle has been allotted by Admin, awaiting vendor carton loading & signature)
+  const pendingDispatchOrders = orders.filter((o) => {
+    const isCleared = clearedOrders.some((c) => c.id === o.id);
+    const hasVehicle = Boolean(
+      o.dispatchVehicleNumber &&
+      o.dispatchVehicleNumber !== '-' &&
+      o.dispatchVehicleNumber.trim() !== ''
+    );
+    return (
+      !isCleared &&
+      hasVehicle &&
       !o.vehiclePhotoUrl &&
       (!o.dispatchStatus || o.dispatchStatus === 'PENDING_DISPATCH') &&
       o.status !== 'CLOSED' &&
@@ -1104,23 +1136,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     );
   });
 
-  // 3. In Transit (Truck on the road with photos/bilty submitted, not yet marked delivered at hub)
+  // 4. In Transit (Truck on the road with photos/bilty submitted, not yet marked delivered at hub)
   const inTransitOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
     const isPending = pendingDispatchOrders.some((p) => p.id === o.id);
-    if (isCleared || isPending) return false;
+    const isAwaitingAllotment = awaitingAllotmentOrders.some((a) => a.id === o.id);
+    if (isCleared || isPending || isAwaitingAllotment) return false;
     return (
       (o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'IN_TRANSIT') &&
       o.dispatchStatus !== 'DELIVERED_AT_HUB'
     );
   });
 
-  // 4. Awaiting Safal Clearance (Arrived at regional hub / weighbridge recorded / awaiting final settlement clearance)
+  // 5. Awaiting Safal Clearance (Arrived at regional hub / weighbridge recorded / awaiting final settlement clearance)
   const awaitingClearanceOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
     const isPending = pendingDispatchOrders.some((p) => p.id === o.id);
+    const isAwaitingAllotment = awaitingAllotmentOrders.some((a) => a.id === o.id);
     const isInTransit = inTransitOrders.some((t) => t.id === o.id);
-    return !isCleared && !isPending && !isInTransit;
+    return !isCleared && !isPending && !isAwaitingAllotment && !isInTransit;
   });
 
   const completedOrders = clearedOrders;
@@ -2118,13 +2152,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         <Scale size={13} /> Record Scale Slip
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => openDispatchModal(po)}
-                      className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <Truck size={13} /> Load &amp; Sign Dispatch
-                    </button>
+                    {(!po.dispatchVehicleNumber || po.dispatchVehicleNumber === '-') ? (
+                      <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs">
+                        <Clock size={13} className="text-amber-700 animate-spin" /> Awaiting Vehicle Allotment
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => openDispatchModal(po)}
+                        className="px-3 py-1.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                      >
+                        <Truck size={13} /> Load &amp; Sign Dispatch
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -2273,6 +2313,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               </span>
             </div>
           </div>
+
+          {/* If there are orders awaiting vehicle allotment */}
+          {awaitingAllotmentOrders.length > 0 && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-50 to-white border-2 border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <Clock size={18} />
+                </div>
+                <div>
+                  <strong className="text-sm font-extrabold text-amber-950 block">
+                    {awaitingAllotmentOrders.length} Consignment PO(s) Awaiting Safal Hub Vehicle Allotment
+                  </strong>
+                  <span className="text-xs text-amber-800">
+                    Safal Logistics team is reviewing your farm origin and assigning authorized refrigerated transport. Once allotted, carton loading &amp; digital dispatch will unlock.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* If there are pending dispatch orders, show a priority action callout banner */}
           {pendingDispatchOrders.length > 0 && (
@@ -2573,13 +2632,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               <Eye size={11} /> Settlement Dossier
                             </button>
                             {isPendingDispatch && (
-                              <button
-                                type="button"
-                                onClick={() => openDispatchModal(po)}
-                                className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] transition shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95"
-                              >
-                                <Truck size={11} /> Load &amp; Sign
-                              </button>
+                              (!po.dispatchVehicleNumber || po.dispatchVehicleNumber === '-') ? (
+                                <span className="px-2 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs">
+                                  <Clock size={10} className="text-amber-700 animate-spin" /> Awaiting Allotment
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openDispatchModal(po)}
+                                  className="px-2.5 py-1 bg-[#087A3E] hover:bg-[#064D2B] text-white rounded-lg font-bold text-[10px] transition shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95"
+                                >
+                                  <Truck size={11} /> Load &amp; Sign
+                                </button>
+                              )
                             )}
                           </div>
                         </td>
@@ -2962,16 +3027,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               </button>
 
                               {po.dispatchStatus === 'PENDING_DISPATCH' && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openDispatchModal(po);
-                                  }}
-                                  className="px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
-                                >
-                                  <Truck size={11} /> Load &amp; Sign
-                                </button>
+                                (!po.dispatchVehicleNumber || po.dispatchVehicleNumber === '-') ? (
+                                  <span className="px-2 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs">
+                                    <Clock size={10} className="text-amber-700 animate-spin" /> Awaiting Allotment
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openDispatchModal(po);
+                                    }}
+                                    className="px-2.5 py-1.5 bg-[#087A3E] hover:bg-[#064D2B] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                                  >
+                                    <Truck size={11} /> Load &amp; Sign
+                                  </button>
+                                )
                               )}
                             </div>
                           </td>
@@ -4749,7 +4820,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   className="px-5 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white font-black shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   <Truck size={15} />
-                  {isSubmittingPO ? 'Submitting Supply PO...' : '🚀 Request Consignment PO & Vehicle Allotment'}
+                  {isSubmittingPO ? 'Submitting Supply PO...' : 'Request Consignment PO & Vehicle Allotment'}
                 </button>
               </div>
             </form>

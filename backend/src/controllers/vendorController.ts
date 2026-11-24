@@ -1213,16 +1213,24 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
       });
     });
 
-    // Notify Safal Admin about this vendor's consignment
-    await prisma.notification.create({
-      data: {
-        recipientRole: 'ADMIN',
-        type: 'PURCHASE_ORDER',
-        title: 'New Vendor Consignment Supply PO',
-        message: `Supply PO ${newPO.poNumber} for ₹${grandTotal.toLocaleString('en-IN')} submitted by vendor ${profile.businessName} for ${targetHub} Hub.`,
-        linkUrl: '/purchase-orders',
-      },
-    }).catch(() => null);
+    // Notify Safal Admin & Accountants that a vehicle allotment is required
+    const adminAndAccountants = await prisma.user.findMany({
+      where: { role: { in: ['ADMIN', 'ACCOUNTANT'] }, isActive: true },
+      select: { id: true },
+    });
+
+    for (const u of adminAndAccountants) {
+      await prisma.notification.create({
+        data: {
+          userId: u.id,
+          recipientRole: 'ADMIN',
+          type: 'PURCHASE_ORDER',
+          title: `🚚 Vehicle Allotment Required: ${newPO.poNumber}`,
+          message: `Vendor ${profile.businessName} requested Consignment PO ${newPO.poNumber} (Value: ₹${grandTotal.toLocaleString('en-IN')}) for ${resolvedOrigin || 'Farm Origin'} ➔ ${targetHub} Hub. Please allot a refrigerated vehicle.`,
+          linkUrl: '/vendors',
+        },
+      }).catch(() => null);
+    }
 
     await createAuditLog({
       userId: req.user.id,
@@ -1601,5 +1609,113 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
   } catch (error: any) {
     console.error('settleVendorBalance error:', error);
     return res.status(500).json({ error: error.message || 'Failed to settle balance' });
+  }
+}
+
+/**
+ * POST /api/vendor/admin/po/:id/allot-vehicle
+ * Admin allots vehicle number, transporter, driver, and approves the vendor consignment PO.
+ * Moves status to 'APPROVED' and sets dispatchStatus to 'PENDING_DISPATCH' (ready for vendor loading).
+ * Sends notification to the vendor so they can proceed with farm loading, taking photo, and signing.
+ */
+export async function allotVendorPOVehicle(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'ACCOUNTANT')) {
+      return res.status(403).json({ error: 'Admin or Accountant access required' });
+    }
+
+    const { id } = req.params;
+    const { dispatchVehicleNumber, transporterName, driverPhone, allotmentNotes } = req.body;
+
+    if (!id) {
+      return res.status(400).json({ error: 'Purchase Order ID is required' });
+    }
+
+    if (!dispatchVehicleNumber || !dispatchVehicleNumber.trim()) {
+      return res.status(400).json({ error: 'Vehicle Registration Number is mandatory' });
+    }
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        vendorProfile: {
+          include: { user: true },
+        },
+        supplier: true,
+        createdBy: true,
+        items: true,
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase order not found' });
+    }
+
+    const vehiclePlate = dispatchVehicleNumber.trim().toUpperCase();
+    const carrier = transporterName && transporterName.trim() ? transporterName.trim() : 'SAFAL Cold-Chain Express';
+    const driver = driverPhone && driverPhone.trim() ? driverPhone.trim() : null;
+
+    const updatedPO = await prisma.purchaseOrder.update({
+      where: { id },
+      data: {
+        dispatchVehicleNumber: vehiclePlate,
+        transporterName: carrier,
+        driverPhone: driver,
+        status: 'APPROVED',
+        dispatchStatus: 'PENDING_DISPATCH',
+        approvedById: req.user.id,
+        notes: allotmentNotes
+          ? `${po.notes ? po.notes + ' | ' : ''}Vehicle Allotted: ${vehiclePlate} (${carrier}). Note: ${allotmentNotes}`
+          : `${po.notes ? po.notes + ' | ' : ''}Vehicle Allotted: ${vehiclePlate} (${carrier})`,
+        statusHistory: {
+          create: {
+            status: 'APPROVED',
+            changedById: req.user.id,
+            comment: `Refrigerated Vehicle ${vehiclePlate} (${carrier}) allotted by Admin (${req.user.name}). Order approved and truck dispatched to vendor farm loading origin.`,
+          },
+        },
+      },
+      include: {
+        vendorProfile: true,
+        supplier: true,
+        items: true,
+        financialRecord: true,
+      },
+    });
+
+    // Notify Vendor User
+    const targetUserId = po.vendorProfile?.userId || po.createdById || po.vendorProfile?.user?.id;
+    if (targetUserId) {
+      await prisma.notification.create({
+        data: {
+          userId: targetUserId,
+          recipientRole: 'VENDOR',
+          type: 'SUCCESS',
+          title: `🚚 Vehicle Allotted: Truck ${vehiclePlate}`,
+          message: `Safal Admin approved PO ${po.poNumber} and allotted Vehicle ${vehiclePlate} (${carrier}). Vehicle is heading to your farm loading origin. Please confirm cartons loaded, take truck photo, and digitally sign the dispatch authorization.`,
+          linkUrl: '/dashboard',
+        },
+      }).catch(() => null);
+    }
+
+    // Audit log
+    await createAuditLog({
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'ADMIN_ALLOTTED_VEHICLE',
+      entityType: 'PURCHASE_ORDER',
+      entityId: po.id,
+      details: `Admin ${req.user.name} approved PO ${po.poNumber} and allotted truck ${vehiclePlate} (${carrier}) to vendor ${po.vendorProfile?.businessName || po.supplier?.name}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      message: `Refrigerated Truck ${vehiclePlate} successfully allotted to PO ${po.poNumber}! Vendor has been notified to proceed with farm loading and dispatch signature.`,
+      purchaseOrder: enrichPOWithSettlementDetails(updatedPO),
+    });
+  } catch (error: any) {
+    console.error('allotVendorPOVehicle error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to allot vehicle and approve PO' });
   }
 }

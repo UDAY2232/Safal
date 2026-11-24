@@ -269,5 +269,18 @@ export const api = {
     request<any>(`/vendor/admin/po/${poId}/disburse-advance`, { method: 'POST', body: formData }),
   settleVendorBalance: (poId: string, formData: FormData) =>
     request<any>(`/vendor/admin/po/${poId}/settle-balance`, { method: 'POST', body: formData }),
+  allotVendorPOVehicle: (
+    poId: string,
+    data: {
+      dispatchVehicleNumber: string;
+      transporterName?: string;
+      driverPhone?: string;
+      allotmentNotes?: string;
+    }
+  ) =>
+    request<any>(`/vendor/admin/po/${poId}/allot-vehicle`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 

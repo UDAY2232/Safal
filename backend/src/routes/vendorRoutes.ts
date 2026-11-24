@@ -16,6 +16,7 @@ import {
   getVendorOperationsForAdmin,
   disburseVendorAdvance,
   settleVendorBalance,
+  allotVendorPOVehicle,
 } from '../controllers/vendorController.js';
 
 const router = Router();
@@ -69,6 +70,11 @@ router.post(
   authenticateToken,
   upload.single('settlementProof'),
   settleVendorBalance
+);
+router.post(
+  '/admin/po/:id/allot-vehicle',
+  authenticateToken,
+  allotVendorPOVehicle
 );
 
 export default router;

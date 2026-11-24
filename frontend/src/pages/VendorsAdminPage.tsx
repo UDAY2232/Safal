@@ -65,7 +65,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [loading, setLoading] = useState(true);
 
   // CD-style navigation & filter state
-  const [activeSection, setActiveSection] = useState<'all' | 'transit' | 'weighbridge' | 'rates' | 'directory'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'allotment' | 'transit' | 'weighbridge' | 'rates' | 'directory'>('all');
   const [viewMode, setViewMode] = useState<'reference' | 'financial'>('reference');
   const [search, setSearch] = useState('');
   const [fromDate, setFromDate] = useState('');
@@ -81,6 +81,15 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
   const [verifyApprovalPO, setVerifyApprovalPO] = useState<any | null>(null);
   const [isApprovingPO, setIsApprovingPO] = useState(false);
+
+  // Vehicle Allotment & Approval Modal State (Admin Fleet Assignment)
+  const [selectedPOForAllot, setSelectedPOForAllot] = useState<any | null>(null);
+  const [allotVehicleNumber, setAllotVehicleNumber] = useState('');
+  const [allotTransporter, setAllotTransporter] = useState('SAFAL Cold-Chain Express');
+  const [allotDriverPhone, setAllotDriverPhone] = useState('');
+  const [allotNotes, setAllotNotes] = useState('');
+  const [isSubmittingAllot, setIsSubmittingAllot] = useState(false);
+  const [allotError, setAllotError] = useState('');
 
   // Advance Disbursement Modal State
   const [selectedPOForAdvance, setSelectedPOForAdvance] = useState<any | null>(null);
@@ -316,9 +325,34 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     return true;
   });
 
+  // Consignment POs awaiting Admin Vehicle Allotment & Approval
+  const pendingAllotmentPOs = allConsignments.filter((op) => {
+    const hasVehicle = Boolean(
+      op.dispatchVehicleNumber &&
+      op.dispatchVehicleNumber !== '-' &&
+      op.dispatchVehicleNumber.trim() !== ''
+    );
+    const isPending = op.status === 'PENDING_APPROVAL' || op.dispatchStatus === 'PENDING_DISPATCH' || !op.dispatchStatus;
+    const isClosed = op.status === 'CLOSED' || op.status === 'CANCELLED' || op.status === 'REJECTED';
+    return !hasVehicle && isPending && !isClosed;
+  });
+
+  // Displayed consignments based on active section
+  const displayedConsignments = activeSection === 'allotment'
+    ? pendingAllotmentPOs.filter((op) => {
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        const poNum = (op.poNumber || '').toLowerCase();
+        const vName = (op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || '').toLowerCase();
+        const vCode = (op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '').toLowerCase();
+        const comm = (op.commodity || '').toLowerCase();
+        return poNum.includes(q) || vName.includes(q) || vCode.includes(q) || comm.includes(q);
+      })
+    : filteredConsignments;
+
   // Transit fleet list
   const transitConsignments = allConsignments.filter(
-    (op) => op.dispatchStatus === 'IN_TRANSIT' || op.dispatchVehicleNumber || op.truckNo
+    (op) => op.dispatchStatus === 'IN_TRANSIT' || (op.dispatchVehicleNumber && op.dispatchVehicleNumber !== '-') || op.truckNo
   );
 
   // Weighbridge slips list
@@ -349,6 +383,42 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     const cost = Number(op.grandTotal || op.totalAmount || 0);
     return sum + cost;
   }, 0);
+
+  const openAllotModal = (po: any) => {
+    setSelectedPOForAllot(po);
+    setAllotVehicleNumber(po.dispatchVehicleNumber && po.dispatchVehicleNumber !== '-' ? po.dispatchVehicleNumber : '');
+    setAllotTransporter(po.transporterName && po.transporterName !== '-' ? po.transporterName : 'SAFAL Cold-Chain Express');
+    setAllotDriverPhone(po.driverPhone && po.driverPhone !== '-' ? po.driverPhone : '');
+    setAllotNotes(po.allotmentNotes || '');
+    setAllotError('');
+  };
+
+  const handleAllotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPOForAllot) return;
+    if (!allotVehicleNumber.trim()) {
+      setAllotError('Please enter a valid Vehicle Registration Number (e.g. TS09UB4521).');
+      return;
+    }
+    try {
+      setIsSubmittingAllot(true);
+      setAllotError('');
+      await api.allotVendorPOVehicle(selectedPOForAllot.id, {
+        dispatchVehicleNumber: allotVehicleNumber.trim().toUpperCase(),
+        transporterName: allotTransporter.trim() || 'SAFAL Cold-Chain Express',
+        driverPhone: allotDriverPhone.trim() || '-',
+        allotmentNotes: allotNotes.trim(),
+      });
+      onNotify(`Vehicle ${allotVehicleNumber.trim().toUpperCase()} allotted to ${selectedPOForAllot.poNumber || 'PO'}! Dispatch unlocked for vendor.`);
+      setSelectedPOForAllot(null);
+      await loadVendorsAndOperations();
+    } catch (err: any) {
+      console.error('Failed to allot vehicle:', err);
+      setAllotError(err.message || 'Failed to allot vehicle. Please try again.');
+    } finally {
+      setIsSubmittingAllot(false);
+    }
+  };
 
   const openPLModal = (op: any) => {
     setSelectedPOForPL(op);
@@ -718,6 +788,37 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         </div>
       </div>
 
+      {/* Alert Banner: Vehicle Allotment Approval Queue */}
+      {pendingAllotmentPOs.length > 0 && (
+        <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-50 to-emerald-50 border-2 border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-start sm:items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+              <Truck size={20} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300">
+                  Action Required
+                </span>
+                <strong className="text-sm font-black text-amber-950 font-['Manrope']">
+                  {pendingAllotmentPOs.length} Vendor Consignment PO(s) Awaiting Vehicle Allotment &amp; Approval
+                </strong>
+              </div>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Wholesale vendors requested consignment supply. Review loading origin farms, allot authorized cold-chain fleets, and approve to unlock carton loading and digital signing.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveSection('allotment')}
+            className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer whitespace-nowrap self-start sm:self-auto active:scale-95"
+          >
+            <Truck size={14} /> Review &amp; Allot Vehicles ({pendingAllotmentPOs.length})
+          </button>
+        </div>
+      )}
+
       {/* 2. Primary Section Switcher Tabs matching Customer Due (Zero raw emojis) */}
       <div className="bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-2 min-w-max">
@@ -731,6 +832,19 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
             }`}
           >
             <ShoppingCart size={15} /> All Vendor Consignments ({allConsignments.length})
+          </button>
+
+          {/* New Tab: Awaiting Vehicle Allotment */}
+          <button
+            type="button"
+            onClick={() => setActiveSection('allotment')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeSection === 'allotment'
+                ? 'bg-amber-600 text-white shadow-sm ring-2 ring-amber-300 font-extrabold'
+                : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+            }`}
+          >
+            <Truck size={15} /> Awaiting Vehicle Allotment ({pendingAllotmentPOs.length})
           </button>
 
           <button
@@ -783,6 +897,12 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
           </button>
         </div>
 
+        {activeSection === 'allotment' && (
+          <div className="text-xs text-amber-900 font-bold px-2 pt-2 flex items-center gap-2 whitespace-nowrap">
+            <Clock size={14} className="text-amber-700 animate-spin" />
+            <span>Consignments Queue: <strong>{pendingAllotmentPOs.length} PO(s) waiting for Admin fleet assignment &amp; dispatch approval</strong></span>
+          </div>
+        )}
         {activeSection === 'transit' && (
           <div className="text-xs text-rose-800 font-bold px-2 pt-2 flex items-center gap-2 whitespace-nowrap">
             <Truck size={14} className="text-rose-600 animate-pulse" />
@@ -1363,7 +1483,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       )}
 
       {/* SECTION: ALL VENDOR CONSIGNMENTS */}
-      {activeSection === 'all' && (
+      {(activeSection === 'all' || activeSection === 'allotment') && (
         <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
           {viewMode === 'reference' ? (
             /* STANDARD REFERENCE VIEW TABLE (Zero raw emojis) */
@@ -1405,14 +1525,14 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredConsignments.length === 0 ? (
+                  {displayedConsignments.length === 0 ? (
                     <tr>
                       <td colSpan={11} className="text-center py-12 text-gray-400">
-                        {loading ? 'Loading vendor operations...' : 'No consignments found matching your criteria.'}
+                        {loading ? 'Loading vendor operations...' : (activeSection === 'allotment' ? 'No consignments awaiting vehicle allotment.' : 'No consignments found matching your criteria.')}
                       </td>
                     </tr>
                   ) : (
-                    filteredConsignments.map((op, index) => {
+                    displayedConsignments.map((op, index) => {
                       const fin = getConsignmentFinancials(op);
                       const settle = op.settlementDetails || {
                         advanceDisbursed: Boolean(op.advanceAmount > 0 || op.paymentProofUrl),
@@ -1435,6 +1555,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       const scaleSlip = op.weighbridgeSlipUrl || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl;
                       const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Fresh Fruits';
                       const status = op.status === 'CLOSED' ? 'CLOSED' : op.dispatchStatus || op.status || 'OPEN';
+                      const isAwaitingAllotment = (!op.dispatchVehicleNumber || op.dispatchVehicleNumber === '-') &&
+                        (op.status === 'PENDING_APPROVAL' || op.dispatchStatus === 'PENDING_DISPATCH' || !op.dispatchStatus);
 
                       return (
                         <tr
@@ -1581,6 +1703,13 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                   </span>
                                 );
                               }
+                              if (isAwaitingAllotment) {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-950 border border-amber-300 inline-flex items-center gap-1 shadow-2xs animate-pulse">
+                                    <Clock size={11} className="text-amber-700" /> Awaiting Allotment
+                                  </span>
+                                );
+                              }
                               if (settle.advanceDisbursed) {
                                 return (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 inline-flex items-center gap-1">
@@ -1598,15 +1727,26 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
 
                           {/* Fleet & Driver */}
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <span className="font-mono text-[11px] font-bold text-gray-900 flex items-center justify-center gap-1">
-                              <Truck size={12} className="text-gray-500" /> {truck}
-                            </span>
-                            <a
-                              href={`tel:${driver}`}
-                              className="text-[10px] font-semibold text-blue-700 hover:underline flex items-center justify-center gap-1 mt-0.5"
-                            >
-                              <Phone size={10} className="text-blue-600" /> {driver}
-                            </a>
+                            {truck && truck !== '-' ? (
+                              <>
+                                <span className="font-mono text-[11px] font-bold text-gray-900 flex items-center justify-center gap-1">
+                                  <Truck size={12} className="text-gray-500" /> {truck}
+                                </span>
+                                <a
+                                  href={`tel:${driver}`}
+                                  className="text-[10px] font-semibold text-blue-700 hover:underline flex items-center justify-center gap-1 mt-0.5"
+                                >
+                                  <Phone size={10} className="text-blue-600" /> {driver}
+                                </a>
+                              </>
+                            ) : (
+                              <div>
+                                <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 block">
+                                  No Vehicle Allotted
+                                </span>
+                                <span className="text-[9px] text-gray-400 block mt-0.5">Awaiting Hub Action</span>
+                              </div>
+                            )}
                           </td>
 
                           {/* Proofs & Actions (Clean 2-Tier Structured Buttons) */}
@@ -1700,6 +1840,19 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
 
                                   {/* Row 2: Dedicated Clickable Action Buttons */}
                                   <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                    {/* Action 1: Allot Vehicle & Approve (for un-allotted POs) */}
+                                    {(!truck || truck === '-' || isAwaitingAllotment) && (
+                                      <button
+                                        type="button"
+                                        onClick={() => openAllotModal(op)}
+                                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                        title="Allot Vehicle Registration & Transporter to approve PO and unlock vendor loading"
+                                      >
+                                        <Truck size={11} />
+                                        <span>Allot Vehicle &amp; Approve</span>
+                                      </button>
+                                    )}
+
                                     {!settle.advanceProofUrl && (
                                       <button
                                         type="button"
@@ -1782,14 +1935,14 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredConsignments.length === 0 ? (
+                  {displayedConsignments.length === 0 ? (
                     <tr>
                       <td colSpan={12} className="text-center py-12 text-gray-400">
-                        No consignments found.
+                        {loading ? 'Loading vendor operations...' : (activeSection === 'allotment' ? 'No consignments awaiting vehicle allotment.' : 'No consignments found.')}
                       </td>
                     </tr>
                   ) : (
-                    filteredConsignments.map((op, index) => {
+                    displayedConsignments.map((op, index) => {
                       const fin = getConsignmentFinancials(op);
                       const settle = op.settlementDetails || {
                         advanceDisbursed: Boolean(op.advanceAmount > 0 || op.paymentProofUrl),
@@ -1919,7 +2072,18 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             )}
                           </td>
                           <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              {(!op.dispatchVehicleNumber || op.dispatchVehicleNumber === '-') && (
+                                <button
+                                  type="button"
+                                  onClick={() => openAllotModal(op)}
+                                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                  title="Allot Vehicle Registration & Transporter to approve PO and unlock vendor loading"
+                                >
+                                  <Truck size={11} />
+                                  <span>Allot Vehicle</span>
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => openPLModal(op)}
@@ -3899,6 +4063,203 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: ADMIN VEHICLE ALLOTMENT & APPROVAL MODAL */}
+      {selectedPOForAllot && (() => {
+        const op = selectedPOForAllot;
+        const fin = getConsignmentFinancials(op);
+        const poCode = op.poNumber || 'PO/SF/2026/001';
+        const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || 'Wholesale Vendor';
+        const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || 'VND-001';
+        const originFarm = op.orderPersonPlace || op.vendorProfile?.primaryLocation || 'Farm Origin';
+        const destinationHub = op.deliveryAddress || op.hubName || 'Warangal Regional Hub';
+        const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Kashmir Apples';
+
+        return (
+          <div
+            className="modal-backdrop fixed inset-0 flex items-center justify-center p-3 sm:p-4 !z-[9999]"
+            style={{ zIndex: 9999 }}
+            onClick={() => setSelectedPOForAllot(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-xl w-full border border-emerald-900/20 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="pb-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 grid place-items-center">
+                    <Truck size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-black text-amber-800 tracking-wider">
+                        Logistics Fleet Assignment
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black border border-amber-300">
+                        Admin Approval
+                      </span>
+                    </div>
+                    <h2 className="text-lg font-black text-gray-900 font-['Manrope'] mt-0.5">
+                      Allot Vehicle: {poCode}
+                    </h2>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPOForAllot(null)}
+                  className="text-gray-400 hover:text-gray-700 p-1.5 rounded-xl hover:bg-gray-100 transition cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Form Content */}
+              <form onSubmit={handleAllotSubmit} className="space-y-4 py-3 overflow-y-auto pr-1 flex-1">
+                {allotError && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-bold flex items-center gap-2">
+                    <AlertCircle size={15} className="flex-shrink-0" />
+                    <span>{allotError}</span>
+                  </div>
+                )}
+
+                {/* Consignment Request Overview */}
+                <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 via-gray-50/50 to-white border border-emerald-200/80 rounded-2xl space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-emerald-900 tracking-wider">
+                      Consignment Specifications
+                    </span>
+                    <strong className="text-gray-900 font-mono">₹{fin.baseCost.toLocaleString('en-IN')}</strong>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div>
+                      <span className="text-gray-500 block">Vendor Partner:</span>
+                      <strong className="text-gray-900 block truncate">{vName} ({vCode})</strong>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Commodity &amp; Volume:</span>
+                      <strong className="text-emerald-900 block truncate">{commodity} · {fin.totalQty} {fin.unit}s</strong>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Farm Origin (Starting Point):</span>
+                      <strong className="text-gray-900 block truncate flex items-center gap-1">
+                        <MapPin size={11} className="text-amber-600" /> {originFarm}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block">Destination Regional Hub:</span>
+                      <strong className="text-emerald-900 block truncate flex items-center gap-1">
+                        <Building2 size={11} className="text-emerald-700" /> {destinationHub}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Field 1: Vehicle Registration Number */}
+                <div>
+                  <label className="block text-xs text-gray-800 font-bold mb-1">
+                    Vehicle Registration Number *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-gray-400">
+                      <Truck size={14} />
+                    </span>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. TS09UB4521 / JK01AB9876"
+                      value={allotVehicleNumber}
+                      onChange={(e) => setAllotVehicleNumber(e.target.value.toUpperCase())}
+                      className="w-full h-9 pl-9 pr-3 uppercase border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E] focus:ring-2 focus:ring-emerald-100"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-1">
+                    Enter the authorized cold-chain reefer truck registration plate allotted to this consignment.
+                  </span>
+                </div>
+
+                {/* Field 2: Transporter / Fleet Agency Name */}
+                <div>
+                  <label className="block text-xs text-gray-800 font-bold mb-1">
+                    Transporter / Fleet Agency Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. SAFAL Cold-Chain Express / New Golden Roadways"
+                    value={allotTransporter}
+                    onChange={(e) => setAllotTransporter(e.target.value)}
+                    className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                  />
+                </div>
+
+                {/* Field 3: Driver Contact Phone */}
+                <div>
+                  <label className="block text-xs text-gray-800 font-bold mb-1">
+                    Driver Contact Phone Number *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-gray-400">
+                      <Phone size={14} />
+                    </span>
+                    <input
+                      type="tel"
+                      required
+                      placeholder="e.g. 9848012345"
+                      value={allotDriverPhone}
+                      onChange={(e) => setAllotDriverPhone(e.target.value)}
+                      className="w-full h-9 pl-9 pr-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-1">
+                    Vendor will receive driver phone number for farm loading coordination.
+                  </span>
+                </div>
+
+                {/* Field 4: Optional Notes / Gate Pass Instructions */}
+                <div>
+                  <label className="block text-xs text-gray-800 font-bold mb-1">
+                    Allotment Notes &amp; Loading Instructions (Optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Driver dispatched to Shopian Farm Gate 1. Temperature set to +2.5°C pre-cooled."
+                    value={allotNotes}
+                    onChange={(e) => setAllotNotes(e.target.value)}
+                    className="w-full p-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 bg-white focus:outline-none focus:border-[#087A3E]"
+                  />
+                </div>
+
+                {/* Notice */}
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-950 text-[11px] leading-relaxed">
+                  <span className="font-bold block mb-0.5">Workflow Progression Notice:</span>
+                  Confirming this allotment will mark PO <strong>{poCode}</strong> as approved and assign vehicle <strong>{allotVehicleNumber || 'TS09UB4521'}</strong>. The vendor partner will be immediately notified and the loading proof submission and digital signature will be unlocked.
+                </div>
+
+                {/* Modal Actions */}
+                <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPOForAllot(null)}
+                    className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAllot}
+                    className="px-5 py-2.5 rounded-xl bg-[#064D2B] hover:bg-[#087A3E] text-white font-black text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    <Truck size={15} className="text-emerald-300" />
+                    <span>{isSubmittingAllot ? 'Allotting Vehicle & Notifying Vendor...' : 'Confirm Allotment & Dispatch Vehicle'}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         );
