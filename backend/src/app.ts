@@ -32,8 +32,8 @@ app.use(
 );
 app.options('*', cors());
 
-app.use(express.json({ limit: '25mb' }));
-app.use(express.urlencoded({ extended: true, limit: '25mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Serve uploaded receipts & docs
 const uploadDir = path.resolve('uploads');

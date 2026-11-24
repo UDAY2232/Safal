@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 
 export const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB limit per file
   fileFilter: (_req, file, cb) => {
     const allowed = /pdf|jpg|jpeg|png/;
     const ext = path.extname(file.originalname).toLowerCase();

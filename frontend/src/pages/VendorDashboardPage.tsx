@@ -48,7 +48,7 @@ import { useAuth } from '../context/AuthContext';
 import { PurchaseOrder, VENDOR_WHITELISTED_LOCATIONS, VENDOR_WHITELISTED_FRUITS } from '../types';
 import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
 import { PODetailModal } from '../components/PODetailModal';
-import { stampImageFile } from '../utils/watermark';
+import { stampImageFile, compressImageFile } from '../utils/watermark';
 
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
@@ -638,12 +638,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setSupplyVehiclePhotoFile(stampedFile);
         setSupplyVehiclePhotoPreview(previewUrl);
       } catch {
-        setSupplyVehiclePhotoFile(file);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setSupplyVehiclePhotoPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        const { file: optFile, previewUrl } = await compressImageFile(file);
+        setSupplyVehiclePhotoFile(optFile);
+        setSupplyVehiclePhotoPreview(previewUrl);
       }
     }
   };
@@ -660,12 +657,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setSupplyTransportBillFile(stampedFile);
         setSupplyTransportBillPreview(previewUrl);
       } catch {
-        setSupplyTransportBillFile(file);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setSupplyTransportBillPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        const { file: optFile, previewUrl } = await compressImageFile(file);
+        setSupplyTransportBillFile(optFile);
+        setSupplyTransportBillPreview(previewUrl);
       }
     }
   };
@@ -876,7 +870,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       await loadData();
       setActiveTab('orders');
     } catch (err: any) {
-      setCreatePOError(err.message || 'Failed to submit consignment PO');
+      const msg = err.message || '';
+      if (/413|too large|entity/i.test(msg)) {
+        setCreatePOError('Upload size too large. Photos have been auto-optimized; please re-select and tap submit.');
+      } else {
+        setCreatePOError(msg || 'Failed to submit consignment PO');
+      }
     } finally {
       setIsSubmittingPO(false);
     }
@@ -925,12 +924,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setVehiclePhotoFile(stampedFile);
         setVehiclePhotoPreview(previewUrl);
       } catch {
-        setVehiclePhotoFile(file);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setVehiclePhotoPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        const { file: optFile, previewUrl } = await compressImageFile(file);
+        setVehiclePhotoFile(optFile);
+        setVehiclePhotoPreview(previewUrl);
       }
     }
   };
@@ -948,12 +944,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setTransportBillFile(stampedFile);
         setTransportBillPreview(previewUrl);
       } catch {
-        setTransportBillFile(file);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setTransportBillPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
+        const { file: optFile, previewUrl } = await compressImageFile(file);
+        setTransportBillFile(optFile);
+        setTransportBillPreview(previewUrl);
       }
     }
   };
@@ -4343,18 +4336,24 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   {/* Vehicle Photo Upload */}
-                  <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
-                        <Camera size={13} className="text-emerald-700" />
-                        Dispatch Photo (Vehicle &amp; Loaded Cartons)
+                  <div className={`p-3 bg-white border rounded-xl space-y-1.5 transition ${
+                    supplyVehiclePhotoFile ? 'border-emerald-300 ring-1 ring-emerald-200' : 'border-red-300 bg-red-50/20'
+                  }`}>
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <label className="block text-xs font-black text-gray-900 flex items-center gap-1.5">
+                        <Camera size={14} className="text-emerald-700" />
+                        <span>Dispatch Vehicle Photo <span className="text-red-600 font-black">* (Mandatory)</span></span>
                       </label>
-                      <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-                        Mandatory
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                        supplyVehiclePhotoFile
+                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                          : 'bg-red-100 text-red-800 border-red-300 animate-pulse'
+                      }`}>
+                        {supplyVehiclePhotoFile ? 'Photo Attached ✓' : '* Required / Mandatory'}
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-500">
-                      Clear photo showing vehicle with loaded fruit boxes and number plate.
+                    <p className="text-[10px] text-gray-600">
+                      <strong className="text-red-600 font-bold">* Mandatory:</strong> Clear photo showing truck loaded with fruit cartons and visible number plate.
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <button
@@ -4385,7 +4384,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <Upload size={12} />
                         </div>
                         <span className="text-[11px] font-bold text-emerald-900 truncate">
-                          {supplyVehiclePhotoFile ? supplyVehiclePhotoFile.name : 'Choose File'}
+                          {supplyVehiclePhotoFile ? supplyVehiclePhotoFile.name : 'Choose File *'}
                         </span>
                       </button>
                       <input
@@ -4422,18 +4421,24 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </div>
 
                   {/* Transport Bill Photo Upload */}
-                  <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
-                        <ReceiptText size={13} className="text-blue-700" />
-                        Transport Bill (Bilty / LR Receipt)
+                  <div className={`p-2.5 bg-white border rounded-xl space-y-1.5 transition ${
+                    supplyTransportBillFile ? 'border-blue-300 ring-1 ring-blue-200' : 'border-red-300 bg-red-50/20'
+                  }`}>
+                    <div className="flex flex-wrap items-center justify-between gap-1">
+                      <label className="block text-xs font-black text-gray-900 flex items-center gap-1.5">
+                        <ReceiptText size={14} className="text-blue-700" />
+                        <span>Transport Bill Photo (Bilty / LR) <span className="text-red-600 font-black">* (Mandatory)</span></span>
                       </label>
-                      <span className="text-[10px] text-blue-800 font-bold bg-blue-100 px-2 py-0.5 rounded-full border border-blue-300">
-                        Mandatory
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                        supplyTransportBillFile
+                          ? 'bg-blue-100 text-blue-900 border-blue-300'
+                          : 'bg-red-100 text-red-800 border-red-300 animate-pulse'
+                      }`}>
+                        {supplyTransportBillFile ? 'Bilty Attached ✓' : '* Required / Mandatory'}
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-500">
-                      Upload photo or PDF receipt from transporter. Timestamp &amp; GPS location will be stamped automatically upon upload.
+                    <p className="text-[10px] text-gray-600">
+                      <strong className="text-red-600 font-bold">* Mandatory:</strong> Clear photo or PDF receipt from transporter / consignment note. Stamped with watermark &amp; GPS.
                     </p>
                     <button
                       type="button"
@@ -4444,7 +4449,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         <Upload size={12} />
                       </div>
                       <span className="text-[11px] font-bold text-blue-900 truncate">
-                        {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose Bilty / LR Document (Image or PDF)'}
+                        {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose Bilty / LR Document * (Image or PDF)'}
                       </span>
                     </button>
                     <input

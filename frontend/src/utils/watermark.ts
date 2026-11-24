@@ -74,8 +74,74 @@ function getDeviceLocation(): Promise<{ lat: string; lng: string; accuracy: numb
 }
 
 /**
+ * Safely compresses and resizes any image File to keep it under ~350KB
+ * without losing document readability.
+ */
+export async function compressImageFile(
+  file: File,
+  maxDim = 1440,
+  quality = 0.80
+): Promise<{ file: File; previewUrl: string }> {
+  if (!file.type.startsWith('image/')) {
+    const previewUrl = URL.createObjectURL(file);
+    return { file, previewUrl };
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        let width = img.naturalWidth || 1280;
+        let height = img.naturalHeight || 960;
+
+        if (width > maxDim || height > maxDim) {
+          if (width >= height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve({ file, previewUrl: dataUrl });
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              resolve({ file, previewUrl: dataUrl });
+              return;
+            }
+            const cleanName = file.name.replace(/\.[^/.]+$/, '');
+            const compressedFile = new File([blob], `${cleanName}_opt.jpg`, { type: 'image/jpeg' });
+            resolve({ file: compressedFile, previewUrl: canvas.toDataURL('image/jpeg', quality) });
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => resolve({ file, previewUrl: dataUrl });
+      img.src = dataUrl;
+    };
+    reader.onerror = () => resolve({ file, previewUrl: URL.createObjectURL(file) });
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * Automatically stamps timestamp, GPS geolocation, user info, and digital tamper-proof
  * verification banner onto any uploaded image file. Non-image files (e.g. PDF) are returned as-is.
+ * Also constrains resolution to max 1440px and quality 0.80 to prevent HTTP 413 (Entity Too Large).
  */
 export async function stampImageFile(
   file: File,
@@ -104,8 +170,27 @@ export async function stampImageFile(
     image.src = dataUrl;
   });
 
-  const width = Math.max(1280, img.naturalWidth || 1280);
-  const height = Math.max(960, Math.round((width / (img.naturalWidth || 1280)) * (img.naturalHeight || 960)));
+  // Constrain max dimensions to 1440px to produce lightweight ~250-400KB files, preventing 413 Entity Too Large
+  const MAX_DIM = 1440;
+  let natW = img.naturalWidth || 1280;
+  let natH = img.naturalHeight || 960;
+  let width = natW;
+  let height = natH;
+
+  if (width > MAX_DIM || height > MAX_DIM) {
+    if (width >= height) {
+      height = Math.round((height * MAX_DIM) / width);
+      width = MAX_DIM;
+    } else {
+      width = Math.round((width * MAX_DIM) / height);
+      height = MAX_DIM;
+    }
+  }
+
+  if (width < 960) {
+    height = Math.round((height * 960) / width);
+    width = 960;
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = width;
@@ -200,7 +285,7 @@ export async function stampImageFile(
   ctx.fillText('🔴 TIMESTAMP & GEO-STAMPED', width - 235, 47);
 
   const stampedBlob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, 'image/jpeg', 0.92);
+    canvas.toBlob(resolve, 'image/jpeg', 0.80);
   });
 
   if (!stampedBlob) {
@@ -209,7 +294,7 @@ export async function stampImageFile(
 
   const cleanName = file.name.replace(/\.[^/.]+$/, '');
   const stampedFile = new File([stampedBlob], `${cleanName}_stamped.jpg`, { type: 'image/jpeg' });
-  const finalPreview = canvas.toDataURL('image/jpeg', 0.92);
+  const finalPreview = canvas.toDataURL('image/jpeg', 0.80);
 
   return { file: stampedFile, previewUrl: finalPreview };
 }
