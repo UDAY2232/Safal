@@ -2545,7 +2545,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             {isFullyCleared ? (
                               <div>
                                 <strong className="text-emerald-700 font-black block font-mono text-xs">
-                                  ₹{Number(settle.finalBalancePaid || (netVendorPayable - advance) || (total - advance)).toLocaleString('en-IN')}
+                                  ₹{Number(
+                                    settle.finalBalancePaid > 0 && settle.finalBalancePaid <= total
+                                      ? settle.finalBalancePaid
+                                      : (netVendorPayable - advance) > 0
+                                      ? (netVendorPayable - advance)
+                                      : (total - advance)
+                                  ).toLocaleString('en-IN')}
                                 </strong>
                                 <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
                                   Cleared by Safal ✓
@@ -2589,18 +2595,6 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                       plVal >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
                                     }`}>
                                       {plVal >= 0 ? 'Net Profit' : 'Loss'}
-                                    </span>
-                                  </div>
-                                );
-                              }
-                              if (isFullyCleared) {
-                                return (
-                                  <div>
-                                    <strong className="text-emerald-700 font-mono text-xs block">
-                                      ₹{Number(settle.finalBalancePaid || (netVendorPayable - advance) || (total - advance)).toLocaleString('en-IN')}
-                                    </strong>
-                                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
-                                      Realized Net Gain
                                     </span>
                                   </div>
                                 );

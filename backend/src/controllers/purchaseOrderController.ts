@@ -950,27 +950,39 @@ export async function updateFinancialRecords(req: AuthRequest, res: Response) {
       financialStatus = 'NOT_CALCULATED';
     }
 
+    let finalRevenueNotes = revenueNotes;
+    if (po.financialRecord?.revenueNotes && po.financialRecord.revenueNotes.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(po.financialRecord.revenueNotes);
+        parsed.pnlNotes = revenueNotes || parsed.pnlNotes;
+        parsed.mandiRealizationRevenue = rev;
+        parsed.realizedProfitLoss = realizedProfitLoss;
+        parsed.financialStatus = financialStatus;
+        finalRevenueNotes = JSON.stringify(parsed);
+      } catch {}
+    }
+
     const updatedRecord = await prisma.purchaseOrderFinancialRecord.upsert({
       where: { purchaseOrderId: id },
       create: {
         purchaseOrderId: id,
         verifiedCost: cost,
-        costNotes,
+        costNotes: costNotes || null,
         allocatedTransportCost: transport,
         allocatedLaborCost: labor,
         linkedRevenue: rev,
-        revenueNotes,
+        revenueNotes: finalRevenueNotes,
         realizedProfitLoss,
         financialStatus,
         updatedById: req.user!.id,
       },
       update: {
         verifiedCost: cost,
-        costNotes,
+        ...(costNotes !== undefined ? { costNotes } : {}),
         allocatedTransportCost: transport,
         allocatedLaborCost: labor,
         linkedRevenue: rev,
-        revenueNotes,
+        revenueNotes: finalRevenueNotes || po.financialRecord?.revenueNotes,
         realizedProfitLoss,
         financialStatus,
         updatedById: req.user!.id,

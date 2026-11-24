@@ -1268,6 +1268,7 @@ export async function disburseVendorAdvance(req: AuthRequest, res: Response) {
         vendorProfile: { include: { user: true } },
         supplier: true,
         financialRecord: true,
+        items: true,
       },
     });
 
@@ -1411,6 +1412,7 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
         vendorProfile: { include: { user: true } },
         supplier: true,
         financialRecord: true,
+        items: true,
       },
     });
 
@@ -1430,7 +1432,9 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
     const totalDeductions = adminShareAmount + apmcShareAmount;
     const netVendorPayable = Math.max(0, grandTotal - totalDeductions);
     const finalBalanceDue = Math.max(0, netVendorPayable - advanceAmount);
-    const finalBalancePaid = Number(rawFinalPaid) > 0 ? Number(rawFinalPaid) : finalBalanceDue;
+    const finalBalancePaid = Number(rawFinalPaid) > 0
+      ? (finalBalanceDue > 0 ? Math.min(Number(rawFinalPaid), finalBalanceDue) : Number(rawFinalPaid))
+      : finalBalanceDue;
 
     const hubName = settlingHub || po.orderPersonPlace || 'Warangal Hub';
     const payDate = paymentDate || new Date().toISOString().split('T')[0];
@@ -1438,6 +1442,37 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
     const isFullySettled = finalBalancePaid >= finalBalanceDue;
     const remainingBalanceDue = Math.max(0, finalBalanceDue - finalBalancePaid);
     const updatedStatus = isFullySettled ? 'CLOSED' : 'OPEN';
+
+    // Preserve or dynamically calculate trading P&L based on what Admin enters:
+    const existingFin = po.financialRecord;
+    let finalProfitLoss: number | null = existingFin?.realizedProfitLoss !== null && existingFin?.realizedProfitLoss !== undefined
+      ? Number(existingFin.realizedProfitLoss)
+      : null;
+    let finalStatus: any = existingFin?.financialStatus || (finalProfitLoss !== null ? (finalProfitLoss >= 0 ? 'PROFIT' : 'LOSS') : 'PENDING_SALES_DATA');
+    let verifiedCost = existingFin?.verifiedCost !== null && existingFin?.verifiedCost !== undefined
+      ? Number(existingFin.verifiedCost)
+      : grandTotal;
+    let transport = Number(existingFin?.allocatedTransportCost || 0);
+    let labor = Number(existingFin?.allocatedLaborCost || 0);
+    let linkedRev = existingFin?.linkedRevenue !== null && existingFin?.linkedRevenue !== undefined
+      ? Number(existingFin.linkedRevenue)
+      : null;
+
+    if (req.body.linkedRevenue !== undefined || req.body.closingPrice !== undefined) {
+      if (req.body.closingPrice) {
+        const totalQty = po.items?.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0), 0) || 1;
+        linkedRev = Math.round(Number(req.body.closingPrice) * totalQty);
+      } else if (req.body.linkedRevenue) {
+        linkedRev = Number(req.body.linkedRevenue);
+      }
+      if (req.body.allocatedTransportCost !== undefined) transport = Number(req.body.allocatedTransportCost) || 0;
+      if (req.body.allocatedLaborCost !== undefined) labor = Number(req.body.allocatedLaborCost) || 0;
+      if (req.body.verifiedCost !== undefined) verifiedCost = Number(req.body.verifiedCost) || grandTotal;
+
+      const totalAssociatedCost = verifiedCost + transport + labor;
+      finalProfitLoss = linkedRev! - totalAssociatedCost;
+      finalStatus = finalProfitLoss > 0 ? 'PROFIT' : (finalProfitLoss < 0 ? 'LOSS' : 'BREAK_EVEN');
+    }
 
     const settlementPayload = {
       settlementCompleted: isFullySettled,
@@ -1462,29 +1497,34 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
       vendorRealizedGain: netVendorPayable,
       platformRevenue: adminShareAmount,
       mandiCessPaid: apmcShareAmount,
+      realizedProfitLoss: finalProfitLoss,
     };
 
     const updated = await prisma.$transaction(async (tx) => {
-      if (po.financialRecord) {
+      if (existingFin) {
         await tx.purchaseOrderFinancialRecord.update({
-          where: { id: po.financialRecord.id },
+          where: { id: existingFin.id },
           data: {
             revenueNotes: JSON.stringify(settlementPayload),
-            linkedRevenue: grandTotal,
-            verifiedCost: netVendorPayable,
-            realizedProfitLoss: adminShareAmount,
-            financialStatus: 'PROFIT',
+            linkedRevenue: linkedRev,
+            verifiedCost,
+            allocatedTransportCost: transport,
+            allocatedLaborCost: labor,
+            realizedProfitLoss: finalProfitLoss,
+            financialStatus: finalStatus,
           },
         });
       } else {
         await tx.purchaseOrderFinancialRecord.create({
           data: {
             purchaseOrderId: po.id,
-            financialStatus: 'PROFIT',
+            financialStatus: finalStatus,
             revenueNotes: JSON.stringify(settlementPayload),
-            linkedRevenue: grandTotal,
-            verifiedCost: netVendorPayable,
-            realizedProfitLoss: adminShareAmount,
+            linkedRevenue: linkedRev,
+            verifiedCost,
+            allocatedTransportCost: transport,
+            allocatedLaborCost: labor,
+            realizedProfitLoss: finalProfitLoss,
           },
         });
       }

@@ -104,6 +104,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [settlementNotes, setSettlementNotes] = useState<string>('');
   const [settlementProofFile, setSettlementProofFile] = useState<File | null>(null);
   const [settlementProofPreview, setSettlementProofPreview] = useState<string | null>(null);
+  const [settlementClosingPrice, setSettlementClosingPrice] = useState<number | string>('');
+  const [settlementTransport, setSettlementTransport] = useState<number | string>('');
+  const [settlementLabor, setSettlementLabor] = useState<number | string>('');
   const [isSubmittingSettlement, setIsSubmittingSettlement] = useState<boolean>(false);
 
   // Camera modal state for admin uploads
@@ -528,6 +531,11 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     setSettlementNotes(`Cleared after 5% Admin Share (₹${adminShare.toLocaleString('en-IN')}) and 1% APMC Mandi Cess (₹${apmcShare.toLocaleString('en-IN')})`);
     setSettlementProofFile(null);
     setSettlementProofPreview(null);
+
+    const fin = getConsignmentFinancials(op);
+    setSettlementClosingPrice(op.financialRecord?.linkedRevenue ? Math.round(Number(op.financialRecord.linkedRevenue) / Math.max(1, fin.totalQty)) : fin.closingRate);
+    setSettlementTransport(op.financialRecord?.allocatedTransportCost ? Number(op.financialRecord.allocatedTransportCost) : fin.transportCost);
+    setSettlementLabor(op.financialRecord?.allocatedLaborCost ? Number(op.financialRecord.allocatedLaborCost) : fin.laborCost);
   };
 
   const handleSubmitSettlement = async () => {
@@ -545,6 +553,15 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       fd.append('settlingHub', settlementHub);
       fd.append('paymentDate', settlementPaymentDate);
       fd.append('notes', settlementNotes);
+      if (settlementClosingPrice !== '') {
+        fd.append('closingPrice', String(settlementClosingPrice));
+      }
+      if (settlementTransport !== '') {
+        fd.append('allocatedTransportCost', String(settlementTransport));
+      }
+      if (settlementLabor !== '') {
+        fd.append('allocatedLaborCost', String(settlementLabor));
+      }
       if (settlementProofFile) {
         fd.append('settlementProof', settlementProofFile);
       }
@@ -3323,6 +3340,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         const netVendorPayable = Math.max(0, grand - totalDeductions);
         const balanceDue = Math.max(0, netVendorPayable - adv);
         const hub = settlementHub || op.orderPersonPlace || 'Warangal Hub';
+        const fin = getConsignmentFinancials(op);
 
         return (
           <div
@@ -3531,6 +3549,82 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
                     />
                   </div>
+                </div>
+
+                {/* Mandi Realization Auction Rate & Realized P&L (Reflects in Vendor Ledger) */}
+                <div className="p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-blue-950 text-xs flex items-center gap-1.5 font-bold">
+                      <TrendingUp size={14} className="text-blue-700" />
+                      Mandi Sales Auction Rate &amp; Realized P&amp;L (Reflects in Vendor Ledger)
+                    </strong>
+                    <span className="text-[10px] text-blue-700 font-bold bg-white px-2 py-0.5 rounded border border-blue-200">
+                      Editable by Admin
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-gray-700 font-bold mb-1">
+                        Auction Rate (₹ / {fin.unit || 'BOX'})
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-2 text-gray-400 font-bold text-xs">₹</span>
+                        <input
+                          type="number"
+                          value={settlementClosingPrice}
+                          onChange={(e) => setSettlementClosingPrice(e.target.value)}
+                          placeholder="e.g. 1480"
+                          className="w-full h-8 pl-6 pr-2 border border-blue-300 rounded-xl text-xs font-bold text-blue-950 bg-white focus:outline-none focus:border-blue-600"
+                        />
+                      </div>
+                      <span className="text-[9px] text-gray-500 block mt-0.5">
+                        Turnover: ₹{Math.round((Number(settlementClosingPrice) || 0) * fin.totalQty).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-gray-700 font-bold mb-1">
+                        Freight Cost (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={settlementTransport}
+                        onChange={(e) => setSettlementTransport(e.target.value)}
+                        className="w-full h-8 px-2.5 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] text-gray-700 font-bold mb-1">
+                        Hamali / Labor (₹)
+                      </label>
+                      <input
+                        type="number"
+                        value={settlementLabor}
+                        onChange={(e) => setSettlementLabor(e.target.value)}
+                        className="w-full h-8 px-2.5 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Real-time P&L Outcome Preview */}
+                  {(() => {
+                    const rate = Number(settlementClosingPrice) || 0;
+                    if (rate <= 0) return null;
+                    const estRev = Math.round(rate * fin.totalQty);
+                    const estCost = fin.baseCost + (Number(settlementTransport) || 0) + (Number(settlementLabor) || 0);
+                    const estPL = estRev - estCost;
+                    const isP = estPL >= 0;
+                    return (
+                      <div className={`p-2 rounded-xl border flex items-center justify-between text-xs ${isP ? 'bg-emerald-50 border-emerald-300 text-emerald-950' : 'bg-rose-50 border-rose-300 text-rose-950'}`}>
+                        <span className="font-semibold">Calculated Mandi Profit / Loss:</span>
+                        <strong className="font-mono text-xs font-black">
+                          {isP ? `+₹${estPL.toLocaleString('en-IN')} (Net Profit)` : `-₹${Math.abs(estPL).toLocaleString('en-IN')} (Loss)`}
+                        </strong>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div>
