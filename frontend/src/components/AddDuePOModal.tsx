@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Trash2,
   Eye,
+  Smartphone,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -116,8 +117,8 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
       return;
     }
 
-    if (isCD && numAdvance > 0 && !cdProofFile) {
-      setError(`Payment Proof (${paymentProofMode === 'PHONEPE' ? 'PhonePe screenshot' : paymentProofMode === 'CASH' ? 'Cash bill slip' : 'Payment receipt'}) is mandatory when Payed Amount (₹${numAdvance.toLocaleString('en-IN')}) is recorded.`);
+    if (isCD && !cdProofFile) {
+      setError(`Payment Proof (${paymentProofMode === 'PHONEPE' ? 'PhonePe screenshot' : paymentProofMode === 'CASH' ? 'Cash bill slip' : 'Payment receipt'}) is mandatory for Customer Due creation.`);
       return;
     }
 
@@ -406,64 +407,58 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
                 <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
                   <div className="flex items-center gap-1.5">
                     <Receipt size={14} className="text-emerald-700" />
-                    <span className="text-xs font-black text-gray-900 uppercase tracking-wide">
-                      Upfront Payment Proof Image
+                    <span className="text-xs font-bold text-gray-900 uppercase tracking-wider">
+                      Payment Proof Document <span className="text-red-500">*</span>
                     </span>
-                    {numAdvance > 0 ? (
-                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
-                        * Required for ₹{numAdvance.toLocaleString('en-IN')}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-                        Optional if ₹0 Paid
-                      </span>
-                    )}
+                    <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
+                      * Mandatory
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                    Admin & Accountant Verified
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-md">
+                    Admin &amp; Accountant Verified
                   </span>
                 </div>
 
-                <p className="text-[11px] text-gray-600 mb-2">
-                  If cash was received, upload photo of bill/receipt slip. If paid via PhonePe/UPI, upload payment screenshot.
+                <p className="text-[11px] text-gray-500 mb-2">
+                  Select payment mode and attach PhonePe screenshot, cash receipt bill, or bank transfer slip.
                 </p>
 
-                {/* Mode Selector */}
-                <div className="grid grid-cols-3 gap-1.5 mb-2.5">
+                {/* Mode Selector (No emojis, executive styling) */}
+                <div className="grid grid-cols-3 gap-2 mb-2.5">
                   <button
                     type="button"
                     onClick={() => setPaymentProofMode('PHONEPE')}
-                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer border ${
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer border ${
                       paymentProofMode === 'PHONEPE'
-                        ? 'bg-purple-600 text-white border-purple-700 shadow-xs'
+                        ? 'bg-[#064D2B] text-white border-[#064D2B] shadow-sm'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    <span>📱</span>
+                    <Smartphone size={14} />
                     <span className="truncate">PhonePe / UPI</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentProofMode('CASH')}
-                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer border ${
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer border ${
                       paymentProofMode === 'CASH'
-                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                        ? 'bg-[#064D2B] text-white border-[#064D2B] shadow-sm'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    <span>💵</span>
+                    <Receipt size={14} />
                     <span className="truncate">Cash Bill / Slip</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setPaymentProofMode('BANK')}
-                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer border ${
+                    className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer border ${
                       paymentProofMode === 'BANK'
-                        ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                        ? 'bg-[#064D2B] text-white border-[#064D2B] shadow-sm'
                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                     }`}
                   >
-                    <span>🏦</span>
+                    <Building2 size={14} />
                     <span className="truncate">Bank Transfer</span>
                   </button>
                 </div>
@@ -471,8 +466,8 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
                 {/* File picker & camera */}
                 {!cdProofFile && !cdProofPreview ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <label className="flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-emerald-400 hover:border-emerald-600 rounded-xl bg-white hover:bg-emerald-50 text-emerald-900 cursor-pointer transition text-xs font-bold shadow-2xs">
-                      <Upload size={15} className="text-emerald-700 shrink-0" />
+                    <label className="flex items-center justify-center gap-2 px-3 py-2.5 border border-dashed border-gray-400 hover:border-emerald-700 rounded-xl bg-white hover:bg-gray-50 text-gray-800 cursor-pointer transition text-xs font-bold shadow-2xs">
+                      <Upload size={15} className="text-[#064D2B] shrink-0" />
                       <span className="truncate">
                         Upload {paymentProofMode === 'PHONEPE' ? 'PhonePe Screenshot' : paymentProofMode === 'CASH' ? 'Cash Bill Photo' : 'Payment Slip'}
                       </span>

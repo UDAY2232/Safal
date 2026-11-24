@@ -503,10 +503,10 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       ? `${req.body.paymentMode || 'Payment'} proof attached at CD creation`
       : null;
 
-    // Strict Enforcement: When upfront Payed Amount > 0 on a Customer Due, proof image is strictly required for employees
-    if (isCD && advance > 0 && !paymentProofUrl && isEmployee) {
+    // Strict Enforcement: Payment proof image is strictly mandatory for Customer Due creation
+    if (isCD && !paymentProofUrl && (isEmployee || advance > 0)) {
       return res.status(400).json({
-        error: `Payment proof image (PhonePe screenshot or Cash bill receipt) is mandatory when Payed Amount (₹${advance.toLocaleString('en-IN')}) is recorded.`,
+        error: `Payment proof image (PhonePe screenshot, Cash bill receipt, or Bank slip) is mandatory for Customer Due creation.`,
       });
     }
 
