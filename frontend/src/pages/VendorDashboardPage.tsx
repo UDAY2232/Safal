@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Truck,
   FileText,
@@ -151,6 +151,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [transportBillPreview, setTransportBillPreview] = useState<string>('');
   const [isSubmittingDispatch, setIsSubmittingDispatch] = useState(false);
   const [dispatchError, setDispatchError] = useState('');
+
+  // Hidden File Input Refs (Prevents native browser file picker overflow and button misalignment)
+  const dispatchVehicleInputRef = useRef<HTMLInputElement | null>(null);
+  const dispatchTransportInputRef = useRef<HTMLInputElement | null>(null);
+  const supplyVehicleInputRef = useRef<HTMLInputElement | null>(null);
+  const supplyTransportInputRef = useRef<HTMLInputElement | null>(null);
+  const qcSlipInputRef = useRef<HTMLInputElement | null>(null);
 
   // Vendor Supply PO Creation State
   const [showCreatePOModal, setShowCreatePOModal] = useState(false);
@@ -2837,9 +2844,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* File 1: Vehicle Photo with Number Plate Clearly Visible */}
               <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-amber-950 font-bold">
+                  <span className="block text-amber-950 font-bold text-xs">
                     1. Vehicle Photo (Number Plate MUST be clearly visible) *
-                  </label>
+                  </span>
                   <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
                     Mandatory
                   </span>
@@ -2848,7 +2855,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   Take a photo of the truck where the number plate and loaded fruit boxes/crates are clearly visible. Live timestamp, GPS, and device info will be stamped automatically.
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 items-center">
                   <button
                     type="button"
                     onClick={() =>
@@ -2862,26 +2869,31 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         }
                       )
                     }
-                    className="h-10 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
+                    className="h-11 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
                   >
                     <Camera size={15} className="text-emerald-300" />
                     <span>Open Camera (Live Capture)</span>
                   </button>
 
-                  <label className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-white hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                  <button
+                    type="button"
+                    onClick={() => dispatchVehicleInputRef.current?.click()}
+                    className="h-11 px-3 border-2 border-dashed border-emerald-400 bg-white hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group"
+                  >
                     <div className="w-6 h-6 rounded-md bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
                       <Upload size={13} />
                     </div>
                     <span className="text-xs font-bold text-emerald-900 truncate">
                       {vehiclePhotoFile ? vehiclePhotoFile.name : 'Choose from Files'}
                     </span>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/jpg"
-                      onChange={handleVehiclePhotoChange}
-                      className="hidden"
-                    />
-                  </label>
+                  </button>
+                  <input
+                    ref={dispatchVehicleInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg"
+                    onChange={handleVehiclePhotoChange}
+                    style={{ display: 'none' }}
+                  />
                 </div>
 
                 {vehiclePhotoPreview && (
@@ -2919,9 +2931,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* File 2: Transport Bill / Bilty Upload */}
               <div className="p-3.5 bg-blue-50/60 border border-blue-200 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="block text-blue-950 font-bold">
+                  <span className="block text-blue-950 font-bold text-xs">
                     2. Transport Bill / Bilty / LR (Lorry Receipt) *
-                  </label>
+                  </span>
                   <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded-full border border-blue-300">
                     Mandatory
                   </span>
@@ -2931,20 +2943,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </p>
 
                 <div className="pt-1">
-                  <label className="h-11 px-3 border-2 border-dashed border-blue-400 bg-white hover:bg-blue-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group w-full">
+                  <button
+                    type="button"
+                    onClick={() => dispatchTransportInputRef.current?.click()}
+                    className="h-11 px-3 border-2 border-dashed border-blue-400 bg-white hover:bg-blue-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group w-full"
+                  >
                     <div className="w-6 h-6 rounded-md bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
                       <Upload size={13} />
                     </div>
                     <span className="text-xs font-bold text-blue-900 truncate">
                       {transportBillFile ? transportBillFile.name : 'Choose Transport Bilty Document / Photo (Image or PDF)'}
                     </span>
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/jpg,application/pdf"
-                      onChange={handleTransportBillChange}
-                      className="hidden"
-                    />
-                  </label>
+                  </button>
+                  <input
+                    ref={dispatchTransportInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/jpg,application/pdf"
+                    onChange={handleTransportBillChange}
+                    style={{ display: 'none' }}
+                  />
                 </div>
 
                 {transportBillPreview && (
@@ -3791,21 +3808,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         <span>Live Camera</span>
                       </button>
 
-                      <label className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                      <button
+                        type="button"
+                        onClick={() => supplyVehicleInputRef.current?.click()}
+                        className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-emerald-50/40 hover:bg-emerald-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group"
+                      >
                         <div className="w-5 h-5 rounded bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
                           <Upload size={12} />
                         </div>
                         <span className="text-[11px] font-bold text-emerald-900 truncate">
                           {supplyVehiclePhotoFile ? supplyVehiclePhotoFile.name : 'Choose File'}
                         </span>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/jpg"
-                          onChange={handleSupplyVehiclePhotoChange}
-                          style={{ display: 'none' }}
-                          className="hidden"
-                        />
-                      </label>
+                      </button>
+                      <input
+                        ref={supplyVehicleInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={handleSupplyVehiclePhotoChange}
+                        style={{ display: 'none' }}
+                      />
                     </div>
                     {supplyVehiclePhotoPreview && (
                       <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between">
@@ -3846,21 +3867,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <p className="text-[10px] text-gray-500">
                       Upload photo or PDF receipt from transporter. Timestamp &amp; GPS location will be stamped automatically upon upload.
                     </p>
-                    <label className="h-10 px-3 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group w-full">
+                    <button
+                      type="button"
+                      onClick={() => supplyTransportInputRef.current?.click()}
+                      className="h-10 px-3 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group w-full"
+                    >
                       <div className="w-5 h-5 rounded bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
                         <Upload size={12} />
                       </div>
                       <span className="text-[11px] font-bold text-blue-900 truncate">
                         {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose Bilty / LR Document (Image or PDF)'}
                       </span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/jpg,application/pdf"
-                        onChange={handleSupplyTransportBillChange}
-                        style={{ display: 'none' }}
-                        className="hidden"
-                      />
-                    </label>
+                    </button>
+                    <input
+                      ref={supplyTransportInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/jpg,application/pdf"
+                      onChange={handleSupplyTransportBillChange}
+                      style={{ display: 'none' }}
+                    />
                     {supplyTransportBillPreview && (
                       <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
                         {supplyTransportBillFile?.type === 'application/pdf' ? (
@@ -4577,20 +4602,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         <span>Live Camera (Slip)</span>
                       </button>
 
-                      <label className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-white hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                      <button
+                        type="button"
+                        onClick={() => qcSlipInputRef.current?.click()}
+                        className="h-10 px-3 border-2 border-dashed border-emerald-400 bg-white hover:bg-emerald-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group"
+                      >
                         <div className="w-6 h-6 rounded-md bg-emerald-600 group-hover:bg-emerald-700 text-white flex items-center justify-center transition flex-shrink-0">
                           <Upload size={13} />
                         </div>
                         <span className="text-xs font-bold text-emerald-900 truncate">
                           {qcSlipFile ? qcSlipFile.name : 'Choose File / PDF'}
                         </span>
-                        <input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={handleQCSlipFileChange}
-                          className="hidden"
-                        />
-                      </label>
+                      </button>
+                      <input
+                        ref={qcSlipInputRef}
+                        type="file"
+                        accept="image/*,application/pdf"
+                        onChange={handleQCSlipFileChange}
+                        style={{ display: 'none' }}
+                      />
                     </div>
                   </div>
                 </div>
