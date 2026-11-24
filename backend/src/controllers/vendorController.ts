@@ -1019,6 +1019,9 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
 
     const {
       destinationHub,
+      originLocation,
+      startingLocation,
+      vendorSignature,
       expectedDeliveryDate,
       poInitiateDate,
       poDate,
@@ -1030,6 +1033,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
       notes,
     } = req.body;
 
+    const resolvedOrigin = (startingLocation || originLocation || '').trim();
     const targetHub = destinationHub || profile.primaryLocation || 'Warangal';
     if (!isValidVendorLocation(targetHub)) {
       return res.status(400).json({
@@ -1155,14 +1159,16 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
           supplierId: supplier.id,
           vendorProfileId: profile.id,
           createdById: req.user!.id,
-          orderPersonPlace: targetHub,
-          deliveryAddress: `${targetHub} Regional Hub Receiving Desk`,
+          orderPersonPlace: resolvedOrigin || targetHub,
+          deliveryAddress: resolvedOrigin
+            ? `${resolvedOrigin} ➔ ${targetHub} Regional Hub Receiving Desk`
+            : `${targetHub} Regional Hub Receiving Desk`,
           paymentTerms: '55% Advance on Dispatch + 45% on QC Acceptance',
           dispatchVehicleNumber: dispatchVehicleNumber ? dispatchVehicleNumber.trim().toUpperCase() : null,
           transporterName: transporterName ? transporterName.trim() : null,
           driverPhone: driverPhone ? driverPhone.trim() : null,
           vehiclePhotoUrl: vehiclePhotoUrl || req.body.vehiclePhotoUrl || null,
-          transportBillUrl: transportBillUrl || req.body.transportBillUrl || null,
+          transportBillUrl: transportBillUrl || req.body.transportBillUrl || vendorSignature || req.body.vendorSignature || null,
           dispatchStatus,
           dispatchDate: hasDispatchProof ? new Date() : null,
           subtotal: grandTotal,

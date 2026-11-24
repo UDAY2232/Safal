@@ -42,6 +42,7 @@ import {
   Camera,
   ReceiptText,
   AlertTriangle,
+  Navigation,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -49,6 +50,7 @@ import { PurchaseOrder, VENDOR_WHITELISTED_LOCATIONS, VENDOR_WHITELISTED_FRUITS 
 import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
 import { PODetailModal } from '../components/PODetailModal';
 import { stampImageFile, compressImageFile } from '../utils/watermark';
+import { resolvePhotoUrl, downloadProofFile, compressImageFile as compressImageBlob } from '../utils/imageUtils';
 
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
@@ -208,9 +210,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   // Vendor Supply PO Creation State
   const [showCreatePOModal, setShowCreatePOModal] = useState(false);
   const [poInitiateDate, setPoInitiateDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
+  const [startingLocation, setStartingLocation] = useState<string>('');
   const [targetHub, setTargetHub] = useState<string>('Warangal');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [poNotes, setPoNotes] = useState('');
+  const [vendorSignatureData, setVendorSignatureData] = useState<string>('');
+  const [isDrawingSignature, setIsDrawingSignature] = useState(false);
+  const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Dispatch Tab Table Filter & Search State
   const [dispatchTabFilter, setDispatchTabFilter] = useState<'ALL' | 'PENDING' | 'IN_TRANSIT' | 'COMPLETED'>('ALL');
@@ -698,6 +704,71 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     }
   };
 
+  const clearSignature = () => {
+    const canvas = signatureCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+    setVendorSignatureData('');
+    setSupplyTransportBillFile(null);
+    setSupplyTransportBillPreview('');
+  };
+
+  const getCanvasPos = (canvas: HTMLCanvasElement, clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDrawingSignature = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#064D2B';
+
+    setIsDrawingSignature(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const { x, y } = getCanvasPos(canvas, clientX, clientY);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const drawSignature = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isDrawingSignature) return;
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const { x, y } = getCanvasPos(canvas, clientX, clientY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawingSignature = () => {
+    if (!isDrawingSignature) return;
+    setIsDrawingSignature(false);
+    const canvas = signatureCanvasRef.current;
+    if (canvas) {
+      const dataUrl = canvas.toDataURL('image/png');
+      setVendorSignatureData(dataUrl);
+      setSupplyTransportBillPreview(dataUrl);
+    }
+  };
+
   const handleSubmitVendorPO = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatePOError('');
@@ -712,6 +783,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       const formData = new FormData();
       formData.append('poInitiateDate', poInitiateDate || new Date().toISOString().split('T')[0]);
       formData.append('poDate', poInitiateDate || new Date().toISOString().split('T')[0]);
+      if (startingLocation.trim()) {
+        formData.append('startingLocation', startingLocation.trim());
+        formData.append('originLocation', startingLocation.trim());
+      }
       formData.append('destinationHub', targetHub);
       if (expectedDeliveryDate) {
         formData.append('expectedDeliveryDate', expectedDeliveryDate);
@@ -819,19 +894,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         formData.append('items', JSON.stringify(items));
       }
 
-      // Enforce strict mandatory requirement for Dispatch Photo (Vehicle & Cartons) and Transport Bill
+      // Enforce strict mandatory requirement for Dispatch Photo (Vehicle & Cartons) and Digital E-Signature
       const missing: string[] = [];
       if (!supplyVehiclePhotoFile) {
         missing.push('Dispatch Photo (Vehicle & Loaded Cartons with number plate)');
       }
-      if (!supplyTransportBillFile) {
-        missing.push('Transport Bill / Bilty (LR Receipt)');
+      if (!vendorSignatureData && !supplyTransportBillFile) {
+        missing.push('Vendor Digital E-Signature & Authorization (Sign on pad or attach slip)');
       }
       if (missing.length > 0) {
-        setCreatePOError('Dispatch Photo (Vehicle & Loaded Cartons) and Transport Bill are mandatory!');
+        setCreatePOError('Dispatch Photo and Vendor Digital E-Signature are required!');
         setMissingImagesPopup({
           open: true,
-          title: 'Mandatory Consignment Photos Required',
+          title: 'Mandatory Consignment Verification Required',
           missingItems: missing,
           targetAction: 'supply',
         });
@@ -847,11 +922,36 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       if (supplyDriverPhone.trim()) {
         formData.append('driverPhone', supplyDriverPhone.trim());
       }
+
+      // Auto-compress photos before upload to prevent HTTP 413 (Request Entity Too Large)
       if (supplyVehiclePhotoFile) {
-        formData.append('vehiclePhoto', supplyVehiclePhotoFile);
+        try {
+          const comp = await compressImageBlob(supplyVehiclePhotoFile, 1280, 0.75);
+          formData.append('vehiclePhoto', comp);
+        } catch {
+          formData.append('vehiclePhoto', supplyVehiclePhotoFile);
+        }
       }
-      if (supplyTransportBillFile) {
-        formData.append('transportBill', supplyTransportBillFile);
+
+      if (vendorSignatureData) {
+        try {
+          const blobRes = await fetch(vendorSignatureData);
+          const sigBlob = await blobRes.blob();
+          const sigFile = new File([sigBlob], 'vendor_signature.png', { type: 'image/png' });
+          formData.append('transportBill', sigFile);
+          formData.append('vendorSignature', vendorSignatureData);
+        } catch {
+          if (supplyTransportBillFile) {
+            formData.append('transportBill', supplyTransportBillFile);
+          }
+        }
+      } else if (supplyTransportBillFile) {
+        try {
+          const comp = await compressImageBlob(supplyTransportBillFile, 1280, 0.75);
+          formData.append('transportBill', comp);
+        } catch {
+          formData.append('transportBill', supplyTransportBillFile);
+        }
       }
 
       const res = await api.createVendorSupplyPO(formData);
@@ -859,6 +959,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       onNotify(res.message || 'Consignment Supply PO submitted successfully!');
 
       // Reset form fields
+      setStartingLocation('');
+      setVendorSignatureData('');
+      clearSignature();
       setSupplyVehicleNumber('');
       setSupplyTransporterName('');
       setSupplyDriverPhone('');
@@ -1123,7 +1226,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-white underline decoration-emerald-300">
                 {vendorProfile?.vendorId || 'VND-001'}
               </strong>{' '}
-              · Authorized Wholesale Vendor Partner · Hub 1 Live
+              · Authorized Wholesale Vendor Partner
             </p>
           </div>
 
@@ -1150,61 +1253,66 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         <Truck className="absolute -right-6 -bottom-8 text-white/5 w-48 h-48 pointer-events-none" />
       </div>
 
-      {/* 2. Navigation Tab Pills */}
-      <div className="bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs flex items-center gap-2 overflow-x-auto no-scrollbar">
+      {/* 2. Navigation Tab Buttons (Responsive 2-column mobile layout without side-scrolling) */}
+      <div className="bg-white p-2.5 rounded-2xl border border-[#D5E3D8] shadow-xs grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-center gap-2">
         <button
           onClick={() => handleTabClick('dashboard')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
             activeTab === 'dashboard'
               ? 'bg-[#064D2B] text-white shadow-xs'
               : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
           }`}
         >
-          <BarChart3 size={15} /> Dashboard &amp; Analytics
+          <BarChart3 size={15} className="flex-shrink-0" />
+          <span>Dashboard &amp; Analytics</span>
         </button>
 
         <button
           onClick={() => handleTabClick('orders')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
             activeTab === 'orders'
               ? 'bg-[#064D2B] text-white shadow-xs'
               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }`}
         >
-          <ShoppingCart size={15} /> Supply Consignments ({orders.length})
+          <ShoppingCart size={15} className="flex-shrink-0" />
+          <span>Consignments ({orders.length})</span>
         </button>
 
         <button
           onClick={() => handleTabClick('dispatch')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
             activeTab === 'dispatch'
               ? 'bg-amber-600 text-white shadow-xs'
               : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
           }`}
         >
-          <Truck size={15} /> Ready for Dispatch &amp; Transit ({orders.length})
+          <Truck size={15} className="flex-shrink-0" />
+          <span>Dispatch &amp; Transit ({orders.length})</span>
         </button>
 
         <button
           onClick={() => handleTabClick('qc')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
             activeTab === 'qc'
               ? 'bg-[#087A3E] text-white shadow-xs'
               : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
           }`}
         >
-          <Scale size={15} /> Weighbridge &amp; QC Slips ({orders.filter((o) => o.weighbridgeNetKg || o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'DELIVERED_AT_HUB').length})
+          <Scale size={15} className="flex-shrink-0" />
+          <span>Weighbridge &amp; QC ({orders.filter((o) => o.weighbridgeNetKg || o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'DELIVERED_AT_HUB').length})</span>
         </button>
 
         <button
           onClick={() => handleTabClick('kyc')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center col-span-2 sm:col-span-1 lg:col-span-auto ${
             activeTab === 'kyc'
               ? 'bg-[#064D2B] text-white shadow-xs'
               : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
           }`}
         >
-          <User size={15} /> Vendor Profile &amp; KYC
+          <User size={15} className="flex-shrink-0" />
+          <span>Vendor Profile &amp; KYC</span>
         </button>
       </div>
 
@@ -1460,6 +1568,146 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             </div>
           </section>
 
+          {/* LIVE COLD-CHAIN HIGHWAY TRANSIT TRACKER (Motion Tracking Truck En-Route) */}
+          {(() => {
+            const activeOrder = inTransitOrders[0] || orders[0];
+            const activeOrigin = activeOrder?.orderPersonPlace || 'Kashmir Apple Farm';
+            const activeDest = activeOrder?.deliveryAddress?.includes('➔')
+              ? activeOrder.deliveryAddress.split('➔')[1].replace('Regional Hub Receiving Desk', '').trim()
+              : (targetHub || 'Warangal');
+            const activeTruck = activeOrder?.dispatchVehicleNumber || 'TS09UB4521';
+
+            return (
+              <div className="bg-gradient-to-br from-slate-950 via-[#052b1b] to-slate-950 rounded-3xl p-4 sm:p-6 border border-emerald-500/30 shadow-xl overflow-hidden text-white relative">
+                {/* Telemetry Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-emerald-500/20">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-black tracking-wider uppercase animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-ping" />
+                        ● LIVE EN-ROUTE
+                      </span>
+                      <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400/90">
+                        SAFAL REFRIGERATED HIGHWAY LOGISTICS
+                      </span>
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-white font-['Manrope'] mt-1 flex items-center gap-2">
+                      <Truck className="text-emerald-400" size={20} />
+                      Active Consignment Corridor: {activeOrigin} ➔ {activeDest} Hub
+                    </h3>
+                  </div>
+
+                  {/* Live Telemetry Badges */}
+                  <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
+                    <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-emerald-500/40 text-emerald-300 font-bold flex items-center gap-1.5 shadow-2xs">
+                      <Activity size={13} className="text-emerald-400" />
+                      <span>Speed: <strong>62 KM/H</strong></span>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-teal-500/40 text-teal-300 font-bold flex items-center gap-1.5 shadow-2xs">
+                      <Sparkles size={13} className="text-teal-400" />
+                      <span>Reefer Temp: <strong>+2.8°C</strong></span>
+                    </div>
+                    <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-amber-500/40 text-amber-300 font-bold flex items-center gap-1.5 shadow-2xs">
+                      <Navigation size={13} className="text-amber-400" />
+                      <span>NH44 Cold Corridor</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Highway Motion Corridor */}
+                <div className="mt-4 relative">
+                  {/* Origin & Destination Labels */}
+                  <div className="flex items-center justify-between text-xs font-bold text-emerald-200/90 mb-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin size={14} className="text-emerald-400" />
+                      <span>Loading Origin: <strong className="text-white">{activeOrigin}</strong></span>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-400 font-mono">
+                      <Clock size={12} />
+                      <span>ETA to Hub: ~2h 45m</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-right">
+                      <span>Destination: <strong className="text-amber-300">{activeDest} Regional Hub</strong></span>
+                      <Building2 size={14} className="text-amber-400" />
+                    </div>
+                  </div>
+
+                  {/* Animated Asphalt Highway Bar */}
+                  <div className="relative h-20 sm:h-24 bg-gradient-to-b from-gray-950 via-slate-900 to-gray-950 rounded-2xl border-2 border-emerald-500/40 overflow-hidden shadow-inner flex items-center">
+                    {/* Highway Lane Borders */}
+                    <div className="absolute inset-x-0 top-1.5 h-[1px] bg-white/20" />
+                    <div className="absolute inset-x-0 bottom-1.5 h-[1px] bg-white/20" />
+
+                    {/* Animated moving road center dashed line */}
+                    <div 
+                      className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1.5 opacity-90"
+                      style={{
+                        backgroundImage: 'repeating-linear-gradient(90deg, #FBBF24 0, #FBBF24 24px, transparent 24px, transparent 48px)',
+                        backgroundSize: '48px 100%',
+                        animation: 'highwayDash 0.8s linear infinite',
+                      }}
+                    />
+
+                    {/* Animated Moving Truck Container */}
+                    <div 
+                      className="absolute top-1/2 -translate-y-1/2 flex items-center gap-2 pointer-events-none select-none z-10"
+                      style={{
+                        animation: 'truckPatrol 18s ease-in-out infinite',
+                      }}
+                    >
+                      <div className="relative group">
+                        <img
+                          src="/safal-transit-truck.png"
+                          alt="SAFAL Cold Chain Reefer Truck"
+                          className="h-14 sm:h-16 w-auto object-contain drop-shadow-[0_4px_12px_rgba(16,185,129,0.4)]"
+                          style={{
+                            animation: 'truckSuspension 1s ease-in-out infinite alternate',
+                          }}
+                        />
+                        {/* Floating Truck Badge */}
+                        <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-700/95 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow whitespace-nowrap border border-emerald-400/60 font-mono">
+                          {activeTruck}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Checkpoint Milestones Progress */}
+                  <div className="mt-3 flex items-center justify-between text-[10px] sm:text-[11px] text-gray-400 font-medium flex-wrap gap-2">
+                    <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                      <CheckCircle2 size={12} /> 1. Farm Loading Confirmed
+                    </span>
+                    <span className="flex items-center gap-1 text-amber-300 font-black animate-pulse">
+                      <Activity size={12} /> 2. Cold Reefer Transit Active (68% Complete)
+                    </span>
+                    <span className="flex items-center gap-1 text-gray-300 font-bold">
+                      <Scale size={12} /> 3. Regional Hub Mandi Weighment Pending
+                    </span>
+                  </div>
+                </div>
+
+                {/* Inline CSS Keyframes */}
+                <style>{`
+                  @keyframes highwayDash {
+                    0% { background-position: 0 0; }
+                    100% { background-position: -48px 0; }
+                  }
+                  @keyframes truckPatrol {
+                    0% { left: 4%; transform: translateY(-50%) scaleX(1); }
+                    48% { left: calc(96% - 100px); transform: translateY(-50%) scaleX(1); }
+                    50% { left: calc(96% - 100px); transform: translateY(-50%) scaleX(-1); }
+                    98% { left: 4%; transform: translateY(-50%) scaleX(-1); }
+                    100% { left: 4%; transform: translateY(-50%) scaleX(1); }
+                  }
+                  @keyframes truckSuspension {
+                    0% { transform: translateY(0); }
+                    100% { transform: translateY(-2px); }
+                  }
+                `}</style>
+              </div>
+            );
+          })()}
+
           {/* Visual Analytics Grid: Donut Chart & Revenue Bar Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* Chart 1: Fruit Commodity Breakdown Donut Chart (5 Cols) */}
@@ -1487,11 +1735,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               ) : (
                 <div className="flex flex-col sm:flex-row items-center gap-5 justify-center py-2">
-                  <div className="relative w-48 h-48 sm:w-52 sm:h-52 flex-shrink-0 flex items-center justify-center">
-                    <svg viewBox="0 0 320 320" className="w-full h-full transform -rotate-90">
+                  <div className="relative w-44 h-44 sm:w-52 sm:h-52 mx-auto flex-shrink-0 flex items-center justify-center">
+                    <svg viewBox="0 0 320 320" className="w-full h-full transform -rotate-90 select-none">
                       {(() => {
-                        const radius = 90;
-                        const circumference = 2 * Math.PI * radius; // ~565.48
+                        const radius = 98;
+                        const circumference = 2 * Math.PI * radius; // ~615.75
                         let accumulatedPercent = 0;
                         return fruitBreakdown.map((item, idx) => {
                           const strokeDasharray = `${(item.percent / 100) * circumference} ${circumference}`;
@@ -1505,7 +1753,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               r={radius}
                               fill="transparent"
                               stroke={item.color}
-                              strokeWidth="36"
+                              strokeWidth="30"
                               strokeDasharray={strokeDasharray}
                               strokeDashoffset={strokeDashoffset}
                               className="transition-all duration-500 hover:opacity-85 cursor-pointer"
@@ -1515,12 +1763,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       })()}
                     </svg>
                     {/* Center Content */}
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                      <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider block">Total Volume</span>
-                      <strong className="text-xl font-black text-gray-900 font-['Manrope'] block">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none p-2">
+                      <span className="text-[10px] font-black uppercase text-gray-400 tracking-wider block">Total Volume</span>
+                      <strong className="text-xl sm:text-2xl font-black text-gray-900 font-['Manrope'] block my-0.5">
                         {totalVolumeBoxes.toLocaleString('en-IN')}
                       </strong>
-                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 mt-0.5">
+                      <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
                         Boxes Supplied
                       </span>
                     </div>
@@ -1586,8 +1834,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <p className="text-xs text-gray-400 mt-1">PO total value, 55% advance, and balance due metrics will plot here.</p>
                 </div>
               ) : (
-                <div className="w-full overflow-x-auto pt-2">
-                  <svg viewBox="0 0 520 220" className="w-full h-56 select-none font-sans">
+                <div className="w-full overflow-x-auto pb-2 pt-2">
+                  <svg viewBox="0 0 520 220" className="w-full h-56 select-none font-sans min-w-[460px] sm:min-w-full">
                     {/* Grid Lines */}
                     <line x1="45" y1="20" x2="505" y2="20" stroke="#F3F4F6" strokeDasharray="3 3" />
                     <line x1="45" y1="70" x2="505" y2="70" stroke="#F3F4F6" strokeDasharray="3 3" />
@@ -1920,7 +2168,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             {isSettled ? (
                               `₹${netGain.toLocaleString('en-IN')}`
                             ) : (
-                              <span className="text-gray-700 font-mono">₹0.00</span>
+                              <span className="text-gray-500 font-normal">₹0 (Pending)</span>
                             )}
                           </td>
                           <td className="py-3 px-3 text-center">
@@ -2775,24 +3023,24 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         </span>
                       )}
 
-                      {/* 2. Transport Bilty */}
+                      {/* 2. Transport Bilty / E-Signature */}
                       {po.transportBillUrl ? (
                         <button
                           type="button"
                           onClick={() => setPreviewMediaModal({
                             url: po.transportBillUrl!,
-                            title: `Transport Bill (Bilty / LR Receipt): ${po.poNumber}`,
+                            title: `Consignment Authorization & Bilty: ${po.poNumber}`,
                           })}
-                          className="px-2.5 py-1.5 bg-white hover:bg-blue-50 text-blue-800 border border-blue-300 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
-                          title="View transport bill"
+                          className="px-2.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-950 border border-emerald-400 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                          title="View authorization signature or transport bilty"
                         >
-                          <ReceiptText size={11} className="text-blue-600" />
-                          <span>Transport Bilty / LR</span>
-                          <Eye size={10} className="text-blue-700 ml-0.5" />
+                          <Pencil size={11} className="text-emerald-700" />
+                          <span>E-Signature / Bilty</span>
+                          <Eye size={10} className="text-emerald-800 ml-0.5" />
                         </button>
                       ) : (
                         <span className="px-2 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
-                          <ReceiptText size={11} /> Bilty Pending
+                          <Pencil size={11} /> Signature Pending
                         </span>
                       )}
 
@@ -3585,8 +3833,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             )}
 
             <form onSubmit={handleSubmitVendorPO} className="overflow-y-auto flex-1 pr-1 py-3 space-y-4 text-xs">
-              {/* Destination Hub and Date Breakdown */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Destination Hub, Origin, and Date Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* 1. PO Initiate Date (Creation Date) */}
                 <div>
                   <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1.5">
@@ -3606,7 +3854,26 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </span>
                 </div>
 
-                {/* 2. Destination Regional Hub */}
+                {/* 2. Starting Origin Location */}
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1.5">
+                    <MapPin size={13} className="text-amber-700" />
+                    Vendor Farm / Loading Origin Location (Starting Point) *
+                  </label>
+                  <input
+                    type="text"
+                    value={startingLocation}
+                    onChange={(e) => setStartingLocation(e.target.value)}
+                    placeholder="e.g. Shopian Apple Farm / Sopore Mandi"
+                    className="w-full h-10 px-3 border border-amber-300 bg-amber-50/20 rounded-xl text-xs font-bold text-gray-900 focus:border-amber-600 focus:outline-none"
+                    required
+                  />
+                  <span className="text-[10px] text-gray-500 mt-0.5 block">
+                    Loading point where vehicle arrives.
+                  </span>
+                </div>
+
+                {/* 3. Destination Regional Hub */}
                 <div>
                   <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1.5">
                     <MapPin size={13} className="text-emerald-700" />
@@ -3629,7 +3896,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </span>
                 </div>
 
-                {/* 3. Expected Dispatch / Delivery Date */}
+                {/* 4. Expected Dispatch / Delivery Date */}
                 <div>
                   <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1.5">
                     <Truck size={13} className="text-blue-700" />
@@ -3695,30 +3962,30 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <table className="w-full text-xs text-left border-collapse table-fixed">
                       <thead>
                         <tr className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider">
-                          <th className="w-[44%] py-2.5 px-2.5 sm:px-4">LAYER GRADE</th>
-                          <th className="w-[28%] py-2.5 px-1 sm:px-2 text-center">NO. OF BOXES</th>
-                          <th className="w-[28%] py-2.5 px-2 sm:px-4 text-right">RATE (₹)</th>
+                          <th className="w-[40%] py-2.5 px-2 sm:px-3">LAYER GRADE</th>
+                          <th className="w-[30%] py-2.5 px-1 text-center">NO. OF BOXES</th>
+                          <th className="w-[30%] py-2.5 px-2 sm:px-3 text-right">RATE (₹)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 font-bold">
                         {/* 4L */}
                         <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-2.5 sm:px-4">
+                          <td className="py-2.5 px-2 sm:px-3">
                             <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">4L (Large)</div>
                             <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Premium 4-Layer</span>
                           </td>
-                          <td className="py-2.5 px-1 sm:px-2 text-center">
+                          <td className="py-2.5 px-1 text-center">
                             <input
                               type="number"
                               min="0"
                               value={layer4LBoxes}
                               onChange={(e) => setLayer4LBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-16 sm:w-24 h-8 sm:h-9 px-1 sm:px-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 focus:outline-none shadow-2xs"
+                              className="w-14 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
                             />
                           </td>
-                          <td className="py-2.5 px-2 sm:px-4 text-right">
-                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
+                          <td className="py-2.5 px-2 sm:px-3 text-right">
+                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
                               ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
                             </span>
                           </td>
@@ -3726,22 +3993,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                         {/* 5L */}
                         <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-2.5 sm:px-4">
+                          <td className="py-2.5 px-2 sm:px-3">
                             <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">5L (Medium)</div>
                             <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Standard 5-Layer</span>
                           </td>
-                          <td className="py-2.5 px-1 sm:px-2 text-center">
+                          <td className="py-2.5 px-1 text-center">
                             <input
                               type="number"
                               min="0"
                               value={layer5LBoxes}
                               onChange={(e) => setLayer5LBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-16 sm:w-24 h-8 sm:h-9 px-1 sm:px-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 focus:outline-none shadow-2xs"
+                              className="w-14 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
                             />
                           </td>
-                          <td className="py-2.5 px-2 sm:px-4 text-right">
-                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
+                          <td className="py-2.5 px-2 sm:px-3 text-right">
+                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
                               ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
                             </span>
                           </td>
@@ -3749,22 +4016,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                         {/* Roll */}
                         <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-2.5 sm:px-4">
+                          <td className="py-2.5 px-2 sm:px-3">
                             <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">Roll (Running)</div>
                             <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Mandi Bulk Pack</span>
                           </td>
-                          <td className="py-2.5 px-1 sm:px-2 text-center">
+                          <td className="py-2.5 px-1 text-center">
                             <input
                               type="number"
                               min="0"
                               value={rollBoxes}
                               onChange={(e) => setRollBoxes(e.target.value)}
                               placeholder="0"
-                              className="w-16 sm:w-24 h-8 sm:h-9 px-1 sm:px-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 focus:outline-none shadow-2xs"
+                              className="w-14 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
                             />
                           </td>
-                          <td className="py-2.5 px-2 sm:px-4 text-right">
-                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2.5 py-0.5 sm:py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
+                          <td className="py-2.5 px-2 sm:px-3 text-right">
+                            <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
                               ₹{Number(rollRate || 700).toLocaleString('en-IN')}
                             </span>
                           </td>
@@ -4390,38 +4657,77 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     )}
                   </div>
 
-                  {/* Transport Bill Photo Upload */}
-                  <div className={`p-2.5 bg-white border rounded-xl space-y-1.5 transition ${
-                    supplyTransportBillFile ? 'border-blue-300 ring-1 ring-blue-200' : 'border-red-300 bg-red-50/20'
+                  {/* Section 4: Vendor Digital E-Signature & Authorization */}
+                  <div className={`p-3 bg-white border rounded-2xl space-y-2.5 transition shadow-2xs ${
+                    vendorSignatureData || supplyTransportBillFile ? 'border-emerald-400 ring-1 ring-emerald-200' : 'border-emerald-300'
                   }`}>
                     <div className="flex flex-wrap items-center justify-between gap-1">
                       <label className="block text-xs font-black text-gray-900 flex items-center gap-1.5">
-                        <ReceiptText size={14} className="text-blue-700" />
-                        <span>Transport Bill Photo (Bilty / LR) <span className="text-red-600 font-black">* (Mandatory)</span></span>
+                        <Pencil size={14} className="text-emerald-700" />
+                        <span>Vendor Digital E-Signature &amp; Authorization <span className="text-red-600 font-black">* (Mandatory)</span></span>
                       </label>
                       <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
-                        supplyTransportBillFile
-                          ? 'bg-blue-100 text-blue-900 border-blue-300'
+                        vendorSignatureData || supplyTransportBillFile
+                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
                           : 'bg-red-100 text-red-800 border-red-300 animate-pulse'
                       }`}>
-                        {supplyTransportBillFile ? 'Bilty Attached ✓' : '* Required / Mandatory'}
+                        {vendorSignatureData || supplyTransportBillFile ? 'E-Signature Attached ✓' : '* Sign Below / Required'}
                       </span>
                     </div>
-                    <p className="text-[10px] text-gray-600">
-                      <strong className="text-red-600 font-bold">* Mandatory:</strong> Clear photo or PDF receipt from transporter / consignment note. Stamped with watermark &amp; GPS.
+                    <p className="text-[11px] text-gray-600">
+                      Sign directly on the signature pad using finger/stylus on mobile or mouse on desktop to authorize consignment release.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => supplyTransportInputRef.current?.click()}
-                      className="h-10 px-3 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group w-full"
-                    >
-                      <div className="w-5 h-5 rounded bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
-                        <Upload size={12} />
+
+                    {/* Interactive Signature Canvas Pad */}
+                    <div className="relative border-2 border-dashed border-emerald-400 rounded-xl bg-gray-50/70 overflow-hidden shadow-inner">
+                      <canvas
+                        ref={signatureCanvasRef}
+                        width={520}
+                        height={160}
+                        onMouseDown={startDrawingSignature}
+                        onMouseMove={drawSignature}
+                        onMouseUp={stopDrawingSignature}
+                        onMouseLeave={stopDrawingSignature}
+                        onTouchStart={startDrawingSignature}
+                        onTouchMove={drawSignature}
+                        onTouchEnd={stopDrawingSignature}
+                        className="w-full h-32 sm:h-36 bg-white cursor-crosshair touch-none select-none block"
+                      />
+                      {!vendorSignatureData && !isDrawingSignature && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none text-gray-400 text-xs font-medium">
+                          ✍ Touch &amp; draw signature here using finger...
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Signature Controls & Alternatives */}
+                    <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={clearSignature}
+                          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                        >
+                          Clear Signature
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => supplyTransportInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold rounded-lg border border-emerald-300 transition cursor-pointer flex items-center gap-1"
+                        >
+                          <Upload size={12} />
+                          <span>Or Upload Signature / Slip</span>
+                        </button>
                       </div>
-                      <span className="text-[11px] font-bold text-blue-900 truncate">
-                        {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose Bilty / LR Document * (Image or PDF)'}
-                      </span>
-                    </button>
+
+                      {vendorSignatureData && (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-md flex items-center gap-1">
+                          <CheckCircle2 size={12} className="text-emerald-600" />
+                          <span>Digital Signature Captured ✓</span>
+                        </span>
+                      )}
+                    </div>
+
                     <input
                       ref={supplyTransportInputRef}
                       type="file"
@@ -4429,7 +4735,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       onChange={handleSupplyTransportBillChange}
                       style={{ display: 'none' }}
                     />
-                    {supplyTransportBillPreview && (
+
+                    {supplyTransportBillPreview && !vendorSignatureData && (
                       <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
                         {supplyTransportBillFile?.type === 'application/pdf' ? (
                           <span className="text-xs text-blue-800 font-bold flex items-center gap-1">
@@ -4438,11 +4745,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         ) : (
                           <img
                             src={supplyTransportBillPreview}
-                            alt="Bilty Preview"
-                            className="h-24 w-auto object-contain rounded"
+                            alt="Signature Preview"
+                            className="h-20 w-auto object-contain rounded border border-gray-200"
                           />
                         )}
-                        <span className="text-[9px] text-blue-700 font-bold block mt-0.5">Transport Bill Attached ✓</span>
+                        <span className="text-[9px] text-emerald-700 font-bold block mt-0.5">Authorization Document Attached ✓</span>
                       </div>
                     )}
                   </div>
@@ -4531,15 +4838,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="overflow-y-auto flex-1 p-2 my-2 flex items-center justify-center bg-gray-50 rounded-2xl border border-gray-200">
               {viewSlipModalUrl.endsWith('.pdf') ? (
                 <iframe
-                  src={viewSlipModalUrl}
+                  src={resolvePhotoUrl(viewSlipModalUrl)}
                   title="Weighbridge PDF"
                   className="w-full h-96 rounded-xl border-0"
                 />
               ) : (
                 <img
-                  src={viewSlipModalUrl}
+                  src={resolvePhotoUrl(viewSlipModalUrl)}
                   alt="Weighbridge Scale Slip"
                   className="max-h-[70vh] object-contain rounded-xl shadow-xs"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const resolved = resolvePhotoUrl(viewSlipModalUrl);
+                    if (img.src !== resolved) img.src = resolved;
+                  }}
                 />
               )}
             </div>
@@ -4547,17 +4859,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="pt-2 border-t border-gray-100 flex items-center justify-between flex-shrink-0 text-xs">
               <span className="text-gray-500 font-medium">Official mandi weighbridge printout</span>
               <div className="flex items-center gap-2">
-                <a
-                  href={viewSlipModalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  download
-                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold inline-flex items-center gap-1.5 shadow-xs transition"
+                <button
+                  type="button"
+                  onClick={() => downloadProofFile(viewSlipModalUrl, 'weighbridge-scale-slip')}
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold inline-flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                 >
                   <Download size={14} /> Download Slip
-                </a>
+                </button>
                 <a
-                  href={viewSlipModalUrl}
+                  href={resolvePhotoUrl(viewSlipModalUrl)}
                   target="_blank"
                   rel="noreferrer"
                   className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
@@ -4606,15 +4916,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="overflow-y-auto flex-1 p-2 my-2 flex items-center justify-center bg-gray-50 rounded-2xl border border-gray-200">
               {previewMediaModal.url.endsWith('.pdf') ? (
                 <iframe
-                  src={previewMediaModal.url}
+                  src={resolvePhotoUrl(previewMediaModal.url)}
                   title={previewMediaModal.title}
                   className="w-full h-96 rounded-xl border-0"
                 />
               ) : (
                 <img
-                  src={previewMediaModal.url}
+                  src={resolvePhotoUrl(previewMediaModal.url)}
                   alt={previewMediaModal.title}
                   className="max-h-[70vh] object-contain rounded-xl shadow-xs"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const resolved = resolvePhotoUrl(previewMediaModal.url);
+                    if (img.src !== resolved) img.src = resolved;
+                  }}
                 />
               )}
             </div>
@@ -4622,17 +4937,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="pt-2 border-t border-gray-100 flex items-center justify-between flex-shrink-0 text-xs">
               <span className="text-gray-500 font-medium">Verified Consignment Dispatch Proof</span>
               <div className="flex items-center gap-2">
-                <a
-                  href={previewMediaModal.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  download
-                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold inline-flex items-center gap-1.5 shadow-xs transition"
+                <button
+                  type="button"
+                  onClick={() => downloadProofFile(previewMediaModal.url, previewMediaModal.title)}
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold inline-flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                 >
                   <Download size={14} /> Download Proof
-                </a>
+                </button>
                 <a
-                  href={previewMediaModal.url}
+                  href={resolvePhotoUrl(previewMediaModal.url)}
                   target="_blank"
                   rel="noreferrer"
                   className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
