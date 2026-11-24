@@ -3547,14 +3547,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       {/* Vendor Create Supply PO Modal */}
       {showCreatePOModal && (
         <div
-          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
-          style={{ zIndex: 9999 }}
+          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 9999, backgroundColor: 'rgba(6, 45, 25, 0.85)' }}
           onClick={(e) => {
             if (e.target === e.currentTarget && !cameraModalConfig.open) setShowCreatePOModal(false);
           }}
         >
           <div
-            className="bg-white rounded-3xl max-w-3xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+            className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full border border-gray-200 shadow-2xl p-3.5 sm:p-6 my-auto max-h-[94vh] flex flex-col relative"
             style={{ zIndex: 10000 }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -3682,9 +3682,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               {/* Dynamic Fruit Sizing & Pricing */}
               {isApple ? (
                 /* Apple Mandi Layer Grading Box Matrix (4L, 5L, Roll, Total, Amount) */
-                <div className="p-3.5 bg-gradient-to-br from-red-50/60 via-amber-50/30 to-emerald-50/40 border border-amber-200/80 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
+                <div className="p-3 sm:p-4 bg-gradient-to-br from-red-50/60 via-amber-50/30 to-emerald-50/40 border border-amber-200/80 rounded-2xl space-y-3">
+                  <div className="flex flex-wrap sm:flex-nowrap items-start sm:items-center justify-between gap-2">
+                    <div className="flex-1 min-w-[200px]">
                       <span className="text-[10px] uppercase font-extrabold text-red-700 tracking-wider block">
                         Apple Mandi Layer Box Grading (4L / 5L / Roll)
                       </span>
@@ -3692,129 +3692,147 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         Wholesale apple telescopic cartons (~20-22 Kg/box). Enter box counts.
                       </p>
                     </div>
-                    <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-lg text-[11px] font-black">
-                      Kashmir Apples
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="sm:hidden px-2 py-0.5 bg-emerald-100 text-[#064D2B] rounded-full text-[10px] font-bold border border-emerald-300">
+                        ↔ Swipe table
+                      </span>
+                      <span className="px-2.5 py-1 bg-red-100 text-red-800 rounded-lg text-[11px] font-black">
+                        Kashmir Apples
+                      </span>
+                    </div>
                   </div>
 
+                  {/* Responsive Scrollable Container */}
                   <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden">
-                    <table className="w-full table-fixed text-xs text-left">
-                      <thead>
-                        <tr className="bg-[#064D2B] text-white font-black text-[10px] uppercase tracking-wider">
-                          <th className="w-[32%] py-2.5 px-3">Layer Grade</th>
-                          <th className="w-[22%] py-2.5 px-2 text-center">No. of Boxes</th>
-                          <th className="w-[22%] py-2.5 px-2 text-right">Rate (₹)</th>
-                          <th className="w-[24%] py-2.5 px-3 text-right">Subtotal</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 font-bold">
-                        {/* 4L */}
-                        <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-3">
-                            <div className="font-extrabold text-gray-900 leading-tight">4L (Large)</div>
-                            <span className="text-[10px] text-gray-500 font-medium leading-none block">Premium 4-Layer</span>
-                          </td>
-                          <td className="py-2.5 px-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              value={layer4LBoxes}
-                              onChange={(e) => setLayer4LBoxes(e.target.value)}
-                              placeholder="0"
-                              className="w-full max-w-[85px] h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none"
-                            />
-                          </td>
-                          <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs">
-                              ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
-                            ₹{apple4LAmount.toLocaleString('en-IN')}
-                          </td>
-                        </tr>
+                    {/* Mobile touch scroll hint */}
+                    <div className="sm:hidden flex items-center justify-between px-3 py-1.5 bg-emerald-50/90 border-b border-emerald-200 text-[10px] text-emerald-900 font-bold">
+                      <span className="flex items-center gap-1">
+                        <span>↔</span> Swipe left / right to view Rates &amp; Subtotals
+                      </span>
+                      <span className="text-emerald-700 font-extrabold">Touch &amp; Drag</span>
+                    </div>
+                    <div
+                      className="overflow-x-auto w-full touch-pan-x"
+                      style={{ WebkitOverflowScrolling: 'touch' }}
+                    >
+                      <table className="w-full min-w-[420px] text-xs text-left">
+                        <thead>
+                          <tr className="bg-[#064D2B] text-white font-black text-[10px] uppercase tracking-wider">
+                            <th className="w-[30%] min-w-[110px] py-2.5 px-3">Layer Grade</th>
+                            <th className="w-[24%] min-w-[95px] py-2.5 px-2 text-center">No. of Boxes</th>
+                            <th className="w-[22%] min-w-[85px] py-2.5 px-2 text-right">Rate (₹)</th>
+                            <th className="w-[24%] min-w-[100px] py-2.5 px-3 text-right">Subtotal</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 font-bold">
+                          {/* 4L */}
+                          <tr className="hover:bg-gray-50/60">
+                            <td className="py-2.5 px-3">
+                              <div className="font-extrabold text-gray-900 leading-tight">4L (Large)</div>
+                              <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Premium 4-Layer</span>
+                            </td>
+                            <td className="py-2.5 px-2 text-center">
+                              <input
+                                type="number"
+                                min="0"
+                                value={layer4LBoxes}
+                                onChange={(e) => setLayer4LBoxes(e.target.value)}
+                                placeholder="0"
+                                className="w-20 sm:w-24 h-9 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 focus:outline-none shadow-2xs"
+                              />
+                            </td>
+                            <td className="py-2.5 px-2 text-right">
+                              <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
+                                ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono whitespace-nowrap text-xs sm:text-sm">
+                              ₹{apple4LAmount.toLocaleString('en-IN')}
+                            </td>
+                          </tr>
 
-                        {/* 5L */}
-                        <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-3">
-                            <div className="font-extrabold text-gray-900 leading-tight">5L (Medium)</div>
-                            <span className="text-[10px] text-gray-500 font-medium leading-none block">Standard 5-Layer</span>
-                          </td>
-                          <td className="py-2.5 px-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              value={layer5LBoxes}
-                              onChange={(e) => setLayer5LBoxes(e.target.value)}
-                              placeholder="0"
-                              className="w-full max-w-[85px] h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none"
-                            />
-                          </td>
-                          <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs">
-                              ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
-                            ₹{apple5LAmount.toLocaleString('en-IN')}
-                          </td>
-                        </tr>
+                          {/* 5L */}
+                          <tr className="hover:bg-gray-50/60">
+                            <td className="py-2.5 px-3">
+                              <div className="font-extrabold text-gray-900 leading-tight">5L (Medium)</div>
+                              <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Standard 5-Layer</span>
+                            </td>
+                            <td className="py-2.5 px-2 text-center">
+                              <input
+                                type="number"
+                                min="0"
+                                value={layer5LBoxes}
+                                onChange={(e) => setLayer5LBoxes(e.target.value)}
+                                placeholder="0"
+                                className="w-20 sm:w-24 h-9 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 focus:outline-none shadow-2xs"
+                              />
+                            </td>
+                            <td className="py-2.5 px-2 text-right">
+                              <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
+                                ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono whitespace-nowrap text-xs sm:text-sm">
+                              ₹{apple5LAmount.toLocaleString('en-IN')}
+                            </td>
+                          </tr>
 
-                        {/* Roll */}
-                        <tr className="hover:bg-gray-50/60">
-                          <td className="py-2.5 px-3">
-                            <div className="font-extrabold text-gray-900 leading-tight">Roll (Running)</div>
-                            <span className="text-[10px] text-gray-500 font-medium leading-none block">Mandi Bulk Pack</span>
-                          </td>
-                          <td className="py-2.5 px-2 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              value={rollBoxes}
-                              onChange={(e) => setRollBoxes(e.target.value)}
-                              placeholder="0"
-                              className="w-full max-w-[85px] h-8 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none"
-                            />
-                          </td>
-                          <td className="py-2.5 px-2 text-right">
-                            <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs">
-                              ₹{Number(rollRate || 700).toLocaleString('en-IN')}
-                            </span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono">
-                            ₹{appleRollAmount.toLocaleString('en-IN')}
-                          </td>
-                        </tr>
-                      </tbody>
-                      <tfoot>
-                        <tr className="border-t-2 border-emerald-300 bg-emerald-50/90 font-black">
-                          <td className="py-2.5 px-3 text-gray-900 uppercase text-[10px] font-black">
-                            Total Consignment
-                          </td>
-                          <td className="py-2.5 px-2 text-center font-black text-gray-900 text-xs">
-                            {totalAppleBoxes.toLocaleString('en-IN')} Boxes
-                          </td>
-                          <td className="py-2.5 px-2 text-right text-gray-500 font-bold text-[10px]">
-                            Mandi Rate
-                          </td>
-                          <td className="py-2.5 px-3 text-right text-sm sm:text-base font-black text-emerald-800 font-mono">
-                            ₹{totalAppleAmount.toLocaleString('en-IN')}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
+                          {/* Roll */}
+                          <tr className="hover:bg-gray-50/60">
+                            <td className="py-2.5 px-3">
+                              <div className="font-extrabold text-gray-900 leading-tight">Roll (Running)</div>
+                              <span className="text-[10px] text-gray-500 font-medium leading-none block mt-0.5">Mandi Bulk Pack</span>
+                            </td>
+                            <td className="py-2.5 px-2 text-center">
+                              <input
+                                type="number"
+                                min="0"
+                                value={rollBoxes}
+                                onChange={(e) => setRollBoxes(e.target.value)}
+                                placeholder="0"
+                                className="w-20 sm:w-24 h-9 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 focus:outline-none shadow-2xs"
+                              />
+                            </td>
+                            <td className="py-2.5 px-2 text-right">
+                              <span className="inline-flex items-center justify-end px-2 py-1 bg-gray-100 rounded-lg border border-gray-200 text-gray-800 font-mono font-bold text-xs whitespace-nowrap">
+                                ₹{Number(rollRate || 700).toLocaleString('en-IN')}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-emerald-800 font-black font-mono whitespace-nowrap text-xs sm:text-sm">
+                              ₹{appleRollAmount.toLocaleString('en-IN')}
+                            </td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-emerald-300 bg-emerald-50/90 font-black">
+                            <td className="py-2.5 px-3 text-gray-900 uppercase text-[10px] font-black whitespace-nowrap">
+                              Total Consignment
+                            </td>
+                            <td className="py-2.5 px-2 text-center font-black text-gray-900 text-xs whitespace-nowrap">
+                              {totalAppleBoxes.toLocaleString('en-IN')} Boxes
+                            </td>
+                            <td className="py-2.5 px-2 text-right text-gray-500 font-bold text-[10px] whitespace-nowrap">
+                              Mandi Rate
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-xs sm:text-base font-black text-emerald-800 font-mono whitespace-nowrap">
+                              ₹{totalAppleAmount.toLocaleString('en-IN')}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
                   </div>
 
                   {/* Prominent Total Apple Amount Summary Card */}
-                  <div className="p-3 bg-white rounded-xl border border-emerald-300 flex items-center justify-between shadow-xs">
-                    <div>
+                  <div className="p-3 bg-white rounded-xl border border-emerald-300 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+                    <div className="min-w-[180px]">
                       <span className="text-xs font-bold text-gray-700 block">Total Apple Amount:</span>
-                      <span className="text-[10px] text-gray-500 font-bold">
+                      <span className="text-[10px] text-gray-500 font-bold block">
                         {totalAppleBoxes.toLocaleString('en-IN')} Boxes (4L: {layer4LBoxes || 0}, 5L: {layer5LBoxes || 0}, Roll: {rollBoxes || 0})
                       </span>
                     </div>
                     <div className="text-right">
-                      <span className="text-base sm:text-lg font-black text-emerald-800 block">
+                      <span className="text-base sm:text-lg font-black text-emerald-800 block font-mono">
                         ₹{totalAppleAmount.toLocaleString('en-IN')}
                       </span>
                     </div>
