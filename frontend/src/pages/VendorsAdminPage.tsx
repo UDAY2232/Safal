@@ -761,7 +761,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         {activeSection === 'transit' && (
           <div className="text-xs text-rose-800 font-bold px-2 pt-2 flex items-center gap-2 whitespace-nowrap">
             <Truck size={14} className="text-rose-600 animate-pulse" />
-            <span>Active Fleets in Transit: <strong>{transitCount} Trucks on Road · 55% Auto-Advance Disbursed</strong></span>
+            <span>Active Fleets in Transit: <strong>{transitCount} Trucks on Road · Advance Disbursed</strong></span>
           </div>
         )}
         {activeSection === 'weighbridge' && (
@@ -819,7 +819,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
           </div>
           <div className="min-w-0 flex-1">
             <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
-              55% Advance Cleared
+              Advance Cleared
             </span>
             <strong className="text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5 truncate">
               ₹{totalAdvanceCleared.toLocaleString('en-IN')}
@@ -1805,7 +1805,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   <th className="py-3 px-4 text-center font-bold border-r border-[#085A33]">Vehicle &amp; Truck No.</th>
                   <th className="py-3 px-4 text-left font-bold border-r border-[#085A33]">Transporter &amp; Driver</th>
                   <th className="py-3 px-4 text-center font-bold border-r border-[#085A33]">Dispatch Proofs</th>
-                  <th className="py-3 px-4 text-right font-bold border-r border-[#085A33]">55% Advance</th>
+                  <th className="py-3 px-4 text-right font-bold border-r border-[#085A33]">Advance Cleared</th>
                   <th className="py-3 px-4 text-center font-bold">Status</th>
                 </tr>
               </thead>

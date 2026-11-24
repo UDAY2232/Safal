@@ -813,11 +813,15 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                   ((order as any).settlementDetails?.settlementCompleted && Number((order as any).settlementDetails?.finalBalanceDue || 0) === 0) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0)
                     ? 'text-emerald-800 bg-emerald-100 border-emerald-300'
-                    : 'text-amber-800 bg-amber-100 border-amber-300'
+                    : (order as any).settlementDetails?.hasSettlementEntry
+                    ? 'text-amber-800 bg-amber-100 border-amber-300'
+                    : 'text-gray-700 bg-gray-100 border-gray-300'
                 }`}>
                   {(((order as any).settlementDetails?.settlementCompleted && Number((order as any).settlementDetails?.finalBalanceDue || 0) === 0) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0))
                     ? 'Cleared ✓'
-                    : 'OPEN - Due Pending'}
+                    : (order as any).settlementDetails?.hasSettlementEntry
+                    ? 'OPEN - Due Pending'
+                    : 'Awaiting Mandi Realization'}
                 </span>
               </div>
 
@@ -895,19 +899,17 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 {/* Final Balance Status */}
                 {(() => {
                   const settle = (order as any).settlementDetails;
-                  const netPayable = grandTotal - (Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01));
-                  const advPaid = Number(order.advanceAmount || Math.round(grandTotal * 0.55));
-                  const calculatedDue = Math.max(0, netPayable - advPaid);
-                  const remainingDue = settle?.finalBalanceDue !== undefined ? Number(settle.finalBalanceDue) : (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0 ? 0 : calculatedDue);
-                  const isFullyCleared = remainingDue === 0 && (Boolean(settle?.settlementCompleted) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0));
+                  const hasSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0));
+                  const remainingDue = hasSettlement ? Number(settle?.finalBalanceDue ?? (order.status === 'CLOSED' ? 0 : order.pendingAmount ?? 0)) : 0;
+                  const isFullyCleared = hasSettlement && remainingDue === 0 && (Boolean(settle?.settlementCompleted) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0));
 
                   return (
                     <div className={`flex items-center justify-between py-2 px-3 rounded-xl border flex-wrap gap-2 ${
-                      isFullyCleared ? 'bg-emerald-50 border-emerald-300' : 'bg-amber-50 border-amber-300'
+                      isFullyCleared ? 'bg-emerald-50 border-emerald-300' : hasSettlement ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-gray-200'
                     }`}>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <strong className={isFullyCleared ? 'text-emerald-950 font-black' : 'text-amber-950 font-black'}>
-                          {isFullyCleared ? 'Final Balance Settled & Realized' : 'Final Balance Due Pending'}
+                        <strong className={isFullyCleared ? 'text-emerald-950 font-black' : hasSettlement ? 'text-amber-950 font-black' : 'text-gray-800 font-bold'}>
+                          {isFullyCleared ? 'Final Balance Settled & Realized' : hasSettlement ? 'Final Balance Due Pending' : 'Net Balance Due (Awaiting Mandi Realization)'}
                         </strong>
                         {(settle?.finalSettlementProofUrl || (isFullyCleared && order.paymentProofUrl)) && (
                           <button
@@ -924,10 +926,12 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                           </button>
                         )}
                       </div>
-                      <strong className={`font-mono font-black text-sm ${isFullyCleared ? 'text-emerald-800' : 'text-[#C2410C]'}`}>
+                      <strong className={`font-mono font-black text-sm ${isFullyCleared ? 'text-emerald-800' : hasSettlement ? 'text-[#C2410C]' : 'text-gray-900'}`}>
                         {isFullyCleared
                           ? `₹0.00 (CLEARED ✓)`
-                          : `₹${remainingDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (OPEN - Due Pending)`}
+                          : hasSettlement
+                          ? `₹${remainingDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (OPEN - Due Pending)`
+                          : `₹0.00 (Pending Safal Entry)`}
                       </strong>
                     </div>
                   );

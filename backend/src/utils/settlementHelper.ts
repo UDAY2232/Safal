@@ -22,6 +22,7 @@ export interface ConsignmentSettlementDetails {
   advanceDisbursedAt?: string;
   advanceDisbursedBy?: string;
 
+  hasSettlementEntry: boolean; // True once Safal Admin records Mandi sales realization settlement
   settlementCompleted: boolean;
   grossConsignmentTotal: number;
   adminSharePercent: number; // 5%
@@ -33,6 +34,7 @@ export interface ConsignmentSettlementDetails {
   advanceAlreadyPaid: number;
   finalBalanceDue: number;
   finalBalancePaid: number;
+  calculatedPotentialDue: number; // Theoretical balance before admin records realization
   finalPaymentDate?: string;
   finalPaymentMode?: string;
   finalPaymentUtr?: string;
@@ -89,31 +91,43 @@ export function enrichPOWithSettlementDetails(po: any): any {
     po.status === 'CLOSED'
   );
 
-  // Total balance due before final settlement payment:
-  const fullBalanceDueBeforeSettlement = Math.max(0, netVendorPayable - advanceAmount);
+  // Theoretical balance due before final settlement payment:
+  const calculatedPotentialDue = Math.max(0, netVendorPayable - advanceAmount);
 
-  // How much was paid during final settlement (if any)
-  const finalBalancePaid = storedSettlement?.finalBalancePaid !== undefined
-    ? Number(storedSettlement.finalBalancePaid)
-    : (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? fullBalanceDueBeforeSettlement : 0);
-
-  // Current remaining balance due:
-  let remainingDue = Math.max(0, fullBalanceDueBeforeSettlement - finalBalancePaid);
-  if (storedSettlement?.finalBalanceDue !== undefined) {
-    remainingDue = Number(storedSettlement.finalBalanceDue);
-  } else if (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0) {
-    remainingDue = 0;
-  }
-
-  // STRICT RULE: "unna balnce motham ithene vendor dashboard lo clear ani ani vastadhi 1 ruppe unna clear radhu open ane vastadhi"
-  // Consignment is ONLY CLEARED if remainingDue === 0 AND (settlementCompleted is true OR (po.status === 'CLOSED' && po.pendingAmount === 0))
-  const isFullyCleared = remainingDue === 0 && Boolean(
-    storedSettlement?.settlementCompleted ||
-    (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0)
+  // Check if Safal Admin has explicitly recorded Mandi Sales Realization settlement
+  const hasSettlementEntry = Boolean(
+    storedSettlement && (
+      storedSettlement.settlementCompleted !== undefined ||
+      storedSettlement.finalBalancePaid !== undefined ||
+      storedSettlement.finalBalanceDue !== undefined
+    )
   );
 
-  const settlementCompleted = isFullyCleared;
-  const finalBalanceDue = isFullyCleared ? 0 : remainingDue;
+  let finalBalancePaid = 0;
+  let remainingDue = 0;
+  let settlementCompleted = false;
+
+  if (hasSettlementEntry) {
+    finalBalancePaid = Number(storedSettlement.finalBalancePaid || 0);
+    remainingDue = Number(storedSettlement.finalBalanceDue ?? 0);
+    // STRICT RULE: Consignment is ONLY CLEARED if remainingDue === 0 AND (settlementCompleted is true OR (po.status === 'CLOSED' && po.pendingAmount === 0))
+    settlementCompleted = remainingDue === 0 && Boolean(
+      storedSettlement.settlementCompleted ||
+      (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0)
+    );
+  } else if (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0) {
+    finalBalancePaid = calculatedPotentialDue;
+    remainingDue = 0;
+    settlementCompleted = true;
+  } else {
+    // Safal Admin has NOT recorded Mandi Sales Realization yet!
+    // As per user specification: Vendor's Net Balance Due must remain 0 until Safal enters the realized settlement.
+    finalBalancePaid = 0;
+    remainingDue = 0;
+    settlementCompleted = false;
+  }
+
+  const finalBalanceDue = settlementCompleted ? 0 : remainingDue;
 
   const settlementDetails: ConsignmentSettlementDetails = {
     advanceDisbursed,
@@ -123,10 +137,11 @@ export function enrichPOWithSettlementDetails(po: any): any {
     advancePaymentUtr: storedAdvance?.advancePaymentUtr || po.paymentProofNotes || 'RTGS-MANDI-ADV',
     advancePayingHub: storedAdvance?.advancePayingHub || po.orderPersonPlace || 'Warangal Hub',
     advanceProofUrl: storedAdvance?.advanceProofUrl || (po.paymentProofUrl || null),
-    advanceNotes: storedAdvance?.advanceNotes || '55% Auto-Advance Guarantee cleared for mandi transit',
+    advanceNotes: storedAdvance?.advanceNotes || 'Consignment advance payment cleared for mandi transit',
     advanceDisbursedAt: storedAdvance?.advanceDisbursedAt || (po.dispatchDate ? new Date(po.dispatchDate).toISOString() : new Date().toISOString()),
     advanceDisbursedBy: storedAdvance?.advanceDisbursedBy || 'Safal Regional Hub Accounts',
 
+    hasSettlementEntry,
     settlementCompleted,
     grossConsignmentTotal: grandTotal,
     adminSharePercent: 5,
@@ -138,12 +153,13 @@ export function enrichPOWithSettlementDetails(po: any): any {
     advanceAlreadyPaid: advanceAmount,
     finalBalanceDue: settlementCompleted ? 0 : finalBalanceDue,
     finalBalancePaid,
+    calculatedPotentialDue,
     finalPaymentDate: storedSettlement?.finalPaymentDate || (settlementCompleted ? new Date().toISOString().split('T')[0] : undefined),
     finalPaymentMode: storedSettlement?.finalPaymentMode || (settlementCompleted ? 'Bank Transfer (RTGS / NEFT)' : undefined),
     finalPaymentUtr: storedSettlement?.finalPaymentUtr || (settlementCompleted ? 'RTGS-MANDI-SETTLE' : undefined),
     finalSettlingHub: storedSettlement?.finalSettlingHub || po.orderPersonPlace || 'Warangal Hub',
     finalSettlementProofUrl: storedSettlement?.finalSettlementProofUrl || (settlementCompleted ? po.paymentProofUrl : null),
-    finalSettlementNotes: storedSettlement?.finalSettlementNotes || (settlementCompleted ? 'Cleared after 5% Admin Share & 1% APMC Mandi Cess deductions' : undefined),
+    finalSettlementNotes: storedSettlement?.finalSettlementNotes || (settlementCompleted ? 'Cleared after Safal Mandi Sales Realization & Settlements' : undefined),
     settledAt: storedSettlement?.settledAt || (settlementCompleted ? new Date().toISOString() : undefined),
     settledBy: storedSettlement?.settledBy || (settlementCompleted ? 'Safal Admin' : undefined),
 

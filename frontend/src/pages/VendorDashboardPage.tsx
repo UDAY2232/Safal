@@ -80,7 +80,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [viewSlipModalUrl, setViewSlipModalUrl] = useState<string | null>(null);
   const [selectedPODetail, setSelectedPODetail] = useState<any | null>(null);
 
-  // Dynamic Mandi Commercial Realization Calculations (5% Safal Platform Commission + 1% APMC Mandi Cess)
+  // Dynamic Mandi Commercial Realization Calculations (Entered by Safal Accounts upon Mandi sales realization)
   const derivedFinancialStats = React.useMemo(() => {
     let grossContractValue = 0;
     let totalAdvanceDisbursed = 0;
@@ -93,15 +93,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       const gross = Number(po.grandTotal || 0);
       const settle = (po as any).settlementDetails;
       const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(gross * 0.55));
+      const hasSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
+      const due = hasSettlement ? Number(settle?.finalBalanceDue ?? 0) : 0;
       const safal = Number(settle?.adminShareAmount ?? Math.round(gross * 0.05));
       const apmc = Number(settle?.apmcShareAmount ?? Math.round(gross * 0.01));
-      const net = Number(settle?.netVendorPayable ?? Math.max(0, gross - (safal + apmc)));
-      const due = Number(settle?.finalBalanceDue ?? (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : Math.max(0, net - adv)));
+      const net = hasSettlement ? Number(settle?.netVendorPayable ?? Math.max(0, gross - (safal + apmc))) : 0;
 
       grossContractValue += gross;
       totalAdvanceDisbursed += adv;
-      totalSafalShare += safal;
-      totalApmcShare += apmc;
+      totalSafalShare += (hasSettlement ? safal : 0);
+      totalApmcShare += (hasSettlement ? apmc : 0);
       totalNetPayable += net;
       totalNetBalanceDue += due;
     }
@@ -1293,7 +1294,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-emerald-800 font-['Manrope'] block mt-0.5 truncate">
                 ₹{Number(derivedFinancialStats.totalAdvanceDisbursed || stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">55% Disbursed · Tap for PO list</small>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Disbursed to Bank · Tap for PO list</small>
             </div>
           </div>
 
@@ -1308,9 +1309,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="min-w-0 flex-1">
               <span className="text-[11px] sm:text-xs font-bold text-amber-950 block truncate">Net Balance Due</span>
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-[#C2410C] font-['Manrope'] block mt-0.5 truncate">
-                ₹{Number(derivedFinancialStats.totalNetBalanceDue || stats.totalPendingBalance || 0).toLocaleString('en-IN')}
+                ₹{Number(derivedFinancialStats.totalNetBalanceDue || 0).toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-amber-800 hidden sm:block truncate">Less 5% Co. &amp; 1% APMC · Tap info</small>
+              <small className="text-[10px] text-amber-800 hidden sm:block truncate">Entered by Safal Accounts · Tap info</small>
             </div>
           </div>
         </section>
@@ -1973,7 +1974,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Destination Hub</th>
                   <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Vehicle &amp; Transporter</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Dispatch Proofs</th>
-                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">55% Advance</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Advance Amount</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Consignment Status</th>
                   <th className="py-3 px-3 text-center font-bold">Action</th>
                 </tr>
@@ -2312,8 +2313,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Fruit &amp; Layer Breakdown</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Destination Hub</th>
                   <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Gross Value</th>
-                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">55% Advance Paid</th>
-                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Mandi Deductions (6%)</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Advance Amount</th>
                   <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">Net Balance Due</th>
                   <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Status</th>
                   <th className="py-3 px-3 text-center font-bold">Action</th>
@@ -2322,7 +2322,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <tbody className="divide-y divide-gray-200">
                 {filteredOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-12 text-gray-400">
+                    <td colSpan={9} className="text-center py-12 text-gray-400">
                       <ShoppingCart size={32} className="mx-auto mb-2 text-gray-300" />
                       No supply consignments found matching the criteria.
                     </td>
@@ -2336,13 +2336,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     const apmcShare = Number(settle.apmcShareAmount ?? Math.round(total * 0.01));
                     const totalDeductions = adminShare + apmcShare;
                     const netVendorPayable = Number(settle.netVendorPayable ?? Math.max(0, total - totalDeductions));
-                    const calculatedDue = Math.max(0, netVendorPayable - advance);
-                    const remainingDue = settle.finalBalanceDue !== undefined
-                      ? Number(settle.finalBalanceDue)
-                      : (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : (po.pendingAmount ? Number(po.pendingAmount) : calculatedDue));
+
+                    // Safal Mandi Sales Realization Check:
+                    // Net Balance Due is 0 until Safal accounts records the sales settlement!
+                    const hasSettlementEntry = Boolean(
+                      settle.hasSettlementEntry ||
+                      settle.settlementCompleted ||
+                      (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0)
+                    );
+                    const remainingDue = hasSettlementEntry ? Number(settle.finalBalanceDue ?? 0) : 0;
 
                     // STRICT CLEARANCE RULE: "1 ruppe unna clear radhu open ane vastadhi"
-                    const isFullyCleared = remainingDue === 0 && (Boolean(settle.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
+                    const isFullyCleared = hasSettlementEntry && remainingDue === 0 && (Boolean(settle.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
                     const isExpanded = expandedPOId === po.id;
 
                     // Compute fruit summary & layer counts
@@ -2412,7 +2417,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             </strong>
                           </td>
 
-                          {/* 55% Advance Paid */}
+                          {/* Advance Amount */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             <strong className="text-emerald-700 font-black block font-mono text-xs">
                               ₹{advance.toLocaleString('en-IN')}
@@ -2422,18 +2427,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             </span>
                           </td>
 
-                          {/* Mandi Deductions (6%) */}
-                          <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <div className="text-[10px] space-y-0.5">
-                              <div className="text-rose-700 font-bold font-mono">5% Safal: -₹{adminShare.toLocaleString('en-IN')}</div>
-                              <div className="text-rose-700 font-bold font-mono">1% APMC: -₹{apmcShare.toLocaleString('en-IN')}</div>
-                              <span className="text-[9px] font-black text-rose-900 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 inline-block mt-0.5">
-                                Total: -₹{totalDeductions.toLocaleString('en-IN')}
-                              </span>
-                            </div>
-                          </td>
-
-                          {/* Net Balance Due */}
+                          {/* Net Balance Due (0 until Safal Admin records Mandi sales realization) */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             {isFullyCleared ? (
                               <div>
@@ -2442,13 +2436,23 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   CLEARED ✓
                                 </span>
                               </div>
-                            ) : (
+                            ) : hasSettlementEntry && remainingDue > 0 ? (
                               <div>
                                 <strong className="text-[#C2410C] font-black block font-mono text-sm">
                                   ₹{remainingDue.toLocaleString('en-IN')}
                                 </strong>
                                 <span className="text-[9px] font-bold text-amber-900 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
                                   OPEN (Due Pending)
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <strong className="text-gray-900 font-black block font-mono text-xs">₹0.00</strong>
+                                <span
+                                  className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-300 inline-block mt-0.5"
+                                  title="Net balance due will appear once Safal accounts enters Mandi sales realization"
+                                >
+                                  Pending Mandi Realization
                                 </span>
                               </div>
                             )}
@@ -2460,16 +2464,23 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
                                 <CheckCircle2 size={12} className="text-emerald-700" /> Cleared ✓
                               </span>
-                            ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.dispatchVehicleNumber || po.vehiclePhotoUrl ? (
+                            ) : hasSettlementEntry && remainingDue > 0 ? (
                               <span
                                 className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
-                                title="Consignment dispatched and submitted. Awaiting Admin physical verification & clearance."
+                                title="Safal entered settlement. Consignment remains open until full balance is paid."
                               >
                                 <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance (₹{remainingDue.toLocaleString('en-IN')} Due)
                               </span>
+                            ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.dispatchVehicleNumber || po.vehiclePhotoUrl ? (
+                              <span
+                                className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
+                                title="Consignment dispatched and submitted. Awaiting Safal Mandi sales realization & clearance."
+                              >
+                                <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance
+                              </span>
                             ) : po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
-                                <Truck size={12} className="text-blue-700" /> In Transit (₹{remainingDue.toLocaleString('en-IN')} Due)
+                                <Truck size={12} className="text-blue-700" /> In Transit
                               </span>
                             ) : (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-gray-100 text-gray-800 border border-gray-300 inline-flex items-center gap-1">
@@ -2524,7 +2535,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                         {/* Dedicated Slips & Receipts Row (Clean separated row per consignment) */}
                         <tr className="bg-emerald-50/20 border-b-2 border-emerald-100" onClick={(e) => e.stopPropagation()}>
-                          <td colSpan={10} className="py-2.5 px-4">
+                          <td colSpan={9} className="py-2.5 px-4">
                             <div className="flex flex-wrap items-center justify-between gap-3">
                               <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black uppercase text-emerald-950 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
@@ -2578,19 +2589,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   </span>
                                 )}
 
-                                {/* 3. 55% Advance Bank Slip */}
+                                {/* 3. Advance Payment Bank Slip */}
                                 {(settle.advanceProofUrl || po.paymentProofUrl) ? (
                                   <button
                                     type="button"
                                     onClick={() => setPreviewMediaModal({
                                       url: (settle.advanceProofUrl || po.paymentProofUrl)!,
-                                      title: `55% Advance Bank Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
+                                      title: `Advance Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
                                     })}
                                     className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-400 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
                                     title="View advance payment receipt slip"
                                   >
                                     <CreditCard size={11} className="text-emerald-700" />
-                                    <span>55% Advance Slip (₹{advance.toLocaleString('en-IN')})</span>
+                                    <span>Advance Payment Slip (₹{advance.toLocaleString('en-IN')})</span>
                                     <Eye size={10} className="text-emerald-800 ml-0.5" />
                                   </button>
                                 ) : (
@@ -5142,8 +5153,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </span>
                   <h2 className="text-lg font-black text-gray-900 font-['Manrope']">
                     {selectedKpiModal === 'orders' && 'Gross Orders & Total Contract Value'}
-                    {selectedKpiModal === 'advance' && 'Bank Advance Received (55% Upfront)'}
-                    {selectedKpiModal === 'due' && 'Pending Mandi Due Balance (45% Delivery)'}
+                    {selectedKpiModal === 'advance' && 'Bank Advance Received'}
+                    {selectedKpiModal === 'due' && 'Consignment Net Balance Due'}
                     {selectedKpiModal === 'volume' && 'Total Fruit Volume Supplied'}
                     {selectedKpiModal === 'transit' && 'Active Transport Fleet in Transit'}
                     {selectedKpiModal === 'qc' && 'Mandi Quality Control & Acceptance'}
@@ -5169,15 +5180,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <strong className="text-2xl sm:text-3xl font-black text-gray-900 font-['Manrope'] block mt-0.5">
                     {selectedKpiModal === 'orders' && `₹${Number(stats.totalOrderValue || 0).toLocaleString('en-IN')}`}
                     {selectedKpiModal === 'advance' && `₹${Number(stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}`}
-                    {selectedKpiModal === 'due' && `₹${Number(stats.totalPendingBalance || Math.max(0, (stats.totalOrderValue || 0) - (stats.totalAdvanceReceived || 0))).toLocaleString('en-IN')}`}
+                    {selectedKpiModal === 'due' && `₹${Number(derivedFinancialStats.totalNetBalanceDue || 0).toLocaleString('en-IN')}`}
                     {selectedKpiModal === 'volume' && `${totalVolumeBoxes.toLocaleString('en-IN')} Boxes`}
                     {selectedKpiModal === 'transit' && `${stats.inTransitPOs || 0} Trucks on Road`}
                     {selectedKpiModal === 'qc' && `99.4% Mandi Verified`}
                   </strong>
                   <span className="text-[11px] text-gray-600 font-medium block mt-0.5">
                     {selectedKpiModal === 'orders' && `${stats.totalPOs || 0} Active Procurement Orders`}
-                    {selectedKpiModal === 'advance' && `55% Advance Cleared to Vendor Account`}
-                    {selectedKpiModal === 'due' && `45% Settled on Hub Delivery & Weighbridge`}
+                    {selectedKpiModal === 'advance' && `Advance Cleared to Vendor Account`}
+                    {selectedKpiModal === 'due' && `Settled upon Mandi Realization by Safal Accounts`}
                     {selectedKpiModal === 'volume' && `~${(totalVolumeBoxes * 0.02).toFixed(1)} Metric Tonnes Net Fruit Weight`}
                     {selectedKpiModal === 'transit' && `Direct Hub Consignments En-Route`}
                     {selectedKpiModal === 'qc' && `Zero Tare Verification & Grade A Certified`}
@@ -5200,9 +5211,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   {selectedKpiModal === 'orders' &&
                     'This represents the aggregate contract commitments issued to your vendor organization by Safal Export & Import Pvt Ltd. All wholesale fruit rates and grading guidelines adhere to official mandi market pricing agreements.'}
                   {selectedKpiModal === 'advance' &&
-                    'Safal Vendor Protection Guarantee provides an automatic 55% upfront advance disbursed directly via NEFT/RTGS to your verified bank coordinates upon uploading dispatch truck photos and carrier bilty.'}
+                    'Safal Vendor Protection Guarantee provides an upfront advance disbursed directly via NEFT/RTGS to your verified bank coordinates upon uploading dispatch truck photos and carrier bilty.'}
                   {selectedKpiModal === 'due' &&
-                    'Net commercial realization balance due to vendor after 5% Safal Platform Commission and 1% APMC Mandi Market Cess deductions. A consignment strictly remains OPEN until the entire balance is disbursed in full with verified payment receipt.'}
+                    'Safal operates on a Mandi sales consignment model. Once your fruit consignment arrives at the regional hub, Safal enters the finalized sales realization and deductions. Until Safal Accounts records the final settlement, Net Balance Due displays ₹0.00. Once entered by Safal, the realized net balance due appears here and is cleared upon settlement payment.'}
                   {selectedKpiModal === 'volume' &&
                     'Total physical commodity volume packaged and supplied under your account. Covers all 7 authorized fruit varieties: Kashmir Apples, Pomegranate, Watermelon, Muskmelon, Banana, Orange, and Plum.'}
                   {selectedKpiModal === 'transit' &&
@@ -5242,7 +5253,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       Disbursed Upfront Advances by PO ({orders.length})
                     </span>
                     <span className="text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      55% Auto Guarantee Cleared
+                      Advance Cleared
                     </span>
                   </div>
 
@@ -5253,7 +5264,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <th className="py-2.5 px-3">PO # &amp; Date</th>
                           <th className="py-2.5 px-3">Hub Location</th>
                           <th className="py-2.5 px-3 text-right">Gross Total</th>
-                          <th className="py-2.5 px-3 text-right text-emerald-800">55% Advance Received</th>
+                          <th className="py-2.5 px-3 text-right text-emerald-800">Advance Amount Received</th>
                           <th className="py-2.5 px-3 text-center">Payment UTR</th>
                           <th className="py-2.5 px-3 text-center">Receipt Slip</th>
                         </tr>
@@ -5302,7 +5313,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                       onClick={() =>
                                         setPreviewMediaModal({
                                           url: proofUrl,
-                                          title: `55% Advance Bank Slip: ${po.poNumber} (${settle?.advancePayingHub || 'Warangal Hub'})`,
+                                          title: `Advance Bank Slip: ${po.poNumber} (${settle?.advancePayingHub || 'Warangal Hub'})`,
                                         })
                                       }
                                       className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer shadow-2xs"
@@ -5347,72 +5358,55 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
               {selectedKpiModal === 'due' && (
                 <div className="space-y-3">
-                  {/* Commercial Matrix Card */}
+                  {/* Realization Status Card */}
                   <div className="p-3.5 bg-gradient-to-br from-amber-50/80 via-orange-50/50 to-white border border-amber-200 rounded-2xl space-y-2">
                     <div className="flex items-center justify-between border-b border-amber-100 pb-2">
                       <span className="text-[10px] font-black uppercase text-amber-900 tracking-wider">
-                        Mandi Realization &amp; Deductions Matrix (5% Safal + 1% APMC)
+                        Mandi Sales Realization Summary
                       </span>
                       <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-300">
-                        Commercial Formula
+                        Safal Accounts Realization
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
                       <div className="p-2.5 bg-white rounded-xl border border-amber-100">
-                        <span className="text-[10px] text-gray-500 block">1. Gross Contract Value</span>
+                        <span className="text-[10px] text-gray-500 block">Total Consignment Value</span>
                         <strong className="text-sm font-black text-gray-900 font-mono block mt-0.5">
                           ₹{derivedFinancialStats.grossContractValue.toLocaleString('en-IN')}
                         </strong>
                       </div>
-                      <div className="p-2.5 bg-white rounded-xl border border-rose-100">
-                        <span className="text-[10px] text-rose-700 font-bold block">2. Less 5% Safal Platform Share</span>
-                        <strong className="text-sm font-black text-rose-700 font-mono block mt-0.5">
-                          -₹{derivedFinancialStats.totalSafalShare.toLocaleString('en-IN')}
-                        </strong>
-                      </div>
-                      <div className="p-2.5 bg-white rounded-xl border border-rose-100">
-                        <span className="text-[10px] text-rose-700 font-bold block">3. Less 1% APMC Mandi Cess</span>
-                        <strong className="text-sm font-black text-rose-700 font-mono block mt-0.5">
-                          -₹{derivedFinancialStats.totalApmcShare.toLocaleString('en-IN')}
-                        </strong>
-                      </div>
                       <div className="p-2.5 bg-white rounded-xl border border-emerald-100">
-                        <span className="text-[10px] text-emerald-800 font-bold block">4. Net Vendor Payable</span>
+                        <span className="text-[10px] text-emerald-800 font-bold block">Advance Amount Received</span>
                         <strong className="text-sm font-black text-emerald-800 font-mono block mt-0.5">
-                          ₹{derivedFinancialStats.totalNetPayable.toLocaleString('en-IN')}
-                        </strong>
-                      </div>
-                      <div className="p-2.5 bg-white rounded-xl border border-blue-100">
-                        <span className="text-[10px] text-blue-800 font-bold block">5. Less 55% Advance Paid</span>
-                        <strong className="text-sm font-black text-blue-800 font-mono block mt-0.5">
-                          -₹{derivedFinancialStats.totalAdvanceDisbursed.toLocaleString('en-IN')}
+                          ₹{derivedFinancialStats.totalAdvanceDisbursed.toLocaleString('en-IN')}
                         </strong>
                       </div>
                       <div className="p-2.5 bg-gradient-to-r from-amber-100 to-orange-100 rounded-xl border border-amber-300">
-                        <span className="text-[10px] text-amber-950 font-black block">6. Net Remaining Balance Due</span>
+                        <span className="text-[10px] text-amber-950 font-black block">Realized Net Balance Due</span>
                         <strong className="text-base font-black text-[#C2410C] font-mono block mt-0.5">
-                          ₹{derivedFinancialStats.totalNetBalanceDue.toLocaleString('en-IN')}
+                          ₹{Number(derivedFinancialStats.totalNetBalanceDue || 0).toLocaleString('en-IN')}
                         </strong>
                       </div>
                     </div>
+                    <p className="text-[11px] text-amber-800 pt-1">
+                      * Consignment balance remains <strong>₹0.00</strong> until Safal Accounts records Mandi sales realization and settlement.
+                    </p>
                   </div>
 
                   {/* Consignments Pending Balance Due Table */}
                   <div className="space-y-2">
                     <span className="text-[10px] font-black text-gray-700 uppercase tracking-wider block">
-                      Consignments Breakdown &amp; Clearance Status ({orders.length})
+                      Consignments Breakdown &amp; Realization Status ({orders.length})
                     </span>
                     <div className="overflow-x-auto border border-gray-200 rounded-2xl bg-white shadow-2xs">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead>
                           <tr className="bg-gray-50 border-b border-gray-200 text-gray-700 font-bold text-[10px] uppercase">
                             <th className="py-2.5 px-3">PO # &amp; Date</th>
-                            <th className="py-2.5 px-3">Hub</th>
-                            <th className="py-2.5 px-3 text-right">Gross</th>
-                            <th className="py-2.5 px-3 text-right">55% Adv.</th>
-                            <th className="py-2.5 px-3 text-right text-rose-700">5% Co.</th>
-                            <th className="py-2.5 px-3 text-right text-rose-700">1% APMC</th>
-                            <th className="py-2.5 px-3 text-right font-black">Net Due</th>
+                            <th className="py-2.5 px-3">Hub Location</th>
+                            <th className="py-2.5 px-3 text-right">Gross Total</th>
+                            <th className="py-2.5 px-3 text-right text-emerald-800">Advance Paid</th>
+                            <th className="py-2.5 px-3 text-right font-black">Realized Net Due</th>
                             <th className="py-2.5 px-3 text-center">Status</th>
                           </tr>
                         </thead>
@@ -5421,11 +5415,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             const total = Number(po.grandTotal || 0);
                             const settle = (po as any).settlementDetails;
                             const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
-                            const safal = Number(settle?.adminShareAmount ?? Math.round(total * 0.05));
-                            const apmc = Number(settle?.apmcShareAmount ?? Math.round(total * 0.01));
-                            const net = Number(settle?.netVendorPayable ?? Math.max(0, total - (safal + apmc)));
-                            const due = Number(settle?.finalBalanceDue ?? (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : Math.max(0, net - adv)));
-                            const isCleared = due === 0 && (Boolean(settle?.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
+                            const hasSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
+                            const due = hasSettlement ? Number(settle?.finalBalanceDue ?? 0) : 0;
+                            const isCleared = hasSettlement && due === 0 && (Boolean(settle?.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
 
                             return (
                               <tr key={po.id} className="hover:bg-amber-50/20">
@@ -5444,23 +5436,21 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                 <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
                                   ₹{adv.toLocaleString('en-IN')}
                                 </td>
-                                <td className="py-2.5 px-3 text-right font-mono text-rose-700 font-bold">
-                                  -₹{safal.toLocaleString('en-IN')}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono text-rose-700 font-bold">
-                                  -₹{apmc.toLocaleString('en-IN')}
-                                </td>
                                 <td className="py-2.5 px-3 text-right font-mono font-black text-amber-900">
-                                  ₹{due.toLocaleString('en-IN')}
+                                  {hasSettlement ? `₹${due.toLocaleString('en-IN')}` : '₹0.00'}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   {isCleared ? (
                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
                                       <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
                                     </span>
-                                  ) : (
+                                  ) : hasSettlement && due > 0 ? (
                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
-                                      <Clock size={11} className="text-amber-700" /> OPEN ({due > 0 ? `₹${due.toLocaleString('en-IN')} Due` : 'Pending'})
+                                      <Clock size={11} className="text-amber-700" /> OPEN (₹{due.toLocaleString('en-IN')} Due)
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700 border border-gray-300 inline-flex items-center gap-1">
+                                      Pending Mandi Realization
                                     </span>
                                   )}
                                 </td>
