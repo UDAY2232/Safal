@@ -279,13 +279,13 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
 
             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
               <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                Late Arrivals
+                Assigned Shift
               </div>
-              <div className="text-2xl font-black text-amber-700">
-                {historyData?.stats?.lateDays ?? 0} <span className="text-xs font-normal text-gray-500">Days</span>
+              <div className="text-base sm:text-lg font-black text-emerald-900 font-mono">
+                {historyData?.shiftConfig?.displayTiming || '05:30/06:00 AM – 02:00 PM'}
               </div>
-              <div className="text-[11px] text-amber-700 font-medium mt-1 flex items-center gap-1">
-                <AlertTriangle size={12} /> Shift starts 05:30 – 06:00 AM
+              <div className="text-[11px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+                <Clock size={12} /> {historyData?.shiftConfig?.shiftName || 'Standard Office Shift'}
               </div>
             </div>
 
@@ -297,7 +297,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                 {historyData?.stats?.totalHours ?? '0'} <span className="text-xs font-normal text-gray-500">Hours</span>
               </div>
               <div className="text-[11px] text-blue-700 font-medium mt-1 flex items-center gap-1">
-                <Clock size={12} /> Target: 8h / Day (06:00 – 14:00 + 2h Sales)
+                <Clock size={12} /> Target: {historyData?.shiftConfig?.totalHoursText || '8h 00m'} / Day
               </div>
             </div>
           </div>
@@ -549,6 +549,7 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                   <tr>
                     <th className="py-3 px-4">Staff Member</th>
                     <th className="py-3 px-4">Employee ID</th>
+                    <th className="py-3 px-4">Assigned Shift</th>
                     <th className="py-3 px-4">Department &amp; Role</th>
                     <th className="py-3 px-4">Office In (Arrival)</th>
                     <th className="py-3 px-4">Office Out (Departure)</th>
@@ -561,13 +562,13 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                 <tbody className="divide-y divide-gray-100">
                   {rosterLoading ? (
                     <tr>
-                      <td colSpan={9} className="py-10 text-center text-gray-400">
+                      <td colSpan={10} className="py-10 text-center text-gray-400">
                         Loading daily attendance roster...
                       </td>
                     </tr>
                   ) : filteredRoster.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="py-10 text-center text-gray-400">
+                      <td colSpan={10} className="py-10 text-center text-gray-400">
                         No staff records matched your filters.
                       </td>
                     </tr>
@@ -584,6 +585,14 @@ export const AttendancePage: React.FC<AttendancePageProps> = ({ user }) => {
                           </td>
                           <td className="py-3 px-4 font-mono font-bold text-emerald-800">
                             {staff.employeeCode}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-mono text-[11px] font-bold border border-emerald-200 block whitespace-nowrap">
+                              {staff.shiftTiming || staff.shiftConfig?.displayTiming || '06:00 AM – 02:00 PM'}
+                            </span>
+                            <span className="text-[10px] text-gray-400 block mt-0.5 font-medium">
+                              {staff.shiftConfig?.shiftName || 'Standard Office'}
+                            </span>
                           </td>
                           <td className="py-3 px-4">
                             <div className="font-semibold text-gray-800">{staff.designation}</div>

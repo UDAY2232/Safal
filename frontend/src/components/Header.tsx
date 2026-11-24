@@ -295,11 +295,6 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Operational Controls & User Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
-          {/* Hub 1 Live Status */}
-          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 rounded-full border border-emerald-200 text-[11px] text-[#064D2B] font-bold select-none">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Hub 1 Live</span>
-          </div>
 
           {/* Admin / Accountant Broadcast Notice Button */}
           {(user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (

@@ -4,6 +4,7 @@ import path from 'path';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
+import { getEmployeeShiftConfig } from '../utils/shiftConfig.js';
 
 // Standard Office Shift Configuration (SAFAL Office - Raipura, Kakatiya colony, Hanamkonda, Telangana)
 // Office timings: 05:30 AM – 06:00 AM Arrival to 02:00 PM in office + 2 extra hours for company growth, sales, and client visits
@@ -109,10 +110,6 @@ export async function clockIn(req: AuthRequest, res: Response) {
       });
     }
 
-    // Determine status (Late if after 06:00 AM - Shift starts 05:30 - 06:00 AM)
-    const isLate = hour > SHIFT_START_HOUR || (hour === SHIFT_START_HOUR && minute > SHIFT_START_MINUTE);
-    const status = isLate ? 'LATE' : 'PRESENT';
-
     // Get linked employee record if any (by userId or matching email)
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -142,6 +139,18 @@ export async function clockIn(req: AuthRequest, res: Response) {
       });
     }
 
+    // Determine individual employee shift configuration
+    const shift = getEmployeeShiftConfig({
+      email: user?.email,
+      name: user?.name,
+      fullName: linkedEmployee?.fullName || user?.employee?.fullName,
+      employeeId: linkedEmployee?.employeeId,
+    });
+
+    // Determine status (Late if after individual employee's official shift start)
+    const isLate = hour > shift.startHour || (hour === shift.startHour && minute > shift.startMinute);
+    const status = isLate ? 'LATE' : 'PRESENT';
+
     const clientIp =
       (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       req.socket.remoteAddress ||
@@ -155,8 +164,8 @@ export async function clockIn(req: AuthRequest, res: Response) {
       '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011';
 
     const notes = isLate
-      ? `Late arrival at ${timeFormatted} (Shift: 05:30–06:00 AM to 02:00 PM Office + 2h Growth/Sales)`
-      : `On-time arrival at ${timeFormatted} (Shift: 05:30–06:00 AM to 02:00 PM Office + 2h Growth/Sales)`;
+      ? `Late arrival at ${timeFormatted} (Assigned Shift: ${shift.displayTiming} · ${shift.shiftName})`
+      : `On-time arrival at ${timeFormatted} (Assigned Shift: ${shift.displayTiming} · ${shift.shiftName})`;
 
     const record = await prisma.attendanceRecord.create({
       data: {
@@ -242,9 +251,18 @@ export async function clockOut(req: AuthRequest, res: Response) {
     const diffMs = now.getTime() - existing.clockInTime.getTime();
     const totalMinutes = Math.max(0, Math.round(diffMs / (1000 * 60)));
 
-    // If worked less than 4 hours, mark as HALF_DAY unless already LATE
+    // Individual employee shift configuration
+    const shift = getEmployeeShiftConfig({
+      email: userPayload.email,
+      name: userPayload.name,
+      fullName: (existing as any).employee?.fullName,
+      employeeId: (existing as any).employee?.employeeId,
+    });
+
+    // If worked less than half of their shift duration, mark as HALF_DAY unless already LATE
+    const halfShiftMinutes = Math.floor(shift.totalMinutes / 2);
     let finalStatus = existing.status;
-    if (totalMinutes < HALF_DAY_MINUTES) {
+    if (totalMinutes < halfShiftMinutes) {
       finalStatus = 'HALF_DAY';
     }
 
@@ -261,7 +279,7 @@ export async function clockOut(req: AuthRequest, res: Response) {
         totalMinutes,
         status: finalStatus,
         ...(uploadedOutPhoto ? { clockOutPhotoUrl: uploadedOutPhoto } : {}),
-        notes: `${existing.notes ? existing.notes + ' | ' : ''}Office Out at ${timeFormatted} (Worked: ${durationStr} / 8h Office Shift · 05:30/06:00 AM – 02:00 PM + 2h Sales Growth)`,
+        notes: `${existing.notes ? existing.notes + ' | ' : ''}Office Out at ${timeFormatted} (Worked: ${durationStr} / ${shift.displayTiming} · ${shift.shiftName})`,
       },
       include: {
         user: { select: { id: true, name: true, email: true, role: true } },
@@ -323,10 +341,23 @@ export async function getTodayStatus(req: AuthRequest, res: Response) {
     const totalPresentCount = todayRecords.length;
     const lateCount = todayRecords.filter((r) => r.status === 'LATE').length;
 
+    // Get individual shift config for this user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { employee: true },
+    });
+    const shiftConfig = getEmployeeShiftConfig({
+      email: user?.email,
+      name: user?.name,
+      fullName: user?.employee?.fullName,
+      employeeId: user?.employee?.employeeId,
+    });
+
     return res.json({
       record: record || null,
       isClockedIn: !!record,
       isClockedOut: !!record?.clockOutTime,
+      shiftConfig,
       officeOverview: {
         totalPresent: totalPresentCount,
         activeInOffice: activeInOfficeCount,
@@ -368,8 +399,20 @@ export async function getMyHistory(req: AuthRequest, res: Response) {
     const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
     const onTimePercentage = totalDays > 0 ? Math.round((onTimeDays / totalDays) * 100) : 100;
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { employee: true },
+    });
+    const shiftConfig = getEmployeeShiftConfig({
+      email: user?.email,
+      name: user?.name,
+      fullName: user?.employee?.fullName,
+      employeeId: user?.employee?.employeeId,
+    });
+
     return res.json({
       records,
+      shiftConfig,
       stats: {
         totalDays,
         onTimeDays,
@@ -433,6 +476,13 @@ export async function getAllAttendanceRecords(req: AuthRequest, res: Response) {
         status = record.status;
       }
 
+      const shiftConfig = getEmployeeShiftConfig({
+        email: emp.email,
+        name: emp.user?.name,
+        fullName: emp.fullName,
+        employeeId: emp.employeeId,
+      });
+
       return {
         employeeDbId: emp.id,
         employeeCode: emp.employeeId,
@@ -441,6 +491,8 @@ export async function getAllAttendanceRecords(req: AuthRequest, res: Response) {
         department: emp.department,
         designation: emp.designation,
         userId: emp.userId,
+        shiftConfig,
+        shiftTiming: shiftConfig.displayTiming,
         attendance: record
           ? {
               id: record.id,

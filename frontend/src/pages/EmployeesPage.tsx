@@ -151,7 +151,12 @@ export const EmployeesPage: React.FC<EmployeesPageProps> = ({ onNotify }) => {
                       <small className="block text-[10px] text-gray-400">{e.email}</small>
                     </td>
                     <td>{e.department}</td>
-                    <td>{e.designation}</td>
+                    <td>
+                      <div className="font-semibold text-gray-800">{e.designation}</div>
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-mono text-[10px] font-bold border border-emerald-200 mt-1 inline-block whitespace-nowrap">
+                        {e.shiftTiming || (e as any).shiftConfig?.displayTiming || '06:00 AM – 02:00 PM'}
+                      </span>
+                    </td>
                     <td>
                       <span className="px-2 py-0.5 bg-gray-100 rounded text-[11px] text-gray-700">
                         {e.wageType}

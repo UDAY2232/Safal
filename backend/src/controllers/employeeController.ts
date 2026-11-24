@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
+import { getEmployeeShiftConfig } from '../utils/shiftConfig.js';
 
 export async function getEmployees(req: AuthRequest, res: Response) {
   try {
@@ -84,6 +85,7 @@ export async function getEmployees(req: AuthRequest, res: Response) {
 
     const formatted = employees.map((e) => {
       const activeToday = isEmployeeActiveToday(e);
+      const shiftConfig = getEmployeeShiftConfig(e);
       return {
         id: e.id,
         employeeId: e.employeeId,
@@ -99,6 +101,8 @@ export async function getEmployees(req: AuthRequest, res: Response) {
         status: e.status, // preserve real employment status stored in DB
         hasAttendedToday: activeToday,
         attendanceToday: activeToday ? 'PRESENT' : 'NOT_MARKED',
+        shiftConfig,
+        shiftTiming: shiftConfig.displayTiming,
         totalClaims: e.expenseClaims.length,
         latestWageRecord: e.wageRecords[0]
           ? {

@@ -12,6 +12,8 @@ import {
   Camera,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { getEmployeeShiftConfig } from '../utils/shiftConfig';
 import { AttendancePhotoModal } from './AttendancePhotoModal';
 import { PhotoLightboxModal } from './PhotoLightboxModal';
 
@@ -26,6 +28,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
   onViewLogs,
   compact = false,
 }) => {
+  const { user } = useAuth();
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [todayData, setTodayData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -119,8 +122,9 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     year: 'numeric',
   });
 
-  // Calculate elapsed time and progress towards 8 hours (06:00 AM to 02:00 PM + 2h Sales Growth)
-  const TARGET_WORK_MINUTES = 480; // 8 Hours standard working hours
+  // Individual employee shift configuration (Naveen: 6am-9pm, Harini: 8:30am-7pm, Sangual: 7am-5pm, Pavan: 6am-3pm, etc.)
+  const shiftConfig = todayData?.shiftConfig || getEmployeeShiftConfig(user);
+  const TARGET_WORK_MINUTES = shiftConfig.totalMinutes || 480;
   let elapsedMinutes = 0;
   let elapsedText = '';
   if (isPresent && record?.clockInTime) {
@@ -168,7 +172,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                 Raipura, Kakatiya colony, Hanamkonda, Telangana
               </span>
               <span className="opacity-60">|</span>
-              <span>Official Shift: <strong>05:30 – 06:00 AM to 02:00 PM (Office) + 2h Sales Growth</strong></span>
+              <span>Assigned Shift: <strong>{shiftConfig.displayTiming} ({shiftConfig.shiftName})</strong></span>
             </p>
           </div>
         </div>
@@ -247,7 +251,7 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
             )}
 
             <div className="text-[11px] text-gray-500 mt-2">
-              Official Shift: <strong>05:30 – 06:00 AM to 02:00 PM (+2h Sales Growth)</strong> (Total 8 Working Hours). Arrive before <strong>06:00 AM</strong> for on-time verification.
+              Assigned Shift: <strong>{shiftConfig.displayTiming}</strong> ({shiftConfig.totalHoursText} Target). Arrive before <strong>{shiftConfig.startTimeFormatted}</strong> for on-time verification.
             </div>
           </div>
 
@@ -261,10 +265,10 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                   className="w-full py-3.5 px-5 bg-gradient-to-r from-[#087A3E] to-[#0A964C] hover:from-[#066533] hover:to-[#087A3E] text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
                 >
                   <Camera size={19} className="text-emerald-200 group-hover:scale-110 transition" />
-                  <span>{actionLoading ? 'Recording Arrival...' : 'Office In: Take Photo & Record Arrival (05:30 – 06:00 AM)'}</span>
+                  <span>{actionLoading ? 'Recording Arrival...' : `Office In: Take Photo & Record Arrival (${shiftConfig.startTimeFormatted})`}</span>
                 </button>
                 <p className="text-[11px] text-center text-gray-500">
-                  Official Shift: <strong>05:30 – 06:00 AM Arrival to 02:00 PM Office Departure</strong> + <strong>2 Extra Hours</strong> for company growth and sales.
+                  Assigned Shift: <strong>{shiftConfig.displayTiming}</strong> ({shiftConfig.totalHoursText}) · {shiftConfig.shiftName}.
                 </p>
               </>
             ) : !isClockedOut ? (
@@ -275,9 +279,9 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                       <CheckCircle2 size={14} className="text-emerald-600" />
                       Office In: {formatRecordTime(record?.clockInTime)}
                     </span>
-                    <span className="text-emerald-800 font-mono font-bold">{elapsedText} / 8h 00m</span>
+                    <span className="text-emerald-800 font-mono font-bold">{elapsedText} / {shiftConfig.totalHoursText}</span>
                   </div>
-                  {/* Visual 8-Hour Shift Progress Bar */}
+                  {/* Visual Shift Progress Bar */}
                   <div className="w-full bg-emerald-200/70 rounded-full h-2 overflow-hidden my-1.5">
                     <div
                       className="bg-emerald-600 h-full rounded-full transition-all duration-500"
@@ -285,8 +289,8 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                     />
                   </div>
                   <div className="flex justify-between text-[10px] text-emerald-800 font-semibold">
-                    <span>{progressPercent}% Office Work Completed</span>
-                    <span>{remainingMins > 0 ? `${remainingText} to 02:00 PM Exit` : '🎉 8h Office Goal Met! (+2h Sales)'}</span>
+                    <span>{progressPercent}% Shift Completed</span>
+                    <span>{remainingMins > 0 ? `${remainingText} to ${shiftConfig.endTimeFormatted} Exit` : '🎉 Shift Goal Met!'}</span>
                   </div>
                 </div>
                 <button
@@ -295,10 +299,10 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                   className="w-full py-3 px-4 bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg transition flex items-center justify-center gap-2.5 disabled:opacity-50 group cursor-pointer"
                 >
                   <Camera size={18} className="text-blue-200 group-hover:scale-110 transition" />
-                  <span>{actionLoading ? 'Recording Departure...' : 'Office Out: Take Photo & Complete Office Shift (02:00 PM)'}</span>
+                  <span>{actionLoading ? 'Recording Departure...' : `Office Out: Take Photo & Complete Shift (${shiftConfig.endTimeFormatted})`}</span>
                 </button>
                 <p className="text-[11px] text-center text-gray-500">
-                  Office concludes at <strong>02:00 PM</strong> followed by <strong>2 extra hours</strong> for company growth, sales, and client visits.
+                  Assigned Shift concludes at <strong>{shiftConfig.endTimeFormatted}</strong> ({shiftConfig.totalHoursText} total).
                 </p>
               </>
             ) : (
@@ -311,10 +315,10 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                 <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
                   <span>In-Office Duration: {elapsedText}</span>
                   <span>•</span>
-                  <span>{elapsedMinutes >= TARGET_WORK_MINUTES ? '✅ 8h Office Completed' : 'Standard Office Shift: 8h'}</span>
+                  <span>{elapsedMinutes >= TARGET_WORK_MINUTES ? `✅ ${shiftConfig.totalHoursText} Completed` : `Assigned Shift: ${shiftConfig.totalHoursText}`}</span>
                 </div>
                 <div className="mt-1.5 text-[10px] text-emerald-700 font-semibold">
-                  Shift: 05:30/06:00 AM – 02:00 PM + 2h Sales &amp; Growth · Both Photos Verified
+                  Assigned Shift: {shiftConfig.displayTiming} · {shiftConfig.shiftName} · Both Photos Verified
                 </div>
               </div>
             )}
@@ -323,21 +327,21 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
           {/* Today's Details Column */}
           <div className="lg:col-span-3 grid grid-cols-2 lg:grid-cols-1 gap-2 text-xs">
             <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
-              <span className="text-gray-500 font-medium">Office Shift:</span>
+              <span className="text-gray-500 font-medium">Assigned Shift:</span>
               <span className="font-bold text-gray-800 font-mono text-[11px]">
-                05:30/06:00 AM – 02:00 PM
+                {shiftConfig.displayTiming}
               </span>
             </div>
             <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-200 flex items-center justify-between">
-              <span className="text-emerald-800 font-medium">Growth &amp; Sales:</span>
+              <span className="text-emerald-800 font-medium">Shift Type:</span>
               <span className="font-bold text-emerald-950 font-mono text-[11px]">
-                +2 Hours (Till 04:00 PM)
+                {shiftConfig.shiftName}
               </span>
             </div>
             <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
               <span className="text-gray-500 font-medium">Target Work:</span>
               <span className="font-bold text-emerald-900 font-mono">
-                8h 00m
+                {shiftConfig.totalHoursText}
               </span>
             </div>
             <div className="p-2 bg-gray-50 rounded-xl border border-gray-100 flex items-center justify-between">
