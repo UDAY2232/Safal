@@ -272,16 +272,19 @@ export const api = {
     request<any>(`/vendor/admin/po/${poId}/settle-balance`, { method: 'POST', body: formData }),
   allotVendorPOVehicle: (
     poId: string,
-    data: {
+    data: FormData | {
       dispatchVehicleNumber: string;
       transporterName?: string;
       driverPhone?: string;
       allotmentNotes?: string;
+      biltyFile?: File;
     }
-  ) =>
-    request<any>(`/vendor/admin/po/${poId}/allot-vehicle`, {
+  ) => {
+    const isForm = typeof FormData !== 'undefined' && data instanceof FormData;
+    return request<any>(`/vendor/admin/po/${poId}/allot-vehicle`, {
       method: 'POST',
-      body: JSON.stringify(data),
-    }),
+      body: isForm ? data : JSON.stringify(data),
+    });
+  },
 };
 

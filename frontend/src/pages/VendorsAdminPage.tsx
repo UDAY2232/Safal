@@ -88,6 +88,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [allotTransporter, setAllotTransporter] = useState('SAFAL Cold-Chain Express');
   const [allotDriverPhone, setAllotDriverPhone] = useState('');
   const [allotNotes, setAllotNotes] = useState('');
+  const [allotBiltyFile, setAllotBiltyFile] = useState<File | null>(null);
+  const [allotBiltyPreview, setAllotBiltyPreview] = useState<string>('');
   const [isSubmittingAllot, setIsSubmittingAllot] = useState(false);
   const [allotError, setAllotError] = useState('');
 
@@ -390,6 +392,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     setAllotTransporter(po.transporterName && po.transporterName !== '-' ? po.transporterName : 'SAFAL Cold-Chain Express');
     setAllotDriverPhone(po.driverPhone && po.driverPhone !== '-' ? po.driverPhone : '');
     setAllotNotes(po.allotmentNotes || '');
+    setAllotBiltyFile(null);
+    setAllotBiltyPreview(po.transportBillUrl ? (po.transportBillUrl.startsWith('/') ? `/api${po.transportBillUrl}` : po.transportBillUrl) : '');
     setAllotError('');
   };
 
@@ -403,13 +407,18 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     try {
       setIsSubmittingAllot(true);
       setAllotError('');
-      await api.allotVendorPOVehicle(selectedPOForAllot.id, {
-        dispatchVehicleNumber: allotVehicleNumber.trim().toUpperCase(),
-        transporterName: allotTransporter.trim() || 'SAFAL Cold-Chain Express',
-        driverPhone: allotDriverPhone.trim() || '-',
-        allotmentNotes: allotNotes.trim(),
-      });
-      onNotify(`Vehicle ${allotVehicleNumber.trim().toUpperCase()} allotted to ${selectedPOForAllot.poNumber || 'PO'}! Dispatch unlocked for vendor.`);
+
+      const formData = new FormData();
+      formData.append('dispatchVehicleNumber', allotVehicleNumber.trim().toUpperCase());
+      formData.append('transporterName', allotTransporter.trim() || 'SAFAL Cold-Chain Express');
+      formData.append('driverPhone', allotDriverPhone.trim() || '-');
+      formData.append('allotmentNotes', allotNotes.trim());
+      if (allotBiltyFile) {
+        formData.append('biltyFile', allotBiltyFile);
+      }
+
+      await api.allotVendorPOVehicle(selectedPOForAllot.id, formData);
+      onNotify(`Vehicle ${allotVehicleNumber.trim().toUpperCase()} allotted with Transporter Bilty to ${selectedPOForAllot.poNumber || 'PO'}! Consignment approved.`);
       setSelectedPOForAllot(null);
       await loadVendorsAndOperations();
     } catch (err: any) {
@@ -4221,7 +4230,95 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   </span>
                 </div>
 
-                {/* Field 4: Optional Notes / Gate Pass Instructions */}
+                {/* Field 4: Transporter Bilty (LR) / Gate Pass Upload */}
+                <div>
+                  <label className="block text-xs text-gray-800 font-bold mb-1 flex items-center justify-between">
+                    <span className="flex items-center gap-1.5">
+                      <FileText size={13} className="text-blue-700" />
+                      <span>Upload Transporter Bilty (LR) / Consignment Note *</span>
+                    </span>
+                    <span className="text-[10px] text-blue-700 font-bold">
+                      {allotBiltyFile || allotBiltyPreview ? 'Bilty Attached ✓' : 'Required for Approval'}
+                    </span>
+                  </label>
+
+                  <div className={`p-3 rounded-xl border transition ${
+                    allotBiltyFile || allotBiltyPreview
+                      ? 'bg-blue-50/50 border-blue-300 ring-1 ring-blue-200'
+                      : 'bg-gray-50 border-gray-300 border-dashed'
+                  }`}>
+                    {allotBiltyFile || allotBiltyPreview ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center flex-shrink-0">
+                            <FileText size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold text-gray-900 block truncate">
+                              {allotBiltyFile ? allotBiltyFile.name : 'Transporter Bilty Document'}
+                            </span>
+                            <span className="text-[10px] text-emerald-700 font-bold block">
+                              Ready for dispatch authorization
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {allotBiltyPreview && (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc({ url: allotBiltyPreview, title: `${poCode} - Transporter Bilty` })}
+                              className="px-2 py-1 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-[10px] font-bold transition shadow-xs cursor-pointer"
+                            >
+                              Preview
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAllotBiltyFile(null);
+                              setAllotBiltyPreview('');
+                            }}
+                            className="px-2 py-1 bg-white border border-red-200 text-red-600 hover:bg-red-50 rounded-lg text-[10px] font-bold transition shadow-xs cursor-pointer"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <input
+                          type="file"
+                          id="admin-bilty-file-input"
+                          accept="image/*,.pdf"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setAllotBiltyFile(file);
+                              const reader = new FileReader();
+                              reader.onload = (ev) => setAllotBiltyPreview(ev.target?.result as string);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor="admin-bilty-file-input"
+                          className="flex flex-col items-center justify-center py-2 cursor-pointer text-center"
+                        >
+                          <Upload size={20} className="text-blue-600 mb-1" />
+                          <span className="text-xs font-bold text-gray-800">
+                            Click to Upload Signed Transporter Bilty / LR Slip *
+                          </span>
+                          <span className="text-[10px] text-gray-400 mt-0.5">
+                            Supports PNG, JPG, or PDF scanned document (Max 10MB)
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Field 5: Optional Notes / Gate Pass Instructions */}
                 <div>
                   <label className="block text-xs text-gray-800 font-bold mb-1">
                     Allotment Notes &amp; Loading Instructions (Optional)

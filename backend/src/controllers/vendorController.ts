@@ -345,20 +345,130 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
           { supplier: { supplierCode: profile.vendorId } },
         ],
       },
+      include: {
+        items: true,
+      },
     });
 
     if (!po) {
       return res.status(404).json({ error: 'Purchase Order not found or not assigned to your account' });
     }
 
+    // Preserve the Admin-uploaded Bilty, with fallback to any newly supplied transport bill or signature
+    const finalBilty = po.transportBillUrl || transportBillUrl;
+
+    // Process loaded items if submitted during dispatch
+    let dispatchItems: Array<{
+      fruitName: string;
+      category: string;
+      varietyGrade: string;
+      quantity: number;
+      unit: string;
+      ratePerUnit: number;
+      lineTotal: number;
+    }> = [];
+
+    if (req.body.items) {
+      try {
+        const parsed = typeof req.body.items === 'string' ? JSON.parse(req.body.items) : req.body.items;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          dispatchItems = parsed.map((it: any) => ({
+            fruitName: it.fruitName || req.body.fruitName || 'Kashmir Apples',
+            category: 'Fresh Fruits',
+            varietyGrade: it.varietyGrade || 'Grade A',
+            quantity: Number(it.quantity) || 0,
+            unit: it.unit || 'BOX',
+            ratePerUnit: Number(it.ratePerUnit) || 0,
+            lineTotal: Number(it.lineTotal) || (Number(it.quantity) * Number(it.ratePerUnit)),
+          }));
+        }
+      } catch {}
+    }
+
+    const d4LBoxes = Number(req.body.layer4LBoxes) || 0;
+    const d4LRate = Number(req.body.layer4LRate) || 0;
+    const d5LBoxes = Number(req.body.layer5LBoxes) || 0;
+    const d5LRate = Number(req.body.layer5LRate) || 0;
+    const dRollBoxes = Number(req.body.rollBoxes) || 0;
+    const dRollRate = Number(req.body.rollRate) || 0;
+
+    if (d4LBoxes > 0 || d5LBoxes > 0 || dRollBoxes > 0) {
+      dispatchItems = [];
+      const fruitLabel = req.body.fruitName || 'Kashmir Apples';
+      if (d4LBoxes > 0) {
+        dispatchItems.push({
+          fruitName: fruitLabel,
+          category: 'Fresh Fruits',
+          varietyGrade: '4L (4-Layer Large Size)',
+          quantity: d4LBoxes,
+          unit: 'BOX',
+          ratePerUnit: d4LRate,
+          lineTotal: d4LBoxes * d4LRate,
+        });
+      }
+      if (d5LBoxes > 0) {
+        dispatchItems.push({
+          fruitName: fruitLabel,
+          category: 'Fresh Fruits',
+          varietyGrade: '5L (5-Layer Medium Size)',
+          quantity: d5LBoxes,
+          unit: 'BOX',
+          ratePerUnit: d5LRate,
+          lineTotal: d5LBoxes * d5LRate,
+        });
+      }
+      if (dRollBoxes > 0) {
+        dispatchItems.push({
+          fruitName: fruitLabel,
+          category: 'Fresh Fruits',
+          varietyGrade: 'Roll (Roller Mixed Run)',
+          quantity: dRollBoxes,
+          unit: 'BOX',
+          ratePerUnit: dRollRate,
+          lineTotal: dRollBoxes * dRollRate,
+        });
+      }
+    }
+
+    let calculatedGrandTotal = Number(po.grandTotal);
+    if (dispatchItems.length > 0) {
+      await prisma.purchaseOrderItem.deleteMany({
+        where: { purchaseOrderId: po.id },
+      });
+      await prisma.purchaseOrderItem.createMany({
+        data: dispatchItems.map((it) => ({
+          purchaseOrderId: po.id,
+          fruitName: it.fruitName,
+          category: it.category,
+          varietyGrade: it.varietyGrade,
+          quantity: it.quantity,
+          unit: it.unit,
+          ratePerUnit: it.ratePerUnit,
+          lineTotal: it.lineTotal,
+        })),
+      });
+      calculatedGrandTotal = dispatchItems.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
+    }
+
+    const autoAdvance = Math.round(calculatedGrandTotal * 0.55);
+
     const updatedPO = await prisma.purchaseOrder.update({
       where: { id: po.id },
       data: {
+        ...(dispatchItems.length > 0
+          ? {
+              subtotal: calculatedGrandTotal,
+              grandTotal: calculatedGrandTotal,
+              advanceAmount: autoAdvance,
+              pendingAmount: Math.max(0, calculatedGrandTotal - autoAdvance),
+              autoAdvanceCalculated: autoAdvance,
+            }
+          : {}),
         dispatchVehicleNumber: dispatchVehicleNumber.trim().toUpperCase(),
         vehiclePhotoUrl,
-        transportBillUrl,
-        transporterName: transporterName || null,
-        driverPhone: driverPhone || null,
+        transportBillUrl: finalBilty,
+        transporterName: transporterName || po.transporterName || null,
+        driverPhone: driverPhone || po.driverPhone || null,
         dispatchDate: new Date(),
         dispatchStatus: 'LOADED_AND_DISPATCHED',
       },
@@ -1120,14 +1230,19 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
     }
 
     if (itemsToProcess.length === 0) {
-      return res.status(400).json({ error: 'Please enter at least one fruit consignment item with box count and rate.' });
+      const preferredFruit = fruitName || 'Wholesale Fruit Consignment';
+      itemsToProcess.push({
+        fruitName: preferredFruit,
+        category: 'Fresh Fruits',
+        varietyGrade: 'Route Allotment Requested (Box counts to be confirmed on loading)',
+        quantity: 0,
+        unit: 'BOX',
+        ratePerUnit: 0,
+        lineTotal: 0,
+      });
     }
 
     const grandTotal = itemsToProcess.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
-    if (grandTotal <= 0) {
-      return res.status(400).json({ error: 'Total consignment value must be greater than zero.' });
-    }
-
     const autoAdvance = Math.round(grandTotal * 0.55);
     const adminShare = Math.round(grandTotal * 0.05);
     const apmcShare = Math.round(grandTotal * 0.01);
@@ -1655,12 +1770,22 @@ export async function allotVendorPOVehicle(req: AuthRequest, res: Response) {
     const carrier = transporterName && transporterName.trim() ? transporterName.trim() : 'SAFAL Cold-Chain Express';
     const driver = driverPhone && driverPhone.trim() ? driverPhone.trim() : null;
 
+    // Handle Transporter Bilty (LR) upload from Admin
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    let transportBillUrl = req.body.transportBillUrl || req.body.biltyUrl;
+    if (files && files['biltyFile'] && files['biltyFile'][0]) {
+      transportBillUrl = `/uploads/${files['biltyFile'][0].filename}`;
+    } else if (files && files['transportBill'] && files['transportBill'][0]) {
+      transportBillUrl = `/uploads/${files['transportBill'][0].filename}`;
+    }
+
     const updatedPO = await prisma.purchaseOrder.update({
       where: { id },
       data: {
         dispatchVehicleNumber: vehiclePlate,
         transporterName: carrier,
         driverPhone: driver,
+        ...(transportBillUrl ? { transportBillUrl } : {}),
         status: 'APPROVED',
         dispatchStatus: 'PENDING_DISPATCH',
         approvedById: req.user.id,
@@ -1671,7 +1796,7 @@ export async function allotVendorPOVehicle(req: AuthRequest, res: Response) {
           create: {
             status: 'APPROVED',
             changedById: req.user.id,
-            comment: `Refrigerated Vehicle ${vehiclePlate} (${carrier}) allotted by Admin (${req.user.name}). Order approved and truck dispatched to vendor farm loading origin.`,
+            comment: `Refrigerated Vehicle ${vehiclePlate} (${carrier}) allotted by Admin (${req.user.name}) with Transporter Bilty. Order approved and truck dispatched to vendor farm loading origin.`,
           },
         },
       },

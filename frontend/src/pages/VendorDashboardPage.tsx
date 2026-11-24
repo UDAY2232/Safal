@@ -227,11 +227,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
   // 1. Kashmir Apples Layer Breakdown (4L, 5L, Roll, Total, Amount)
   const [layer4LBoxes, setLayer4LBoxes] = useState<string>('200');
-  const [layer4LRate, setLayer4LRate] = useState<string>('1200');
+  const [layer4LRate, setLayer4LRate] = useState<string>('1498');
   const [layer5LBoxes, setLayer5LBoxes] = useState<string>('250');
   const [layer5LRate, setLayer5LRate] = useState<string>('1100');
   const [rollBoxes, setRollBoxes] = useState<string>('50');
-  const [rollRate, setRollRate] = useState<string>('700');
+  const [rollRate, setRollRate] = useState<string>('900');
 
   // 2. Pomegranate (No. Of boxes, Total amount)
   const [pomegranateBoxes, setPomegranateBoxes] = useState<string>('300');
@@ -674,11 +674,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     setSelectedFruit(fruit);
     if (fruit === 'Kashmir Apples' || fruit.toLowerCase().includes('apple')) {
       if (!layer4LBoxes) setLayer4LBoxes('200');
-      if (!layer4LRate) setLayer4LRate('1200');
+      if (!layer4LRate) setLayer4LRate('1498');
       if (!layer5LBoxes) setLayer5LBoxes('250');
       if (!layer5LRate) setLayer5LRate('1100');
       if (!rollBoxes) setRollBoxes('50');
-      if (!rollRate) setRollRate('700');
+      if (!rollRate) setRollRate('900');
     } else if (fruit === 'Pomegranate') {
       if (!pomegranateBoxes) setPomegranateBoxes('300');
       if (!pomegranateRate) setPomegranateRate('950');
@@ -773,8 +773,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     e.preventDefault();
     setCreatePOError('');
 
-    if (grandSupplyTotal <= 0) {
-      setCreatePOError('Total consignment value must be greater than ₹0.');
+    if (!startingLocation.trim()) {
+      setCreatePOError('Please enter your Vendor Farm / Loading Origin Location (Starting Point).');
       return;
     }
 
@@ -783,10 +783,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       const formData = new FormData();
       formData.append('poInitiateDate', poInitiateDate || new Date().toISOString().split('T')[0]);
       formData.append('poDate', poInitiateDate || new Date().toISOString().split('T')[0]);
-      if (startingLocation.trim()) {
-        formData.append('startingLocation', startingLocation.trim());
-        formData.append('originLocation', startingLocation.trim());
-      }
+      formData.append('startingLocation', startingLocation.trim());
+      formData.append('originLocation', startingLocation.trim());
       formData.append('destinationHub', targetHub);
       if (expectedDeliveryDate) {
         formData.append('expectedDeliveryDate', expectedDeliveryDate);
@@ -794,110 +792,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       formData.append('fruitName', selectedFruit);
       formData.append('notes', poNotes);
 
-      if (isApple) {
-        formData.append('layer4LBoxes', String(Number(layer4LBoxes) || 0));
-        formData.append('layer4LRate', String(Number(layer4LRate) || 0));
-        formData.append('layer5LBoxes', String(Number(layer5LBoxes) || 0));
-        formData.append('layer5LRate', String(Number(layer5LRate) || 0));
-        formData.append('rollBoxes', String(Number(rollBoxes) || 0));
-        formData.append('rollRate', String(Number(rollRate) || 0));
-      } else if (isPomegranate) {
-        const items = [
-          {
-            fruitName: 'Pomegranate',
-            category: 'Fresh Fruits',
-            varietyGrade: 'Wholesale Mandi Crates',
-            quantity: Number(pomegranateBoxes) || 0,
-            unit: 'BOX',
-            ratePerUnit: Number(pomegranateRate) || 0,
-            lineTotal: pomegranateTotalAmount,
-          },
-        ];
-        formData.append('items', JSON.stringify(items));
-      } else if (isWatermelon) {
-        const items = [
-          {
-            fruitName: 'Watermelon',
-            category: 'Fresh Fruits',
-            varietyGrade: 'Farm Harvest Bulk Weighment',
-            quantity: Number(watermelonWeight) || 0,
-            unit: watermelonUnit,
-            ratePerUnit: Number(watermelonRate) || 0,
-            lineTotal: watermelonTotalAmount,
-          },
-        ];
-        formData.append('items', JSON.stringify(items));
-      } else if (isMuskmelon) {
-        const items = [
-          {
-            fruitName: 'Muskmelon',
-            category: 'Fresh Fruits',
-            varietyGrade: 'Fresh Sweet Melon Bulk Load',
-            quantity: Number(muskmelonWeight) || 0,
-            unit: muskmelonUnit,
-            ratePerUnit: Number(muskmelonRate) || 0,
-            lineTotal: muskmelonTotalAmount,
-          },
-        ];
-        formData.append('items', JSON.stringify(items));
-      } else if (isBanana) {
-        const items = [
-          {
-            fruitName: 'Banana',
-            category: 'Fresh Fruits',
-            varietyGrade: 'Green Cavendish Wholesale Crates',
-            quantity: Number(bananaBoxes) || 0,
-            unit: 'BOX',
-            ratePerUnit: Number(bananaRate) || 0,
-            lineTotal: bananaTotalAmount,
-          },
-        ];
-        formData.append('items', JSON.stringify(items));
-      } else if (isOrange) {
-        const items = [
-          {
-            fruitName: 'Orange',
-            category: 'Fresh Fruits',
-            varietyGrade: `Count ${orangeCount} Caliber Grade`,
-            quantity: Number(orangeBoxes) || 0,
-            unit: 'BOX',
-            ratePerUnit: Number(orangeRate) || 0,
-            lineTotal: orangeTotalAmount,
-          },
-        ];
-        formData.append('items', JSON.stringify(items));
-      } else if (isPlum) {
-        const items = [
-          {
-            fruitName: 'Plum',
-            category: 'Fresh Fruits',
-            varietyGrade: 'Wholesale Farm Packed Boxes',
-            quantity: Number(plumBoxes) || 0,
-            unit: 'BOX',
-            ratePerUnit: Number(plumRate) || 0,
-            lineTotal: plumTotalAmount,
-          },
-        ];
-        formData.append('items', JSON.stringify(items));
-      } else {
-        const items = [
-          {
-            fruitName: selectedFruit,
-            category: 'Fresh Fruits',
-            varietyGrade: otherGrade || 'Grade A Export Quality',
-            quantity: Number(otherQuantity) || 1,
-            unit: otherUnit || 'BOX',
-            ratePerUnit: Number(otherRate) || 0,
-            lineTotal: otherTotalAmount,
-          },
-        ];
-        formData.append('items', JSON.stringify(items));
-      }
-
-      // Step 1: Submit PO Request (Awaiting Admin Vehicle Allotment)
+      // Step 1: Submit PO Request (Awaiting Admin Vehicle Allotment & Bilty)
       const res = await api.createVendorSupplyPO(formData);
       setShowCreatePOModal(false);
-      onNotify(res.message || 'Consignment PO requested! Awaiting Safal Hub vehicle allotment.');
+      onNotify(res.message || 'Consignment PO requested! Awaiting Safal Hub vehicle allotment & Transporter Bilty.');
 
       // Reset form fields
       setStartingLocation('');
@@ -908,9 +806,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     } catch (err: any) {
       const msg = err.message || '';
       if (/413|too large|entity/i.test(msg)) {
-        setCreatePOError('Upload size too large. Photos have been auto-optimized; please re-select and tap submit.');
+        setCreatePOError('Upload size too large. Please retry.');
       } else {
-        setCreatePOError(msg || 'Failed to submit consignment PO');
+        setCreatePOError(msg || 'Failed to submit consignment PO request');
       }
     } finally {
       setIsSubmittingPO(false);
@@ -1026,6 +924,156 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       formData.append('driverPhone', driverPhone.trim());
       formData.append('vehiclePhoto', vehiclePhotoFile);
 
+      // Append loaded fruit commodity and grading
+      formData.append('fruitName', selectedFruit);
+      if (isApple) {
+        const b4L = Number(layer4LBoxes) || 0;
+        const b5L = Number(layer5LBoxes) || 0;
+        const bRoll = Number(rollBoxes) || 0;
+        const r4L = Number(layer4LRate) || 1498;
+        const r5L = Number(layer5LRate) || 1100;
+        const rRoll = Number(rollRate) || 900;
+        const totalB = b4L + b5L + bRoll;
+        if (totalB <= 0) {
+          setDispatchError('Please enter at least one apple box (4L, 5L, or Roll) loaded onto the vehicle.');
+          setIsSubmittingDispatch(false);
+          return;
+        }
+
+        formData.append('layer4LBoxes', String(b4L));
+        formData.append('layer4LRate', String(r4L));
+        formData.append('layer5LBoxes', String(b5L));
+        formData.append('layer5LRate', String(r5L));
+        formData.append('rollBoxes', String(bRoll));
+        formData.append('rollRate', String(rRoll));
+
+        const appleItems = [
+          { fruitName: 'Kashmir Apples', category: 'Fresh Fruits', varietyGrade: '4L (Large)', quantity: b4L, unit: 'BOX', ratePerUnit: r4L, lineTotal: b4L * r4L },
+          { fruitName: 'Kashmir Apples', category: 'Fresh Fruits', varietyGrade: '5L (Medium)', quantity: b5L, unit: 'BOX', ratePerUnit: r5L, lineTotal: b5L * r5L },
+          { fruitName: 'Kashmir Apples', category: 'Fresh Fruits', varietyGrade: 'Roll (Running)', quantity: bRoll, unit: 'BOX', ratePerUnit: rRoll, lineTotal: bRoll * rRoll },
+        ].filter((i) => i.quantity > 0);
+        formData.append('items', JSON.stringify(appleItems));
+      } else if (isPomegranate) {
+        const pBoxes = Number(pomegranateBoxes) || 0;
+        const pRate = Number(pomegranateRate) || 950;
+        if (pBoxes <= 0) {
+          setDispatchError('Please enter pomegranate box count.');
+          setIsSubmittingDispatch(false);
+          return;
+        }
+        formData.append('items', JSON.stringify([{
+          fruitName: 'Pomegranate',
+          category: 'Fresh Fruits',
+          varietyGrade: 'Export Grade A',
+          quantity: pBoxes,
+          unit: 'BOX',
+          ratePerUnit: pRate,
+          lineTotal: pBoxes * pRate,
+        }]));
+      } else if (isWatermelon) {
+        const wWeight = Number(watermelonWeight) || 0;
+        const wRate = Number(watermelonRate) || 14;
+        if (wWeight <= 0) {
+          setDispatchError('Please enter watermelon harvest weight.');
+          setIsSubmittingDispatch(false);
+          return;
+        }
+        formData.append('items', JSON.stringify([{
+          fruitName: 'Watermelon',
+          category: 'Fresh Fruits',
+          varietyGrade: 'Harvest Load',
+          quantity: wWeight,
+          unit: watermelonUnit,
+          ratePerUnit: wRate,
+          lineTotal: wWeight * wRate,
+        }]));
+      } else if (isMuskmelon) {
+        const mWeight = Number(muskmelonWeight) || 0;
+        const mRate = Number(muskmelonRate) || 18;
+        if (mWeight <= 0) {
+          setDispatchError('Please enter muskmelon harvest weight.');
+          setIsSubmittingDispatch(false);
+          return;
+        }
+        formData.append('items', JSON.stringify([{
+          fruitName: 'Muskmelon',
+          category: 'Fresh Fruits',
+          varietyGrade: 'Harvest Load',
+          quantity: mWeight,
+          unit: muskmelonUnit,
+          ratePerUnit: mRate,
+          lineTotal: mWeight * mRate,
+        }]));
+      } else if (isBanana) {
+        const bBoxes = Number(bananaBoxes) || 0;
+        const bRate = Number(bananaRate) || 550;
+        if (bBoxes <= 0) {
+          setDispatchError('Please enter banana boxes count.');
+          setIsSubmittingDispatch(false);
+          return;
+        }
+        formData.append('items', JSON.stringify([{
+          fruitName: 'Banana',
+          category: 'Fresh Fruits',
+          varietyGrade: 'Cavendish Crates',
+          quantity: bBoxes,
+          unit: 'BOX',
+          ratePerUnit: bRate,
+          lineTotal: bBoxes * bRate,
+        }]));
+      } else if (isOrange) {
+        const oBoxes = Number(orangeBoxes) || 0;
+        const oRate = Number(orangeRate) || 780;
+        if (oBoxes <= 0) {
+          setDispatchError('Please enter orange boxes count.');
+          setIsSubmittingDispatch(false);
+          return;
+        }
+        formData.append('items', JSON.stringify([{
+          fruitName: 'Orange',
+          category: 'Fresh Fruits',
+          varietyGrade: `Count ${orangeCount}`,
+          quantity: oBoxes,
+          unit: 'BOX',
+          ratePerUnit: oRate,
+          lineTotal: oBoxes * oRate,
+        }]));
+      } else if (isPlum) {
+        const plBoxes = Number(plumBoxes) || 0;
+        const plRate = Number(plumRate) || 850;
+        if (plBoxes <= 0) {
+          setDispatchError('Please enter plum boxes count.');
+          setIsSubmittingDispatch(false);
+          return;
+        }
+        formData.append('items', JSON.stringify([{
+          fruitName: 'Plum',
+          category: 'Fresh Fruits',
+          varietyGrade: 'Stone Fruit Cartons',
+          quantity: plBoxes,
+          unit: 'BOX',
+          ratePerUnit: plRate,
+          lineTotal: plBoxes * plRate,
+        }]));
+      } else {
+        const oQty = Number(otherQuantity) || 0;
+        const oRate = Number(otherRate) || 950;
+        if (oQty <= 0) {
+          setDispatchError('Please enter consignment quantity.');
+          setIsSubmittingDispatch(false);
+          return;
+        }
+        formData.append('items', JSON.stringify([{
+          fruitName: selectedFruit,
+          category: 'Fresh Fruits',
+          varietyGrade: otherGrade || 'Standard Grade',
+          quantity: oQty,
+          unit: otherUnit,
+          ratePerUnit: oRate,
+          lineTotal: oQty * oRate,
+        }]));
+      }
+
       let finalBill = transportBillFile;
       if (!finalBill && vendorSignatureData) {
         try {
@@ -1087,6 +1135,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     setVendorSignatureData('');
     clearSignature();
     setDispatchError('');
+
+    // Pre-populate fruit variety and box counts
+    const fruit = po.commodity || po.items?.[0]?.fruitName || 'Kashmir Apples';
+    setSelectedFruit(fruit);
+    if (fruit === 'Kashmir Apples' || fruit.toLowerCase().includes('apple')) {
+      const it4L = po.items?.find((i: any) => i.varietyGrade?.includes('4L'));
+      const it5L = po.items?.find((i: any) => i.varietyGrade?.includes('5L'));
+      const itRoll = po.items?.find((i: any) => i.varietyGrade?.includes('Roll'));
+      setLayer4LBoxes(it4L && it4L.quantity ? String(it4L.quantity) : '200');
+      setLayer4LRate(it4L && it4L.ratePerUnit ? String(it4L.ratePerUnit) : '1498');
+      setLayer5LBoxes(it5L && it5L.quantity ? String(it5L.quantity) : '250');
+      setLayer5LRate(it5L && it5L.ratePerUnit ? String(it5L.ratePerUnit) : '1100');
+      setRollBoxes(itRoll && itRoll.quantity ? String(itRoll.quantity) : '50');
+      setRollRate(itRoll && itRoll.ratePerUnit ? String(itRoll.ratePerUnit) : '900');
+    } else if (fruit === 'Pomegranate') {
+      const pIt = po.items?.[0];
+      setPomegranateBoxes(pIt && pIt.quantity ? String(pIt.quantity) : '300');
+      setPomegranateRate(pIt && pIt.ratePerUnit ? String(pIt.ratePerUnit) : '950');
+    }
   };
 
   // 1. Cleared / Completed Consignments (Strictly 0 remaining balance due & verified settlement)
@@ -3679,14 +3746,61 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               )}
 
-              {/* Section 1: Allotted Logistics Vehicle Details */}
-              <div className="p-3.5 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-2.5">
+              {/* Section 1: Allotted Logistics Vehicle Details & Official Transporter Bilty */}
+              <div className="p-3.5 bg-gray-50/80 border border-gray-200 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] uppercase font-black text-gray-700 tracking-wider flex items-center gap-1.5">
-                    <Truck size={14} className="text-[#087A3E]" /> Allotted Logistics Vehicle Details
+                    <Truck size={14} className="text-[#087A3E]" /> Allotted Logistics Vehicle &amp; Carrier Allotment
                   </span>
                   <span className="text-[10px] font-bold text-gray-500">Safal Regional Allotment</span>
                 </div>
+
+                {/* Transporter Bilty (LR) Attached by Admin Card */}
+                {selectedPOForDispatch.transportBillUrl ? (
+                  <div className="p-3 bg-emerald-50/90 border border-emerald-300 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#087A3E] text-white flex items-center justify-center flex-shrink-0">
+                        <FileText size={16} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-gray-900">
+                            Transporter Bilty (LR) Attached by Admin
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-black">
+                            Verified ✓
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-600 mt-0.5">
+                          Official Consignment Note &amp; Carrier Allotment verified by Logistics Desk.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const bUrl = selectedPOForDispatch.transportBillUrl?.startsWith('/')
+                          ? `/api${selectedPOForDispatch.transportBillUrl}`
+                          : selectedPOForDispatch.transportBillUrl;
+                        setPreviewMediaModal({
+                          open: true,
+                          title: `Transporter Bilty (LR) - PO ${selectedPOForDispatch.poNumber}`,
+                          url: bUrl || '',
+                          type: 'image',
+                        });
+                      }}
+                      className="px-3.5 py-1.5 bg-[#087A3E] hover:bg-[#064D2B] text-white rounded-lg text-xs font-black shadow-xs flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap self-start sm:self-auto transition"
+                    >
+                      <Eye size={13} />
+                      <span>View / Inspect Bilty</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl flex items-center gap-2 text-[11px] text-amber-900 font-medium">
+                    <AlertCircle size={14} className="text-amber-700 flex-shrink-0" />
+                    <span>Physical Transporter Bilty copy provided with refrigerated truck.</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
@@ -3725,118 +3839,314 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               </div>
 
-              {/* Section 2: Apple Mandi Layer Box Grading & Contract Pricing (Image 3) */}
-              <div className="p-3 sm:p-4 bg-gradient-to-br from-red-50/60 via-amber-50/30 to-emerald-50/40 border border-amber-200/80 rounded-2xl space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <span className="text-[10px] sm:text-xs uppercase font-extrabold text-red-700 tracking-wider block">
-                      APPLE MANDI LAYER BOX GRADING (4L / 5L / ROLL)
+              {/* Section 2: Mandi Fruit Variety & Loaded Box Grading Matrix */}
+              <div className="p-3 sm:p-4 bg-gradient-to-br from-red-50/40 via-amber-50/20 to-emerald-50/30 border border-amber-200/80 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] sm:text-xs uppercase font-extrabold text-[#064D2B] tracking-wider block">
+                      Fruit Commodity &amp; Mandi Layer Box Grading
                     </span>
                     <p className="text-[10px] sm:text-[11px] text-gray-600 mt-0.5">
-                      Wholesale apple telescopic cartons (~20-22 Kg/box). Fixed contract rates.
+                      Confirm fruit cartons loaded onto truck <strong className="text-gray-900 font-mono">{vehicleNumber || selectedPOForDispatch.dispatchVehicleNumber}</strong>
                     </p>
                   </div>
-                  <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-red-100 text-red-800 rounded-lg text-[10px] sm:text-[11px] font-black flex-shrink-0">
-                    {selectedPOForDispatch.commodity || 'Kashmir Apples'}
+                  <span className="px-2.5 py-1 bg-emerald-100 text-[#064D2B] rounded-lg text-[10px] sm:text-[11px] font-black flex-shrink-0">
+                    {selectedFruit}
                   </span>
                 </div>
 
-                {/* Mandi 3-Column Responsive Matrix (Fits 100% on both Mobile and Laptop) */}
-                <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden w-full divide-y divide-gray-100">
-                  <div className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center px-2.5 sm:px-3 py-2">
-                    <div className="w-[42%] text-left">LAYER GRADE</div>
-                    <div className="w-[30%] text-center">NO. OF BOXES</div>
-                    <div className="w-[28%] text-right">RATE (₹)</div>
+                {/* 7 Whitelisted Fruits Selection Chips */}
+                <div className="p-2.5 bg-white border border-emerald-200 rounded-xl space-y-1.5">
+                  <span className="text-[10px] uppercase font-bold text-gray-600 tracking-wider block flex items-center justify-between">
+                    <span>SELECT FRUIT COMMODITY (WHITELISTED)</span>
+                    <span className="text-emerald-700 font-bold">7 ALLOWED VARIETIES</span>
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {VENDOR_WHITELISTED_FRUITS.map((fruit) => (
+                      <button
+                        key={fruit}
+                        type="button"
+                        onClick={() => handleFruitSelect(fruit)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                          selectedFruit === fruit
+                            ? 'bg-[#064D2B] text-white shadow-sm ring-2 ring-emerald-500'
+                            : 'bg-gray-50 hover:bg-emerald-50 text-gray-700 border border-gray-200'
+                        }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full inline-block ${selectedFruit === fruit ? 'bg-emerald-400' : 'bg-gray-400'}`} />
+                        {fruit}
+                      </button>
+                    ))}
                   </div>
+                </div>
 
-                  {/* If items array exists on PO */}
-                  {selectedPOForDispatch.items && selectedPOForDispatch.items.length > 0 ? (
-                    selectedPOForDispatch.items.map((it: any, idx: number) => (
-                      <div key={idx} className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
-                        <div className="w-[42%] pr-1">
-                          <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">
-                            {it.varietyGrade || it.fruitName}
-                          </div>
-                          <span className="text-[10px] text-gray-500 font-medium block">
-                            {it.varietyGrade?.includes('4L') ? 'Premium 4-Layer' : it.varietyGrade?.includes('5L') ? 'Standard 5-Layer' : it.varietyGrade?.includes('Roll') ? 'Mandi Bulk Pack' : it.fruitName}
-                          </span>
-                        </div>
-                        <div className="w-[30%] flex justify-center font-black text-gray-900 text-xs sm:text-sm">
-                          {Number(it.quantity || 0).toLocaleString('en-IN')} Boxes
-                        </div>
-                        <div className="w-[28%] text-right font-mono font-bold text-xs sm:text-sm text-gray-900">
-                          ₹{Number(it.ratePerUnit || 0).toLocaleString('en-IN')}
-                        </div>
+                {/* Dynamic Fruit Sizing & Pricing */}
+                {isApple ? (
+                  /* Apple Mandi Layer Grading Box Matrix (4L, 5L, Roll, Total, Amount) */
+                  <div className="p-2.5 sm:p-3.5 bg-white border border-amber-200/80 rounded-xl space-y-3 shadow-2xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] sm:text-xs uppercase font-extrabold text-red-700 tracking-wider block">
+                          APPLE MANDI LAYER BOX GRADING (4L / 5L / ROLL)
+                        </span>
+                        <p className="text-[10px] sm:text-[11px] text-gray-600 mt-0.5">
+                          Wholesale apple telescopic cartons (~20-22 Kg/box). Enter loaded box counts.
+                        </p>
                       </div>
-                    ))
-                  ) : (
-                    <>
-                      {/* Standard fallback row display matching PO totals */}
+                      <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-red-100 text-red-800 rounded-lg text-[10px] sm:text-[11px] font-black flex-shrink-0">
+                        Kashmir Apples
+                      </span>
+                    </div>
+
+                    {/* Mandi 3-Column Responsive Matrix */}
+                    <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden w-full divide-y divide-gray-100">
+                      <div className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center px-2.5 sm:px-3 py-2.5">
+                        <div className="w-[42%] text-left">LAYER GRADE</div>
+                        <div className="w-[30%] text-center">NO. OF BOXES</div>
+                        <div className="w-[28%] text-right">RATE (₹)</div>
+                      </div>
+
+                      {/* 4L Row */}
                       <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
                         <div className="w-[42%] pr-1">
                           <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">4L (Large)</div>
                           <span className="text-[10px] text-gray-500 font-medium block">Premium 4-Layer</span>
                         </div>
-                        <div className="w-[30%] flex justify-center font-black text-gray-900 text-xs sm:text-sm">
-                          200 Boxes
+                        <div className="w-[30%] flex justify-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={layer4LBoxes}
+                            onChange={(e) => setLayer4LBoxes(e.target.value)}
+                            placeholder="0"
+                            className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                          />
                         </div>
-                        <div className="w-[28%] text-right font-mono font-bold text-xs sm:text-sm text-gray-900">
-                          ₹1,200
+                        <div className="w-[28%] text-right">
+                          <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
+                            ₹{Number(layer4LRate || 1498).toLocaleString('en-IN')}
+                          </span>
                         </div>
                       </div>
+
+                      {/* 5L Row */}
                       <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
                         <div className="w-[42%] pr-1">
                           <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">5L (Medium)</div>
                           <span className="text-[10px] text-gray-500 font-medium block">Standard 5-Layer</span>
                         </div>
-                        <div className="w-[30%] flex justify-center font-black text-gray-900 text-xs sm:text-sm">
-                          250 Boxes
+                        <div className="w-[30%] flex justify-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={layer5LBoxes}
+                            onChange={(e) => setLayer5LBoxes(e.target.value)}
+                            placeholder="0"
+                            className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                          />
                         </div>
-                        <div className="w-[28%] text-right font-mono font-bold text-xs sm:text-sm text-gray-900">
-                          ₹1,100
+                        <div className="w-[28%] text-right">
+                          <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
+                            ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
+                          </span>
                         </div>
                       </div>
+
+                      {/* Roll Row */}
                       <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
                         <div className="w-[42%] pr-1">
                           <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">Roll (Running)</div>
                           <span className="text-[10px] text-gray-500 font-medium block">Mandi Bulk Pack</span>
                         </div>
-                        <div className="w-[30%] flex justify-center font-black text-gray-900 text-xs sm:text-sm">
-                          50 Boxes
+                        <div className="w-[30%] flex justify-center">
+                          <input
+                            type="number"
+                            min="0"
+                            value={rollBoxes}
+                            onChange={(e) => setRollBoxes(e.target.value)}
+                            placeholder="0"
+                            className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                          />
                         </div>
-                        <div className="w-[28%] text-right font-mono font-bold text-xs sm:text-sm text-gray-900">
-                          ₹700
+                        <div className="w-[28%] text-right">
+                          <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
+                            ₹{Number(rollRate || 900).toLocaleString('en-IN')}
+                          </span>
                         </div>
                       </div>
-                    </>
-                  )}
 
-                  {/* Total Row */}
-                  <div className="flex items-center px-2.5 sm:px-3 py-2.5 bg-emerald-50/90 font-black border-t-2 border-emerald-300 text-xs">
-                    <div className="w-[42%] uppercase text-[10px] sm:text-xs text-gray-900 font-black">
-                      TOTAL CONSIGNMENT
+                      {/* Total Row */}
+                      <div className="flex items-center px-2.5 sm:px-3 py-2.5 bg-emerald-50/90 font-black border-t-2 border-emerald-300 text-xs">
+                        <div className="w-[42%] uppercase text-[10px] sm:text-xs text-gray-900 font-black">
+                          TOTAL CONSIGNMENT
+                        </div>
+                        <div className="w-[30%] text-center text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
+                          {totalAppleBoxes.toLocaleString('en-IN')} Boxes
+                        </div>
+                        <div className="w-[28%] text-right text-[10px] sm:text-xs text-gray-600 font-bold whitespace-nowrap">
+                          Mandi Rate
+                        </div>
+                      </div>
                     </div>
-                    <div className="w-[30%] text-center text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
-                      {(selectedPOForDispatch.items?.reduce((s: number, it: any) => s + (it.quantity || 0), 0) || selectedPOForDispatch.grossVolumeBoxes || 500).toLocaleString('en-IN')} Boxes
-                    </div>
-                    <div className="w-[28%] text-right text-[10px] sm:text-xs text-gray-600 font-bold whitespace-nowrap">
-                      Mandi Rate
+
+                    {/* Prominent Total Apple Amount Summary Card */}
+                    <div className="p-3 bg-white rounded-xl border border-emerald-300 flex flex-wrap items-center justify-between gap-2 shadow-xs">
+                      <div className="min-w-[170px]">
+                        <span className="text-xs font-bold text-gray-700 block">Total Apple Amount:</span>
+                        <span className="text-[10px] text-gray-500 font-bold block">
+                          {totalAppleBoxes.toLocaleString('en-IN')} Boxes (4L: {layer4LBoxes || 0}, 5L: {layer5LBoxes || 0}, Roll: {rollBoxes || 0})
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-base sm:text-lg font-black text-emerald-800 block font-mono">
+                          ₹{totalAppleAmount.toLocaleString('en-IN')}
+                        </span>
+                        <span className="text-[10px] text-emerald-700 font-bold">
+                          Direct 55% Advance: ₹{Math.round(totalAppleAmount * 0.55).toLocaleString('en-IN')}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                ) : isPomegranate ? (
+                  /* Pomegranate Consignment Sizing Form */
+                  <div className="p-3.5 bg-white border border-rose-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-extrabold text-rose-800 tracking-wider block">
+                          Pomegranate Loaded Boxes
+                        </span>
+                        <p className="text-[11px] text-gray-600">Standard wholesale pomegranate cartons.</p>
+                      </div>
+                      <span className="px-2.5 py-1 bg-rose-100 text-rose-900 rounded-lg text-[11px] font-black">
+                        Pomegranate
+                      </span>
+                    </div>
 
-                {/* Total Apple Amount */}
-                <div className="p-3 bg-white rounded-xl border border-emerald-300 flex items-center justify-between shadow-xs">
-                  <div>
-                    <span className="text-xs font-bold text-gray-700 block">Total Apple Amount:</span>
-                    <span className="text-[10px] text-gray-500 font-bold">
-                      {(selectedPOForDispatch.items?.reduce((s: number, it: any) => s + (it.quantity || 0), 0) || selectedPOForDispatch.grossVolumeBoxes || 500).toLocaleString('en-IN')} Boxes procurement settlement
-                    </span>
+                    <div className="grid grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          No. of Boxes *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={pomegranateBoxes}
+                          onChange={(e) => setPomegranateBoxes(e.target.value)}
+                          placeholder="e.g. 300"
+                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-rose-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Rate (₹ / Box)
+                        </label>
+                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
+                          <strong className="font-mono text-sm text-gray-900">₹{Number(pomegranateRate || 950).toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-rose-50/50 rounded-xl border border-rose-200 flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700">Total Consignment Value:</span>
+                      <span className="text-base font-black text-rose-800 font-mono">₹{pomegranateTotalAmount.toLocaleString('en-IN')}</span>
+                    </div>
                   </div>
-                  <span className="text-base sm:text-lg font-black text-emerald-800 font-mono">
-                    ₹{Number(selectedPOForDispatch.grandTotal || selectedPOForDispatch.subtotal || 550000).toLocaleString('en-IN')}
-                  </span>
-                </div>
+                ) : isWatermelon ? (
+                  /* Watermelon Consignment Sizing Form */
+                  <div className="p-3.5 bg-white border border-emerald-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider block">
+                          Watermelon Harvest Weight
+                        </span>
+                        <p className="text-[11px] text-gray-600">Bulk truckload weighbridge harvest.</p>
+                      </div>
+                      <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 rounded-lg text-[11px] font-black">
+                        Watermelon
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Total Weight ({watermelonUnit}) *
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0.1"
+                          value={watermelonWeight}
+                          onChange={(e) => setWatermelonWeight(e.target.value)}
+                          placeholder="Weight"
+                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Rate (₹ / {watermelonUnit})
+                        </label>
+                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
+                          <strong className="font-mono text-sm text-gray-900">₹{Number(watermelonRate || (watermelonUnit === 'TON' ? 14000 : 14)).toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200 flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700">Total Consignment Value:</span>
+                      <span className="text-base font-black text-emerald-800 font-mono">₹{watermelonTotalAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Fallback Generic Commodity */
+                  <div className="p-3.5 bg-white border border-emerald-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider block">
+                          Fruit Commodity Sizing &amp; Pricing
+                        </span>
+                        <p className="text-[11px] text-gray-600">Enter loaded carton quantity.</p>
+                      </div>
+                      <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[11px] font-black">
+                        {selectedFruit}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Total Boxes / Crates *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={otherQuantity}
+                          onChange={(e) => setOtherQuantity(e.target.value)}
+                          placeholder="e.g. 400"
+                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Rate (₹ / {otherUnit})
+                        </label>
+                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
+                          <strong className="font-mono text-sm text-gray-900">₹{Number(otherRate || 950).toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200 flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700">Total Consignment Value:</span>
+                      <span className="text-base font-black text-emerald-800 font-mono">₹{otherTotalAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Section 3: Dispatch & Logistics Proof Documentation (Image 4) */}
@@ -4184,606 +4494,27 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
               </div>
 
-              {/* Dynamic Fruit Sizing & Pricing */}
-              {isApple ? (
-                /* Apple Mandi Layer Grading Box Matrix (4L, 5L, Roll, Total, Amount) */
-                <div className="p-2.5 sm:p-4 bg-gradient-to-br from-red-50/60 via-amber-50/30 to-emerald-50/40 border border-amber-200/80 rounded-2xl space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <span className="text-[10px] sm:text-xs uppercase font-extrabold text-red-700 tracking-wider block">
-                        APPLE MANDI LAYER BOX GRADING (4L / 5L / ROLL)
-                      </span>
-                      <p className="text-[10px] sm:text-[11px] text-gray-600 mt-0.5">
-                        Wholesale apple telescopic cartons (~20-22 Kg/box). Enter box counts.
-                      </p>
-                    </div>
-                    <span className="px-2 py-0.5 sm:px-2.5 sm:py-1 bg-red-100 text-red-800 rounded-lg text-[10px] sm:text-[11px] font-black flex-shrink-0">
-                      Kashmir Apples
-                    </span>
-                  </div>
-
-                  {/* Mandi 3-Column Responsive Matrix (Fits 100% on both Mobile and Laptop without horizontal cut-off) */}
-                  <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden w-full divide-y divide-gray-100">
-                    <div className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center px-2.5 sm:px-3 py-2.5">
-                      <div className="w-[42%] text-left">LAYER GRADE</div>
-                      <div className="w-[30%] text-center">NO. OF BOXES</div>
-                      <div className="w-[28%] text-right">RATE (₹)</div>
-                    </div>
-
-                    {/* 4L Row */}
-                    <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
-                      <div className="w-[42%] pr-1">
-                        <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">4L (Large)</div>
-                        <span className="text-[10px] text-gray-500 font-medium block">Premium 4-Layer</span>
-                      </div>
-                      <div className="w-[30%] flex justify-center">
-                        <input
-                          type="number"
-                          min="0"
-                          value={layer4LBoxes}
-                          onChange={(e) => setLayer4LBoxes(e.target.value)}
-                          placeholder="0"
-                          className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
-                        />
-                      </div>
-                      <div className="w-[28%] text-right">
-                        <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                          ₹{Number(layer4LRate || 1200).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 5L Row */}
-                    <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
-                      <div className="w-[42%] pr-1">
-                        <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">5L (Medium)</div>
-                        <span className="text-[10px] text-gray-500 font-medium block">Standard 5-Layer</span>
-                      </div>
-                      <div className="w-[30%] flex justify-center">
-                        <input
-                          type="number"
-                          min="0"
-                          value={layer5LBoxes}
-                          onChange={(e) => setLayer5LBoxes(e.target.value)}
-                          placeholder="0"
-                          className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
-                        />
-                      </div>
-                      <div className="w-[28%] text-right">
-                        <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                          ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Roll Row */}
-                    <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
-                      <div className="w-[42%] pr-1">
-                        <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">Roll (Running)</div>
-                        <span className="text-[10px] text-gray-500 font-medium block">Mandi Bulk Pack</span>
-                      </div>
-                      <div className="w-[30%] flex justify-center">
-                        <input
-                          type="number"
-                          min="0"
-                          value={rollBoxes}
-                          onChange={(e) => setRollBoxes(e.target.value)}
-                          placeholder="0"
-                          className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
-                        />
-                      </div>
-                      <div className="w-[28%] text-right">
-                        <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                          ₹{Number(rollRate || 700).toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Total Row */}
-                    <div className="flex items-center px-2.5 sm:px-3 py-2.5 bg-emerald-50/90 font-black border-t-2 border-emerald-300 text-xs">
-                      <div className="w-[42%] uppercase text-[10px] sm:text-xs text-gray-900 font-black">
-                        TOTAL CONSIGNMENT
-                      </div>
-                      <div className="w-[30%] text-center text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
-                        {totalAppleBoxes.toLocaleString('en-IN')} Boxes
-                      </div>
-                      <div className="w-[28%] text-right text-[10px] sm:text-xs text-gray-600 font-bold whitespace-nowrap">
-                        Mandi Rate
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Prominent Total Apple Amount Summary Card */}
-                  <div className="p-3 bg-white rounded-xl border border-emerald-300 flex flex-wrap items-center justify-between gap-2 shadow-xs">
-                    <div className="min-w-[170px]">
-                      <span className="text-xs font-bold text-gray-700 block">Total Apple Amount:</span>
-                      <span className="text-[10px] text-gray-500 font-bold block">
-                        {totalAppleBoxes.toLocaleString('en-IN')} Boxes (4L: {layer4LBoxes || 0}, 5L: {layer5LBoxes || 0}, Roll: {rollBoxes || 0})
-                      </span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-base sm:text-lg font-black text-emerald-800 block font-mono">
-                        ₹{totalAppleAmount.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  </div>
+              {/* Phase 1: Logistics Allotment Workflow Notice */}
+              <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50/60 to-white border border-emerald-300 rounded-2xl flex items-start gap-3 shadow-2xs">
+                <div className="w-10 h-10 rounded-2xl bg-[#087A3E] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <Truck size={20} />
                 </div>
-              ) : isPomegranate ? (
-                /* Pomegranate Consignment Sizing Form (No. of boxes, Total amount) */
-                <div className="p-3.5 bg-gradient-to-br from-rose-50/70 via-red-50/30 to-amber-50/30 border border-rose-200 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-extrabold text-rose-800 tracking-wider block">
-                        Pomegranate Consignment Entry
-                      </span>
-                      <p className="text-[11px] text-gray-600">
-                        Standard wholesale pomegranate telescopic boxes / crates.
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 bg-rose-100 text-rose-900 rounded-lg text-[11px] font-black">
-                      Pomegranate
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 items-end">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        No. of Boxes *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={pomegranateBoxes}
-                        onChange={(e) => setPomegranateBoxes(e.target.value)}
-                        placeholder="e.g. 300"
-                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-rose-500 focus:outline-none"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Procurement Rate (₹ / Box)
-                      </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
-                        <strong className="font-mono text-sm text-gray-900">₹{Number(pomegranateRate || 950).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ Box</span></strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-rose-200 flex items-center justify-between shadow-xs">
-                    <div>
-                      <span className="text-xs font-bold text-gray-700 block">Total Pomegranate Amount:</span>
-                      <span className="text-[10px] text-gray-500">{pomegranateBoxes || 0} Boxes @ ₹{pomegranateRate || 0} / Box</span>
-                    </div>
-                    <span className="text-base font-black text-rose-800">₹{pomegranateTotalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              ) : isWatermelon ? (
-                /* Watermelon Consignment Sizing Form (Total weight, Total amount) */
-                <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 via-teal-50/30 to-green-50/40 border border-emerald-200 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider block">
-                        Watermelon Harvest Weighment
-                      </span>
-                      <p className="text-[11px] text-gray-600">
-                        Bulk truckload mandi weighbridge harvest.
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-900 rounded-lg text-[11px] font-black">
-                      Watermelon
-                    </span>
-                  </div>
-
+                <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-gray-700">Billing Weighment Unit:</span>
-                    <div className="flex rounded-lg border border-emerald-300 overflow-hidden text-xs font-bold">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWatermelonUnit('TON');
-                          setWatermelonRate('14000');
-                        }}
-                        className={`px-3 py-1 cursor-pointer transition ${
-                          watermelonUnit === 'TON' ? 'bg-[#064D2B] text-white' : 'bg-white text-emerald-900 hover:bg-emerald-50'
-                        }`}
-                      >
-                        TON (Tons)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setWatermelonUnit('KG');
-                          setWatermelonRate('14');
-                        }}
-                        className={`px-3 py-1 cursor-pointer transition ${
-                          watermelonUnit === 'KG' ? 'bg-[#064D2B] text-white' : 'bg-white text-emerald-900 hover:bg-emerald-50'
-                        }`}
-                      >
-                        KG (Kilograms)
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 items-end">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Total Weight ({watermelonUnit}) *
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0.1"
-                        value={watermelonWeight}
-                        onChange={(e) => setWatermelonWeight(e.target.value)}
-                        placeholder={`e.g. ${watermelonUnit === 'TON' ? '15' : '15000'}`}
-                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Procurement Rate (₹ / {watermelonUnit})
-                      </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
-                        <strong className="font-mono text-sm text-gray-900">₹{Number(watermelonRate || (watermelonUnit === 'TON' ? 14000 : 14)).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ {watermelonUnit}</span></strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-emerald-200 flex items-center justify-between shadow-xs">
-                    <div>
-                      <span className="text-xs font-bold text-gray-700 block">Total Watermelon Amount:</span>
-                      <span className="text-[10px] text-gray-500">{watermelonWeight || 0} {watermelonUnit} @ ₹{watermelonRate || 0} / {watermelonUnit}</span>
-                    </div>
-                    <span className="text-base font-black text-emerald-800">₹{watermelonTotalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              ) : isMuskmelon ? (
-                /* Muskmelon Consignment Sizing Form (Total weight, Total amount) */
-                <div className="p-3.5 bg-gradient-to-br from-amber-50/70 via-yellow-50/30 to-emerald-50/30 border border-amber-200 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-extrabold text-amber-900 tracking-wider block">
-                        Muskmelon Loaded Weighment
-                      </span>
-                      <p className="text-[11px] text-gray-600">
-                        Sweet melon farm loaded weighbridge load.
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 bg-amber-100 text-amber-900 rounded-lg text-[11px] font-black">
-                      Muskmelon
+                    <h4 className="text-xs font-black text-gray-950 font-['Manrope']">
+                      Phase 1: Consignment Vehicle &amp; Route Allotment Request
+                    </h4>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-[10px] font-black">
+                      Step 1 of 2
                     </span>
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-bold text-gray-700">Billing Weighment Unit:</span>
-                    <div className="flex rounded-lg border border-amber-300 overflow-hidden text-xs font-bold">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMuskmelonUnit('TON');
-                          setMuskmelonRate('18000');
-                        }}
-                        className={`px-3 py-1 cursor-pointer transition ${
-                          muskmelonUnit === 'TON' ? 'bg-amber-700 text-white' : 'bg-white text-amber-900 hover:bg-amber-50'
-                        }`}
-                      >
-                        TON (Tons)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setMuskmelonUnit('KG');
-                          setMuskmelonRate('18');
-                        }}
-                        className={`px-3 py-1 cursor-pointer transition ${
-                          muskmelonUnit === 'KG' ? 'bg-amber-700 text-white' : 'bg-white text-amber-900 hover:bg-amber-50'
-                        }`}
-                      >
-                        KG (Kilograms)
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 items-end">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Total Weight ({muskmelonUnit}) *
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        min="0.1"
-                        value={muskmelonWeight}
-                        onChange={(e) => setMuskmelonWeight(e.target.value)}
-                        placeholder={`e.g. ${muskmelonUnit === 'TON' ? '8' : '8000'}`}
-                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-amber-500 focus:outline-none"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Procurement Rate (₹ / {muskmelonUnit})
-                      </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
-                        <strong className="font-mono text-sm text-gray-900">₹{Number(muskmelonRate || (muskmelonUnit === 'TON' ? 18000 : 18)).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ {muskmelonUnit}</span></strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-amber-200 flex items-center justify-between shadow-xs">
-                    <div>
-                      <span className="text-xs font-bold text-gray-700 block">Total Muskmelon Amount:</span>
-                      <span className="text-[10px] text-gray-500">{muskmelonWeight || 0} {muskmelonUnit} @ ₹{muskmelonRate || 0} / {muskmelonUnit}</span>
-                    </div>
-                    <span className="text-base font-black text-amber-900">₹{muskmelonTotalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              ) : isBanana ? (
-                /* Banana Consignment Sizing Form (Total boxes, Total amount) */
-                <div className="p-3.5 bg-gradient-to-br from-yellow-50/70 via-amber-50/30 to-lime-50/40 border border-yellow-200 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-extrabold text-yellow-900 tracking-wider block">
-                        Banana Wholesale Crates
-                      </span>
-                      <p className="text-[11px] text-gray-600">
-                        Green Cavendish / Robusta farm crates.
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 bg-yellow-100 text-yellow-900 rounded-lg text-[11px] font-black">
-                      Banana
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 items-end">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Total Boxes *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={bananaBoxes}
-                        onChange={(e) => setBananaBoxes(e.target.value)}
-                        placeholder="e.g. 400"
-                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-yellow-500 focus:outline-none"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Procurement Rate (₹ / Box)
-                      </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
-                        <strong className="font-mono text-sm text-gray-900">₹{Number(bananaRate || 550).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ Box</span></strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-yellow-200 flex items-center justify-between shadow-xs">
-                    <div>
-                      <span className="text-xs font-bold text-gray-700 block">Total Banana Amount:</span>
-                      <span className="text-[10px] text-gray-500">{bananaBoxes || 0} Boxes @ ₹{bananaRate || 0} / Box</span>
-                    </div>
-                    <span className="text-base font-black text-yellow-950">₹{bananaTotalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              ) : isOrange ? (
-                /* Orange Consignment Sizing Form (Total box, Counts 36/42/45/54/60/72/74/90/105, Total amount) */
-                <div className="p-3.5 bg-gradient-to-br from-orange-50/70 via-amber-50/30 to-red-50/30 border border-orange-200 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-extrabold text-orange-900 tracking-wider block">
-                        Orange (Citrus) Caliber &amp; Count Grading
-                      </span>
-                      <p className="text-[11px] text-gray-600">
-                        Wholesale citrus caliber count selection.
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 bg-orange-100 text-orange-900 rounded-lg text-[11px] font-black">
-                      Orange
-                    </span>
-                  </div>
-
-                  {/* Mandi Caliber Counts Selection Chips */}
-                  <div>
-                    <label className="block text-[11px] font-extrabold text-orange-950 mb-1.5 flex items-center justify-between">
-                      <span>Counts Selection:</span>
-                      <span className="text-[10px] text-orange-700 font-bold">Standard 36 - 105 Mandi Calibers</span>
-                    </label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {ORANGE_COUNTS.map((cnt) => (
-                        <button
-                          key={cnt}
-                          type="button"
-                          onClick={() => setOrangeCount(cnt)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center gap-1 cursor-pointer ${
-                            orangeCount === cnt
-                              ? 'bg-orange-600 text-white shadow-sm ring-2 ring-orange-400'
-                              : 'bg-white hover:bg-orange-100 text-orange-900 border border-orange-300'
-                          }`}
-                        >
-                          <span>Count {cnt}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 items-end">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Total Boxes *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={orangeBoxes}
-                        onChange={(e) => setOrangeBoxes(e.target.value)}
-                        placeholder="e.g. 350"
-                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-orange-500 focus:outline-none"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Procurement Rate (₹ / Box)
-                      </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
-                        <strong className="font-mono text-sm text-gray-900">₹{Number(orangeRate || 780).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ Box</span></strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-orange-200 flex items-center justify-between shadow-xs">
-                    <div>
-                      <span className="text-xs font-bold text-gray-700 block">
-                        Total Orange Amount (Grade: <strong className="text-orange-900">Count {orangeCount}</strong>):
-                      </span>
-                      <span className="text-[10px] text-gray-500">{orangeBoxes || 0} Boxes (Count {orangeCount}) @ ₹{orangeRate || 0} / Box</span>
-                    </div>
-                    <span className="text-base font-black text-orange-800">₹{orangeTotalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              ) : isPlum ? (
-                /* Plum Consignment Sizing Form (Total box, Total amount) */
-                <div className="p-3.5 bg-gradient-to-br from-purple-50/70 via-fuchsia-50/30 to-rose-50/30 border border-purple-200 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-extrabold text-purple-900 tracking-wider block">
-                        Plum Consignment Entry
-                      </span>
-                      <p className="text-[11px] text-gray-600">
-                        Fresh farm stone fruit cartons/crates.
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 bg-purple-100 text-purple-900 rounded-lg text-[11px] font-black">
-                      Plum
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 items-end">
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Total Boxes *
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={plumBoxes}
-                        onChange={(e) => setPlumBoxes(e.target.value)}
-                        placeholder="e.g. 200"
-                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-purple-500 focus:outline-none"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                        Procurement Rate (₹ / Box)
-                      </label>
-                      <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                        <span className="text-gray-500 font-medium text-[11px]">Wholesale Rate</span>
-                        <strong className="font-mono text-sm text-gray-900">₹{Number(plumRate || 850).toLocaleString('en-IN')} <span className="text-xs font-normal text-gray-500">/ Box</span></strong>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-xl border border-purple-200 flex items-center justify-between shadow-xs">
-                    <div>
-                      <span className="text-xs font-bold text-gray-700 block">Total Plum Amount:</span>
-                      <span className="text-[10px] text-gray-500">{plumBoxes || 0} Boxes @ ₹{plumRate || 0} / Box</span>
-                    </div>
-                    <span className="text-base font-black text-purple-900">₹{plumTotalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              ) : (
-                /* Fallback Sizing Form */
-                <div className="p-3.5 bg-emerald-50/40 border border-emerald-200 rounded-2xl space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] uppercase font-extrabold text-emerald-800 tracking-wider block">
-                        Fruit Commodity Sizing &amp; Pricing
-                      </span>
-                      <p className="text-[11px] text-gray-600">
-                        Enter dispatch quantity.
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg text-[11px] font-black">
-                      {selectedFruit}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-end">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Grade / Variety</label>
-                      <input
-                        type="text"
-                        value={otherGrade}
-                        onChange={(e) => setOtherGrade(e.target.value)}
-                        placeholder="e.g. Export Grade A"
-                        className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-medium text-gray-900 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Quantity</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={otherQuantity}
-                        onChange={(e) => setOtherQuantity(e.target.value)}
-                        placeholder="Qty"
-                        className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white text-right"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">Unit</label>
-                      <select
-                        value={otherUnit}
-                        onChange={(e) => setOtherUnit(e.target.value)}
-                        className="w-full h-9 px-2 border border-gray-300 rounded-lg text-xs font-bold text-gray-900 bg-white"
-                      >
-                        <option value="BOX">BOX</option>
-                        <option value="CRATE">CRATE</option>
-                        <option value="TON">TON</option>
-                        <option value="KG">KG</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-600 mb-0.5">
-                        Rate (₹ / {otherUnit})
-                      </label>
-                      <div className="w-full h-9 px-2.5 border border-gray-200 rounded-lg text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-end">
-                        <span className="font-mono text-xs">₹{Number(otherRate || 950).toLocaleString('en-IN')}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-2.5 bg-white rounded-xl border border-emerald-200 flex items-center justify-between">
-                    <span className="text-xs font-bold text-gray-700">Calculated Consignment Value:</span>
-                    <span className="text-sm font-black text-emerald-800">₹{otherTotalAmount.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Logistics Allotment Workflow Notice (Step 1) */}
-              <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white border border-emerald-200 rounded-2xl flex items-start gap-3 shadow-2xs">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-[#087A3E] flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <Truck size={18} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-gray-900 font-['Manrope']">
-                    Vehicle Allotment &amp; Farm Loading Process
-                  </h4>
-                  <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
-                    Submit your consignment PO request with farm origin and required fruit box quantities. Safal Regional Logistics Hub will review and allot an authorized refrigerated vehicle to your farm. Once the vehicle arrives at your location, you can confirm carton loading, take the truck photo, and digitally sign the dispatch authorization.
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    Submit your farm loading location (<strong className="text-gray-900">{startingLocation || 'Farm Origin'}</strong>) and destination hub (<strong className="text-emerald-800">{targetHub} Hub</strong>). Safal Regional Logistics Hub will review the route, allot an authorized refrigerated vehicle, and upload the official <strong>Transporter Bilty (LR) / Consignment Note</strong>.
                   </p>
+                  <div className="p-2.5 bg-emerald-100/70 border border-emerald-300 rounded-xl text-[11px] text-emerald-950 font-bold flex items-center gap-2 mt-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse flex-shrink-0" />
+                    <span>Box Grading &amp; Pricing: Once Admin approves and allots the vehicle with Bilty, you will record loaded box counts (4L / 5L / Roll grading), upload truck photos, and digitally sign for dispatch.</span>
+                  </div>
                 </div>
               </div>
 

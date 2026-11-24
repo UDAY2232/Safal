@@ -74,6 +74,10 @@ router.post(
 router.post(
   '/admin/po/:id/allot-vehicle',
   authenticateToken,
+  upload.fields([
+    { name: 'biltyFile', maxCount: 1 },
+    { name: 'transportBill', maxCount: 1 },
+  ]),
   allotVendorPOVehicle
 );
 
