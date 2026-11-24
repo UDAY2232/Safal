@@ -262,7 +262,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {order.status !== 'CLOSED' && (
+            {order.status !== 'CLOSED' && user?.role !== 'VENDOR' && (
               <button
                 type="button"
                 onClick={() => setIsEditing(!isEditing)}
@@ -759,8 +759,8 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </div>
           </div>
 
-          {/* Financial Tracking Banner (Only for Procurement POs, not Customer Dues) */}
-          {!isCD && financial && (
+          {/* Financial Tracking Banner (Only for Procurement POs, strictly for Admin & Accountant, hidden from Vendors) */}
+          {!isCD && financial && user?.role !== 'VENDOR' && (user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
             <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex flex-col md:flex-row items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">

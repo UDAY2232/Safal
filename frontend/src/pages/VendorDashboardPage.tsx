@@ -1102,7 +1102,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
           }`}
         >
-          <Truck size={15} /> Ready for Dispatch ({pendingDispatchOrders.length})
+          <Truck size={15} /> Ready for Dispatch &amp; Transit ({pendingDispatchOrders.length + inTransitOrders.length})
         </button>
 
         <button
@@ -1744,10 +1744,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           </div>
 
           {pendingDispatchOrders.length === 0 ? (
-            <div className="py-12 text-center text-gray-400">
-              <CheckCircle2 size={40} className="mx-auto text-emerald-500 mb-2" />
-              <p className="font-bold text-gray-800 text-sm">All Active Consignments Dispatched!</p>
-              <p className="text-xs text-gray-500 mt-1">There are no pending purchase orders waiting for truck dispatch.</p>
+            <div className="py-6 text-center text-gray-400 bg-gray-50/70 rounded-2xl border border-gray-200">
+              <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-1" />
+              <p className="font-bold text-gray-800 text-xs">All Consignments Dispatched!</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">There are no pending purchase orders waiting for truck dispatch.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1822,6 +1822,109 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               })}
             </div>
           )}
+
+          {/* Active Fleets In Transit & Dispatched Consignments Section */}
+          <div className="pt-4 border-t border-gray-100 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
+                  <Truck className="text-emerald-700" size={18} />
+                  Live Fleets Dispatched &amp; In Transit
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Trucks dispatched with verified vehicle photos, transporter bilty, and 55% advance cleared.
+                </p>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-black self-start sm:self-auto border border-emerald-300">
+                {inTransitOrders.length} Fleets on Road
+              </span>
+            </div>
+
+            {inTransitOrders.length === 0 ? (
+              <div className="p-6 text-center text-gray-400 bg-gray-50 rounded-2xl border border-gray-200">
+                <Truck size={32} className="mx-auto text-gray-300 mb-1" />
+                <p className="text-xs font-bold text-gray-600">No trucks currently on the road</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {inTransitOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/30 hover:bg-emerald-50/60 transition flex flex-col justify-between gap-3 shadow-2xs"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-base font-extrabold text-[#087A3E] font-mono">{order.poNumber}</strong>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-300 uppercase flex items-center gap-1">
+                          <Truck size={11} /> In Transit
+                        </span>
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                        <div className="p-2 bg-white rounded-xl border border-emerald-100">
+                          <span className="text-[10px] font-bold text-gray-500 uppercase block">Vehicle / Truck</span>
+                          <strong className="text-xs text-gray-900 font-mono block mt-0.5 truncate">
+                            {order.dispatchVehicleNumber || '-'}
+                          </strong>
+                        </div>
+                        <div className="p-2 bg-white rounded-xl border border-emerald-100">
+                          <span className="text-[10px] font-bold text-gray-500 uppercase block">Destination Hub</span>
+                          <strong className="text-xs text-gray-900 block mt-0.5 truncate">
+                            {order.orderPersonPlace || 'Warangal Hub'}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 p-2 bg-white rounded-xl border border-emerald-100 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-gray-500 uppercase">Transporter &amp; Driver</span>
+                          <span className="text-xs font-mono font-bold text-emerald-800">{order.driverPhone || '-'}</span>
+                        </div>
+                        <span className="text-xs font-medium text-gray-800 block truncate mt-0.5">
+                          {order.transporterName || 'Transporter Assigned'}
+                        </span>
+                      </div>
+
+                      {/* Proof badges */}
+                      <div className="mt-2.5 pt-2 border-t border-emerald-200/60 flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-gray-600 mr-1">Proofs:</span>
+                        {order.vehiclePhotoUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewMediaModal({ url: order.vehiclePhotoUrl!, title: `Vehicle Photo - ${order.poNumber}` })}
+                            className="px-2 py-0.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Camera size={10} /> Photo Attached
+                          </button>
+                        )}
+                        {order.transportBillUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewMediaModal({ url: order.transportBillUrl!, title: `Transport Bill - ${order.poNumber}` })}
+                            className="px-2 py-0.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <ReceiptText size={10} /> Bilty Attached
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-emerald-200/80 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="text-[10px] text-gray-500 block">55% Auto-Advance:</span>
+                        <strong className="text-emerald-800 font-mono font-bold">
+                          ₹{Number(order.advanceAmount || 0).toLocaleString('en-IN')} CLEARED
+                        </strong>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-bold text-[11px] border border-amber-300">
+                        Awaiting Admin Clearance
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
       )}
 
