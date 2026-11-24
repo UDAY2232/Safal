@@ -3871,6 +3871,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   target="_blank"
                   rel="noreferrer"
                   download
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold inline-flex items-center gap-1.5 shadow-xs transition"
+                >
+                  <Download size={14} /> Download Slip
+                </a>
+                <a
+                  href={viewSlipModalUrl}
+                  target="_blank"
+                  rel="noreferrer"
                   className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
                 >
                   <ExternalLink size={13} /> Open in New Tab
@@ -3938,6 +3946,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   target="_blank"
                   rel="noreferrer"
                   download
+                  className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold inline-flex items-center gap-1.5 shadow-xs transition"
+                >
+                  <Download size={14} /> Download Proof
+                </a>
+                <a
+                  href={previewMediaModal.url}
+                  target="_blank"
+                  rel="noreferrer"
                   className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
                 >
                   <ExternalLink size={13} /> Open in New Tab

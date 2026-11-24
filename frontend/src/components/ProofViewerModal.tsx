@@ -92,6 +92,17 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2">
             <a
               href={resolvedUrl}
+              download
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold inline-flex items-center gap-1 transition shadow-xs"
+              title="Download proof file"
+            >
+              <Download size={13} />
+              <span className="hidden sm:inline">Download</span>
+            </a>
+            <a
+              href={resolvedUrl}
               target="_blank"
               rel="noreferrer"
               className="px-2.5 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-700 text-emerald-100 text-xs font-semibold inline-flex items-center gap-1 transition"
