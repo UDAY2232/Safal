@@ -331,7 +331,11 @@ export const VendorPhotoCaptureModal: React.FC<VendorPhotoCaptureModalProps> = (
     startCamera(facingMode);
   };
 
-  const handleConfirm = () => {
+  const handleConfirm = (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     if (!capturedBlob || !capturedPhotoUrl) return;
     const cleanDoc = documentType.toLowerCase().replace(/[^a-z0-9]/g, '_');
     const filename = `${cleanDoc}_${Date.now()}.jpg`;
@@ -343,8 +347,18 @@ export const VendorPhotoCaptureModal: React.FC<VendorPhotoCaptureModalProps> = (
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden border border-emerald-900/20">
+    <div
+      className="fixed inset-0 !z-[99999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-3 sm:p-4 animate-in fade-in duration-200"
+      style={{ zIndex: 99999 }}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] flex flex-col overflow-hidden border border-emerald-900/20"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="px-5 py-3.5 bg-gradient-to-r from-[#064D2B] to-[#0A6C3E] text-white flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5">
@@ -367,7 +381,11 @@ export const VendorPhotoCaptureModal: React.FC<VendorPhotoCaptureModalProps> = (
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onClose();
+            }}
             className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
             title="Close"
           >

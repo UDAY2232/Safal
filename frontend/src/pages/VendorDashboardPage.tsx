@@ -47,6 +47,7 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { PurchaseOrder, VENDOR_WHITELISTED_LOCATIONS, VENDOR_WHITELISTED_FRUITS } from '../types';
 import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
+import { stampImageFile } from '../utils/watermark';
 
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
@@ -398,6 +399,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (cameraModalConfig.open) {
+          setCameraModalConfig((prev) => ({ ...prev, open: false }));
+          return;
+        }
         setShowCreatePOModal(false);
         setSelectedPOForDispatch(null);
         setViewSlipModalUrl(null);
@@ -407,11 +412,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setSelectedKpiModal(null);
       }
     };
-    if (showCreatePOModal || selectedPOForDispatch || viewSlipModalUrl || previewMediaModal || showEditProfileModal || showRecordQCModal || selectedKpiModal) {
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }
-  }, [showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl, previewMediaModal, showEditProfileModal, showRecordQCModal, selectedKpiModal]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [cameraModalConfig.open, showCreatePOModal, selectedPOForDispatch, viewSlipModalUrl, previewMediaModal, showEditProfileModal, showRecordQCModal, selectedKpiModal]);
 
   const handleTabClick = (tab: 'dashboard' | 'orders' | 'dispatch' | 'qc' | 'kyc') => {
     setActiveTab(tab);
@@ -564,27 +567,47 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     }
   };
 
-  const handleSupplyVehiclePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSupplyVehiclePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSupplyVehiclePhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSupplyVehiclePhotoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { file: stampedFile, previewUrl } = await stampImageFile(file, {
+          documentType: 'Vehicle Dispatch Photo',
+          vendorName: vendorProfile?.businessName || user?.name,
+          vendorId: vendorProfile?.vendorId || 'VND-001',
+        });
+        setSupplyVehiclePhotoFile(stampedFile);
+        setSupplyVehiclePhotoPreview(previewUrl);
+      } catch {
+        setSupplyVehiclePhotoFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setSupplyVehiclePhotoPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
-  const handleSupplyTransportBillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSupplyTransportBillChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSupplyTransportBillFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSupplyTransportBillPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { file: stampedFile, previewUrl } = await stampImageFile(file, {
+          documentType: 'Transport Bilty (LR)',
+          vendorName: vendorProfile?.businessName || user?.name,
+          vendorId: vendorProfile?.vendorId || 'VND-001',
+        });
+        setSupplyTransportBillFile(stampedFile);
+        setSupplyTransportBillPreview(previewUrl);
+      } catch {
+        setSupplyTransportBillFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setSupplyTransportBillPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -826,27 +849,49 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     loadData();
   }, []);
 
-  const handleVehiclePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleVehiclePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setVehiclePhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setVehiclePhotoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { file: stampedFile, previewUrl } = await stampImageFile(file, {
+          documentType: 'Vehicle Dispatch Photo',
+          poNumber: selectedPOForDispatch?.poNumber,
+          vendorName: vendorProfile?.businessName || user?.name,
+          vendorId: vendorProfile?.vendorId || 'VND-001',
+        });
+        setVehiclePhotoFile(stampedFile);
+        setVehiclePhotoPreview(previewUrl);
+      } catch {
+        setVehiclePhotoFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setVehiclePhotoPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
-  const handleTransportBillChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTransportBillChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setTransportBillFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setTransportBillPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { file: stampedFile, previewUrl } = await stampImageFile(file, {
+          documentType: 'Transport Bilty (LR)',
+          poNumber: selectedPOForDispatch?.poNumber,
+          vendorName: vendorProfile?.businessName || user?.name,
+          vendorId: vendorProfile?.vendorId || 'VND-001',
+        });
+        setTransportBillFile(stampedFile);
+        setTransportBillPreview(previewUrl);
+      } catch {
+        setTransportBillFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setTransportBillPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -1010,7 +1055,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               onClick={() => setShowCreatePOModal(true)}
               className="px-4 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-gray-950 text-xs font-black transition shadow-md inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
-              <Plus size={15} /> + Create Supply PO
+              <Plus size={15} /> Create Supply PO
             </button>
             <button
               onClick={() => handleTabClick('kyc')}
@@ -1808,7 +1853,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 onClick={() => setShowCreatePOModal(true)}
                 className="px-4 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-black transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
-                <Plus size={15} /> + Create Supply Consignment
+                <Plus size={15} /> Create Supply Consignment
               </button>
             </div>
           </div>
@@ -2364,7 +2409,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 onClick={() => openRecordQCModal()}
                 className="px-4 py-2 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-black transition shadow-sm inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
-                <Plus size={15} /> + Record Weighbridge &amp; QC Slip
+                <Plus size={15} /> Record Weighbridge &amp; QC Slip
               </button>
               <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black inline-flex items-center gap-1.5">
                 <BadgeCheck size={14} className="text-emerald-700" />
@@ -2397,7 +2442,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     onClick={() => openRecordQCModal()}
                     className="mt-4 px-5 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-black transition shadow-md inline-flex items-center gap-2 cursor-pointer active:scale-95"
                   >
-                    <Plus size={16} /> + Enter Weighbridge &amp; QC Scale Slip Now
+                    <Plus size={16} /> Enter Weighbridge &amp; QC Scale Slip Now
                   </button>
                 </div>
               );
@@ -2580,7 +2625,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             onClick={() => openRecordQCModal(order.id)}
                             className="px-3.5 py-1.5 bg-[#087A3E] hover:bg-[#064D2B] text-white rounded-lg text-xs font-black inline-flex items-center gap-1.5 cursor-pointer whitespace-nowrap shadow-xs"
                           >
-                            <Scale size={14} /> + Record Scale Slip for This PO
+                            <Scale size={14} /> Record Scale Slip for This PO
                           </button>
                         </div>
                       )}
@@ -2599,7 +2644,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
           style={{ zIndex: 9999 }}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedPOForDispatch(null);
+            if (e.target === e.currentTarget && !cameraModalConfig.open) setSelectedPOForDispatch(null);
           }}
         >
           <div
@@ -2779,35 +2824,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </span>
                 </div>
                 <p className="text-[11px] text-gray-600">
-                  Take a photo of the transporter's consignment note / freight receipt or upload PDF document.
+                  Upload photo of transporter's consignment note / freight receipt or PDF document. Current timestamp &amp; GPS location will be stamped automatically upon upload.
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      openCameraModal(
-                        'Transport Bill / Bilty Photo',
-                        'TRANSPORT BILTY (LR)',
-                        selectedPOForDispatch?.poNumber,
-                        (file, preview) => {
-                          setTransportBillFile(file);
-                          setTransportBillPreview(preview);
-                        }
-                      )
-                    }
-                    className="h-10 px-3 bg-blue-700 hover:bg-blue-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition cursor-pointer"
-                  >
-                    <Camera size={15} className="text-blue-200" />
-                    <span>Open Camera (Snap Bilty)</span>
-                  </button>
-
-                  <label className="h-10 px-3 border-2 border-dashed border-blue-400 bg-white hover:bg-blue-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
+                <div className="pt-1">
+                  <label className="h-11 px-3 border-2 border-dashed border-blue-400 bg-white hover:bg-blue-50 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group w-full">
                     <div className="w-6 h-6 rounded-md bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
                       <Upload size={13} />
                     </div>
                     <span className="text-xs font-bold text-blue-900 truncate">
-                      {transportBillFile ? transportBillFile.name : 'Choose File / PDF'}
+                      {transportBillFile ? transportBillFile.name : 'Choose Transport Bilty Document / Photo (Image or PDF)'}
                     </span>
                     <input
                       type="file"
@@ -2885,7 +2911,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
           style={{ zIndex: 9999 }}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowCreatePOModal(false);
+            if (e.target === e.currentTarget && !cameraModalConfig.open) setShowCreatePOModal(false);
           }}
         >
           <div
@@ -3705,49 +3731,33 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                   {/* Transport Bill Photo Upload */}
                   <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5">
-                    <label className="block text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
-                      <ReceiptText size={13} className="text-blue-700" />
-                      Transport Bill Photo (Bilty / LR Receipt)
-                    </label>
-                    <p className="text-[10px] text-gray-500">
-                      Clear photo or PDF receipt from transporter / consignment note.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openCameraModal(
-                            'Transport Bill Photo',
-                            'TRANSPORT BILTY (LR)',
-                            undefined,
-                            (file, preview) => {
-                              setSupplyTransportBillFile(file);
-                              setSupplyTransportBillPreview(preview);
-                            }
-                          )
-                        }
-                        className="h-10 px-3 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition cursor-pointer"
-                      >
-                        <Camera size={14} className="text-blue-200" />
-                        <span>Live Camera</span>
-                      </button>
-
-                      <label className="h-10 px-3 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group">
-                        <div className="w-5 h-5 rounded bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
-                          <Upload size={12} />
-                        </div>
-                        <span className="text-[11px] font-bold text-blue-900 truncate">
-                          {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose File / PDF'}
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/jpg,application/pdf"
-                          onChange={handleSupplyTransportBillChange}
-                          style={{ display: 'none' }}
-                          className="hidden"
-                        />
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
+                        <ReceiptText size={13} className="text-blue-700" />
+                        Transport Bill (Bilty / LR Receipt)
                       </label>
+                      <span className="text-[10px] text-blue-800 font-bold bg-blue-100 px-2 py-0.5 rounded-full border border-blue-300">
+                        Mandatory
+                      </span>
                     </div>
+                    <p className="text-[10px] text-gray-500">
+                      Upload photo or PDF receipt from transporter. Timestamp &amp; GPS location will be stamped automatically upon upload.
+                    </p>
+                    <label className="h-10 px-3 border-2 border-dashed border-blue-400 bg-blue-50/40 hover:bg-blue-50/80 rounded-lg flex items-center justify-center gap-2 cursor-pointer transition shadow-2xs group w-full">
+                      <div className="w-5 h-5 rounded bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center transition flex-shrink-0">
+                        <Upload size={12} />
+                      </div>
+                      <span className="text-[11px] font-bold text-blue-900 truncate">
+                        {supplyTransportBillFile ? supplyTransportBillFile.name : 'Choose Bilty / LR Document (Image or PDF)'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg,application/pdf"
+                        onChange={handleSupplyTransportBillChange}
+                        style={{ display: 'none' }}
+                        className="hidden"
+                      />
+                    </label>
                     {supplyTransportBillPreview && (
                       <div className="mt-1.5 p-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-block">
                         {supplyTransportBillFile?.type === 'application/pdf' ? (
@@ -4931,27 +4941,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       );
                     }
                   } else {
-                    if (isSupply) {
-                      openCameraModal(
-                        'Transport Bill Photo',
-                        'TRANSPORT BILTY (LR)',
-                        undefined,
-                        (file, preview) => {
-                          setSupplyTransportBillFile(file);
-                          setSupplyTransportBillPreview(preview);
-                        }
-                      );
-                    } else {
-                      openCameraModal(
-                        'Transport Bill / Bilty Photo',
-                        'TRANSPORT BILTY (LR)',
-                        selectedPOForDispatch?.poNumber,
-                        (file, preview) => {
-                          setTransportBillFile(file);
-                          setTransportBillPreview(preview);
-                        }
-                      );
-                    }
+                    // Transport bill uses file upload with automatic watermark
+                    onNotify('Please select your Transport Bill (Bilty / LR) document or photo.');
                   }
                 }}
                 className="px-5 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-md transition cursor-pointer"
