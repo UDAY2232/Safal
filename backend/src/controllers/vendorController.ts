@@ -531,6 +531,7 @@ export async function getVendorOperationsForAdmin(req: AuthRequest, res: Respons
           { supplier: { supplierCode: { startsWith: 'VND' } } },
           { dispatchVehicleNumber: { not: null } },
           { weighbridgeGrossKg: { not: null } },
+          { createdBy: { role: 'VENDOR' } },
         ],
       },
       include: {

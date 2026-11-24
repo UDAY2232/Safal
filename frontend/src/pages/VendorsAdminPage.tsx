@@ -74,6 +74,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [selectedPODetail, setSelectedPODetail] = useState<any | null>(null);
   const [selectedPOForPL, setSelectedPOForPL] = useState<any | null>(null);
   const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
+  const [verifyApprovalPO, setVerifyApprovalPO] = useState<any | null>(null);
+  const [isApprovingPO, setIsApprovingPO] = useState(false);
 
   // Commercial P&L Modal State
   const [editClosingPrice, setEditClosingPrice] = useState<number>(1260);
@@ -412,21 +414,22 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     }
   };
 
-  const handleClearVendorPO = async (op: any) => {
-    const poNum = op.poNumber || 'PO';
-    if (
-      !window.confirm(
-        `Clear Vendor Consignment ${poNum}?\n\nThis confirms you have verified the consignment delivery, vehicle dispatch proof, and weighbridge scale slip. This PO will be marked as CLEARED in both Admin and Vendor dashboards.`
-      )
-    ) {
-      return;
-    }
+  const handleClearVendorPO = (op: any) => {
+    setVerifyApprovalPO(op);
+  };
+
+  const handleConfirmApproveAndClear = async (op: any) => {
+    if (!op || !op.id) return;
     try {
+      setIsApprovingPO(true);
       await api.closePurchaseOrder(op.id);
-      onNotify(`Consignment ${poNum} verified and marked as CLEARED! Vendor dashboard updated.`);
+      onNotify(`Consignment ${op.poNumber || 'PO'} verified and approved as CLEARED! Vendor dashboard updated.`);
+      setVerifyApprovalPO(null);
       await loadVendorsAndOperations();
     } catch (err: any) {
-      onNotify(err.message || 'Failed to clear consignment');
+      onNotify(err.message || 'Failed to approve consignment');
+    } finally {
+      setIsApprovingPO(false);
     }
   };
 
@@ -1265,13 +1268,15 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '-';
                       const hub = op.orderPersonPlace || '-';
                       const truck = op.dispatchVehicleNumber || op.truckNo || '-';
-                      const transporter = op.dispatchTransporterName || op.transporter || '-';
-                      const driver = op.dispatchDriverPhone || op.driverPhone || '-';
-                      const vehiclePhoto = op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
-                      const bilty = op.dispatchTransportBillUrl || op.bilty;
+                      const transporter = op.transporterName || op.dispatchTransporterName || op.transporter || '-';
+                      const driver = op.driverPhone || op.dispatchDriverPhone || '-';
+                      const vehiclePhoto = op.vehiclePhotoUrl || op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
+                      const bilty = op.transportBillUrl || op.dispatchTransportBillUrl || op.bilty;
+                      const scaleSlip = op.weighbridgeSlipUrl || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl;
+                      const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Fresh Fruits';
                       const advAmt = Math.round(fin.baseCost * 0.55);
                       const balAmt = Math.round(fin.baseCost * 0.45);
-                      const status = op.dispatchStatus || op.status || 'OPEN';
+                      const status = op.status === 'CLOSED' ? 'CLOSED' : op.dispatchStatus || op.status || 'OPEN';
 
                       return (
                         <tr
@@ -1297,7 +1302,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                           </td>
                           <td className="py-3.5 px-4 border-r border-gray-100">
                             <span className="font-bold text-gray-800 block truncate max-w-[150px]">
-                              {(op.commodity || 'Kashmir Apples').replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
+                              {commodity.replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
                             </span>
                             <span className="text-[11px] text-gray-500 font-mono font-semibold">
                               {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
@@ -1328,14 +1333,14 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             <span
                               className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                                status === 'IN_TRANSIT'
-                                  ? 'bg-blue-100 text-blue-900 border border-blue-300'
-                                  : status === 'DELIVERED' || status === 'CLOSED'
+                                status === 'CLOSED'
                                   ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                  : status === 'IN_TRANSIT'
+                                  ? 'bg-blue-100 text-blue-900 border border-blue-300'
                                   : 'bg-amber-100 text-amber-900 border border-amber-300'
                               }`}
                             >
-                              {status === 'IN_TRANSIT' ? 'In Transit' : status}
+                              {status === 'CLOSED' ? 'Cleared ✓' : status === 'IN_TRANSIT' ? 'In Transit' : status}
                             </span>
                           </td>
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
@@ -1350,16 +1355,55 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             </a>
                           </td>
                           <td className="text-center py-3.5 px-4 whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              {vehiclePhoto && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewDoc({ url: vehiclePhoto, title: `${poCode} - Truck Photo (${truck})` })
+                                  }
+                                  className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                  title="View Vehicle Photo"
+                                >
+                                  <Eye size={11} className="text-emerald-700" /> Photo
+                                </button>
+                              )}
+
+                              {bilty && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewDoc({ url: bilty, title: `${poCode} - Transporter Bilty (${transporter})` })
+                                  }
+                                  className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                  title="View Transporter Bilty"
+                                >
+                                  <FileText size={11} className="text-blue-700" /> Bilty
+                                </button>
+                              )}
+
+                              {scaleSlip && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewDoc({ url: scaleSlip, title: `${poCode} - Weighbridge Scale Slip` })
+                                  }
+                                  className="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                  title="View Scale Slip"
+                                >
+                                  <Scale size={11} className="text-purple-700" /> Slip
+                                </button>
+                              )}
+
                               {status !== 'CLOSED' ? (
                                 <button
                                   type="button"
                                   onClick={() => handleClearVendorPO(op)}
-                                  className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer"
-                                  title="Admin verify consignment & mark as Cleared"
+                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                  title="Admin verify consignment & approve/clear PO"
                                 >
-                                  <CheckCircle2 size={11} />
-                                  <span>Clear PO</span>
+                                  <CheckCircle2 size={11} className="text-emerald-300" />
+                                  <span>Approve &amp; Clear</span>
                                 </button>
                               ) : (
                                 <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded text-[9px] font-black inline-flex items-center gap-0.5">
@@ -1370,38 +1414,12 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               <button
                                 type="button"
                                 onClick={() => openPLModal(op)}
-                                className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[11px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
                                 title="Open Mandi P&L Dossier"
                               >
                                 <Calculator size={11} className="text-amber-800" />
-                                <span>P&amp;L Dossier</span>
+                                <span>P&amp;L</span>
                               </button>
-
-                              {vehiclePhoto && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPreviewDoc({ url: vehiclePhoto, title: `${poCode} - Truck Photo (${truck})` })
-                                  }
-                                  className="px-1.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold inline-flex items-center gap-0.5 cursor-pointer"
-                                  title="View Vehicle Photo"
-                                >
-                                  <Eye size={10} /> Photo
-                                </button>
-                              )}
-
-                              {bilty && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPreviewDoc({ url: bilty, title: `${poCode} - Transporter Bilty (${transporter})` })
-                                  }
-                                  className="px-1.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded text-[10px] font-bold inline-flex items-center gap-0.5 cursor-pointer"
-                                  title="View Transporter Bilty"
-                                >
-                                  <FileText size={10} /> Bilty
-                                </button>
-                              )}
                             </div>
                           </td>
                         </tr>
@@ -1618,14 +1636,16 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '-';
                   const hub = op.orderPersonPlace || '-';
                   const truck = op.dispatchVehicleNumber || op.truckNo || '-';
-                  const transporter = op.dispatchTransporterName || op.transporter || '-';
-                  const driver = op.dispatchDriverPhone || op.driverPhone || '-';
-                  const vehiclePhoto = op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
-                  const bilty = op.dispatchTransportBillUrl || op.bilty;
+                  const transporter = op.transporterName || op.dispatchTransporterName || op.transporter || '-';
+                  const driver = op.driverPhone || op.dispatchDriverPhone || '-';
+                  const vehiclePhoto = op.vehiclePhotoUrl || op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
+                  const bilty = op.transportBillUrl || op.dispatchTransportBillUrl || op.bilty;
+                  const scaleSlip = op.weighbridgeSlipUrl || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl;
+                  const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Fresh Fruits';
                   const advAmt = Math.round(fin.baseCost * 0.55);
 
                   return (
-                    <tr key={op.id || poCode} className="hover:bg-rose-50/20 transition">
+                    <tr key={op.id || poCode} className="hover:bg-rose-50/20 transition text-xs">
                       <td className="text-center py-3.5 px-3 font-bold text-gray-600 border-r border-gray-100">
                         {idx + 1}
                       </td>
@@ -1638,7 +1658,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       </td>
                       <td className="py-3.5 px-4 border-r border-gray-100">
                         <span className="font-bold text-gray-800 block truncate max-w-[140px]">
-                          {(op.commodity || '').replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
+                          {commodity.replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
                         </span>
                         <span className="text-[10px] text-gray-500 font-mono">{fin.totalQty} {fin.unit}s</span>
                       </td>
@@ -1659,24 +1679,41 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                         </a>
                       </td>
                       <td className="text-center py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1">
-                          {vehiclePhoto && (
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          {vehiclePhoto ? (
                             <button
                               type="button"
-                              onClick={() => setPreviewDoc({ url: vehiclePhoto, title: `${poCode} - Truck Photo` })}
-                              className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                              onClick={() => setPreviewDoc({ url: vehiclePhoto, title: `${poCode} - Truck Photo (${truck})` })}
+                              className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                              title="View Stamped Vehicle Photo"
                             >
-                              <Eye size={10} /> Photo
+                              <Eye size={11} className="text-emerald-700" /> Photo Attached
                             </button>
-                          )}
-                          {bilty && (
+                          ) : null}
+                          {bilty ? (
                             <button
                               type="button"
-                              onClick={() => setPreviewDoc({ url: bilty, title: `${poCode} - Transporter Bilty` })}
-                              className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded text-[10px] font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                              onClick={() => setPreviewDoc({ url: bilty, title: `${poCode} - Transporter Bilty (${transporter})` })}
+                              className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                              title="View Transporter Bilty"
                             >
-                              <FileText size={10} /> Bilty
+                              <FileText size={11} className="text-blue-700" /> Bilty Attached
                             </button>
+                          ) : null}
+                          {scaleSlip ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewDoc({ url: scaleSlip, title: `${poCode} - Weighbridge Scale Slip` })}
+                              className="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                              title="View Scale Slip"
+                            >
+                              <Scale size={11} className="text-purple-700" /> Scale Slip
+                            </button>
+                          ) : null}
+                          {!vehiclePhoto && !bilty && !scaleSlip && (
+                            <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              Proof Pending
+                            </span>
                           )}
                         </div>
                       </td>
@@ -1689,7 +1726,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       <td className="text-center py-3.5 px-4 whitespace-nowrap">
                         {op.status === 'CLOSED' ? (
                           <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
-                            <CheckCircle2 size={10} /> Cleared ✓
+                            <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
                           </span>
                         ) : (
                           <div className="flex items-center justify-center gap-1.5">
@@ -1699,10 +1736,11 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             <button
                               type="button"
                               onClick={() => handleClearVendorPO(op)}
-                              className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-0.5 shadow-xs transition cursor-pointer"
-                              title="Verify consignment & clear PO"
+                              className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                              title="Verify consignment & approve/clear PO"
                             >
-                              <CheckCircle2 size={10} /> Clear
+                              <CheckCircle2 size={11} className="text-emerald-300" />
+                              <span>Approve &amp; Clear</span>
                             </button>
                           </div>
                         )}
@@ -2535,6 +2573,223 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
           onRefresh={() => loadVendorsAndOperations()}
           onNotify={onNotify}
         />
+      )}
+
+      {/* MODAL 6: Verify & Approve Consignment PO Modal */}
+      {verifyApprovalPO && (
+        <div
+          className="modal-backdrop fixed inset-0 flex items-center justify-center p-3 sm:p-4 !z-[9999]"
+          style={{ zIndex: 9999 }}
+          onClick={() => setVerifyApprovalPO(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-2xl w-full border border-emerald-900/20 shadow-2xl p-5 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center flex-shrink-0">
+                  <ShieldCheck size={22} className="text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-gray-900 font-['Manrope']">
+                    Verify &amp; Approve Consignment PO
+                  </h3>
+                  <p className="text-xs text-gray-500 font-mono">
+                    {verifyApprovalPO.poNumber} · {verifyApprovalPO.vendorProfile?.businessName || verifyApprovalPO.supplier?.name} ({verifyApprovalPO.vendorProfile?.vendorId || verifyApprovalPO.supplier?.supplierCode})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setVerifyApprovalPO(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Content Body */}
+            <div className="py-4 overflow-y-auto flex-1 space-y-4 text-xs">
+              {/* Consignment Metadata */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3 bg-emerald-50/50 rounded-2xl border border-emerald-100 text-center">
+                <div>
+                  <span className="text-[10px] text-gray-500 block font-bold">Destination Hub</span>
+                  <strong className="text-gray-900">{verifyApprovalPO.orderPersonPlace || 'Warangal'}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-500 block font-bold">Vehicle / Truck</span>
+                  <strong className="text-gray-900 font-mono">{verifyApprovalPO.dispatchVehicleNumber || 'N/A'}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-500 block font-bold">Transporter</span>
+                  <strong className="text-gray-900 truncate block">{verifyApprovalPO.transporterName || 'Direct Logistics'}</strong>
+                </div>
+                <div>
+                  <span className="text-[10px] text-gray-500 block font-bold">Consignment Value</span>
+                  <strong className="text-emerald-900 font-mono">₹{Number(verifyApprovalPO.grandTotal || 0).toLocaleString('en-IN')}</strong>
+                </div>
+              </div>
+
+              {/* Uploaded Evidence Proofs Inspection */}
+              <div className="space-y-2">
+                <h4 className="font-extrabold text-gray-800 text-xs flex items-center gap-1.5">
+                  <Eye size={14} className="text-emerald-700" />
+                  Submitted Dispatch Evidence &amp; Proofs
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Proof 1: Vehicle Photo */}
+                  <div className="p-3 bg-white rounded-2xl border border-gray-200 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
+                        <Truck size={12} className="text-emerald-700" /> 1. Vehicle Photo
+                      </span>
+                      {verifyApprovalPO.vehiclePhotoUrl ? (
+                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                          Attached ✓
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          Pending
+                        </span>
+                      )}
+                    </div>
+                    {verifyApprovalPO.vehiclePhotoUrl ? (
+                      <div
+                        className="relative group cursor-pointer"
+                        onClick={() =>
+                          setPreviewDoc({
+                            url: verifyApprovalPO.vehiclePhotoUrl,
+                            title: `${verifyApprovalPO.poNumber} - Vehicle Photo`,
+                          })
+                        }
+                      >
+                        <img
+                          src={verifyApprovalPO.vehiclePhotoUrl}
+                          alt="Vehicle Dispatch Proof"
+                          className="w-full h-36 object-contain rounded-xl bg-black/5 border border-gray-100"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-xl flex items-center justify-center text-white text-xs font-bold gap-1">
+                          <Eye size={14} /> Click to Enlarge
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-36 rounded-xl bg-gray-50 border border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-xs">
+                        No vehicle photo attached
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Proof 2: Transporter Bilty */}
+                  <div className="p-3 bg-white rounded-2xl border border-gray-200 shadow-2xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-gray-800 text-[11px] flex items-center gap-1">
+                        <FileText size={12} className="text-blue-700" /> 2. Transporter Bilty (LR)
+                      </span>
+                      {verifyApprovalPO.transportBillUrl ? (
+                        <span className="text-[10px] text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                          Attached ✓
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          Pending
+                        </span>
+                      )}
+                    </div>
+                    {verifyApprovalPO.transportBillUrl ? (
+                      <div
+                        className="relative group cursor-pointer"
+                        onClick={() =>
+                          setPreviewDoc({
+                            url: verifyApprovalPO.transportBillUrl,
+                            title: `${verifyApprovalPO.poNumber} - Transporter Bilty`,
+                          })
+                        }
+                      >
+                        {verifyApprovalPO.transportBillUrl.endsWith('.pdf') ? (
+                          <div className="w-full h-36 rounded-xl bg-blue-50 border border-blue-200 flex flex-col items-center justify-center text-blue-700">
+                            <FileText size={32} />
+                            <span className="text-[11px] font-bold mt-1">PDF Consignment Note</span>
+                            <span className="text-[10px] text-blue-500">Click to preview</span>
+                          </div>
+                        ) : (
+                          <img
+                            src={verifyApprovalPO.transportBillUrl}
+                            alt="Transport Bilty Proof"
+                            className="w-full h-36 object-contain rounded-xl bg-black/5 border border-gray-100"
+                          />
+                        )}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition rounded-xl flex items-center justify-center text-white text-xs font-bold gap-1">
+                          <Eye size={14} /> Click to Enlarge
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-36 rounded-xl bg-gray-50 border border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-xs">
+                        No transport bilty attached
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quality & Weighbridge Slip note if present */}
+              {verifyApprovalPO.weighbridgeSlipUrl && (
+                <div className="p-3 bg-purple-50/60 rounded-2xl border border-purple-200 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Scale size={16} className="text-purple-700" />
+                    <div>
+                      <strong className="text-purple-950 block">Weighbridge Scale Slip Attached</strong>
+                      <span className="text-[11px] text-purple-700">
+                        Net Weight: {Number(verifyApprovalPO.weighbridgeNetKg || 0).toLocaleString('en-IN')} KG verified
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPreviewDoc({
+                        url: verifyApprovalPO.weighbridgeSlipUrl,
+                        title: `${verifyApprovalPO.poNumber} - Weighbridge Slip`,
+                      })
+                    }
+                    className="px-2.5 py-1 bg-white hover:bg-purple-100 text-purple-800 rounded-lg font-bold text-xs border border-purple-300 cursor-pointer"
+                  >
+                    View Slip
+                  </button>
+                </div>
+              )}
+
+              {/* Verification statement */}
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-950 text-[11px] leading-relaxed">
+                <span className="font-bold block mb-0.5">Admin Clearance Confirmation:</span>
+                I have inspected the submitted photographic evidence, truck number plate, and delivery consignment details. Approving this PO will officially mark it as <strong>CLEARED ✓</strong> in both the Safal Executive Control and the Vendor Dashboard.
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setVerifyApprovalPO(null)}
+                className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmApproveAndClear(verifyApprovalPO)}
+                disabled={isApprovingPO}
+                className="px-5 py-2.5 rounded-xl bg-[#064D2B] hover:bg-[#087A3E] text-white font-extrabold text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                <CheckCircle2 size={15} className="text-emerald-300" />
+                <span>{isApprovingPO ? 'Approving & Clearing...' : 'Approve & Mark as Cleared ✓'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -1201,10 +1201,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                     const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '-';
                     const hub = op.orderPersonPlace || '-';
                     const truck = op.dispatchVehicleNumber || op.truckNo || '-';
-                    const transporter = op.dispatchTransporterName || op.transporter || '-';
-                    const driver = op.dispatchDriverPhone || op.driverPhone || '-';
-                    const vehiclePhoto = op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
-                    const bilty = op.dispatchTransportBillUrl || op.bilty;
+                    const transporter = op.transporterName || op.dispatchTransporterName || op.transporter || '-';
+                    const driver = op.driverPhone || op.dispatchDriverPhone || '-';
+                    const vehiclePhoto = op.vehiclePhotoUrl || op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
+                    const bilty = op.transportBillUrl || op.dispatchTransportBillUrl || op.bilty;
                     const fin = getConsignmentFinancials(op);
                     const advAmt = op.advancePaymentAmount
                       ? formatCurrency(Number(op.advancePaymentAmount))
