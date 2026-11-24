@@ -28,6 +28,7 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { POFinancialsModal } from './POFinancialsModal';
 import { ProofViewerModal } from './ProofViewerModal';
+import { resolvePhotoUrl } from '../utils/imageUtils';
 
 interface PODetailModalProps {
   order: PurchaseOrder;
@@ -385,25 +386,36 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 </div>
               </div>
 
-              {/* Photos & Proofs */}
+              {/* Photos & Proofs (In-Place Lightbox Preview) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 {order.vehiclePhotoUrl && (
                   <div className="p-2.5 bg-white rounded-xl border border-blue-200 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <span className="text-[10px] font-bold text-gray-500 block">Truck &amp; Number Plate Photo</span>
-                      <a
-                        href={order.vehiclePhotoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] font-extrabold text-blue-700 hover:underline flex items-center gap-1 mt-0.5 truncate"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveDocPreview({
+                            url: resolvePhotoUrl(order.vehiclePhotoUrl),
+                            title: `Truck & Number Plate Photo - ${order.poNumber}`,
+                          })
+                        }
+                        className="text-[11px] font-extrabold text-blue-700 hover:underline flex items-center gap-1 mt-0.5 truncate cursor-pointer"
                       >
-                        <Eye size={12} /> View Number Plate Photo ↗
-                      </a>
+                        <Eye size={12} /> View Number Plate Photo
+                      </button>
                     </div>
                     <img
-                      src={order.vehiclePhotoUrl}
+                      src={resolvePhotoUrl(order.vehiclePhotoUrl)}
                       alt="Vehicle"
-                      className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                      onClick={() =>
+                        setActiveDocPreview({
+                          url: resolvePhotoUrl(order.vehiclePhotoUrl),
+                          title: `Truck & Number Plate Photo - ${order.poNumber}`,
+                        })
+                      }
+                      className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0 cursor-pointer hover:opacity-80 transition"
+                      title="Click to view full photo"
                     />
                   </div>
                 )}
@@ -412,24 +424,44 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                   <div className="p-2.5 bg-white rounded-xl border border-blue-200 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <span className="text-[10px] font-bold text-gray-500 block">Transport Bill / Bilty (LR)</span>
-                      <a
-                        href={order.transportBillUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[11px] font-extrabold text-blue-700 hover:underline flex items-center gap-1 mt-0.5 truncate"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveDocPreview({
+                            url: resolvePhotoUrl(order.transportBillUrl),
+                            title: `Transport Bill / Bilty (LR) - ${order.poNumber}`,
+                          })
+                        }
+                        className="text-[11px] font-extrabold text-blue-700 hover:underline flex items-center gap-1 mt-0.5 truncate cursor-pointer"
                       >
-                        <FileText size={12} /> View Transport Bill ↗
-                      </a>
+                        <FileText size={12} /> View Transport Bill
+                      </button>
                     </div>
                     {order.transportBillUrl.endsWith('.pdf') ? (
-                      <span className="w-12 h-12 rounded-lg bg-blue-100 text-blue-800 grid place-items-center font-bold text-[10px] flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveDocPreview({
+                            url: resolvePhotoUrl(order.transportBillUrl),
+                            title: `Transport Bill / Bilty (LR) - ${order.poNumber}`,
+                          })
+                        }
+                        className="w-12 h-12 rounded-lg bg-blue-100 text-blue-800 grid place-items-center font-bold text-[10px] flex-shrink-0 cursor-pointer hover:bg-blue-200 transition"
+                      >
                         PDF
-                      </span>
+                      </button>
                     ) : (
                       <img
-                        src={order.transportBillUrl}
+                        src={resolvePhotoUrl(order.transportBillUrl)}
                         alt="Bilty"
-                        className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                        onClick={() =>
+                          setActiveDocPreview({
+                            url: resolvePhotoUrl(order.transportBillUrl),
+                            title: `Transport Bill / Bilty (LR) - ${order.poNumber}`,
+                          })
+                        }
+                        className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0 cursor-pointer hover:opacity-80 transition"
+                        title="Click to view full transport bill"
                       />
                     )}
                   </div>
@@ -508,19 +540,30 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                       <div className="bg-white p-2 rounded-xl border border-emerald-200 flex items-center justify-between gap-2">
                         <div className="min-w-0">
                           <span className="text-[10px] font-bold text-gray-500 block">Digital Weighbridge Slip</span>
-                          <a
-                            href={order.weighbridgeSlipUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[11px] font-extrabold text-emerald-700 hover:underline flex items-center gap-1 mt-0.5 truncate"
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveDocPreview({
+                                url: resolvePhotoUrl(order.weighbridgeSlipUrl),
+                                title: `Digital Weighbridge Slip - ${order.poNumber}`,
+                              })
+                            }
+                            className="text-[11px] font-extrabold text-emerald-700 hover:underline flex items-center gap-1 mt-0.5 truncate cursor-pointer"
                           >
-                            <Eye size={12} /> View Scale Receipt ↗
-                          </a>
+                            <Eye size={12} /> View Scale Receipt
+                          </button>
                         </div>
                         <img
-                          src={order.weighbridgeSlipUrl}
+                          src={resolvePhotoUrl(order.weighbridgeSlipUrl)}
                           alt="Slip"
-                          className="w-10 h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                          onClick={() =>
+                            setActiveDocPreview({
+                              url: resolvePhotoUrl(order.weighbridgeSlipUrl),
+                              title: `Digital Weighbridge Slip - ${order.poNumber}`,
+                            })
+                          }
+                          className="w-10 h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0 cursor-pointer hover:opacity-80 transition"
+                          title="Click to view full slip"
                         />
                       </div>
                     )}
@@ -696,7 +739,15 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             <div>
               <span className="text-amber-700 font-medium block">Pending Balance</span>
               <strong className="text-amber-800 text-xs block mt-0.5 font-bold">
-                ₹{Number(order.pendingAmount ?? Math.max(0, order.grandTotal - (order.advanceAmount || 0))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                {(() => {
+                  const settle = (order as any).settlementDetails;
+                  const isSettled = Boolean(settle?.settlementCompleted || settle?.hasSettlementEntry || order.status === 'CLOSED');
+                  if (!isSettled) {
+                    return '₹0.00 (Awaiting Settlement)';
+                  }
+                  const finalDue = Number(settle?.finalBalanceDue ?? order.pendingAmount ?? 0);
+                  return `₹${finalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+                })()}
               </strong>
             </div>
           </div>

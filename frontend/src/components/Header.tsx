@@ -199,6 +199,21 @@ export const Header: React.FC<HeaderProps> = ({
       message.toLowerCase().includes('proof') ||
       linkUrl.includes('proof=true');
 
+    if (user?.role === 'VENDOR') {
+      const isDispatch =
+        title.toLowerCase().includes('vehicle') ||
+        title.toLowerCase().includes('allot') ||
+        title.toLowerCase().includes('bilty') ||
+        title.toLowerCase().includes('dispatch') ||
+        message.toLowerCase().includes('allotted');
+      onNavigate(isDispatch ? 'Ready for Dispatch' : 'Dashboard', {
+        orderId,
+        orderNumber,
+        openDispatch: isDispatch,
+      });
+      return;
+    }
+
     if (isCD) {
       onNavigate('Customer Due (CD)', { orderId, orderNumber, openProof });
     } else if (isPO) {

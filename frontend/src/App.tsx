@@ -246,6 +246,7 @@ function MainApp() {
                 onCreatePO={() => setShowCreatePO(true)}
                 activePage={activePage}
                 onNavigate={navigate}
+                navParams={navParams}
               />
             ) : (
               <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} onNotify={notify} />

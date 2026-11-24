@@ -57,6 +57,7 @@ interface VendorDashboardPageProps {
   onCreatePO?: () => void;
   activePage?: string;
   onNavigate?: (page: string) => void;
+  navParams?: any;
 }
 
 export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
@@ -64,6 +65,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   onCreatePO,
   activePage,
   onNavigate,
+  navParams,
 }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<any>({
@@ -432,6 +434,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       setActiveTab('kyc');
     }
   }, [activePage]);
+
+  // Deep-link from System Notifications: open related PO details or dispatch modal
+  useEffect(() => {
+    if (navParams?.orderNumber && orders.length > 0) {
+      const targetPO = orders.find(
+        (o) => o.poNumber?.toLowerCase() === navParams.orderNumber.toLowerCase()
+      );
+      if (targetPO) {
+        if (navParams.openDispatch) {
+          openDispatchModal(targetPO);
+        } else {
+          setSelectedPODetail(targetPO);
+        }
+      }
+    }
+  }, [navParams, orders]);
 
   // Load Admin-Fixed Fruit Procurement Rates from application settings
   useEffect(() => {
@@ -1341,7 +1359,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           }`}
         >
           <ShoppingCart size={15} className="flex-shrink-0" />
-          <span>Consignments ({orders.length})</span>
+          <span className="relative inline-flex items-center">
+            <span>Consignments</span>
+            {orders.length > 0 && (
+              <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-700 text-white shadow-2xs leading-none">
+                {orders.length}
+              </span>
+            )}
+          </span>
         </button>
 
         <button
@@ -1353,7 +1378,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           }`}
         >
           <Truck size={15} className="flex-shrink-0" />
-          <span>Dispatch &amp; Transit ({orders.length})</span>
+          <span className="relative inline-flex items-center">
+            <span>Dispatch &amp; Transit</span>
+            {inTransitOrders.length > 0 && (
+              <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-500 text-white shadow-2xs leading-none">
+                {inTransitOrders.length}
+              </span>
+            )}
+          </span>
         </button>
 
         <button
@@ -1365,7 +1397,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
           }`}
         >
           <Scale size={15} className="flex-shrink-0" />
-          <span>Weighbridge &amp; QC ({orders.filter((o) => o.weighbridgeNetKg || o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'DELIVERED_AT_HUB').length})</span>
+          {(() => {
+            const qcCount = orders.filter((o) => o.weighbridgeNetKg || o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'DELIVERED_AT_HUB').length;
+            return (
+              <span className="relative inline-flex items-center">
+                <span>Weighbridge &amp; QC</span>
+                {qcCount > 0 && (
+                  <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#087A3E] text-white shadow-2xs leading-none">
+                    {qcCount}
+                  </span>
+                )}
+              </span>
+            );
+          })()}
         </button>
 
         <button
@@ -1635,7 +1679,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
           {/* LIVE COLD-CHAIN HIGHWAY TRANSIT TRACKER (Motion Tracking Truck En-Route) */}
           {(() => {
-            const activeOrder = inTransitOrders[0] || orders[0];
+            // Strictly display ONLY when vehicle transit has actually started and is currently en-route
+            const activeOrder = inTransitOrders.find(
+              (o) => o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED'
+            ) || inTransitOrders[0];
+
+            if (!activeOrder) return null;
+
             const activeOrigin = activeOrder?.orderPersonPlace || 'Kashmir Apple Farm';
             const activeDest = activeOrder?.deliveryAddress?.includes('➔')
               ? activeOrder.deliveryAddress.split('➔')[1].replace('Regional Hub Receiving Desk', '').trim()
@@ -2237,115 +2287,6 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               ))}
             </div>
           </div>
-
-          {/* Dedicated Consignment Realized Profit & Loss Ledger */}
-          <div className="bg-white rounded-3xl border border-[#D5E3D8] shadow-sm overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-emerald-50/70 via-emerald-50/30 to-white">
-              <div>
-                <span className="text-[10px] uppercase font-black text-emerald-800 tracking-wider block">
-                  COMMERCIAL MARGINS &amp; REALIZATION
-                </span>
-                <h3 className="text-base font-black text-gray-900 font-['Manrope'] flex items-center gap-2">
-                  <TrendingUp size={18} className="text-[#087A3E]" /> Consignment Profit &amp; Loss Ledger
-                </h3>
-              </div>
-              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black self-start sm:self-auto">
-                Verified Mandi Settlements
-              </span>
-            </div>
-
-            <div className="overflow-x-auto w-full">
-              <table className="w-full border-collapse min-w-[850px] text-xs">
-                <thead>
-                  <tr className="bg-gray-50/90 text-gray-700 border-b border-gray-200">
-                    <th className="py-2.5 px-3 text-left font-bold">Consignment PO #</th>
-                    <th className="py-2.5 px-3 text-left font-bold">Fruit Commodity</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Base Procurement</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Advance Received</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Safal 5% Share</th>
-                    <th className="py-2.5 px-3 text-right font-bold">APMC 1% Cess</th>
-                    <th className="py-2.5 px-3 text-right font-bold">Net Vendor Payable</th>
-                    <th className="py-2.5 px-3 text-center font-bold">Profit / Loss Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {orders.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} className="text-center py-8 text-gray-400">
-                        No consignment records available for P&amp;L analysis.
-                      </td>
-                    </tr>
-                  ) : (
-                    orders.map((po) => {
-                      const total = Number(po.grandTotal || po.totalAmount || 0);
-                      const settle = (po as any).settlementDetails || {};
-                      const isSettled = Boolean(settle.settlementCompleted || settle.hasSettlementEntry);
-                      const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
-                      const safalShare = Number(settle.adminShareAmount ?? Math.round(total * 0.05));
-                      const apmcShare = Number(settle.apmcShareAmount ?? Math.round(total * 0.01));
-                      const netGain = Number(settle.netVendorPayable ?? Math.max(0, total - (safalShare + apmcShare)));
-                      const fin = (po as any).financialRecord;
-                      const hasPL = fin && fin.realizedProfitLoss !== null && fin.realizedProfitLoss !== undefined;
-
-                      return (
-                        <tr key={po.id} className="hover:bg-emerald-50/20 transition">
-                          <td className="py-3 px-3">
-                            <strong className="font-mono text-emerald-800 block">{po.poNumber}</strong>
-                            <small className="text-[10px] text-gray-400">{po.poDate ? new Date(po.poDate).toLocaleDateString('en-GB') : '—'}</small>
-                          </td>
-                          <td className="py-3 px-3">
-                            <span className="font-bold text-gray-800">{po.fruitName || 'Fresh Fruits'}</span>
-                            <small className="block text-[10px] text-gray-500">{po.orderPersonPlace || 'Warangal Hub'}</small>
-                          </td>
-                          <td className="py-3 px-3 text-right font-bold text-gray-900">
-                            ₹{total.toLocaleString('en-IN')}
-                          </td>
-                          <td className="py-3 px-3 text-right font-bold text-emerald-700">
-                            ₹{advance.toLocaleString('en-IN')}
-                          </td>
-                          <td className="py-3 px-3 text-right text-rose-600 font-medium">
-                            {isSettled ? (
-                              `-₹${safalShare.toLocaleString('en-IN')}`
-                            ) : (
-                              <span className="text-gray-500 font-normal">₹0 (Pending)</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-right text-rose-600 font-medium">
-                            {isSettled ? (
-                              `-₹${apmcShare.toLocaleString('en-IN')}`
-                            ) : (
-                              <span className="text-gray-500 font-normal">₹0 (Pending)</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-right font-black text-emerald-900 font-mono">
-                            {isSettled ? (
-                              `₹${netGain.toLocaleString('en-IN')}`
-                            ) : (
-                              <span className="text-gray-500 font-normal">₹0 (Pending)</span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            {hasPL ? (
-                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black inline-flex items-center gap-1 ${
-                                fin.realizedProfitLoss >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
-                              }`}>
-                                {fin.realizedProfitLoss >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                                {fin.realizedProfitLoss >= 0 ? `+₹${Math.round(fin.realizedProfitLoss).toLocaleString('en-IN')} (Net Profit)` : `-₹${Math.round(Math.abs(fin.realizedProfitLoss)).toLocaleString('en-IN')} (Loss)`}
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
-                                <Clock size={10} /> Awaiting Mandi Realization
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       )}
 
@@ -2432,46 +2373,66 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <button
                 type="button"
                 onClick={() => setDispatchTabFilter('ALL')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   dispatchTabFilter === 'ALL'
                     ? 'bg-[#064D2B] text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                All Consignments ({orders.length})
+                <span>All Consignments</span>
+                {orders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-700 text-white leading-none">
+                    {orders.length}
+                  </sup>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setDispatchTabFilter('PENDING')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   dispatchTabFilter === 'PENDING'
                     ? 'bg-amber-600 text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                Ready for Loading ({pendingDispatchOrders.length})
+                <span>Ready for Loading</span>
+                {pendingDispatchOrders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-500 text-white leading-none">
+                    {pendingDispatchOrders.length}
+                  </sup>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setDispatchTabFilter('IN_TRANSIT')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   dispatchTabFilter === 'IN_TRANSIT'
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                In Transit ({inTransitOrders.length})
+                <span>In Transit</span>
+                {inTransitOrders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-blue-500 text-white leading-none">
+                    {inTransitOrders.length}
+                  </sup>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setDispatchTabFilter('COMPLETED')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   dispatchTabFilter === 'COMPLETED'
                     ? 'bg-emerald-700 text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                Delivered &amp; Cleared ✓ ({completedOrders.length})
+                <span>Delivered &amp; Cleared ✓</span>
+                {completedOrders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-600 text-white leading-none">
+                    {completedOrders.length}
+                  </sup>
+                )}
               </button>
             </div>
 
@@ -2688,28 +2649,28 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         </td>
 
                         {/* Action */}
-                        <td className="text-center py-3.5 px-3 whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                        <td className="text-center py-3 px-3 whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5 flex-nowrap">
                             <button
                               type="button"
                               onClick={() => setSelectedPODetail(po)}
-                              className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                              className="h-7 px-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 whitespace-nowrap transition"
                               title="View full PO settlement statement"
                             >
-                              <Eye size={11} /> Settlement Dossier
+                              <Eye size={12} /> Dossier
                             </button>
                             {isPendingDispatch && (
                               (!po.dispatchVehicleNumber || po.dispatchVehicleNumber === '-') ? (
-                                <span className="px-2 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs">
-                                  <Clock size={10} className="text-amber-700 animate-spin" /> Awaiting Allotment
+                                <span className="h-7 px-2 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs whitespace-nowrap">
+                                  <Clock size={11} className="text-amber-700 animate-spin" /> Awaiting Allotment
                                 </span>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => openDispatchModal(po)}
-                                  className="px-2.5 py-1 bg-[#087A3E] hover:bg-[#064D2B] text-white rounded-lg font-bold text-[10px] transition shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95"
+                                  className="h-7 px-2.5 bg-[#087A3E] hover:bg-[#064D2B] text-white rounded-lg font-bold text-[11px] transition shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95 whitespace-nowrap"
                                 >
-                                  <Truck size={11} /> Load &amp; Sign
+                                  <Truck size={12} /> Load &amp; Sign
                                 </button>
                               )
                             )}
@@ -2765,57 +2726,82 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <button
                 type="button"
                 onClick={() => setConsignmentFilter('ALL')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   consignmentFilter === 'ALL'
                     ? 'bg-[#064D2B] text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                All Consignments ({orders.length})
+                <span>All Consignments</span>
+                {orders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-700 text-white leading-none">
+                    {orders.length}
+                  </sup>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setConsignmentFilter('PENDING')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   consignmentFilter === 'PENDING'
                     ? 'bg-amber-600 text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                Pending Dispatch ({pendingDispatchOrders.length})
+                <span>Pending Dispatch</span>
+                {pendingDispatchOrders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-500 text-white leading-none">
+                    {pendingDispatchOrders.length}
+                  </sup>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setConsignmentFilter('IN_TRANSIT')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   consignmentFilter === 'IN_TRANSIT'
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                In Transit ({inTransitOrders.length})
+                <span>In Transit</span>
+                {inTransitOrders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-blue-500 text-white leading-none">
+                    {inTransitOrders.length}
+                  </sup>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setConsignmentFilter('AWAITING_CLEARANCE')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   consignmentFilter === 'AWAITING_CLEARANCE'
                     ? 'bg-amber-600 text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                Awaiting Clearance ({awaitingClearanceOrders.length})
+                <span>Awaiting Clearance</span>
+                {awaitingClearanceOrders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-500 text-white leading-none">
+                    {awaitingClearanceOrders.length}
+                  </sup>
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setConsignmentFilter('CLEARED')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
                   consignmentFilter === 'CLEARED' || consignmentFilter === 'DELIVERED'
                     ? 'bg-emerald-700 text-white shadow-xs'
                     : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
                 }`}
               >
-                Cleared ✓ ({clearedOrders.length})
+                <span>Cleared ✓</span>
+                {clearedOrders.length > 0 && (
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-600 text-white leading-none">
+                    {clearedOrders.length}
+                  </sup>
+                )}
               </button>
             </div>
 
@@ -3079,24 +3065,24 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           </td>
 
                           {/* Actions */}
-                          <td className="text-center py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <td className="text-center py-3 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center gap-1.5 flex-nowrap">
                               <button
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setSelectedPODetail(po);
                                 }}
-                                className="px-2.5 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                                className="h-7 px-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 whitespace-nowrap transition"
                                 title="View full PO settlement statement & commercial realization"
                               >
-                                <Eye size={11} /> Settlement Dossier
+                                <Eye size={12} /> Dossier
                               </button>
 
                               {po.dispatchStatus === 'PENDING_DISPATCH' && (
                                 (!po.dispatchVehicleNumber || po.dispatchVehicleNumber === '-') ? (
-                                  <span className="px-2 py-1 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs">
-                                    <Clock size={10} className="text-amber-700 animate-spin" /> Awaiting Allotment
+                                  <span className="h-7 px-2 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs whitespace-nowrap">
+                                    <Clock size={11} className="text-amber-700 animate-spin" /> Awaiting Allotment
                                   </span>
                                 ) : (
                                   <button
@@ -3105,9 +3091,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                       e.stopPropagation();
                                       openDispatchModal(po);
                                     }}
-                                    className="px-2.5 py-1.5 bg-[#087A3E] hover:bg-[#064D2B] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95"
+                                    className="h-7 px-2.5 bg-[#087A3E] hover:bg-[#064D2B] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 shadow-xs cursor-pointer active:scale-95 whitespace-nowrap transition"
                                   >
-                                    <Truck size={11} /> Load &amp; Sign
+                                    <Truck size={12} /> Load &amp; Sign
                                   </button>
                                 )
                               )}
@@ -3804,36 +3790,51 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <div>
-                    <label className="block text-gray-700 font-bold mb-1">
-                      Vehicle Registration Number *
+                    <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                      <span>Vehicle Registration Number *</span>
+                      <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                        🔒 Allotted
+                      </span>
                     </label>
                     <input
                       type="text"
-                      required
-                      value={vehicleNumber}
-                      onChange={(e) => setVehicleNumber(e.target.value.toUpperCase())}
+                      readOnly
+                      disabled
+                      value={vehicleNumber || selectedPOForDispatch.dispatchVehicleNumber || ''}
                       placeholder="e.g. TS09UB4521"
-                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl font-mono text-xs font-bold text-gray-900 focus:border-[#087A3E] focus:ring-2 focus:ring-emerald-100 outline-none uppercase bg-white"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl font-mono text-xs font-bold text-gray-800 bg-gray-100 cursor-not-allowed outline-none uppercase select-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-bold mb-1">Transporter / Agency Name</label>
+                    <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                      <span>Transporter / Agency Name</span>
+                      <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                        🔒 Allotted
+                      </span>
+                    </label>
                     <input
                       type="text"
-                      value={transporterName}
-                      onChange={(e) => setTransporterName(e.target.value)}
+                      readOnly
+                      disabled
+                      value={transporterName || selectedPOForDispatch.transporterName || 'SAFAL Cold-Chain Express'}
                       placeholder="e.g. New Golden Roadways"
-                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 outline-none bg-white font-medium"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 bg-gray-100 cursor-not-allowed outline-none font-medium select-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-gray-700 font-bold mb-1">Driver Contact Phone</label>
+                    <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
+                      <span>Driver Contact Phone</span>
+                      <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300">
+                        🔒 Allotted
+                      </span>
+                    </label>
                     <input
                       type="text"
-                      value={driverPhone}
-                      onChange={(e) => setDriverPhone(e.target.value)}
+                      readOnly
+                      disabled
+                      value={driverPhone || selectedPOForDispatch.driverPhone || 'Contact Dispatch Desk'}
                       placeholder="e.g. 9848012345"
-                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 outline-none bg-white font-medium"
+                      className="w-full h-9 px-2.5 border border-gray-300 rounded-xl text-xs text-gray-800 bg-gray-100 cursor-not-allowed outline-none font-medium select-none"
                     />
                   </div>
                 </div>
