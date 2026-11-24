@@ -13,9 +13,15 @@ import {
   AlertCircle,
   ArrowRight,
   Sparkles,
+  Camera,
+  Upload,
+  CheckCircle2,
+  Trash2,
+  Eye,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { compressImageFile } from '../utils/watermark';
 
 interface AddDuePOModalProps {
   onClose: () => void;
@@ -51,6 +57,43 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Payment Proof Attachment State (Mandatory when Paid Amount > ₹0)
+  const [paymentProofMode, setPaymentProofMode] = useState<'PHONEPE' | 'CASH' | 'BANK'>('PHONEPE');
+  const [cdProofFile, setCdProofFile] = useState<File | null>(null);
+  const [cdProofPreview, setCdProofPreview] = useState<string>('');
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const [showFullProofPreview, setShowFullProofPreview] = useState(false);
+
+  const handleProofFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const rawFile = e.target.files[0];
+      try {
+        setIsProcessingImage(true);
+        if (rawFile.type.startsWith('image/')) {
+          const { file: optimizedFile, previewUrl } = await compressImageFile(rawFile, 1440, 0.82);
+          setCdProofFile(optimizedFile);
+          setCdProofPreview(previewUrl);
+        } else {
+          setCdProofFile(rawFile);
+          setCdProofPreview('');
+        }
+        setError('');
+      } catch (err) {
+        setCdProofFile(rawFile);
+        if (rawFile.type.startsWith('image/')) {
+          setCdProofPreview(URL.createObjectURL(rawFile));
+        }
+      } finally {
+        setIsProcessingImage(false);
+      }
+    }
+  };
+
+  const handleRemoveProof = () => {
+    setCdProofFile(null);
+    setCdProofPreview('');
+  };
+
   // Live calculation of due balance
   const numTotal = Number(grandTotal) || 0;
   const numAdvance = Number(advanceAmount) || 0;
@@ -73,28 +116,61 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
       return;
     }
 
+    if (isCD && numAdvance > 0 && !cdProofFile) {
+      setError(`Payment Proof (${paymentProofMode === 'PHONEPE' ? 'PhonePe screenshot' : paymentProofMode === 'CASH' ? 'Cash bill slip' : 'Payment receipt'}) is mandatory when Payed Amount (₹${numAdvance.toLocaleString('en-IN')}) is recorded.`);
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       setError('');
 
-      const res = await api.createDuePurchaseOrder({
-        poNumber: customPONumber.trim() || undefined,
-        poDate: orderDate ? new Date(orderDate).toISOString() : new Date().toISOString(),
-        supplierName: supplierName.trim(),
-        supplierContact: supplierContact.trim() || undefined,
-        orderPersonName: orderPersonName.trim() || user?.name || 'Staff',
-        orderPersonPlace: orderPersonPlace.trim(),
-        grandTotal: numTotal,
-        advanceAmount: numAdvance,
-        pendingAmount: currentPending,
-        fruitName: fruitName.trim() || 'Assorted Fruits Consignment',
-        varietyGrade: varietyGrade.trim() || 'Grade A',
-        quantity: Number(quantity) || 1,
-        unit: unit || 'LOT',
-        notes: notes.trim() || undefined,
-        isCD: isCD,
-        type: isCD ? 'CD' : 'PO',
-      });
+      let res: any;
+      if (cdProofFile) {
+        const fd = new FormData();
+        if (customPONumber.trim()) fd.append('poNumber', customPONumber.trim());
+        fd.append('poDate', orderDate ? new Date(orderDate).toISOString() : new Date().toISOString());
+        fd.append('supplierName', supplierName.trim());
+        if (supplierContact.trim()) fd.append('supplierContact', supplierContact.trim());
+        fd.append('orderPersonName', orderPersonName.trim() || user?.name || 'Staff');
+        fd.append('orderPersonPlace', orderPersonPlace.trim());
+        fd.append('grandTotal', String(numTotal));
+        fd.append('advanceAmount', String(numAdvance));
+        fd.append('pendingAmount', String(currentPending));
+        fd.append('fruitName', fruitName.trim() || 'Assorted Fruits Consignment');
+        fd.append('varietyGrade', varietyGrade.trim() || 'Grade A');
+        fd.append('quantity', String(Number(quantity) || 1));
+        fd.append('unit', unit || 'LOT');
+        if (notes.trim()) fd.append('notes', notes.trim());
+        fd.append('isCD', String(isCD));
+        fd.append('type', isCD ? 'CD' : 'PO');
+        fd.append('paymentProof', cdProofFile);
+        fd.append('paymentMode', paymentProofMode);
+        fd.append(
+          'paymentProofNotes',
+          `${paymentProofMode === 'PHONEPE' ? 'PhonePe UPI Screenshot' : paymentProofMode === 'CASH' ? 'Cash Bill Slip' : 'Bank Slip'} attached at CD creation by ${orderPersonName.trim()}`
+        );
+        res = await api.createDuePurchaseOrder(fd);
+      } else {
+        res = await api.createDuePurchaseOrder({
+          poNumber: customPONumber.trim() || undefined,
+          poDate: orderDate ? new Date(orderDate).toISOString() : new Date().toISOString(),
+          supplierName: supplierName.trim(),
+          supplierContact: supplierContact.trim() || undefined,
+          orderPersonName: orderPersonName.trim() || user?.name || 'Staff',
+          orderPersonPlace: orderPersonPlace.trim(),
+          grandTotal: numTotal,
+          advanceAmount: numAdvance,
+          pendingAmount: currentPending,
+          fruitName: fruitName.trim() || 'Assorted Fruits Consignment',
+          varietyGrade: varietyGrade.trim() || 'Grade A',
+          quantity: Number(quantity) || 1,
+          unit: unit || 'LOT',
+          notes: notes.trim() || undefined,
+          isCD: isCD,
+          type: isCD ? 'CD' : 'PO',
+        });
+      }
 
       onSuccess(
         `Pre-existing Due ${isCD ? 'CD' : 'PO'} ${res.poNumber} (${supplierName}) added successfully! Outstanding Due: ₹${currentPending.toLocaleString('en-IN')}`
@@ -323,6 +399,170 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
                 />
               </div>
             </div>
+
+            {/* Upfront Payment Proof Attachment (Mandatory if Paid Amount > 0) */}
+            {isCD && (
+              <div className="mt-3 pt-3 border-t border-rose-200/80">
+                <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Receipt size={14} className="text-emerald-700" />
+                    <span className="text-xs font-black text-gray-900 uppercase tracking-wide">
+                      Upfront Payment Proof Image
+                    </span>
+                    {numAdvance > 0 ? (
+                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                        * Required for ₹{numAdvance.toLocaleString('en-IN')}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                        Optional if ₹0 Paid
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                    Admin & Accountant Verified
+                  </span>
+                </div>
+
+                <p className="text-[11px] text-gray-600 mb-2">
+                  If cash was received, upload photo of bill/receipt slip. If paid via PhonePe/UPI, upload payment screenshot.
+                </p>
+
+                {/* Mode Selector */}
+                <div className="grid grid-cols-3 gap-1.5 mb-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentProofMode('PHONEPE')}
+                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer border ${
+                      paymentProofMode === 'PHONEPE'
+                        ? 'bg-purple-600 text-white border-purple-700 shadow-xs'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span>📱</span>
+                    <span className="truncate">PhonePe / UPI</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentProofMode('CASH')}
+                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer border ${
+                      paymentProofMode === 'CASH'
+                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span>💵</span>
+                    <span className="truncate">Cash Bill / Slip</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentProofMode('BANK')}
+                    className={`py-1.5 px-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer border ${
+                      paymentProofMode === 'BANK'
+                        ? 'bg-blue-600 text-white border-blue-700 shadow-xs'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span>🏦</span>
+                    <span className="truncate">Bank Transfer</span>
+                  </button>
+                </div>
+
+                {/* File picker & camera */}
+                {!cdProofFile && !cdProofPreview ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className="flex items-center justify-center gap-2 px-3 py-2.5 border-2 border-dashed border-emerald-400 hover:border-emerald-600 rounded-xl bg-white hover:bg-emerald-50 text-emerald-900 cursor-pointer transition text-xs font-bold shadow-2xs">
+                      <Upload size={15} className="text-emerald-700 shrink-0" />
+                      <span className="truncate">
+                        Upload {paymentProofMode === 'PHONEPE' ? 'PhonePe Screenshot' : paymentProofMode === 'CASH' ? 'Cash Bill Photo' : 'Payment Slip'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        onChange={handleProofFileSelect}
+                        disabled={isProcessingImage}
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-center gap-2 px-3 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl cursor-pointer transition text-xs font-bold shadow-sm active:scale-98">
+                      <Camera size={15} className="shrink-0" />
+                      <span>Take Live Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        className="hidden"
+                        onChange={handleProofFileSelect}
+                        disabled={isProcessingImage}
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-2 bg-white border border-emerald-400 rounded-xl shadow-xs">
+                    {cdProofPreview ? (
+                      <div
+                        className="relative w-14 h-14 rounded-lg overflow-hidden border border-emerald-300 shrink-0 cursor-pointer group"
+                        onClick={() => setShowFullProofPreview(true)}
+                        title="Click to view full photo"
+                      >
+                        <img
+                          src={cdProofPreview}
+                          alt="Proof preview"
+                          className="w-full h-full object-cover group-hover:scale-110 transition"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-800 font-bold text-xs shrink-0">
+                        PDF
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 font-bold text-xs text-emerald-950">
+                        <CheckCircle2 size={13} className="text-emerald-700 shrink-0" />
+                        <span className="truncate">{cdProofFile?.name || 'Proof Attached'}</span>
+                      </div>
+                      <p className="text-[10px] text-emerald-700 font-semibold">
+                        {paymentProofMode === 'PHONEPE' ? 'PhonePe Screenshot' : paymentProofMode === 'CASH' ? 'Cash Bill Photo' : 'Bank Slip'} attached
+                      </p>
+                      {cdProofFile && (
+                        <p className="text-[9px] text-gray-400">
+                          {(cdProofFile.size / 1024).toFixed(1)} KB (Optimized)
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      {cdProofPreview && (
+                        <button
+                          type="button"
+                          onClick={() => setShowFullProofPreview(true)}
+                          className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg transition"
+                          title="View Proof"
+                        >
+                          <Eye size={15} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleRemoveProof}
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                        title="Remove"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {isProcessingImage && (
+                  <p className="text-xs text-emerald-800 font-semibold mt-1.5 animate-pulse flex items-center gap-1">
+                    <Sparkles size={12} /> Compressing image...
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Section 4: Fruit & Notes */}
@@ -407,6 +647,44 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
           </button>
         </div>
       </form>
+
+      {/* Fullscreen Proof Preview Modal */}
+      {showFullProofPreview && cdProofPreview && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setShowFullProofPreview(false)}
+        >
+          <div
+            className="max-w-2xl w-full bg-white rounded-2xl p-4 flex flex-col items-center shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex items-center justify-between pb-2 border-b border-gray-200">
+              <h4 className="font-bold text-gray-900 text-sm">Payment Proof Preview</h4>
+              <button
+                type="button"
+                onClick={() => setShowFullProofPreview(false)}
+                className="p-1.5 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-100 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="py-3 max-h-[70vh] overflow-auto flex items-center justify-center w-full">
+              <img
+                src={cdProofPreview}
+                alt="Full Proof"
+                className="max-h-[65vh] max-w-full rounded-lg shadow-sm object-contain"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFullProofPreview(false)}
+              className="w-full py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl text-xs cursor-pointer transition"
+            >
+              Close Preview
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

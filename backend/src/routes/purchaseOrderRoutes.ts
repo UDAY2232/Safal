@@ -28,10 +28,10 @@ router.put('/:id', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), updatePurchas
 router.get('/:id/pdf', downloadPurchaseOrderPDF);
 router.delete('/:id', requireRole('ADMIN'), deletePurchaseOrder);
 
-// Creating & submitting POs
-router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE', 'VENDOR'), createPurchaseOrder);
-router.post('/due-orders', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createDuePurchaseOrder);
-router.post('/legacy-due', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), createDuePurchaseOrder);
+// Creating & submitting POs (supports paymentProof upload for upfront CD payments)
+router.post('/', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE', 'VENDOR'), upload.single('paymentProof'), createPurchaseOrder);
+router.post('/due-orders', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), upload.single('paymentProof'), createDuePurchaseOrder);
+router.post('/legacy-due', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), upload.single('paymentProof'), createDuePurchaseOrder);
 router.post('/:id/submit', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), submitPurchaseOrder);
 
 // Admin workflow

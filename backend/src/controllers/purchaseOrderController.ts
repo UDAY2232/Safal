@@ -400,14 +400,24 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
         ? Number(totalAmount)
         : 0;
 
+    // Handle items if provided as JSON string from multipart FormData
+    let parsedItems = items;
+    if (typeof items === 'string') {
+      try {
+        parsedItems = JSON.parse(items);
+      } catch (err) {
+        parsedItems = [];
+      }
+    }
+
     // Calculate totals
     let subtotal = 0;
     let discountTotal = 0;
     let taxTotal = 0;
     let processedItems: any[] = [];
 
-    if (items && Array.isArray(items) && items.length > 0) {
-      processedItems = items.map((item: any) => {
+    if (parsedItems && Array.isArray(parsedItems) && parsedItems.length > 0) {
+      processedItems = parsedItems.map((item: any) => {
         const qty = Number(item.quantity) || 1;
         const rate = Number(item.ratePerUnit) || 0;
         const discPercent = Number(item.discountPercent) || 0;
@@ -466,7 +476,39 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       ? Number(pendingAmount)
       : Math.max(0, grandTotal - advance);
     const isVendorUser = req.user?.role === 'VENDOR';
-    const initialStatus = isVendorUser ? 'PENDING_APPROVAL' : submitForApproval ? 'PENDING_APPROVAL' : 'DRAFT';
+    const isEmployee = req.user?.role === 'EMPLOYEE';
+    const isCD =
+      isEmployee ||
+      req.body.isCD === true ||
+      req.body.isCD === 'true' ||
+      req.body.type === 'CD' ||
+      req.query.type === 'CD';
+
+    const shouldSubmit =
+      submitForApproval === true ||
+      submitForApproval === 'true' ||
+      String(submitForApproval).toLowerCase() === 'true';
+    const initialStatus = isVendorUser ? 'PENDING_APPROVAL' : shouldSubmit ? 'PENDING_APPROVAL' : 'DRAFT';
+
+    // Extract upfront payment proof if provided
+    const paymentProofUrl = req.file
+      ? `/uploads/${req.file.filename}`
+      : req.body.paymentProofUrl
+      ? String(req.body.paymentProofUrl).trim()
+      : null;
+
+    const paymentProofNotes = req.body.paymentProofNotes
+      ? String(req.body.paymentProofNotes).trim()
+      : paymentProofUrl
+      ? `${req.body.paymentMode || 'Payment'} proof attached at CD creation`
+      : null;
+
+    // Strict Enforcement: When upfront Payed Amount > 0 on a Customer Due, proof image is strictly required for employees
+    if (isCD && advance > 0 && !paymentProofUrl && isEmployee) {
+      return res.status(400).json({
+        error: `Payment proof image (PhonePe screenshot or Cash bill receipt) is mandatory when Payed Amount (₹${advance.toLocaleString('en-IN')}) is recorded.`,
+      });
+    }
 
     // Resolve vendorProfileId if supplier is a registered Vendor (supplierCode starts with VND-) or user is VENDOR
     let linkedVendorProfileId: string | null = req.body.vendorProfileId || null;
@@ -554,6 +596,8 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
               grandTotal,
               advanceAmount: finalAdvance,
               pendingAmount: finalPending,
+              paymentProofUrl: paymentProofUrl || null,
+              paymentProofNotes: paymentProofNotes || null,
               status: initialStatus,
               items: {
                 create: processedItems,
@@ -562,7 +606,9 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
                 create: {
                   status: initialStatus,
                   changedById: req.user!.id,
-                  comment: submitForApproval ? 'Created and submitted for approval' : 'Saved as draft',
+                  comment: shouldSubmit
+                    ? `Created and submitted for approval${paymentProofUrl ? ' [Upfront Payment Proof Attached]' : ''}`
+                    : 'Saved as draft',
                 },
               },
               financialRecord: {
@@ -588,7 +634,7 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
     }
 
     // Create Notification if submitted for approval or created by Vendor
-    if (submitForApproval || isVendorUser) {
+    if (shouldSubmit || isVendorUser) {
       const isCD = newPO.poNumber.startsWith('CD/');
       await prisma.notification.create({
         data: {
@@ -598,9 +644,9 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
             : isCD
             ? `New CD Awaiting Approval: ${newPO.poNumber}`
             : `New PO Awaiting Approval: ${newPO.poNumber}`,
-          message: `${newPO.poNumber} from ${newPO.supplier.name} for ₹${grandTotal.toLocaleString('en-IN')} submitted by ${req.user!.name}`,
+          message: `${newPO.poNumber} from ${newPO.supplier.name} for ₹${grandTotal.toLocaleString('en-IN')} submitted by ${req.user!.name}${newPO.paymentProofUrl ? ' (Payment proof attached for verification)' : ''}`,
           type: 'ACTION_REQUIRED',
-          linkUrl: `/purchase-orders/${newPO.id}?type=${isCD ? 'CD' : 'PO'}`,
+          linkUrl: `/purchase-orders/${newPO.id}?type=${isCD ? 'CD' : 'PO'}${newPO.paymentProofUrl ? '&proof=true' : ''}`,
         },
       });
     }
@@ -1315,6 +1361,19 @@ export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
       const numQty = Number(quantity) || 1;
       const rate = total / numQty;
 
+      // Extract payment proof if uploaded
+      const duePaymentProofUrl = req.file
+        ? `/uploads/${req.file.filename}`
+        : req.body.paymentProofUrl
+        ? String(req.body.paymentProofUrl).trim()
+        : null;
+
+      const duePaymentProofNotes = req.body.paymentProofNotes
+        ? String(req.body.paymentProofNotes).trim()
+        : duePaymentProofUrl
+        ? `Upfront payment proof: ${req.body.paymentMode || 'Payment'}`
+        : null;
+
       // 3. Create PO
       const po = await tx.purchaseOrder.create({
         data: {
@@ -1327,6 +1386,8 @@ export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
           subtotal: total,
           advanceAmount: advance,
           pendingAmount: pending,
+          paymentProofUrl: duePaymentProofUrl || null,
+          paymentProofNotes: duePaymentProofNotes || null,
           status,
           notes: [
             req.body.orderPersonName ? `Order Taken By: ${String(req.body.orderPersonName).trim()}` : '',
