@@ -37,10 +37,12 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
     let financialRecords: any[] = [];
     let auditLogs: any[] = [];
     let todayAttendances: any[] = [];
+    let mySalary: any = null;
 
     if (isEmp) {
       // High-performance targeted queries for Employee console
-      [pos, expenses, todayAttendances] = await Promise.all([
+      let myEmpRecord: any = null;
+      [pos, expenses, todayAttendances, myEmpRecord] = await Promise.all([
         prisma.purchaseOrder.findMany({
           where: { createdById: req.user!.id },
           include: { supplier: true, createdBy: true },
@@ -57,7 +59,78 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
           where: { date: today, userId: req.user!.id },
           include: { user: true },
         }),
+        prisma.employee.findFirst({
+          where: {
+            OR: [
+              { userId: req.user!.id },
+              ...(req.user?.email ? [{ email: { equals: req.user.email, mode: 'insensitive' as const } }] : []),
+            ],
+          },
+          include: {
+            wageRecords: {
+              orderBy: { createdAt: 'desc' },
+              take: 12,
+              include: {
+                payments: {
+                  orderBy: { paymentDate: 'desc' },
+                },
+              },
+            },
+          },
+        }),
       ]);
+
+      if (myEmpRecord) {
+        const records = myEmpRecord.wageRecords || [];
+        const totalGross = records.reduce((sum: number, r: any) => sum + Number(r.grossAmount || 0), 0);
+        const totalDeductions = records.reduce((sum: number, r: any) => sum + Number(r.deductions || 0), 0);
+        const totalNetPayable = records.reduce((sum: number, r: any) => sum + Number(r.netPayable || 0), 0);
+        const totalPaid = records.reduce((sum: number, r: any) => sum + Number(r.amountPaid || 0), 0);
+        const balanceRemaining = records.reduce((sum: number, r: any) => sum + Number(r.balanceRemaining || 0), 0);
+        const latestRecord = records[0] || null;
+
+        mySalary = {
+          id: myEmpRecord.id,
+          employeeId: myEmpRecord.employeeId,
+          fullName: myEmpRecord.fullName,
+          designation: myEmpRecord.designation,
+          department: myEmpRecord.department,
+          wageType: myEmpRecord.wageType,
+          baseWageRate: Number(myEmpRecord.baseWageRate || 0),
+          status: myEmpRecord.status,
+          joiningDate: myEmpRecord.joiningDate,
+          totalGross,
+          totalDeductions,
+          totalNetPayable,
+          totalPaid,
+          balanceRemaining,
+          latestPeriod: latestRecord?.payPeriod || null,
+          latestStatus: latestRecord?.status || null,
+          records: records.map((r: any) => ({
+            id: r.id,
+            payPeriod: r.payPeriod,
+            wageType: r.wageType,
+            wageRate: Number(r.wageRate),
+            workedUnits: r.workedUnits ? Number(r.workedUnits) : null,
+            grossAmount: Number(r.grossAmount),
+            deductions: Number(r.deductions),
+            deductionNotes: r.deductionNotes,
+            netPayable: Number(r.netPayable),
+            amountPaid: Number(r.amountPaid),
+            balanceRemaining: Number(r.balanceRemaining),
+            status: r.status,
+            payments: (r.payments || []).map((p: any) => ({
+              id: p.id,
+              amount: Number(p.amount),
+              paymentDate: p.paymentDate,
+              paymentMethod: p.paymentMethod,
+              transactionRef: p.transactionRef,
+              receiptNumber: p.receiptNumber,
+              notes: p.notes,
+            })),
+          })),
+        };
+      }
     } else {
       [
         pos,
@@ -367,6 +440,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         status: e.status,
       })),
       recentActivityLogs: auditLogs,
+      mySalary,
     };
 
     dashboardMemoryCache.set(cacheKey, { data: responsePayload, expiry: Date.now() + 15000 });

@@ -259,3 +259,98 @@ export async function recordWagePayment(req: AuthRequest, res: Response) {
   }
 }
 
+/**
+ * Personal salary & wage records for the logged-in employee.
+ * Strictly scoped to the authenticated user's own profile.
+ */
+export async function getMySalary(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthenticated' });
+    }
+
+    const employee = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { userId: req.user.id },
+          ...(req.user.email ? [{ email: { equals: req.user.email, mode: 'insensitive' as const } }] : []),
+        ],
+      },
+      include: {
+        wageRecords: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            payments: {
+              orderBy: { paymentDate: 'desc' },
+            },
+          },
+        },
+      },
+    });
+
+    if (!employee) {
+      return res.json({
+        hasProfile: false,
+        mySalary: null,
+      });
+    }
+
+    const records = employee.wageRecords || [];
+    const totalGross = records.reduce((sum, r) => sum + Number(r.grossAmount || 0), 0);
+    const totalDeductions = records.reduce((sum, r) => sum + Number(r.deductions || 0), 0);
+    const totalNetPayable = records.reduce((sum, r) => sum + Number(r.netPayable || 0), 0);
+    const totalPaid = records.reduce((sum, r) => sum + Number(r.amountPaid || 0), 0);
+    const balanceRemaining = records.reduce((sum, r) => sum + Number(r.balanceRemaining || 0), 0);
+    const latestRecord = records[0] || null;
+
+    return res.json({
+      hasProfile: true,
+      mySalary: {
+        id: employee.id,
+        employeeId: employee.employeeId,
+        fullName: employee.fullName,
+        designation: employee.designation,
+        department: employee.department,
+        wageType: employee.wageType,
+        baseWageRate: Number(employee.baseWageRate || 0),
+        status: employee.status,
+        joiningDate: employee.joiningDate,
+        totalGross,
+        totalDeductions,
+        totalNetPayable,
+        totalPaid,
+        balanceRemaining,
+        latestPeriod: latestRecord?.payPeriod || null,
+        latestStatus: latestRecord?.status || null,
+        records: records.map((r) => ({
+          id: r.id,
+          payPeriod: r.payPeriod,
+          wageType: r.wageType,
+          wageRate: Number(r.wageRate),
+          workedUnits: r.workedUnits ? Number(r.workedUnits) : null,
+          grossAmount: Number(r.grossAmount),
+          deductions: Number(r.deductions),
+          deductionNotes: r.deductionNotes,
+          netPayable: Number(r.netPayable),
+          amountPaid: Number(r.amountPaid),
+          balanceRemaining: Number(r.balanceRemaining),
+          status: r.status,
+          payments: r.payments.map((p) => ({
+            id: p.id,
+            amount: Number(p.amount),
+            paymentDate: p.paymentDate,
+            paymentMethod: p.paymentMethod,
+            transactionRef: p.transactionRef,
+            receiptNumber: p.receiptNumber,
+            notes: p.notes,
+          })),
+        })),
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching personal employee salary:', error);
+    return res.status(500).json({ error: 'Failed to fetch personal wage/salary information' });
+  }
+}
+
+

@@ -22,8 +22,12 @@ export interface AuthenticatedUser {
   employee?: {
     id: string;
     employeeId: string;
+    fullName?: string;
     department: string;
     designation: string;
+    wageType?: string;
+    baseWageRate?: number;
+    status?: string;
   } | null;
   vendorProfile?: {
     id: string;
@@ -77,8 +81,12 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
         ? {
             id: user.employee.id,
             employeeId: user.employee.employeeId,
+            fullName: user.employee.fullName,
             department: user.employee.department,
             designation: user.employee.designation,
+            wageType: user.employee.wageType,
+            baseWageRate: Number(user.employee.baseWageRate || 0),
+            status: user.employee.status,
           }
         : null,
       vendorProfile: user.vendorProfile

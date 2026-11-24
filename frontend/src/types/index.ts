@@ -68,8 +68,12 @@ export interface User {
   employee?: {
     id: string;
     employeeId: string;
+    fullName?: string;
     department: string;
     designation: string;
+    wageType?: string;
+    baseWageRate?: number;
+    status?: string;
   } | null;
   vendorProfile?: VendorProfile | null;
 }
@@ -223,6 +227,52 @@ export interface WageRecord {
   paymentsCount: number;
   latestPaymentDate?: string | null;
   payments?: WagePayment[];
+}
+
+export interface MySalaryPayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  paymentMethod: string;
+  transactionRef: string;
+  receiptNumber: string;
+  notes?: string | null;
+}
+
+export interface MySalaryRecord {
+  id: string;
+  payPeriod: string;
+  wageType: string;
+  wageRate: number;
+  workedUnits?: number | null;
+  grossAmount: number;
+  deductions: number;
+  deductionNotes?: string | null;
+  netPayable: number;
+  amountPaid: number;
+  balanceRemaining: number;
+  status: string;
+  payments: MySalaryPayment[];
+}
+
+export interface MySalaryData {
+  id?: string;
+  employeeId: string;
+  fullName: string;
+  designation: string;
+  department: string;
+  wageType: string;
+  baseWageRate: number;
+  status: string;
+  joiningDate?: string;
+  totalGross?: number;
+  totalDeductions?: number;
+  totalNetPayable: number;
+  totalPaid: number;
+  balanceRemaining: number;
+  latestPeriod?: string | null;
+  latestStatus?: string | null;
+  records: MySalaryRecord[];
 }
 
 export interface ExpensePayment {

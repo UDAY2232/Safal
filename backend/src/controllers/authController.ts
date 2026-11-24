@@ -108,8 +108,12 @@ export async function login(req: Request, res: Response) {
           ? {
               id: user.employee.id,
               employeeId: user.employee.employeeId,
+              fullName: user.employee.fullName,
               department: user.employee.department,
               designation: user.employee.designation,
+              wageType: user.employee.wageType,
+              baseWageRate: Number(user.employee.baseWageRate || 0),
+              status: user.employee.status,
             }
           : null,
         vendorProfile: user.vendorProfile
@@ -162,8 +166,12 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
           ? {
               id: user.employee.id,
               employeeId: user.employee.employeeId,
+              fullName: user.employee.fullName,
               department: user.employee.department,
               designation: user.employee.designation,
+              wageType: user.employee.wageType,
+              baseWageRate: Number(user.employee.baseWageRate || 0),
+              status: user.employee.status,
             }
           : null,
         vendorProfile: user.vendorProfile

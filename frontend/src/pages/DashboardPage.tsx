@@ -33,7 +33,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
 } from 'lucide-react';
-import { VENDOR_WHITELISTED_LOCATIONS } from '../types';
+import { VENDOR_WHITELISTED_LOCATIONS, MySalaryData } from '../types';
 import {
   ResponsiveContainer,
   BarChart,
@@ -55,6 +55,7 @@ import { PODetailModal } from '../components/PODetailModal';
 import { SubmitDuePaymentModal } from '../components/SubmitDuePaymentModal';
 import { ExpenseActionModal } from '../components/ExpenseActionModal';
 import { SubmitExpenseModal } from '../components/SubmitExpenseModal';
+import { MySalaryModal } from '../components/MySalaryModal';
 
 interface DashboardPageProps {
   onNavigate: (page: string, params?: any) => void;
@@ -163,6 +164,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   const [editTransportCost, setEditTransportCost] = useState<number>(35000);
   const [editHamaliCost, setEditHamaliCost] = useState<number>(5000);
   const [savingPL, setSavingPL] = useState(false);
+
+  // Personal Employee Salary State (Self-Only)
+  const [showMySalaryModal, setShowMySalaryModal] = useState(false);
+  const [mySalaryData, setMySalaryData] = useState<MySalaryData | null>(null);
 
   const getConsignmentFinancials = (op: any) => {
     const items = op.items || [];
@@ -356,9 +361,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         const res = await api.getAdminDashboard();
         if (isMounted) {
           setData(res);
+          if (res?.mySalary) {
+            setMySalaryData(res.mySalary);
+          }
           memoryDashboardCache = res;
           try {
             localStorage.setItem('safal_dashboard_cache', JSON.stringify(res));
+          } catch {}
+        }
+
+        // For employee accounts, fetch fresh personal wage/salary records
+        if (user?.role === 'EMPLOYEE') {
+          try {
+            const wageRes = await api.getMySalary();
+            if (isMounted && wageRes?.mySalary) {
+              setMySalaryData(wageRes.mySalary);
+            }
           } catch {}
         }
       } catch (err) {
@@ -404,6 +422,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
     name: key.replace(/([A-Z])/g, ' $1').trim(),
     value: Number(value),
   }));
+
+  // Logged-in Employee Personal Compensation (Strictly Self-Only)
+  const effectiveSalaryData: MySalaryData = mySalaryData || safeData.mySalary || {
+    employeeId: user?.employee?.employeeId || 'EMP',
+    fullName: user?.employee?.fullName || user?.name || 'Employee',
+    designation: user?.employee?.designation || user?.designation || 'Field Staff',
+    department: user?.employee?.department || user?.department || 'Operations',
+    wageType: user?.employee?.wageType || 'MONTHLY',
+    baseWageRate: Number(user?.employee?.baseWageRate || 0),
+    status: user?.employee?.status || 'ACTIVE',
+    totalNetPayable: Number(user?.employee?.baseWageRate || 0),
+    totalPaid: 0,
+    balanceRemaining: 0,
+    records: [],
+  };
 
   // -------------------------------------------------------------
   // 1. OPERATIONS CONSOLE (Accountants & Field Employees)
@@ -455,8 +488,72 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         {/* Priority Daily Attendance Tracker */}
         <AttendancePunchWidget onViewLogs={() => onNavigate('Attendance')} />
 
+        {/* Personal Salary & Payroll Desk for Logged-In Employee */}
+        {isEmployee && (
+          <div className="bg-white rounded-2xl p-4 sm:p-5 border border-emerald-200/90 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-xl bg-emerald-100/80 border border-emerald-300 text-emerald-800 flex items-center justify-center flex-shrink-0 shadow-inner">
+                <WalletCards size={24} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold tracking-wider uppercase text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    Personal Payroll Account
+                  </span>
+                  <span className="text-xs text-gray-500 font-semibold">
+                    {effectiveSalaryData.employeeId}
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
+                    <CheckCircle2 size={11} /> Active
+                  </span>
+                </div>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <h3 className="text-xl font-black text-gray-900">
+                    {user?.name ? `${user.name}'s Salary:` : 'My Salary:'}{' '}
+                    <span className="text-[#087A3E]">
+                      {formatCurrency(effectiveSalaryData.baseWageRate)}
+                    </span>
+                  </h3>
+                  <span className="text-xs text-gray-500 font-medium">
+                    / {effectiveSalaryData.wageType === 'DAILY' ? 'day' : 'month'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Designation: <strong className="text-gray-700">{effectiveSalaryData.designation}</strong> · Department: <strong className="text-gray-700">{effectiveSalaryData.department}</strong>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 self-start md:self-auto flex-wrap">
+              <div className="hidden sm:block text-right pr-3 border-r border-gray-200">
+                <span className="text-[10px] uppercase font-bold text-gray-400 block">Total Wages Paid</span>
+                <span className="text-sm font-black text-emerald-700 block">
+                  {formatCurrency(effectiveSalaryData.totalPaid)}
+                </span>
+              </div>
+              <button
+                onClick={() => setShowMySalaryModal(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer"
+              >
+                <Receipt size={14} /> View Salary Slip &amp; Wage Records
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Summary Stat Cards */}
         <section className="stat-grid dashboard-stats">
+          {/* 1. PERSONAL SALARY KPI CARD (Strictly for this employee) */}
+          {isEmployee && (
+            <StatCard
+              label={user?.name ? `${user.name}'s Salary` : 'My Monthly Salary'}
+              value={formatCurrency(effectiveSalaryData.baseWageRate)}
+              icon={<WalletCards />}
+              tone="green"
+              detail={`${effectiveSalaryData.wageType === 'DAILY' ? 'Daily Wage Rate' : 'Fixed Monthly Salary'} · View Statement`}
+              onClick={() => setShowMySalaryModal(true)}
+            />
+          )}
+
           <StatCard
             label={isAccountant ? 'Total PO Amount' : isEmployee ? 'My Total Customer Dues (CD)' : 'My Total PO Amount'}
             value={formatCurrency(isEmployee ? (summary.totalCDAmount || summary.totalPOAmount) : summary.totalPOAmount)}
@@ -2392,6 +2489,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               setData(res);
             } catch {}
           }}
+        />
+      )}
+
+      {/* Employee Personal Salary & Wage Records Modal */}
+      {showMySalaryModal && (
+        <MySalaryModal
+          salaryData={effectiveSalaryData}
+          onClose={() => setShowMySalaryModal(false)}
         />
       )}
     </>

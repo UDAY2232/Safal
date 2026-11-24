@@ -160,6 +160,7 @@ export const api = {
 
   // Wages
   getWages: (params: string = '') => request<any>(`/wages${params}`),
+  getMySalary: () => request<{ hasProfile: boolean; mySalary: any }>('/wages/my-salary'),
   generateWagePeriod: (payPeriod: string) =>
     request<any>('/wages/generate-period', { method: 'POST', body: JSON.stringify({ payPeriod }) }),
   recordWagePayment: (id: string, data: any) =>
