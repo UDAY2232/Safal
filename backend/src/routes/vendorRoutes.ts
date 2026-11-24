@@ -14,6 +14,8 @@ import {
   submitHubQCInspection,
   createVendorSupplyPO,
   getVendorOperationsForAdmin,
+  disburseVendorAdvance,
+  settleVendorBalance,
 } from '../controllers/vendorController.js';
 
 const router = Router();
@@ -56,5 +58,17 @@ router.get('/admin/operations', authenticateToken, getVendorOperationsForAdmin);
 router.post('/admin/create', authenticateToken, createVendor);
 router.patch('/admin/:id/toggle-lock', authenticateToken, toggleVendorKycLock);
 router.put('/admin/:id', authenticateToken, updateVendorByAdmin);
+router.post(
+  '/admin/po/:id/disburse-advance',
+  authenticateToken,
+  upload.single('advanceProof'),
+  disburseVendorAdvance
+);
+router.post(
+  '/admin/po/:id/settle-balance',
+  authenticateToken,
+  upload.single('settlementProof'),
+  settleVendorBalance
+);
 
 export default router;

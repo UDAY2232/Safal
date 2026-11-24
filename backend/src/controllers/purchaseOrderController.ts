@@ -4,6 +4,7 @@ import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
 import { generatePurchaseOrderPDF } from '../services/pdfService.js';
 import { clearDashboardCache } from './adminController.js';
+import { enrichPOWithSettlementDetails } from '../utils/settlementHelper.js';
 
 /**
  * Generates a clean, monotonically increasing, collision-safe PO Number:
@@ -319,7 +320,7 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
       },
     };
 
-    return res.json(formatted);
+    return res.json(enrichPOWithSettlementDetails(formatted));
   } catch (error) {
     return res.status(500).json({ error: 'Failed to fetch purchase order' });
   }

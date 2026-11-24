@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   Lock,
@@ -38,6 +38,10 @@ import {
   Tag,
   Save,
   Check,
+  Camera,
+  Upload,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -45,6 +49,7 @@ import { VENDOR_WHITELISTED_LOCATIONS } from '../types';
 import { CreatePOModal } from '../components/CreatePOModal';
 import { PODetailModal } from '../components/PODetailModal';
 import { StatusBadge } from '../components/StatusBadge';
+import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
 
 interface VendorsAdminPageProps {
   onNotify: (msg: string) => void;
@@ -76,6 +81,36 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [previewDoc, setPreviewDoc] = useState<{ url: string; title: string } | null>(null);
   const [verifyApprovalPO, setVerifyApprovalPO] = useState<any | null>(null);
   const [isApprovingPO, setIsApprovingPO] = useState(false);
+
+  // Advance Disbursement Modal State
+  const [selectedPOForAdvance, setSelectedPOForAdvance] = useState<any | null>(null);
+  const [advanceAmountInput, setAdvanceAmountInput] = useState<number | string>('');
+  const [advancePaymentMode, setAdvancePaymentMode] = useState<string>('Bank Transfer (RTGS / NEFT)');
+  const [advancePaymentUtr, setAdvancePaymentUtr] = useState<string>('');
+  const [advancePaymentDate, setAdvancePaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [advancePayingHub, setAdvancePayingHub] = useState<string>('Warangal Hub');
+  const [advanceNotes, setAdvanceNotes] = useState<string>('');
+  const [advanceProofFile, setAdvanceProofFile] = useState<File | null>(null);
+  const [advanceProofPreview, setAdvanceProofPreview] = useState<string | null>(null);
+  const [isSubmittingAdvance, setIsSubmittingAdvance] = useState<boolean>(false);
+
+  // Final Mandi Settlement Modal State (5% Admin Share + 1% APMC Cess)
+  const [selectedPOForSettlement, setSelectedPOForSettlement] = useState<any | null>(null);
+  const [settlementFinalPaidInput, setSettlementFinalPaidInput] = useState<number | string>('');
+  const [settlementPaymentMode, setSettlementPaymentMode] = useState<string>('Bank Transfer (RTGS / NEFT)');
+  const [settlementPaymentUtr, setSettlementPaymentUtr] = useState<string>('');
+  const [settlementPaymentDate, setSettlementPaymentDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [settlementHub, setSettlementHub] = useState<string>('Warangal Hub');
+  const [settlementNotes, setSettlementNotes] = useState<string>('');
+  const [settlementProofFile, setSettlementProofFile] = useState<File | null>(null);
+  const [settlementProofPreview, setSettlementProofPreview] = useState<string | null>(null);
+  const [isSubmittingSettlement, setIsSubmittingSettlement] = useState<boolean>(false);
+
+  // Camera modal state for admin uploads
+  const [activeCameraTarget, setActiveCameraTarget] = useState<'advance' | 'settlement' | null>(null);
+
+  const advanceFileInputRef = useRef<HTMLInputElement | null>(null);
+  const settlementFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Commercial P&L Modal State
   const [editClosingPrice, setEditClosingPrice] = useState<number>(1260);
@@ -430,6 +465,97 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       onNotify(err.message || 'Failed to approve consignment');
     } finally {
       setIsApprovingPO(false);
+    }
+  };
+
+  const openAdvanceModal = (op: any) => {
+    setSelectedPOForAdvance(op);
+    const grand = Number(op.grandTotal || 0);
+    const defaultAdv = Number(op.advanceAmount) > 0 ? Number(op.advanceAmount) : Math.round(grand * 0.55);
+    setAdvanceAmountInput(defaultAdv);
+    setAdvancePaymentMode('Bank Transfer (RTGS / NEFT)');
+    setAdvancePaymentUtr(op.settlementDetails?.advancePaymentUtr && op.settlementDetails.advancePaymentUtr !== 'RTGS-MANDI-ADV' ? op.settlementDetails.advancePaymentUtr : '');
+    setAdvancePaymentDate(new Date().toISOString().split('T')[0]);
+    setAdvancePayingHub(op.orderPersonPlace || op.vendorProfile?.primaryLocation || 'Warangal Hub');
+    setAdvanceNotes(op.settlementDetails?.advanceNotes || '');
+    setAdvanceProofFile(null);
+    setAdvanceProofPreview(op.settlementDetails?.advanceProofUrl || op.paymentProofUrl || null);
+  };
+
+  const handleSubmitAdvance = async () => {
+    if (!selectedPOForAdvance) return;
+    if (!advancePaymentUtr.trim()) {
+      onNotify('Please enter the bank transfer UTR or Reference Number');
+      return;
+    }
+    try {
+      setIsSubmittingAdvance(true);
+      const fd = new FormData();
+      fd.append('advanceAmount', String(advanceAmountInput));
+      fd.append('paymentMode', advancePaymentMode);
+      fd.append('utrNumber', advancePaymentUtr.trim());
+      fd.append('paymentDate', advancePaymentDate);
+      fd.append('payingHub', advancePayingHub);
+      fd.append('notes', advanceNotes);
+      if (advanceProofFile) {
+        fd.append('advanceProof', advanceProofFile);
+      }
+      await api.disburseVendorAdvance(selectedPOForAdvance.id, fd);
+      onNotify(`Advance of ₹${Number(advanceAmountInput).toLocaleString('en-IN')} disbursed by ${advancePayingHub}! Vendor dashboard updated with receipt proof.`);
+      setSelectedPOForAdvance(null);
+      await loadVendorsAndOperations();
+    } catch (err: any) {
+      onNotify(err.message || 'Failed to disburse advance');
+    } finally {
+      setIsSubmittingAdvance(false);
+    }
+  };
+
+  const openSettlementModal = (op: any) => {
+    setSelectedPOForSettlement(op);
+    const grand = Number(op.grandTotal || 0);
+    const adv = Number(op.advanceAmount) > 0 ? Number(op.advanceAmount) : Math.round(grand * 0.55);
+    const adminShare = Math.round(grand * 0.05);
+    const apmcShare = Math.round(grand * 0.01);
+    const netPayable = Math.max(0, grand - (adminShare + apmcShare));
+    const balDue = Math.max(0, netPayable - adv);
+
+    setSettlementFinalPaidInput(balDue);
+    setSettlementPaymentMode('Bank Transfer (RTGS / NEFT)');
+    setSettlementPaymentUtr('');
+    setSettlementPaymentDate(new Date().toISOString().split('T')[0]);
+    setSettlementHub(op.orderPersonPlace || op.vendorProfile?.primaryLocation || 'Warangal Hub');
+    setSettlementNotes(`Cleared after 5% Admin Share (₹${adminShare.toLocaleString('en-IN')}) and 1% APMC Mandi Cess (₹${apmcShare.toLocaleString('en-IN')})`);
+    setSettlementProofFile(null);
+    setSettlementProofPreview(null);
+  };
+
+  const handleSubmitSettlement = async () => {
+    if (!selectedPOForSettlement) return;
+    if (!settlementPaymentUtr.trim()) {
+      onNotify('Please enter the settlement UTR or transaction reference number');
+      return;
+    }
+    try {
+      setIsSubmittingSettlement(true);
+      const fd = new FormData();
+      fd.append('finalBalancePaid', String(settlementFinalPaidInput));
+      fd.append('paymentMode', settlementPaymentMode);
+      fd.append('utrNumber', settlementPaymentUtr.trim());
+      fd.append('settlingHub', settlementHub);
+      fd.append('paymentDate', settlementPaymentDate);
+      fd.append('notes', settlementNotes);
+      if (settlementProofFile) {
+        fd.append('settlementProof', settlementProofFile);
+      }
+      await api.settleVendorBalance(selectedPOForSettlement.id, fd);
+      onNotify(`Consignment ${selectedPOForSettlement.poNumber} settled and marked as CLEARED ✓! 5% Admin Share & 1% APMC Cess deducted.`);
+      setSelectedPOForSettlement(null);
+      await loadVendorsAndOperations();
+    } catch (err: any) {
+      onNotify(err.message || 'Failed to settle consignment');
+    } finally {
+      setIsSubmittingSettlement(false);
     }
   };
 
@@ -1263,6 +1389,15 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   ) : (
                     filteredConsignments.map((op, index) => {
                       const fin = getConsignmentFinancials(op);
+                      const settle = op.settlementDetails || {
+                        advanceDisbursed: Boolean(op.advanceAmount > 0 || op.paymentProofUrl),
+                        advanceAmount: Math.round(fin.baseCost * 0.55),
+                        advancePayingHub: op.orderPersonPlace || 'Warangal Hub',
+                        advanceProofUrl: op.paymentProofUrl || null,
+                        finalBalanceDue: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.55)),
+                        finalBalancePaid: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.55)),
+                        finalSettlementProofUrl: op.paymentProofUrl || null,
+                      };
                       const poCode = op.poNumber || 'PO/SF/2026/001';
                       const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || '-';
                       const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '-';
@@ -1274,8 +1409,6 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       const bilty = op.transportBillUrl || op.dispatchTransportBillUrl || op.bilty;
                       const scaleSlip = op.weighbridgeSlipUrl || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl;
                       const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Fresh Fruits';
-                      const advAmt = Math.round(fin.baseCost * 0.55);
-                      const balAmt = Math.round(fin.baseCost * 0.45);
                       const status = op.status === 'CLOSED' ? 'CLOSED' : op.dispatchStatus || op.status || 'OPEN';
 
                       return (
@@ -1316,32 +1449,75 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                           </td>
                           <td className="text-right py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
                             <span className="font-bold text-emerald-800 font-mono block">
-                              ₹{advAmt.toLocaleString('en-IN')}
+                              ₹{settle.advanceAmount.toLocaleString('en-IN')}
                             </span>
-                            <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5 mt-0.5">
-                              <CheckCircle2 size={9} /> CLEARED
-                            </span>
+                            {settle.advanceDisbursed ? (
+                              <div className="flex items-center justify-end gap-1 mt-0.5">
+                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5">
+                                  <CheckCircle2 size={9} /> PAID ({settle.advancePayingHub || hub})
+                                </span>
+                                {settle.advanceProofUrl && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewDoc({
+                                        url: settle.advanceProofUrl!,
+                                        title: `${poCode} - Advance Payment Receipt (${settle.advancePayingHub || hub})`,
+                                      })
+                                    }
+                                    className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                    title="View Advance Bank Receipt Slip"
+                                  >
+                                    <Eye size={9} /> Slip
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => openAdvanceModal(op)}
+                                className="mt-0.5 px-2 py-0.5 bg-amber-500 hover:bg-amber-600 text-white rounded text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-xs active:scale-95"
+                              >
+                                <CreditCard size={9} /> Pay Advance
+                              </button>
+                            )}
                           </td>
                           <td className="text-right py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
                             <span className="font-bold text-gray-700 font-mono block">
-                              ₹{balAmt.toLocaleString('en-IN')}
+                              ₹{(status === 'CLOSED' ? settle.finalBalancePaid : settle.finalBalanceDue).toLocaleString('en-IN')}
                             </span>
                             <span className="text-[9px] font-medium text-gray-500 block mt-0.5">
-                              On Mandi Delivery
+                              {status === 'CLOSED' ? 'Settled (5% Admin & 1% APMC)' : 'Net (Less 5% Admin + 1% APMC)'}
                             </span>
+                            {status === 'CLOSED' && settle.finalSettlementProofUrl && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewDoc({
+                                    url: settle.finalSettlementProofUrl!,
+                                    title: `${poCode} - Final Mandi Settlement Receipt (${settle.finalSettlingHub || hub})`,
+                                  })
+                                }
+                                className="text-[9px] font-bold text-blue-700 hover:underline inline-flex items-center gap-0.5 mt-0.5 cursor-pointer"
+                              >
+                                <Eye size={9} /> Settlement Slip ↗
+                              </button>
+                            )}
                           </td>
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                                status === 'CLOSED'
-                                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                                  : status === 'IN_TRANSIT'
-                                  ? 'bg-blue-100 text-blue-900 border border-blue-300'
-                                  : 'bg-amber-100 text-amber-900 border border-amber-300'
-                              }`}
-                            >
-                              {status === 'CLOSED' ? 'Cleared ✓' : status === 'IN_TRANSIT' ? 'In Transit' : status}
-                            </span>
+                            {status === 'CLOSED' ? (
+                              <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
+                                <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
+                              </span>
+                            ) : settle.advanceDisbursed ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 inline-flex items-center gap-1">
+                                <Clock size={10} className="text-blue-700" /> Advance Paid · Due Awaiting
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                                Pending Advance
+                              </span>
+                            )}
                           </td>
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             <span className="font-mono text-[11px] font-bold text-gray-900 flex items-center justify-center gap-1">
@@ -1395,15 +1571,29 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                 </button>
                               )}
 
+                              {/* Pay Advance Action Button */}
+                              {!settle.advanceDisbursed && status !== 'CLOSED' && (
+                                <button
+                                  type="button"
+                                  onClick={() => openAdvanceModal(op)}
+                                  className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                  title="Disburse advance payment & upload proof"
+                                >
+                                  <CreditCard size={11} />
+                                  <span>Pay Advance</span>
+                                </button>
+                              )}
+
+                              {/* Settle Balance & Clear Consignment Action Button */}
                               {status !== 'CLOSED' ? (
                                 <button
                                   type="button"
-                                  onClick={() => handleClearVendorPO(op)}
-                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
-                                  title="Admin verify consignment & approve/clear PO"
+                                  onClick={() => openSettlementModal(op)}
+                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95 ring-1 ring-emerald-300"
+                                  title="Settle balance with 5% Admin Share & 1% APMC Cess deduction, and clear PO"
                                 >
-                                  <CheckCircle2 size={11} className="text-emerald-300" />
-                                  <span>Approve &amp; Clear</span>
+                                  <ShieldCheck size={11} className="text-emerald-300" />
+                                  <span>Settle &amp; Clear ✓</span>
                                 </button>
                               ) : (
                                 <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded text-[9px] font-black inline-flex items-center gap-0.5">
@@ -2800,6 +2990,704 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
           </div>
         </div>
       )}
+
+      {/* MODAL: ADVANCE DISBURSEMENT MODAL WITH PROOF */}
+      {selectedPOForAdvance && (() => {
+        const op = selectedPOForAdvance;
+        const grand = Number(op.grandTotal || 0);
+        const vBank = op.vendorProfile || {};
+        const vName = op.vendorProfile?.businessName || op.supplier?.name || 'Vendor Partner';
+        const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || 'VND';
+        const hub = advancePayingHub || op.orderPersonPlace || 'Warangal Hub';
+
+        return (
+          <div
+            className="modal-backdrop fixed inset-0 flex items-center justify-center p-3 sm:p-4 !z-[9999]"
+            style={{ zIndex: 9999 }}
+            onClick={() => setSelectedPOForAdvance(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+              style={{ zIndex: 10000 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-[#064D2B] flex items-center justify-center">
+                    <CreditCard size={20} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold tracking-wider text-emerald-800 uppercase block">
+                      ADVANCE DISBURSEMENT WITH PAYMENT PROOF
+                    </span>
+                    <h3 className="text-base font-black font-['Manrope'] text-gray-900">
+                      Disburse Advance: {op.poNumber}
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPOForAdvance(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 flex items-center justify-center transition cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="overflow-y-auto flex-1 py-4 space-y-4 text-xs pr-1">
+                {/* Vendor Bank Coordinates Banner */}
+                <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Building2 size={16} className="text-[#087A3E]" />
+                      <strong className="text-gray-900 text-xs">{vName} ({vCode})</strong>
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                      🔒 Verified Bank Account
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+                    <div>
+                      <span className="text-gray-500 block text-[10px]">Bank Name</span>
+                      <strong className="text-gray-900">{vBank.bankName || 'HDFC Bank'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block text-[10px]">Account Number</span>
+                      <strong className="text-gray-900 font-mono font-bold">{vBank.bankAccountNumber || '382901239840'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block text-[10px]">IFSC Code</span>
+                      <strong className="text-gray-900 font-mono font-bold">{vBank.bankIfscCode || 'HDFC0001234'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 block text-[10px]">Account Holder</span>
+                      <strong className="text-gray-900">{vBank.bankAccountHolder || vName}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Amount breakdown banner */}
+                <div className="grid grid-cols-3 gap-2 p-3 bg-gray-50 rounded-2xl border border-gray-200 text-center">
+                  <div>
+                    <span className="text-[10px] text-gray-500 block">Gross PO Consignment</span>
+                    <strong className="text-sm font-black text-gray-900 font-mono">
+                      ₹{grand.toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-emerald-700 font-bold block">55% Recommended Advance</span>
+                    <strong className="text-sm font-black text-emerald-800 font-mono">
+                      ₹{Math.round(grand * 0.55).toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-gray-500 block">Balance Payable on Delivery</span>
+                    <strong className="text-sm font-black text-gray-700 font-mono">
+                      ₹{Math.round(grand * 0.45).toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                </div>
+
+                {/* Form Inputs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Advance Amount to Disburse (₹) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                      <input
+                        type="number"
+                        value={advanceAmountInput}
+                        onChange={(e) => setAdvanceAmountInput(e.target.value)}
+                        className="w-full h-9 pl-7 pr-3 border border-emerald-300 rounded-xl text-xs font-black text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                        required
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-500 mt-0.5 block">
+                      Default is 55% of total order value (₹{Math.round(grand * 0.55).toLocaleString('en-IN')})
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Paying Regional Hub *
+                    </label>
+                    <select
+                      value={advancePayingHub}
+                      onChange={(e) => setAdvancePayingHub(e.target.value)}
+                      className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    >
+                      {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
+                        <option key={loc} value={`${loc} Hub`}>
+                          {loc} Hub (Regional Accounts Desk)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Payment Mode *
+                    </label>
+                    <select
+                      value={advancePaymentMode}
+                      onChange={(e) => setAdvancePaymentMode(e.target.value)}
+                      className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    >
+                      <option value="Bank Transfer (RTGS / NEFT)">Bank Transfer (RTGS / NEFT)</option>
+                      <option value="IMPS Immediate Transfer">IMPS Immediate Transfer</option>
+                      <option value="UPI Direct Transfer">UPI Direct Transfer</option>
+                      <option value="NetBanking Counterfoil">NetBanking Counterfoil</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Bank Transfer UTR / Ref No *
+                    </label>
+                    <input
+                      type="text"
+                      value={advancePaymentUtr}
+                      onChange={(e) => setAdvancePaymentUtr(e.target.value)}
+                      placeholder="e.g. UTR182930491823"
+                      className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Disbursement Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={advancePaymentDate}
+                      onChange={(e) => setAdvancePaymentDate(e.target.value)}
+                      className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Advance Payment Remarks (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={advanceNotes}
+                    onChange={(e) => setAdvanceNotes(e.target.value)}
+                    placeholder="e.g. Cleared via Warangal Mandi HDFC Treasury Account"
+                    className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                  />
+                </div>
+
+                {/* Upload Payment Receipt / RTGS Counterfoil */}
+                <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <strong className="text-gray-900 text-xs block">
+                        Upload Advance Payment Receipt / Bank Counterfoil Photo
+                      </strong>
+                      <span className="text-[10px] text-gray-500">
+                        Take a photo or upload screenshot of the bank transfer slip. Stamped automatically with time &amp; GPS.
+                      </span>
+                    </div>
+                    {advanceProofPreview && (
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                        Receipt Attached ✓
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setActiveCameraTarget('advance')}
+                      className="px-3.5 py-2 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Camera size={14} /> Open Camera (Live Capture)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => advanceFileInputRef.current?.click()}
+                      className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Upload size={14} /> Choose from Files
+                    </button>
+                  </div>
+
+                  {advanceProofPreview && (
+                    <div className="relative rounded-xl border border-gray-200 bg-white p-2 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <img
+                          src={advanceProofPreview}
+                          alt="Receipt Preview"
+                          className="w-12 h-12 object-cover rounded-lg border border-gray-200 flex-shrink-0 cursor-pointer"
+                          onClick={() => setPreviewDoc({ url: advanceProofPreview, title: 'Advance Payment Receipt Proof' })}
+                        />
+                        <div className="min-w-0">
+                          <strong className="text-xs text-gray-900 block truncate">
+                            Advance Payment Proof Attached
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDoc({ url: advanceProofPreview, title: 'Advance Payment Receipt Proof' })}
+                            className="text-[10px] text-emerald-700 font-bold hover:underline inline-flex items-center gap-0.5"
+                          >
+                            <Eye size={10} /> View Fullscreen
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdvanceProofFile(null);
+                          setAdvanceProofPreview(null);
+                        }}
+                        className="text-xs text-red-600 hover:text-red-800 font-bold px-2 py-1 bg-red-50 hover:bg-red-100 rounded-lg cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
+                <span className="text-[11px] text-gray-500">
+                  Vendor dashboard will immediately display advance paid by {hub}.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPOForAdvance(null)}
+                    className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitAdvance}
+                    disabled={isSubmittingAdvance}
+                    className="px-5 py-2.5 rounded-xl bg-[#064D2B] hover:bg-[#087A3E] text-white font-black text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={15} className="text-emerald-300" />
+                    <span>{isSubmittingAdvance ? 'Disbursing...' : 'Submit Advance & Notify Vendor'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: FINAL COMMERCIAL SETTLEMENT & CLEARANCE MODAL (5% Admin Share + 1% APMC Cess) */}
+      {selectedPOForSettlement && (() => {
+        const op = selectedPOForSettlement;
+        const grand = Number(op.grandTotal || 0);
+        const adv = Number(op.advanceAmount || 0);
+        const vBank = op.vendorProfile || {};
+        const vName = op.vendorProfile?.businessName || op.supplier?.name || 'Vendor Partner';
+        const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || 'VND';
+
+        // Precise Mandi Deductions
+        const adminShareAmount = Math.round(grand * 0.05);
+        const apmcShareAmount = Math.round(grand * 0.01);
+        const totalDeductions = adminShareAmount + apmcShareAmount; // 6%
+        const netVendorPayable = Math.max(0, grand - totalDeductions);
+        const balanceDue = Math.max(0, netVendorPayable - adv);
+        const hub = settlementHub || op.orderPersonPlace || 'Warangal Hub';
+
+        return (
+          <div
+            className="modal-backdrop fixed inset-0 flex items-center justify-center p-3 sm:p-4 !z-[9999]"
+            style={{ zIndex: 9999 }}
+            onClick={() => setSelectedPOForSettlement(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+              style={{ zIndex: 10000 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-800 text-white flex items-center justify-center shadow-xs">
+                    <ShieldCheck size={22} />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold tracking-wider text-emerald-800 uppercase block">
+                      COMMERCIAL SETTLEMENT &amp; MANDI CLEARANCE
+                    </span>
+                    <h3 className="text-base font-black font-['Manrope'] text-gray-900">
+                      Final Settlement: {op.poNumber}
+                    </h3>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPOForSettlement(null)}
+                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 flex items-center justify-center transition cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="overflow-y-auto flex-1 py-4 space-y-4 text-xs pr-1">
+                {/* COMMERCIAL DEDUCTION MATRIX */}
+                <div className="rounded-2xl border-2 border-emerald-300 bg-gradient-to-b from-emerald-50/60 to-white overflow-hidden shadow-xs">
+                  <div className="bg-[#064D2B] text-white px-4 py-2.5 flex items-center justify-between">
+                    <strong className="text-xs uppercase tracking-wide font-black flex items-center gap-1.5">
+                      <Calculator size={14} /> Official Mandi Settlement Statement (Safal ERP)
+                    </strong>
+                    <span className="text-[10px] font-mono font-bold bg-white/20 px-2 py-0.5 rounded">
+                      {vCode} · {hub}
+                    </span>
+                  </div>
+
+                  <div className="p-4 space-y-2 text-xs">
+                    {/* Gross PO Value */}
+                    <div className="flex items-center justify-between py-1 border-b border-gray-100">
+                      <span className="text-gray-700 font-bold">1. Gross PO Consignment Value</span>
+                      <strong className="font-mono text-gray-900 text-sm font-black">
+                        ₹{grand.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+
+                    {/* 5% Admin Share */}
+                    <div className="flex items-center justify-between py-1 text-rose-800">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                        <span>Less 5% Safal Platform Admin Share / Commission</span>
+                      </div>
+                      <strong className="font-mono font-bold">
+                        -₹{adminShareAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+
+                    {/* 1% APMC Market Cess */}
+                    <div className="flex items-center justify-between py-1 text-rose-800 border-b border-gray-100">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                        <span>Less 1% APMC Mandi Market Cess Fee</span>
+                      </div>
+                      <strong className="font-mono font-bold">
+                        -₹{apmcShareAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+
+                    {/* Total Mandi Deductions */}
+                    <div className="flex items-center justify-between py-1 bg-rose-50/50 px-2.5 rounded-lg text-rose-900 font-bold">
+                      <span>Total Mandi Deductions (6%)</span>
+                      <span className="font-mono font-black">
+                        -₹{totalDeductions.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* Net Vendor Payable */}
+                    <div className="flex items-center justify-between py-1.5 bg-emerald-50 px-2.5 rounded-lg text-emerald-950 font-black border border-emerald-200">
+                      <span>Net Realized Payable to Vendor</span>
+                      <span className="font-mono text-sm">
+                        ₹{netVendorPayable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* Less Advance Already Paid */}
+                    <div className="flex items-center justify-between py-1 text-gray-600">
+                      <span>Less Advance Already Paid ({hub})</span>
+                      <strong className="font-mono text-gray-900">
+                        -₹{adv.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+
+                    {/* Net Final Balance Due */}
+                    <div className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-950">
+                      <div>
+                        <strong className="text-xs uppercase font-black block">Net Final Balance Due to Vendor</strong>
+                        <span className="text-[10px] text-amber-800">Clear full due amount to close consignment</span>
+                      </div>
+                      <strong className="text-base sm:text-lg font-black font-mono text-amber-900">
+                        ₹{balanceDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vendor Bank Coordinates Banner */}
+                <div className="p-3 bg-gray-50 border border-gray-200 rounded-2xl flex items-center justify-between text-[11px]">
+                  <div>
+                    <span className="text-gray-500 block text-[10px]">Beneficiary Bank Account</span>
+                    <strong className="text-gray-900 font-mono">
+                      {vBank.bankName || 'Verified Bank'} · A/C: {vBank.bankAccountNumber || '-'} · IFSC: {vBank.bankIfscCode || '-'}
+                    </strong>
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-600 bg-white px-2 py-1 rounded border border-gray-200">
+                    {vBank.bankAccountHolder || vName}
+                  </span>
+                </div>
+
+                {/* Settlement Inputs */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Final Settlement Amount Paid (₹) *
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-gray-400 font-bold">₹</span>
+                      <input
+                        type="number"
+                        value={settlementFinalPaidInput}
+                        onChange={(e) => setSettlementFinalPaidInput(e.target.value)}
+                        className="w-full h-9 pl-7 pr-3 border border-emerald-300 rounded-xl text-xs font-black text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Settling Regional Hub *
+                    </label>
+                    <select
+                      value={settlementHub}
+                      onChange={(e) => setSettlementHub(e.target.value)}
+                      className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    >
+                      {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
+                        <option key={loc} value={`${loc} Hub`}>
+                          {loc} Hub (Mandi Receiving Desk)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Payment Mode *
+                    </label>
+                    <select
+                      value={settlementPaymentMode}
+                      onChange={(e) => setSettlementPaymentMode(e.target.value)}
+                      className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    >
+                      <option value="Bank Transfer (RTGS / NEFT)">Bank Transfer (RTGS / NEFT)</option>
+                      <option value="IMPS Immediate Transfer">IMPS Immediate Transfer</option>
+                      <option value="UPI Direct Transfer">UPI Direct Transfer</option>
+                      <option value="NetBanking Counterfoil">NetBanking Counterfoil</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Settlement UTR / Ref No *
+                    </label>
+                    <input
+                      type="text"
+                      value={settlementPaymentUtr}
+                      onChange={(e) => setSettlementPaymentUtr(e.target.value)}
+                      placeholder="e.g. UTR998877665544"
+                      className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">
+                      Settlement Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={settlementPaymentDate}
+                      onChange={(e) => setSettlementPaymentDate(e.target.value)}
+                      className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">
+                    Settlement Notes &amp; Commercial Remarks
+                  </label>
+                  <input
+                    type="text"
+                    value={settlementNotes}
+                    onChange={(e) => setSettlementNotes(e.target.value)}
+                    placeholder="e.g. Consignment accepted at mandi scale; 5% Admin share and 1% APMC cess deducted"
+                    className="w-full h-9 px-3 border border-gray-300 rounded-xl text-xs text-gray-900 bg-white focus:outline-none focus:border-[#087A3E]"
+                  />
+                </div>
+
+                {/* Upload Final Settlement Receipt / RTGS Slip */}
+                <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <strong className="text-gray-900 text-xs block">
+                        Upload Final Settlement Payment Slip / Bank Transfer Proof
+                      </strong>
+                      <span className="text-[10px] text-gray-500">
+                        Take a photo or upload screenshot of final settlement transfer receipt. Stamped with time &amp; GPS.
+                      </span>
+                    </div>
+                    {settlementProofPreview && (
+                      <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded border border-emerald-300">
+                        Receipt Attached ✓
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setActiveCameraTarget('settlement')}
+                      className="px-3.5 py-2 bg-emerald-800 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Camera size={14} /> Open Camera (Live Capture)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => settlementFileInputRef.current?.click()}
+                      className="px-3.5 py-2 bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <Upload size={14} /> Choose from Files
+                    </button>
+                  </div>
+
+                  {settlementProofPreview && (
+                    <div className="relative rounded-xl border border-gray-200 bg-white p-2 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <img
+                          src={settlementProofPreview}
+                          alt="Settlement Receipt Preview"
+                          className="w-12 h-12 object-cover rounded-lg border border-gray-200 flex-shrink-0 cursor-pointer"
+                          onClick={() => setPreviewDoc({ url: settlementProofPreview, title: 'Final Settlement Receipt Proof' })}
+                        />
+                        <div className="min-w-0">
+                          <strong className="text-xs text-gray-900 block truncate">
+                            Final Settlement Proof Attached
+                          </strong>
+                          <button
+                            type="button"
+                            onClick={() => setPreviewDoc({ url: settlementProofPreview, title: 'Final Settlement Receipt Proof' })}
+                            className="text-[10px] text-emerald-700 font-bold hover:underline inline-flex items-center gap-0.5"
+                          >
+                            <Eye size={10} /> View Fullscreen
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettlementProofFile(null);
+                          setSettlementProofPreview(null);
+                        }}
+                        className="text-xs text-red-600 hover:text-red-800 font-bold px-2 py-1 bg-red-50 hover:bg-red-100 rounded-lg cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
+                <span className="text-[11px] text-gray-500">
+                  Consignment will be marked as <strong>CLEARED ✓</strong> in Vendor Dashboard.
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPOForSettlement(null)}
+                    className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-100 cursor-pointer text-xs"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmitSettlement}
+                    disabled={isSubmittingSettlement}
+                    className="px-5 py-2.5 rounded-xl bg-[#064D2B] hover:bg-[#087A3E] text-white font-black text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={15} className="text-emerald-300" />
+                    <span>{isSubmittingSettlement ? 'Settling...' : 'Confirm Settlement & Clear PO ✓'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* CAMERA CAPTURE MODAL */}
+      {activeCameraTarget && (
+        <VendorPhotoCaptureModal
+          isOpen={true}
+          onClose={() => setActiveCameraTarget(null)}
+          title={
+            activeCameraTarget === 'advance'
+              ? 'Capture Bank Advance Payment Receipt'
+              : 'Capture Final Mandi Settlement Receipt'
+          }
+          documentType={
+            activeCameraTarget === 'advance'
+              ? 'Bank Advance Receipt'
+              : 'Final Settlement Slip'
+          }
+          poNumber={
+            activeCameraTarget === 'advance'
+              ? selectedPOForAdvance?.poNumber
+              : selectedPOForSettlement?.poNumber
+          }
+          onCapture={(file, previewUrl) => {
+            if (activeCameraTarget === 'advance') {
+              setAdvanceProofFile(file);
+              setAdvanceProofPreview(previewUrl);
+            } else {
+              setSettlementProofFile(file);
+              setSettlementProofPreview(previewUrl);
+            }
+            setActiveCameraTarget(null);
+          }}
+        />
+      )}
+
+      {/* Hidden file inputs for admin uploads */}
+      <input
+        ref={advanceFileInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            setAdvanceProofFile(file);
+            setAdvanceProofPreview(URL.createObjectURL(file));
+          }
+        }}
+      />
+      <input
+        ref={settlementFileInputRef}
+        type="file"
+        accept="image/*,application/pdf"
+        style={{ display: 'none' }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            setSettlementProofFile(file);
+            setSettlementProofPreview(URL.createObjectURL(file));
+          }
+        }}
+      />
     </div>
   );
 };

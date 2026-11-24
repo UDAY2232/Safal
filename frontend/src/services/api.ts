@@ -248,5 +248,9 @@ export const api = {
   toggleVendorKycLock: (id: string) => request<any>(`/vendor/admin/${id}/toggle-lock`, { method: 'PATCH' }),
   updateVendorByAdmin: (id: string, data: any) =>
     request<any>(`/vendor/admin/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  disburseVendorAdvance: (poId: string, formData: FormData) =>
+    request<any>(`/vendor/admin/po/${poId}/disburse-advance`, { method: 'POST', body: formData }),
+  settleVendorBalance: (poId: string, formData: FormData) =>
+    request<any>(`/vendor/admin/po/${poId}/settle-balance`, { method: 'POST', body: formData }),
 };
 

@@ -8,6 +8,8 @@ import {
   isValidVendorLocation,
 } from '../constants/vendorConstants.js';
 import { generateNextPONumber } from './purchaseOrderController.js';
+import { enrichPOWithSettlementDetails } from '../utils/settlementHelper.js';
+export { enrichPOWithSettlementDetails } from '../utils/settlementHelper.js';
 
 /**
  * Generates sequential, collision-safe Vendor ID: VND-001, VND-002, etc.
@@ -261,7 +263,8 @@ export async function getVendorPOs(req: AuthRequest, res: Response) {
       orderBy: { poDate: 'desc' },
     });
 
-    return res.json(pos);
+    const enriched = pos.map((p) => enrichPOWithSettlementDetails(p));
+    return res.json(enriched);
   } catch (error: any) {
     console.error('getVendorPOs error:', error);
     return res.status(500).json({ error: 'Failed to retrieve purchase orders' });
@@ -564,7 +567,8 @@ export async function getVendorOperationsForAdmin(req: AuthRequest, res: Respons
       orderBy: { poDate: 'desc' },
     });
 
-    return res.json(operations);
+    const enriched = operations.map((op) => enrichPOWithSettlementDetails(op));
+    return res.json(enriched);
   } catch (error: any) {
     console.error('getVendorOperationsForAdmin error:', error);
     return res.status(500).json({ error: 'Failed to list vendor operations' });
@@ -1224,5 +1228,309 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
   } catch (error: any) {
     console.error('createVendorSupplyPO error:', error);
     return res.status(500).json({ error: error.message || 'Failed to create vendor supply PO' });
+  }
+}
+
+/**
+ * POST /api/vendor/admin/po/:id/disburse-advance
+ * Admin disburses advance payment to Vendor's registered bank account and uploads payment receipt.
+ */
+export async function disburseVendorAdvance(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'ACCOUNTANT')) {
+      return res.status(403).json({ error: 'Admin or Accountant access required' });
+    }
+
+    const { id } = req.params;
+    const {
+      advanceAmount: rawAdvanceAmount,
+      paymentMode = 'Bank Transfer (RTGS / NEFT)',
+      utrNumber,
+      paymentDate,
+      payingHub,
+      notes,
+    } = req.body;
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        vendorProfile: { include: { user: true } },
+        supplier: true,
+        financialRecord: true,
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    const file = req.file;
+    const advanceProofUrl = file ? `/uploads/${file.filename}` : (req.body.advanceProofUrl || po.paymentProofUrl || null);
+
+    const grandTotal = Number(po.grandTotal || 0);
+    const advanceAmount = Number(rawAdvanceAmount) > 0 ? Number(rawAdvanceAmount) : Math.round(grandTotal * 0.55);
+
+    const adminShareAmount = Math.round(grandTotal * 0.05);
+    const apmcShareAmount = Math.round(grandTotal * 0.01);
+    const totalDeductions = adminShareAmount + apmcShareAmount;
+    const netVendorPayable = Math.max(0, grandTotal - totalDeductions);
+    const pendingBalance = Math.max(0, netVendorPayable - advanceAmount);
+
+    const hubName = payingHub || po.orderPersonPlace || 'Warangal Hub';
+    const payDate = paymentDate || new Date().toISOString().split('T')[0];
+
+    const advancePayload = {
+      advanceDisbursed: true,
+      advanceAmount,
+      advancePaymentDate: payDate,
+      advancePaymentMode: paymentMode,
+      advancePaymentUtr: utrNumber || `RTGS-${Date.now()}`,
+      advancePayingHub: hubName,
+      advanceProofUrl,
+      advanceNotes: notes || `Advance payment disbursed by ${hubName}`,
+      advanceDisbursedAt: new Date().toISOString(),
+      advanceDisbursedBy: req.user.name,
+    };
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (po.financialRecord) {
+        await tx.purchaseOrderFinancialRecord.update({
+          where: { id: po.financialRecord.id },
+          data: {
+            costNotes: JSON.stringify(advancePayload),
+            verifiedCost: advanceAmount,
+          },
+        });
+      } else {
+        await tx.purchaseOrderFinancialRecord.create({
+          data: {
+            purchaseOrderId: po.id,
+            financialStatus: 'PENDING_COST_DATA',
+            costNotes: JSON.stringify(advancePayload),
+            verifiedCost: advanceAmount,
+          },
+        });
+      }
+
+      return await tx.purchaseOrder.update({
+        where: { id: po.id },
+        data: {
+          advanceAmount,
+          pendingAmount: pendingBalance,
+          paymentProofUrl: advanceProofUrl || po.paymentProofUrl,
+          paymentProofNotes: utrNumber ? `Advance UTR: ${utrNumber}` : po.paymentProofNotes,
+          dispatchStatus: po.dispatchStatus === 'PENDING_DISPATCH' ? 'LOADED_AND_DISPATCHED' : (po.dispatchStatus || 'IN_TRANSIT'),
+          statusHistory: {
+            create: {
+              status: po.status,
+              changedById: req.user!.id,
+              comment: `Advance payment of ₹${advanceAmount.toLocaleString('en-IN')} disbursed by ${hubName} via ${paymentMode}. UTR: ${utrNumber || 'N/A'}.`,
+            },
+          },
+        },
+        include: {
+          items: true,
+          supplier: true,
+          vendorProfile: true,
+          financialRecord: true,
+        },
+      });
+    });
+
+    // Notify vendor
+    const vendorUserId = po.vendorProfile?.user?.id;
+    if (vendorUserId) {
+      await prisma.notification.create({
+        data: {
+          userId: vendorUserId,
+          recipientRole: 'VENDOR',
+          type: 'INFO',
+          title: `Advance Paid by ${hubName}: ${po.poNumber}`,
+          message: `Safal ${hubName} has cleared advance of ₹${advanceAmount.toLocaleString('en-IN')} via ${paymentMode} (UTR: ${utrNumber || 'N/A'}). Bank receipt proof attached.`,
+          linkUrl: '/dashboard',
+        },
+      }).catch(() => null);
+    }
+
+    await createAuditLog({
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'VENDOR_ADVANCE_DISBURSED',
+      entityType: 'PURCHASE_ORDER',
+      entityId: po.id,
+      details: `Advance ₹${advanceAmount.toLocaleString('en-IN')} paid by ${hubName} for ${po.poNumber} with proof`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      message: `Advance payment of ₹${advanceAmount.toLocaleString('en-IN')} successfully recorded for ${po.poNumber}!`,
+      purchaseOrder: enrichPOWithSettlementDetails(updated),
+    });
+  } catch (error: any) {
+    console.error('disburseVendorAdvance error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to disburse advance' });
+  }
+}
+
+/**
+ * POST /api/vendor/admin/po/:id/settle-balance
+ * Settle final balance with 5% Admin Share and 1% APMC Market Cess deductions.
+ * Marks PO as CLOSED (Cleared ✓).
+ */
+export async function settleVendorBalance(req: AuthRequest, res: Response) {
+  try {
+    if (!req.user || (req.user.role !== 'ADMIN' && req.user.role !== 'ACCOUNTANT')) {
+      return res.status(403).json({ error: 'Admin or Accountant access required' });
+    }
+
+    const { id } = req.params;
+    const {
+      finalBalancePaid: rawFinalPaid,
+      paymentMode = 'Bank Transfer (RTGS / NEFT)',
+      utrNumber,
+      settlingHub,
+      paymentDate,
+      notes,
+    } = req.body;
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        vendorProfile: { include: { user: true } },
+        supplier: true,
+        financialRecord: true,
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase Order not found' });
+    }
+
+    const file = req.file;
+    const settlementProofUrl = file ? `/uploads/${file.filename}` : (req.body.settlementProofUrl || po.paymentProofUrl || null);
+
+    const grandTotal = Number(po.grandTotal || 0);
+    const advanceAmount = Number(po.advanceAmount || 0);
+
+    // Exact 5% Admin Share & 1% APMC Mandi Cess
+    const adminShareAmount = Math.round(grandTotal * 0.05);
+    const apmcShareAmount = Math.round(grandTotal * 0.01);
+    const totalDeductions = adminShareAmount + apmcShareAmount;
+    const netVendorPayable = Math.max(0, grandTotal - totalDeductions);
+    const finalBalanceDue = Math.max(0, netVendorPayable - advanceAmount);
+    const finalBalancePaid = Number(rawFinalPaid) > 0 ? Number(rawFinalPaid) : finalBalanceDue;
+
+    const hubName = settlingHub || po.orderPersonPlace || 'Warangal Hub';
+    const payDate = paymentDate || new Date().toISOString().split('T')[0];
+
+    const settlementPayload = {
+      settlementCompleted: true,
+      grossConsignmentTotal: grandTotal,
+      adminSharePercent: 5,
+      adminShareAmount,
+      apmcSharePercent: 1,
+      apmcShareAmount,
+      totalMandiDeductions: totalDeductions,
+      netVendorPayable,
+      advanceAlreadyPaid: advanceAmount,
+      finalBalanceDue: 0,
+      finalBalancePaid,
+      finalPaymentDate: payDate,
+      finalPaymentMode: paymentMode,
+      finalPaymentUtr: utrNumber || `RTGS-${Date.now()}`,
+      finalSettlingHub: hubName,
+      finalSettlementProofUrl: settlementProofUrl,
+      finalSettlementNotes: notes || `Settled by ${hubName} with 5% Admin Share & 1% APMC Mandi Cess`,
+      settledAt: new Date().toISOString(),
+      settledBy: req.user.name,
+      vendorRealizedGain: netVendorPayable,
+      platformRevenue: adminShareAmount,
+      mandiCessPaid: apmcShareAmount,
+    };
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (po.financialRecord) {
+        await tx.purchaseOrderFinancialRecord.update({
+          where: { id: po.financialRecord.id },
+          data: {
+            revenueNotes: JSON.stringify(settlementPayload),
+            linkedRevenue: grandTotal,
+            verifiedCost: netVendorPayable,
+            realizedProfitLoss: adminShareAmount,
+            financialStatus: 'PROFIT',
+          },
+        });
+      } else {
+        await tx.purchaseOrderFinancialRecord.create({
+          data: {
+            purchaseOrderId: po.id,
+            financialStatus: 'PROFIT',
+            revenueNotes: JSON.stringify(settlementPayload),
+            linkedRevenue: grandTotal,
+            verifiedCost: netVendorPayable,
+            realizedProfitLoss: adminShareAmount,
+          },
+        });
+      }
+
+      return await tx.purchaseOrder.update({
+        where: { id: po.id },
+        data: {
+          status: 'CLOSED',
+          dispatchStatus: 'DELIVERED_AT_HUB',
+          pendingAmount: 0,
+          paymentProofUrl: settlementProofUrl || po.paymentProofUrl,
+          paymentProofNotes: utrNumber ? `Final Settlement UTR: ${utrNumber}` : po.paymentProofNotes,
+          statusHistory: {
+            create: {
+              status: 'CLOSED',
+              changedById: req.user!.id,
+              comment: `Final settlement of ₹${finalBalancePaid.toLocaleString('en-IN')} paid by ${hubName} (5% Admin Share: ₹${adminShareAmount.toLocaleString('en-IN')}, 1% APMC Cess: ₹${apmcShareAmount.toLocaleString('en-IN')}). Consignment Cleared ✓.`,
+            },
+          },
+        },
+        include: {
+          items: true,
+          supplier: true,
+          vendorProfile: true,
+          financialRecord: true,
+        },
+      });
+    });
+
+    // Notify vendor
+    const vendorUserId = po.vendorProfile?.user?.id;
+    if (vendorUserId) {
+      await prisma.notification.create({
+        data: {
+          userId: vendorUserId,
+          recipientRole: 'VENDOR',
+          type: 'INFO',
+          title: `Consignment Closed & Cleared: ${po.poNumber}`,
+          message: `Final balance of ₹${finalBalancePaid.toLocaleString('en-IN')} settled by ${hubName} (after 5% Admin Share & 1% APMC Cess). Consignment is Cleared ✓. Digital statement & settlement slip available.`,
+          linkUrl: '/dashboard',
+        },
+      }).catch(() => null);
+    }
+
+    await createAuditLog({
+      userId: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      action: 'VENDOR_FINAL_SETTLEMENT_CLOSED',
+      entityType: 'PURCHASE_ORDER',
+      entityId: po.id,
+      details: `PO ${po.poNumber} final settlement: ₹${finalBalancePaid.toLocaleString('en-IN')} paid, 5% Admin Share: ₹${adminShareAmount}, 1% APMC: ₹${apmcShareAmount}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      message: `Consignment ${po.poNumber} settled and marked as CLEARED ✓! 5% Admin Share (₹${adminShareAmount.toLocaleString('en-IN')}) and 1% APMC Cess (₹${apmcShareAmount.toLocaleString('en-IN')}) realized.`,
+      purchaseOrder: enrichPOWithSettlementDetails(updated),
+    });
+  } catch (error: any) {
+    console.error('settleVendorBalance error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to settle balance' });
   }
 }

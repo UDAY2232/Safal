@@ -1933,7 +1933,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 ) : (
                   filteredDispatchTabOrders.map((po, index) => {
                     const total = Number(po.grandTotal || po.totalAmount || 0);
-                    const advance = Number(po.advanceAmount || Math.round(total * 0.55));
+                    const settle = (po as any).settlementDetails || {
+                      advanceDisbursed: Boolean(po.advanceAmount > 0 || po.paymentProofUrl),
+                      advanceAmount: Number(po.advanceAmount || Math.round(total * 0.55)),
+                      advancePayingHub: po.orderPersonPlace || 'Warangal Hub',
+                      advanceProofUrl: po.paymentProofUrl || null,
+                      finalBalanceDue: Math.max(0, Math.round(total * 0.94) - Number(po.advanceAmount || Math.round(total * 0.55))),
+                      finalBalancePaid: Math.max(0, Math.round(total * 0.94) - Number(po.advanceAmount || Math.round(total * 0.55))),
+                      finalSettlementProofUrl: po.paymentProofUrl || null,
+                    };
+                    const advance = Number(settle.advanceAmount || Math.round(total * 0.55));
                     const isAppleConsignment = po.fruitName === 'Kashmir Apples' || po.fruitName?.toLowerCase().includes('apple') || po.items?.some(it => it.fruitName?.toLowerCase().includes('apple'));
                     const totalBoxes = po.items && po.items.length > 0 ? po.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0) : 0;
                     const isPendingDispatch = (!po.dispatchStatus || po.dispatchStatus === 'PENDING_DISPATCH') && po.status !== 'CLOSED';
@@ -2044,9 +2053,32 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <strong className="text-emerald-700 font-black block">
                             ₹{advance.toLocaleString('en-IN')}
                           </strong>
-                          <span className="text-[10px] text-gray-400 block font-mono">
-                            of ₹{total.toLocaleString('en-IN')}
-                          </span>
+                          {settle.advanceDisbursed ? (
+                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                              <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                                Paid by {settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
+                              </span>
+                              {settle.advanceProofUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewMediaModal({
+                                      url: settle.advanceProofUrl!,
+                                      title: `Advance Bank Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
+                                    })
+                                  }
+                                  className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                  title="View Advance Payment Proof Slip"
+                                >
+                                  <Eye size={9} /> Receipt
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-gray-400 block font-mono">
+                              of ₹{total.toLocaleString('en-IN')}
+                            </span>
+                          )}
                         </td>
 
                         {/* Status */}
@@ -2072,7 +2104,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                         {/* Action */}
                         <td className="text-center py-3.5 px-3 whitespace-nowrap">
-                          {isPendingDispatch ? (
+                          {po.status === 'CLOSED' ? (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPODetail(po)}
+                              className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              <Eye size={11} /> Settlement Statement
+                            </button>
+                          ) : isPendingDispatch ? (
                             <button
                               type="button"
                               onClick={() => {
@@ -2321,12 +2361,72 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Advance Paid */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <strong className="text-emerald-700 font-black block">₹{advance.toLocaleString('en-IN')}</strong>
+                            <strong className="text-emerald-700 font-black block">
+                              ₹{(po.settlementDetails?.advanceAmount || advance).toLocaleString('en-IN')}
+                            </strong>
+                            {(po.settlementDetails?.advanceDisbursed || po.advanceAmount > 0) ? (
+                              <div className="flex items-center justify-end gap-1 mt-0.5">
+                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                                  Paid by {po.settlementDetails?.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
+                                </span>
+                                {(po.settlementDetails?.advanceProofUrl || po.paymentProofUrl) && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPreviewMediaModal({
+                                        url: (po.settlementDetails?.advanceProofUrl || po.paymentProofUrl)!,
+                                        title: `Advance Bank Payment Receipt: ${po.poNumber} (${po.settlementDetails?.advancePayingHub || 'Warangal Hub'})`,
+                                      });
+                                    }}
+                                    className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                    title="View Advance Payment Proof Slip"
+                                  >
+                                    <Eye size={9} /> Slip
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-gray-400 font-mono">Pending</span>
+                            )}
                           </td>
 
                           {/* Balance Due */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <strong className="text-amber-900 font-black block">₹{balance.toLocaleString('en-IN')}</strong>
+                            {po.status === 'CLOSED' ? (
+                              <div>
+                                <strong className="text-emerald-700 font-black block font-mono">₹0.00</strong>
+                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
+                                  CLEARED ✓ (5% Admin &amp; 1% APMC Deducted)
+                                </span>
+                                {(po.settlementDetails?.finalSettlementProofUrl || po.paymentProofUrl) && (
+                                  <div className="mt-1">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPreviewMediaModal({
+                                          url: (po.settlementDetails?.finalSettlementProofUrl || po.paymentProofUrl)!,
+                                          title: `Final Settlement Receipt: ${po.poNumber} (${po.settlementDetails?.finalSettlingHub || 'Warangal Hub'})`,
+                                        });
+                                      }}
+                                      className="text-[9px] font-bold text-blue-700 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                      <Eye size={9} /> Settlement Slip ↗
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div>
+                                <strong className="text-amber-900 font-black block font-mono">
+                                  ₹{(po.settlementDetails?.finalBalanceDue || balance).toLocaleString('en-IN')}
+                                </strong>
+                                <span className="text-[9px] text-gray-500 block mt-0.5">
+                                  Less 5% Admin + 1% APMC
+                                </span>
+                              </div>
+                            )}
                           </td>
 
                           {/* Logistics & Proof */}
@@ -2398,8 +2498,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Actions */}
                           <td className="text-center py-3.5 px-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-center gap-1.5">
-                              {po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              {po.status === 'CLOSED' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedPODetail(po)}
+                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                                >
+                                  <Eye size={11} /> Settlement Statement
+                                </button>
+                              ) : po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
                                 <button
                                   type="button"
                                   onClick={() => setSelectedPOForDispatch(po)}
@@ -2425,6 +2533,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   <Upload size={12} /> Dispatch
                                 </button>
                               )}
+
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPODetail(po)}
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg font-bold text-[10px] cursor-pointer inline-flex items-center gap-1"
+                                title="View full PO dossier"
+                              >
+                                <Eye size={10} /> Details
+                              </button>
 
                               <button
                                 type="button"

@@ -19,6 +19,8 @@ import {
   Scale,
   ShieldCheck,
   Image as ImageIcon,
+  Calculator,
+  CheckCircle2,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { StatusBadge } from './StatusBadge';
@@ -49,6 +51,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showProofViewer, setShowProofViewer] = useState(false);
+  const [activeDocPreview, setActiveDocPreview] = useState<{ url: string; title: string } | null>(null);
 
   // Edit Mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -797,6 +800,123 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </div>
           )}
 
+          {/* Vendor Mandi Commercial Settlement & Realization Statement */}
+          {!isCD && (
+            <div className="rounded-2xl border-2 border-emerald-300 bg-gradient-to-b from-emerald-50/50 to-white overflow-hidden shadow-xs space-y-3 p-4">
+              <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+                <div className="flex items-center gap-2">
+                  <Calculator size={16} className="text-[#087A3E]" />
+                  <strong className="text-xs font-black uppercase tracking-wider text-emerald-950 font-['Manrope']">
+                    Commercial Mandi Settlement &amp; Realization Statement
+                  </strong>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                  {order.status === 'CLOSED' ? 'Cleared ✓' : 'Settlement in Progress'}
+                </span>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                {/* 1. Gross PO Total */}
+                <div className="flex items-center justify-between py-1 border-b border-gray-100">
+                  <span className="text-gray-700 font-bold">1. Gross Consignment PO Value</span>
+                  <strong className="font-mono text-gray-900 text-sm font-black">
+                    ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </strong>
+                </div>
+
+                {/* 2. Less 5% Safal Platform Admin Share */}
+                <div className="flex items-center justify-between py-1 text-rose-800">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                    <span>Less 5% Safal Platform Admin Share / Commission</span>
+                  </div>
+                  <strong className="font-mono font-bold">
+                    -₹{Math.round(grandTotal * 0.05).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </strong>
+                </div>
+
+                {/* 3. Less 1% APMC Market Cess Fee */}
+                <div className="flex items-center justify-between py-1 text-rose-800 border-b border-gray-100">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
+                    <span>Less 1% APMC Mandi Market Cess Fee</span>
+                  </div>
+                  <strong className="font-mono font-bold">
+                    -₹{Math.round(grandTotal * 0.01).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </strong>
+                </div>
+
+                {/* Total Mandi Deductions */}
+                <div className="flex items-center justify-between py-1 bg-rose-50/50 px-2.5 rounded-lg text-rose-900 font-bold">
+                  <span>Total Mandi Deductions (6%)</span>
+                  <span className="font-mono font-black">
+                    -₹{(Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* Net Vendor Payable */}
+                <div className="flex items-center justify-between py-1.5 bg-emerald-50 px-2.5 rounded-lg text-emerald-950 font-black border border-emerald-200">
+                  <span>Net Realized Payable to Vendor</span>
+                  <span className="font-mono text-sm">
+                    ₹{(grandTotal - (Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+
+                {/* Advance Disbursed */}
+                <div className="flex items-center justify-between py-1 text-gray-700">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span>Advance Disbursed ({order.orderPersonPlace || 'Warangal Hub'})</span>
+                    {((order as any).settlementDetails?.advanceProofUrl || order.paymentProofUrl) && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveDocPreview({
+                            url: (order as any).settlementDetails?.advanceProofUrl || order.paymentProofUrl,
+                            title: `${order.poNumber} - Advance Bank Transfer Slip`,
+                          })
+                        }
+                        className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye size={10} /> View Advance Slip ↗
+                      </button>
+                    )}
+                  </div>
+                  <strong className="font-mono text-emerald-800 font-bold">
+                    ₹{Number(order.advanceAmount || Math.round(grandTotal * 0.55)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </strong>
+                </div>
+
+                {/* Final Balance Status */}
+                <div className="flex items-center justify-between py-1.5 px-3 bg-amber-50 rounded-xl border border-amber-200 flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <strong className="text-amber-950">
+                      {order.status === 'CLOSED' ? 'Final Balance Settled & Cleared' : 'Final Balance Due'}
+                    </strong>
+                    {((order as any).settlementDetails?.finalSettlementProofUrl || (order.status === 'CLOSED' && order.paymentProofUrl)) && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActiveDocPreview({
+                            url: (order as any).settlementDetails?.finalSettlementProofUrl || order.paymentProofUrl,
+                            title: `${order.poNumber} - Final Mandi Settlement Slip`,
+                          })
+                        }
+                        className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye size={10} /> View Settlement Slip ↗
+                      </button>
+                    )}
+                  </div>
+                  <strong className="font-mono text-amber-900 font-black text-sm">
+                    {order.status === 'CLOSED'
+                      ? `₹${((order as any).settlementDetails?.finalBalancePaid || Math.max(0, (grandTotal - (Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01))) - Number(order.advanceAmount || 0))).toLocaleString('en-IN', { minimumFractionDigits: 2 })} (CLEARED ✓)`
+                      : `₹${Math.max(0, (grandTotal - (Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01))) - Number(order.advanceAmount || Math.round(grandTotal * 0.55))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+                  </strong>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Reject Reason input box */}
           {showRejectInput && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-2">
@@ -933,6 +1053,73 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             onRefresh();
           }}
         />
+      )}
+
+      {/* Fullscreen Document Preview Modal */}
+      {activeDocPreview && (
+        <div
+          className="modal-backdrop fixed inset-0 flex items-center justify-center p-3 sm:p-4 !z-[9999]"
+          style={{ zIndex: 9999 }}
+          onClick={() => setActiveDocPreview(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-3xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+              <h3 className="text-base font-black font-['Manrope'] text-gray-900 flex items-center gap-2">
+                <Eye size={18} className="text-[#087A3E]" />
+                {activeDocPreview.title}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActiveDocPreview(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 flex items-center justify-center transition cursor-pointer"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="py-4 flex-1 flex items-center justify-center overflow-auto bg-gray-50 rounded-2xl my-3">
+              {activeDocPreview.url.endsWith('.pdf') ? (
+                <iframe
+                  src={activeDocPreview.url}
+                  title={activeDocPreview.title}
+                  className="w-full h-96 rounded-xl border-0"
+                />
+              ) : (
+                <img
+                  src={activeDocPreview.url}
+                  alt={activeDocPreview.title}
+                  className="max-h-[65vh] object-contain rounded-xl shadow-xs"
+                />
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-gray-500 font-medium">Verified Mandi Commercial Payment Documentation</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={activeDocPreview.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
+                >
+                  <Eye size={13} /> Open Original ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setActiveDocPreview(null)}
+                  className="px-4 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Admin Hub Weighbridge & QC Modal */}
@@ -1134,6 +1321,73 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             }
           }}
         />
+      )}
+
+      {/* Fullscreen Document Preview Modal */}
+      {activeDocPreview && (
+        <div
+          className="modal-backdrop fixed inset-0 flex items-center justify-center p-3 sm:p-4 !z-[9999]"
+          style={{ zIndex: 9999 }}
+          onClick={() => setActiveDocPreview(null)}
+        >
+          <div
+            className="bg-white rounded-3xl max-w-3xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
+            style={{ zIndex: 10000 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+              <h3 className="text-base font-black font-['Manrope'] text-gray-900 flex items-center gap-2">
+                <Eye size={18} className="text-[#087A3E]" />
+                {activeDocPreview.title}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setActiveDocPreview(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 flex items-center justify-center transition cursor-pointer"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="py-4 flex-1 flex items-center justify-center overflow-auto bg-gray-50 rounded-2xl my-3">
+              {activeDocPreview.url.endsWith('.pdf') ? (
+                <iframe
+                  src={activeDocPreview.url}
+                  title={activeDocPreview.title}
+                  className="w-full h-96 rounded-xl border-0"
+                />
+              ) : (
+                <img
+                  src={activeDocPreview.url}
+                  alt={activeDocPreview.title}
+                  className="max-h-[65vh] object-contain rounded-xl shadow-xs"
+                />
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+              <span className="text-gray-500 font-medium">Verified Mandi Commercial Payment Documentation</span>
+              <div className="flex items-center gap-2">
+                <a
+                  href={activeDocPreview.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
+                >
+                  <Eye size={13} /> Open Original ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setActiveDocPreview(null)}
+                  className="px-4 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Close Preview
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
