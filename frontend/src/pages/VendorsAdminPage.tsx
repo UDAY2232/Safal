@@ -2501,10 +2501,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 </div>
               </div>
 
-              {/* Primary Location */}
+              {/* Registered Location */}
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
-                  Primary Delivery Hub Location (Whitelisted 8 Cities Only) *
+                  Registered Location *
                 </label>
                 <select
                   required
