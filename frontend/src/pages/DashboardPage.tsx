@@ -2333,7 +2333,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                     <span className="text-[10px] text-emerald-700 font-bold">✓ Direct Bank Cleared</span>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-gray-500 uppercase font-bold block">45% Final Payout Balance</span>
+                    <span className="text-[10px] text-gray-500 uppercase font-bold block">Final Payout Balance</span>
                     <strong className="text-sm font-black text-gray-900 block">
                       ₹{Number(selectedPOForPL.balancePaymentAmount || (fin.baseCost * 0.45)).toLocaleString('en-IN')}
                     </strong>

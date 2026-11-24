@@ -578,8 +578,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         'Gross Realization Turnover',
         'Net Realized Profit/Loss',
         'Margin %',
-        '55% Advance Cleared',
-        '45% Balance Due',
+        'Advance Cleared',
+        'Net Balance Due',
         'Truck No',
         'Driver Phone',
         'Status',
@@ -1363,10 +1363,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       Consignment Value (₹)
                     </th>
                     <th className="py-3.5 px-4 text-right font-bold border-r border-[#085A33]">
-                      55% Advance (₹)
+                      Advance Paid (₹)
                     </th>
                     <th className="py-3.5 px-4 text-right font-bold border-r border-[#085A33]">
-                      45% Balance Due (₹)
+                      Net Balance Due (₹)
                     </th>
                     <th className="py-3.5 px-3 text-center font-bold border-r border-[#085A33]">
                       Status
@@ -2654,7 +2654,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-gray-500 uppercase font-bold block">
-                      45% Final Payout Balance
+                      Final Payout Balance
                     </span>
                     <strong className="text-sm font-black text-gray-900 block font-mono">
                       ₹{Math.round(fin.baseCost * 0.45).toLocaleString('en-IN')}

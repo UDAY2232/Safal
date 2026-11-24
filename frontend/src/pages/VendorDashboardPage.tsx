@@ -817,24 +817,26 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         formData.append('items', JSON.stringify(items));
       }
 
+      // Enforce strict mandatory requirement for Dispatch Photo (Vehicle & Cartons) and Transport Bill
+      const missing: string[] = [];
+      if (!supplyVehiclePhotoFile) {
+        missing.push('Dispatch Photo (Vehicle & Loaded Cartons with number plate)');
+      }
+      if (!supplyTransportBillFile) {
+        missing.push('Transport Bill / Bilty (LR Receipt)');
+      }
+      if (missing.length > 0) {
+        setCreatePOError('Dispatch Photo (Vehicle & Loaded Cartons) and Transport Bill are mandatory!');
+        setMissingImagesPopup({
+          open: true,
+          title: 'Mandatory Consignment Photos Required',
+          missingItems: missing,
+          targetAction: 'supply',
+        });
+        return;
+      }
+
       if (supplyVehicleNumber.trim()) {
-        const missing: string[] = [];
-        if (!supplyVehiclePhotoFile) {
-          missing.push('Dispatch Vehicle Photo (with visible number plate)');
-        }
-        if (!supplyTransportBillFile) {
-          missing.push('Transport Bill / Bilty (LR Copy)');
-        }
-        if (missing.length > 0) {
-          setCreatePOError('Please upload both the Vehicle Photo and Transport Bill before submitting.');
-          setMissingImagesPopup({
-            open: true,
-            title: 'Consignment Photos Required',
-            missingItems: missing,
-            targetAction: 'supply',
-          });
-          return;
-        }
         formData.append('dispatchVehicleNumber', supplyVehicleNumber.trim().toUpperCase());
       }
       if (supplyTransporterName.trim()) {
@@ -989,7 +991,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       formData.append('transportBill', transportBillFile);
 
       const res = await api.submitPODispatch(formData);
-      onNotify(res.message || 'Consignment dispatch submitted successfully! Safal Admin notified.');
+      onNotify(res.message || 'Consignment dispatch submitted successfully! Safal Head Office notified.');
 
       // Reset modal state
       setSelectedPOForDispatch(null);
@@ -1010,20 +1012,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     }
   };
 
-  const pendingDispatchOrders = orders.filter(
-    (o) =>
-      (!o.dispatchStatus || o.dispatchStatus === 'PENDING_DISPATCH') &&
-      o.status !== 'CLOSED' &&
-      o.status !== 'CANCELLED' &&
-      o.status !== 'REJECTED'
-  );
-
-  const inTransitOrders = orders.filter(
-    (o) =>
-      (o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'IN_TRANSIT') &&
-      o.status !== 'CLOSED'
-  );
-
+  // 1. Cleared / Completed Consignments (Strictly 0 remaining balance due & verified settlement)
   const clearedOrders = orders.filter((o) => {
     const settle = (o as any).settlementDetails;
     const remainingDue = settle?.finalBalanceDue !== undefined
@@ -1033,37 +1022,48 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   });
   const deliveredAndVerifiedOrders = clearedOrders;
 
-  const awaitingClearanceOrders = orders.filter((o) => {
+  // 2. Pending Dispatch (Waiting for vehicle loading & dispatch proof upload)
+  const pendingDispatchOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
-    return !isCleared && (o.dispatchStatus === 'DELIVERED_AT_HUB' || Boolean(o.dispatchVehicleNumber) || Boolean(o.vehiclePhotoUrl));
+    return (
+      !isCleared &&
+      !o.dispatchVehicleNumber &&
+      !o.vehiclePhotoUrl &&
+      (!o.dispatchStatus || o.dispatchStatus === 'PENDING_DISPATCH') &&
+      o.status !== 'CLOSED' &&
+      o.status !== 'CANCELLED' &&
+      o.status !== 'REJECTED'
+    );
   });
 
-  const completedOrders = orders.filter((o) => {
+  // 3. In Transit (Truck on the road with photos/bilty submitted, not yet marked delivered at hub)
+  const inTransitOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
-    return isCleared || o.dispatchStatus === 'DELIVERED_AT_HUB';
+    const isPending = pendingDispatchOrders.some((p) => p.id === o.id);
+    if (isCleared || isPending) return false;
+    return (
+      (o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'IN_TRANSIT') &&
+      o.dispatchStatus !== 'DELIVERED_AT_HUB'
+    );
   });
+
+  // 4. Awaiting Safal Clearance (Arrived at regional hub / weighbridge recorded / awaiting final settlement clearance)
+  const awaitingClearanceOrders = orders.filter((o) => {
+    const isCleared = clearedOrders.some((c) => c.id === o.id);
+    const isPending = pendingDispatchOrders.some((p) => p.id === o.id);
+    const isInTransit = inTransitOrders.some((t) => t.id === o.id);
+    return !isCleared && !isPending && !isInTransit;
+  });
+
+  const completedOrders = clearedOrders;
 
   const filteredDispatchTabOrders = orders.filter((o) => {
     if (dispatchTabFilter === 'PENDING') {
-      if (
-        o.status === 'CLOSED' ||
-        o.dispatchStatus === 'LOADED_AND_DISPATCHED' ||
-        o.dispatchStatus === 'IN_TRANSIT' ||
-        o.dispatchStatus === 'DELIVERED_AT_HUB'
-      ) {
-        return false;
-      }
+      if (!pendingDispatchOrders.some((p) => p.id === o.id)) return false;
     } else if (dispatchTabFilter === 'IN_TRANSIT') {
-      if (
-        o.status === 'CLOSED' ||
-        (o.dispatchStatus !== 'LOADED_AND_DISPATCHED' && o.dispatchStatus !== 'IN_TRANSIT')
-      ) {
-        return false;
-      }
+      if (!inTransitOrders.some((t) => t.id === o.id)) return false;
     } else if (dispatchTabFilter === 'COMPLETED') {
-      if (o.status !== 'CLOSED' && o.dispatchStatus !== 'DELIVERED_AT_HUB') {
-        return false;
-      }
+      if (!clearedOrders.some((c) => c.id === o.id)) return false;
     }
 
     if (dispatchTabSearch.trim()) {
@@ -1081,33 +1081,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
   const filteredOrders = orders.filter((po) => {
     if (consignmentFilter === 'PENDING') {
-      if (
-        po.dispatchStatus === 'LOADED_AND_DISPATCHED' ||
-        po.dispatchStatus === 'IN_TRANSIT' ||
-        po.dispatchStatus === 'DELIVERED_AT_HUB' ||
-        po.dispatchVehicleNumber ||
-        po.status === 'CLOSED'
-      ) {
-        return false;
-      }
+      if (!pendingDispatchOrders.some((p) => p.id === po.id)) return false;
     } else if (consignmentFilter === 'IN_TRANSIT') {
-      if (
-        (po.dispatchStatus !== 'LOADED_AND_DISPATCHED' && po.dispatchStatus !== 'IN_TRANSIT') ||
-        po.status === 'CLOSED'
-      ) {
-        return false;
-      }
+      if (!inTransitOrders.some((t) => t.id === po.id)) return false;
     } else if (consignmentFilter === 'AWAITING_CLEARANCE') {
-      if (
-        (!po.dispatchVehicleNumber && po.dispatchStatus !== 'DELIVERED_AT_HUB' && !po.vehiclePhotoUrl) ||
-        po.status === 'CLOSED'
-      ) {
-        return false;
-      }
+      if (!awaitingClearanceOrders.some((a) => a.id === po.id)) return false;
     } else if (consignmentFilter === 'CLEARED' || consignmentFilter === 'DELIVERED') {
-      if (po.status !== 'CLOSED') {
-        return false;
-      }
+      if (!clearedOrders.some((c) => c.id === po.id)) return false;
     }
 
     if (consignmentSearch.trim()) {
@@ -1388,10 +1368,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="mt-2">
                 <span className="text-xs font-bold text-gray-600 block">Pending Mandi Due</span>
                 <strong className="text-lg sm:text-xl font-black text-teal-800 font-['Manrope'] block mt-0.5">
-                  ₹{Number(stats.totalPendingBalance || Math.max(0, (stats.totalOrderValue || 0) - (stats.totalAdvanceReceived || 0))).toLocaleString('en-IN')}
+                  ₹{Number(derivedFinancialStats.totalNetBalanceDue || 0).toLocaleString('en-IN')}
                 </strong>
                 <span className="text-[10px] text-teal-700 font-bold block mt-1">
-                  Settled on Mandi Delivery
+                  Settled by Safal on Mandi Delivery
                 </span>
               </div>
               <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
@@ -1763,7 +1743,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 </div>
                 <strong className="font-extrabold text-gray-900 block">4. QC Acceptance &amp; Payout</strong>
                 <p className="text-[11px] text-gray-600">
-                  Quality grade certified and 45% balance settlement released.
+                  Quality grade certified and final balance settlement released by Safal.
                 </p>
               </div>
             </div>
@@ -1808,11 +1788,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500 flex items-center gap-3">
-                      <span>Total Value: <strong className="text-gray-900">₹{Number(po.grandTotal || po.totalAmount || 0).toLocaleString('en-IN')}</strong></span>
-                      <span>Advance: <strong className="text-emerald-700">₹{Number(po.advanceAmount || 0).toLocaleString('en-IN')}</strong></span>
-                      <span>Balance Due: <strong className="text-amber-700">₹{Number(po.pendingAmount || 0).toLocaleString('en-IN')}</strong></span>
-                    </div>
+                    {(() => {
+                      const settle = (po as any).settlementDetails;
+                      const hasSafalSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted);
+                      const dueAmount = hasSafalSettlement ? Number(settle.finalBalanceDue ?? po.pendingAmount ?? 0) : 0;
+                      return (
+                        <div className="text-xs text-gray-500 flex items-center gap-3 flex-wrap">
+                          <span>Total Value: <strong className="text-gray-900">₹{Number(po.grandTotal || po.totalAmount || 0).toLocaleString('en-IN')}</strong></span>
+                          <span>Advance: <strong className="text-emerald-700">₹{Number(po.advanceAmount || 0).toLocaleString('en-IN')}</strong></span>
+                          <span>
+                            Balance Due: <strong className={dueAmount > 0 ? 'text-amber-700' : 'text-emerald-700'}>
+                              ₹{dueAmount.toLocaleString('en-IN')}
+                            </strong>
+                            {!hasSafalSettlement && (
+                              <span className="text-[10px] text-gray-400 ml-1 font-medium">(Settled by Safal)</span>
+                            )}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -1836,6 +1830,102 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Dedicated Consignment Realized Profit & Loss Ledger */}
+          <div className="bg-white rounded-3xl border border-[#D5E3D8] shadow-sm overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-emerald-50/70 via-emerald-50/30 to-white">
+              <div>
+                <span className="text-[10px] uppercase font-black text-emerald-800 tracking-wider block">
+                  COMMERCIAL MARGINS &amp; REALIZATION
+                </span>
+                <h3 className="text-base font-black text-gray-900 font-['Manrope'] flex items-center gap-2">
+                  <TrendingUp size={18} className="text-[#087A3E]" /> Consignment Profit &amp; Loss Ledger
+                </h3>
+              </div>
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black self-start sm:self-auto">
+                Verified Mandi Settlements
+              </span>
+            </div>
+
+            <div className="overflow-x-auto w-full">
+              <table className="w-full border-collapse min-w-[850px] text-xs">
+                <thead>
+                  <tr className="bg-gray-50/90 text-gray-700 border-b border-gray-200">
+                    <th className="py-2.5 px-3 text-left font-bold">Consignment PO #</th>
+                    <th className="py-2.5 px-3 text-left font-bold">Fruit Commodity</th>
+                    <th className="py-2.5 px-3 text-right font-bold">Base Procurement</th>
+                    <th className="py-2.5 px-3 text-right font-bold">Advance Received</th>
+                    <th className="py-2.5 px-3 text-right font-bold">Safal 5% Share</th>
+                    <th className="py-2.5 px-3 text-right font-bold">APMC 1% Cess</th>
+                    <th className="py-2.5 px-3 text-right font-bold">Net Vendor Payable</th>
+                    <th className="py-2.5 px-3 text-center font-bold">Profit / Loss Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {orders.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="text-center py-8 text-gray-400">
+                        No consignment records available for P&amp;L analysis.
+                      </td>
+                    </tr>
+                  ) : (
+                    orders.map((po) => {
+                      const total = Number(po.grandTotal || po.totalAmount || 0);
+                      const settle = (po as any).settlementDetails || {};
+                      const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                      const safalShare = Number(settle.adminShareAmount ?? Math.round(total * 0.05));
+                      const apmcShare = Number(settle.apmcShareAmount ?? Math.round(total * 0.01));
+                      const netGain = Number(settle.netVendorPayable ?? Math.max(0, total - (safalShare + apmcShare)));
+                      const fin = (po as any).financialRecord;
+                      const hasPL = fin && fin.realizedProfitLoss !== null && fin.realizedProfitLoss !== undefined;
+
+                      return (
+                        <tr key={po.id} className="hover:bg-emerald-50/20 transition">
+                          <td className="py-3 px-3">
+                            <strong className="font-mono text-emerald-800 block">{po.poNumber}</strong>
+                            <small className="text-[10px] text-gray-400">{po.poDate ? new Date(po.poDate).toLocaleDateString('en-GB') : '—'}</small>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="font-bold text-gray-800">{po.fruitName || 'Fresh Fruits'}</span>
+                            <small className="block text-[10px] text-gray-500">{po.orderPersonPlace || 'Warangal Hub'}</small>
+                          </td>
+                          <td className="py-3 px-3 text-right font-bold text-gray-900">
+                            ₹{total.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-3 text-right font-bold text-emerald-700">
+                            ₹{advance.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-3 text-right text-rose-600 font-medium">
+                            -₹{safalShare.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-3 text-right text-rose-600 font-medium">
+                            -₹{apmcShare.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-3 text-right font-black text-emerald-900 font-mono">
+                            ₹{netGain.toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-3 text-center">
+                            {hasPL ? (
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-black inline-flex items-center gap-1 ${
+                                fin.realizedProfitLoss >= 0 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
+                              }`}>
+                                {fin.realizedProfitLoss >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                                {fin.realizedProfitLoss >= 0 ? `+₹${Math.round(fin.realizedProfitLoss).toLocaleString('en-IN')} (Net Profit)` : `-₹${Math.round(Math.abs(fin.realizedProfitLoss)).toLocaleString('en-IN')} (Loss)`}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
+                                <Clock size={10} /> Awaiting Mandi Realization
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -1885,7 +1975,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     {pendingDispatchOrders.length} Consignment(s) Awaiting Dispatch Proof Submission
                   </strong>
                   <span className="text-xs text-amber-800">
-                    Upload vehicle photo with visible registration plate &amp; transporter bilty to initiate live transit and 55% advance clearance.
+                    Upload vehicle photo with visible registration plate &amp; transporter bilty to initiate live transit and advance clearance.
                   </span>
                 </div>
               </div>
@@ -2150,7 +2240,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             </span>
                           ) : po.dispatchStatus === 'DELIVERED_AT_HUB' ? (
                             <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
-                              <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance (₹{remainingDue.toLocaleString('en-IN')} Due)
+                              <Clock size={12} className="text-amber-700" /> Awaiting Safal Clearance{remainingDue > 0 ? ` (₹${remainingDue.toLocaleString('en-IN')} Due)` : ''}
                             </span>
                           ) : isInTransit ? (
                             <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
@@ -2469,14 +2559,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                 className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
                                 title="Safal entered settlement. Consignment remains open until full balance is paid."
                               >
-                                <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance (₹{remainingDue.toLocaleString('en-IN')} Due)
+                                <Clock size={12} className="text-amber-700" /> Awaiting Safal Clearance (₹{remainingDue.toLocaleString('en-IN')} Due)
                               </span>
                             ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.dispatchVehicleNumber || po.vehiclePhotoUrl ? (
                               <span
                                 className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
                                 title="Consignment dispatched and submitted. Awaiting Safal Mandi sales realization & clearance."
                               >
-                                <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance
+                                <Clock size={12} className="text-amber-700" /> Awaiting Safal Clearance
                               </span>
                             ) : po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
@@ -2778,12 +2868,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div>
                 <strong className="block font-bold text-gray-900">Authorized Vendor Profile &amp; Bank Disbursement Dossier:</strong>
                 <span className="text-gray-600">
-                  Official commercial registration and direct bank coordinates are permanently locked by Safal Admin. Contact Safal Administrator for any profile or disbursement updates.
+                  Official commercial registration and direct bank coordinates are permanently locked by Safal. Contact Safal Management for any profile or disbursement updates.
                 </span>
               </div>
             </div>
             <span className="px-3 py-1 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 text-[11px] font-black uppercase flex items-center gap-1 flex-shrink-0 self-start sm:self-auto">
-              <ShieldCheck size={12} /> Admin Controlled
+              <ShieldCheck size={12} /> Safal Controlled
             </span>
           </div>
 
@@ -4191,10 +4281,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   {/* Vehicle Photo Upload */}
                   <div className="p-2.5 bg-white border border-gray-200 rounded-xl space-y-1.5">
-                    <label className="block text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
-                      <Camera size={13} className="text-emerald-700" />
-                      Dispatch Photo (Vehicle &amp; Loaded Cartons)
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-bold text-gray-800 flex items-center gap-1.5">
+                        <Camera size={13} className="text-emerald-700" />
+                        Dispatch Photo (Vehicle &amp; Loaded Cartons)
+                      </label>
+                      <span className="text-[10px] text-emerald-800 font-bold bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
+                        Mandatory
+                      </span>
+                    </div>
                     <p className="text-[10px] text-gray-500">
                       Clear photo showing vehicle with loaded fruit boxes and number plate.
                     </p>

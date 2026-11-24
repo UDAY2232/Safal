@@ -706,7 +706,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
                   <span>Pending Due Balance (₹)</span>
-                  <span className="text-[10px] text-rose-700 font-bold">{isCD ? '1-Day Window' : '45% on Delivery'}</span>
+                  <span className="text-[10px] text-rose-700 font-bold">{isCD ? '1-Day Window' : 'Balance on Delivery'}</span>
                 </label>
                 <input
                   type="number"
@@ -718,7 +718,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                   className="w-full h-11 px-3 border-2 border-rose-400 rounded-xl text-sm font-black text-rose-900 bg-white focus:border-rose-600 focus:outline-none shadow-xs"
                 />
                 <span className="text-[10px] text-rose-800 font-bold mt-1 block">
-                  ₹{computedPending.toLocaleString('en-IN')} pending · {isCD ? '1-day grace period' : '45% balance on mandi delivery'}
+                  ₹{computedPending.toLocaleString('en-IN')} pending · {isCD ? '1-day grace period' : 'Balance settled on mandi delivery'}
                 </span>
               </div>
             </div>

@@ -1044,7 +1044,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
 
             {order.status === 'OPEN' && !isAdmin && (
               <span className="text-[11px] text-gray-600 font-medium px-2.5 py-1.5 bg-gray-50 rounded-lg border border-gray-200 inline-flex items-center gap-1">
-                🔒 Admin approval required to close
+                🔒 Safal approval required to close
               </span>
             )}
 
