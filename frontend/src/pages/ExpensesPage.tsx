@@ -10,6 +10,7 @@ import {
   ArrowDownToLine,
   FileText,
   ExternalLink,
+  Bell,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ExpenseClaim } from '../types';
@@ -22,9 +23,17 @@ import { useAuth } from '../context/AuthContext';
 
 interface ExpensesPageProps {
   onNotify: (msg: string) => void;
+  initialExpenseId?: string;
+  initialClaimNumber?: string;
+  onClearNavParams?: () => void;
 }
 
-export const ExpensesPage: React.FC<ExpensesPageProps> = ({ onNotify }) => {
+export const ExpensesPage: React.FC<ExpensesPageProps> = ({
+  onNotify,
+  initialExpenseId,
+  initialClaimNumber,
+  onClearNavParams,
+}) => {
   const { user } = useAuth();
   const [claims, setClaims] = useState<ExpenseClaim[]>([]);
   const [summary, setSummary] = useState<any>({});
@@ -58,6 +67,35 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ onNotify }) => {
   useEffect(() => {
     loadExpenses();
   }, [status, category]);
+
+  // Deep linking: Auto-open expense modal when initialExpenseId or initialClaimNumber is passed
+  useEffect(() => {
+    if ((initialExpenseId || initialClaimNumber) && claims.length > 0) {
+      const match = claims.find(
+        (c) =>
+          (initialExpenseId && c.id === initialExpenseId) ||
+          (initialClaimNumber && c.claimNumber?.toLowerCase() === initialClaimNumber.toLowerCase())
+      );
+      if (match) {
+        setSelectedClaim(match);
+        if (onClearNavParams) onClearNavParams();
+      }
+    }
+  }, [initialExpenseId, initialClaimNumber, claims]);
+
+  useEffect(() => {
+    if (initialExpenseId && !claims.some((c) => c.id === initialExpenseId)) {
+      api
+        .getExpenseById(initialExpenseId)
+        .then((res) => {
+          if (res?.expense) {
+            setSelectedClaim(res.expense);
+            if (onClearNavParams) onClearNavParams();
+          }
+        })
+        .catch(() => {});
+    }
+  }, [initialExpenseId]);
 
   const handleExportCSV = async () => {
     try {
@@ -136,6 +174,23 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ onNotify }) => {
           >
             <Plus size={16} /> Submit Expense
           </button>
+
+          {isAdminOrAccountant && (
+            <button
+              onClick={async () => {
+                try {
+                  const res = await api.notifyAllMissingReceipts();
+                  onNotify(res.message || 'Notifications sent to employees missing receipts');
+                } catch (err: any) {
+                  onNotify(err.message || 'Failed to notify employees');
+                }
+              }}
+              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition shadow-2xs"
+              title="Notify all employees with active claims missing receipts"
+            >
+              <Bell size={14} /> Notify Missing Receipts
+            </button>
+          )}
         </div>
 
         <div className="table-meta">
@@ -217,7 +272,29 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({ onNotify }) => {
                           <FileText size={13} /> View
                         </a>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className="px-1.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[10px] font-bold inline-flex items-center gap-0.5">
+                            ⚠️ Missing Bill
+                          </span>
+                          {isAdminOrAccountant && (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await api.requestExpenseReceipt(claim.id);
+                                  onNotify(`Notification sent to ${claim.employeeName} to upload receipt.`);
+                                } catch (err: any) {
+                                  onNotify(err.message || 'Failed to send receipt reminder');
+                                }
+                              }}
+                              className="text-[10px] font-bold text-amber-700 hover:text-amber-900 underline cursor-pointer"
+                              title="Send reminder notification to employee to upload bill receipt"
+                            >
+                              🔔 Remind
+                            </button>
+                          )}
+                        </div>
                       )}
                     </td>
                     <td>

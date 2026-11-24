@@ -248,7 +248,7 @@ function MainApp() {
                 onNavigate={navigate}
               />
             ) : (
-              <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} />
+              <DashboardPage onNavigate={navigate} onCreatePO={() => setShowCreatePO(true)} onNotify={notify} />
             )}
           </div>
           {activePage === 'Attendance' && user?.role !== 'VENDOR' && <AttendancePage user={user} />}
@@ -267,7 +267,14 @@ function MainApp() {
             />
           )}
           {activePage === 'Invoices' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <InvoicesPage onNotify={notify} />}
-          {activePage === 'Employee Expenses' && user?.role !== 'VENDOR' && <ExpensesPage onNotify={notify} />}
+          {activePage === 'Employee Expenses' && user?.role !== 'VENDOR' && (
+            <ExpensesPage
+              onNotify={notify}
+              initialExpenseId={navParams?.expenseId}
+              initialClaimNumber={navParams?.claimNumber}
+              onClearNavParams={() => setNavParams(null)}
+            />
+          )}
           {activePage === 'Bill Clearance' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <ClearancePage onNotify={notify} />}
           {activePage === 'Wages & Salary' && user?.role === 'ADMIN' && <WagesPage onNotify={notify} />}
           {activePage === 'Employees' && user?.role === 'ADMIN' && <EmployeesPage onNotify={notify} />}

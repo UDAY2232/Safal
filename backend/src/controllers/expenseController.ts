@@ -179,6 +179,15 @@ export async function submitExpense(req: AuthRequest, res: Response) {
     const parsedAmount = Number(amountSpent);
     const initialStatus = status === 'DRAFT' ? 'DRAFT' : 'SUBMITTED';
 
+    // MANDATORY RECEIPT VALIDATION:
+    // When submitting an expense claim, the receipt/bill image MUST be provided.
+    const receiptPath = req.file ? `/uploads/${req.file.filename}` : receiptUrl || null;
+    if (initialStatus === 'SUBMITTED' && !receiptPath) {
+      return res.status(400).json({
+        error: 'Receipt / Bill image is mandatory! Please upload or capture a receipt photo before submitting.',
+      });
+    }
+
     const claim = await prisma.expenseClaim.create({
       data: {
         claimNumber,
@@ -194,22 +203,34 @@ export async function submitExpense(req: AuthRequest, res: Response) {
         amountPaid: 0,
         balanceRemaining: 0,
         paymentMethodUsed: paymentMethodUsed || 'Self',
-        receiptUrl: req.file ? `/uploads/${req.file.filename}` : receiptUrl || null,
+        receiptUrl: receiptPath,
         status: initialStatus,
       },
       include: { employee: true },
     });
 
     if (initialStatus === 'SUBMITTED') {
-      await prisma.notification.create({
-        data: {
-          recipientRole: 'ADMIN',
-          title: 'New Expense Claim Submitted',
-          message: `${claim.claimNumber} (₹${parsedAmount.toLocaleString('en-IN')}) submitted by ${claim.employee.fullName}`,
-          type: 'ACTION_REQUIRED',
-          linkUrl: `/expenses/${claim.id}`,
-        },
-      });
+      // Send notifications to both ADMIN and ACCOUNTANT with direct view URL
+      await Promise.all([
+        prisma.notification.create({
+          data: {
+            recipientRole: 'ADMIN',
+            title: 'New Expense Claim Submitted',
+            message: `${claim.claimNumber} (₹${parsedAmount.toLocaleString('en-IN')}) submitted by ${claim.employee.fullName}`,
+            type: 'ACTION_REQUIRED',
+            linkUrl: `/expenses?expenseId=${claim.id}&view=true`,
+          },
+        }),
+        prisma.notification.create({
+          data: {
+            recipientRole: 'ACCOUNTANT',
+            title: 'New Expense Claim Submitted',
+            message: `${claim.claimNumber} (₹${parsedAmount.toLocaleString('en-IN')}) submitted by ${claim.employee.fullName}`,
+            type: 'ACTION_REQUIRED',
+            linkUrl: `/expenses?expenseId=${claim.id}&view=true`,
+          },
+        }),
+      ]);
     }
 
     await createAuditLog({
@@ -488,6 +509,168 @@ export async function recordExpensePayment(req: AuthRequest, res: Response) {
   } catch (error) {
     console.error('Error recording expense payment:', error);
     return res.status(500).json({ error: 'Failed to record expense payment' });
+  }
+}
+
+/**
+ * Request missing receipt/bill image from employee for a specific claim
+ */
+export async function requestExpenseReceipt(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const claim = await prisma.expenseClaim.findUnique({
+      where: { id },
+      include: { employee: true },
+    });
+
+    if (!claim) {
+      return res.status(404).json({ error: 'Expense claim not found' });
+    }
+
+    if (claim.employee.userId) {
+      await prisma.notification.create({
+        data: {
+          userId: claim.employee.userId,
+          title: 'Mandatory Receipt/Bill Image Required',
+          message: `Receipt / Bill Image is mandatory for your expense claim ${claim.claimNumber} (₹${Number(claim.amountSpent).toLocaleString('en-IN')}). Please upload or capture the bill photo immediately.`,
+          type: 'ACTION_REQUIRED',
+          linkUrl: `/expenses?expenseId=${claim.id}&uploadReceipt=true`,
+        },
+      });
+    }
+
+    await createAuditLog({
+      userId: req.user?.id,
+      userName: req.user?.name || 'Admin',
+      userRole: req.user?.role || 'ADMIN',
+      action: 'EXPENSE_RECEIPT_REQUESTED',
+      entityType: 'EXPENSE',
+      entityId: id,
+      details: `Admin requested bill/receipt image for claim ${claim.claimNumber}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({
+      success: true,
+      message: `Notification sent to ${claim.employee.fullName} to upload mandatory bill image.`,
+    });
+  } catch (error: any) {
+    console.error('Error requesting expense receipt:', error);
+    return res.status(500).json({ error: error.message || 'Failed to request receipt' });
+  }
+}
+
+/**
+ * Send reminder notifications to all employees who submitted expense claims without a bill receipt
+ */
+export async function notifyAllMissingReceipts(req: AuthRequest, res: Response) {
+  try {
+    const claimsWithoutReceipt = await prisma.expenseClaim.findMany({
+      where: {
+        receiptUrl: null,
+        status: { in: ['SUBMITTED', 'UNDER_REVIEW', 'PAYMENT_PENDING'] },
+      },
+      include: { employee: true },
+    });
+
+    let notifiedCount = 0;
+    for (const claim of claimsWithoutReceipt) {
+      if (claim.employee.userId) {
+        await prisma.notification.create({
+          data: {
+            userId: claim.employee.userId,
+            title: 'Mandatory Receipt/Bill Image Required',
+            message: `Bill/Receipt image is mandatory for your expense claim ${claim.claimNumber} (₹${Number(claim.amountSpent).toLocaleString('en-IN')}). Please upload the photo to proceed with approval.`,
+            type: 'ACTION_REQUIRED',
+            linkUrl: `/expenses?expenseId=${claim.id}&uploadReceipt=true`,
+          },
+        });
+        notifiedCount++;
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `Sent mandatory receipt notifications for ${notifiedCount} expense claims.`,
+      notifiedCount,
+    });
+  } catch (error: any) {
+    console.error('Error in notifyAllMissingReceipts:', error);
+    return res.status(500).json({ error: error.message || 'Failed to send notifications' });
+  }
+}
+
+/**
+ * Upload receipt/bill image to an existing expense claim
+ */
+export async function uploadExpenseReceipt(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'Please choose or capture a receipt image to upload' });
+    }
+
+    const claim = await prisma.expenseClaim.findUnique({
+      where: { id },
+      include: { employee: true },
+    });
+
+    if (!claim) {
+      return res.status(404).json({ error: 'Expense claim not found' });
+    }
+
+    // Permission check: employee can update their own, or admin/accountant can update
+    if (req.user?.role === 'EMPLOYEE' && claim.employee.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied: You can only upload receipts for your own claims' });
+    }
+
+    const receiptUrl = `/uploads/${file.filename}`;
+
+    const updated = await prisma.expenseClaim.update({
+      where: { id },
+      data: { receiptUrl },
+      include: { employee: true },
+    });
+
+    // Notify Admin and Accountant
+    await Promise.all([
+      prisma.notification.create({
+        data: {
+          recipientRole: 'ADMIN',
+          title: 'Expense Receipt Image Attached',
+          message: `${claim.employee.fullName} uploaded bill proof for ${claim.claimNumber} (₹${Number(claim.amountSpent).toLocaleString('en-IN')})`,
+          type: 'INFO',
+          linkUrl: `/expenses?expenseId=${claim.id}&view=true`,
+        },
+      }),
+      prisma.notification.create({
+        data: {
+          recipientRole: 'ACCOUNTANT',
+          title: 'Expense Receipt Image Attached',
+          message: `${claim.employee.fullName} uploaded bill proof for ${claim.claimNumber} (₹${Number(claim.amountSpent).toLocaleString('en-IN')})`,
+          type: 'INFO',
+          linkUrl: `/expenses?expenseId=${claim.id}&view=true`,
+        },
+      }),
+    ]);
+
+    await createAuditLog({
+      userId: req.user?.id,
+      userName: req.user?.name || 'Employee',
+      userRole: req.user?.role || 'EMPLOYEE',
+      action: 'EXPENSE_RECEIPT_UPLOADED',
+      entityType: 'EXPENSE',
+      entityId: id,
+      details: `Receipt uploaded for ${claim.claimNumber}`,
+      ipAddress: req.ip,
+    });
+
+    return res.json({ success: true, claim: updated });
+  } catch (error: any) {
+    console.error('Error uploading receipt:', error);
+    return res.status(500).json({ error: error.message || 'Failed to upload receipt' });
   }
 }
 

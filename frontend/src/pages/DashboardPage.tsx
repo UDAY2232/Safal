@@ -53,10 +53,13 @@ import { StatusBadge } from '../components/StatusBadge';
 import { AttendancePunchWidget } from '../components/AttendancePunchWidget';
 import { PODetailModal } from '../components/PODetailModal';
 import { SubmitDuePaymentModal } from '../components/SubmitDuePaymentModal';
+import { ExpenseActionModal } from '../components/ExpenseActionModal';
+import { SubmitExpenseModal } from '../components/SubmitExpenseModal';
 
 interface DashboardPageProps {
-  onNavigate: (page: string) => void;
+  onNavigate: (page: string, params?: any) => void;
   onCreatePO: () => void;
+  onNotify?: (msg: string) => void;
 }
 
 const DEFAULT_DASHBOARD_DATA = {
@@ -102,7 +105,7 @@ const DEFAULT_DASHBOARD_DATA = {
 // In-memory cache for 0ms instantaneous dashboard transitions
 let memoryDashboardCache: any = null;
 
-export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCreatePO }) => {
+export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCreatePO, onNotify }) => {
   const { user } = useAuth();
   // Initialize with in-memory or persisted cache so page renders IMMEDIATELY with zero spinner delay
   const [data, setData] = useState<any>(() => {
@@ -121,6 +124,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [duePaymentOrder, setDuePaymentOrder] = useState<any | null>(null);
   const [loadingOrderId, setLoadingOrderId] = useState<string | null>(null);
+
+  // Expense modal states for direct in-dashboard inspection
+  const [selectedExpenseForModal, setSelectedExpenseForModal] = useState<any | null>(null);
+  const [showSubmitExpenseModal, setShowSubmitExpenseModal] = useState<boolean>(false);
 
   // Vendor Network state
   const [vendors, setVendors] = useState<any[]>([]);
@@ -740,9 +747,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           <section className="dashboard-panel">
             <div className="panel-heading">
               <h2>{isAccountant ? 'Expense Claims for Verification' : 'My Recent Expense Claims'}</h2>
-              <button onClick={() => onNavigate('Employee Expenses')}>
-                {isAccountant ? 'Review expenses' : 'View all'} <ArrowRight size={14} />
-              </button>
+              <div className="flex items-center gap-2">
+                {isEmployee && (
+                  <button
+                    onClick={() => setShowSubmitExpenseModal(true)}
+                    className="px-3 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                  >
+                    <Plus size={13} /> Submit Expense
+                  </button>
+                )}
+                <button onClick={() => onNavigate('Employee Expenses')}>
+                  {isAccountant ? 'View All Claims' : 'View all'} <ArrowRight size={14} />
+                </button>
+              </div>
             </div>
             <div className="table-wrap">
               <table>
@@ -754,18 +771,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                     <th>Expense Date</th>
                     <th>Amount</th>
                     <th>Status</th>
+                    <th className="text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentExpenses.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-8 text-gray-400 text-xs">
+                      <td colSpan={7} className="text-center py-8 text-gray-400 text-xs">
                         No expense claims submitted for verification yet.
                       </td>
                     </tr>
                   ) : (
-                    recentExpenses.slice(0, 5).map((exp: any) => (
-                      <tr key={exp.id}>
+                    recentExpenses.slice(0, 6).map((exp: any) => (
+                      <tr
+                        key={exp.id}
+                        className="hover:bg-emerald-50/20 cursor-pointer"
+                        onClick={() => setSelectedExpenseForModal(exp)}
+                      >
                         <td className="font-semibold text-emerald-800">{exp.claim}</td>
                         <td>{exp.employee}</td>
                         <td className="text-gray-600 text-xs">{exp.category}</td>
@@ -773,6 +795,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                         <td className="font-bold">{formatCurrency(exp.amount)}</td>
                         <td>
                           <StatusBadge status={exp.status} />
+                        </td>
+                        <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedExpenseForModal(exp)}
+                            className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95 transition"
+                            title="View expense details, verify receipts, and approve"
+                          >
+                            <Eye size={12} /> View Details
+                          </button>
                         </td>
                       </tr>
                     ))
@@ -1745,7 +1777,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                   </tr>
                 ) : (
                   recentExpenses.map((expense: any) => (
-                    <tr key={expense.id}>
+                    <tr
+                      key={expense.id}
+                      className="hover:bg-emerald-50/20 cursor-pointer"
+                      onClick={() => setSelectedExpenseForModal(expense)}
+                    >
                       <td className="font-semibold text-emerald-800">{expense.claim}</td>
                       <td>{expense.employee}</td>
                       <td className="text-gray-600 text-xs">{expense.category || 'Operations'}</td>
@@ -1756,12 +1792,14 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       <td>
                         <StatusBadge status={expense.status} />
                       </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <button
-                          onClick={() => onNavigate('Employee Expenses')}
-                          className="text-xs text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1"
+                          type="button"
+                          onClick={() => setSelectedExpenseForModal(expense)}
+                          className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-xs font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer active:scale-95 transition"
+                          title="View expense details, verify receipts, approve or reject"
                         >
-                          Review <ArrowRight size={12} />
+                          <Eye size={12} /> View Details
                         </button>
                       </td>
                     </tr>
@@ -2327,6 +2365,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           </div>
         );
       })()}
+
+      {/* Expense Action & Verification Modal */}
+      {selectedExpenseForModal && (
+        <ExpenseActionModal
+          claim={selectedExpenseForModal}
+          onClose={() => setSelectedExpenseForModal(null)}
+          onRefresh={async () => {
+            try {
+              const res = await api.getAdminDashboard();
+              setData(res);
+            } catch {}
+          }}
+          onNotify={(msg) => (onNotify ? onNotify(msg) : alert(msg))}
+        />
+      )}
+
+      {/* Employee Submit Expense Modal */}
+      {showSubmitExpenseModal && (
+        <SubmitExpenseModal
+          onClose={() => setShowSubmitExpenseModal(false)}
+          onSuccess={async (msg) => {
+            if (onNotify) onNotify(msg);
+            try {
+              const res = await api.getAdminDashboard();
+              setData(res);
+            } catch {}
+          }}
+        />
+      )}
     </>
   );
 };

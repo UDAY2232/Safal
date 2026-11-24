@@ -162,8 +162,10 @@ export const Header: React.FC<HeaderProps> = ({
 
     const cdRegex = /CD\/SF\/\d{4}\/\d+/i;
     const poRegex = /PO\/SF\/\d{4}\/\d+/i;
+    const expRegex = /EXP\/SF\/\d{4}\/\d+/i;
     const cdMatch = title.match(cdRegex) || message.match(cdRegex);
     const poMatch = title.match(poRegex) || message.match(poRegex);
+    const expMatch = title.match(expRegex) || message.match(expRegex);
 
     const isCD =
       Boolean(cdMatch) ||
@@ -173,7 +175,18 @@ export const Header: React.FC<HeaderProps> = ({
     const isPO =
       Boolean(poMatch) ||
       (!isCD && (linkUrl.includes('purchase-order') || title.toLowerCase().includes('po')));
-    const isExpense = linkUrl.includes('expenses') || title.toLowerCase().includes('expense');
+
+    const expIdMatch = linkUrl.match(/\/expenses\/([a-zA-Z0-9_-]+)/) || linkUrl.match(/expenseId=([a-zA-Z0-9_-]+)/);
+    const expenseId = expIdMatch ? expIdMatch[1] : undefined;
+    const isExpense =
+      Boolean(expMatch) ||
+      Boolean(expIdMatch) ||
+      linkUrl.includes('expenses') ||
+      title.toLowerCase().includes('expense') ||
+      message.toLowerCase().includes('expense') ||
+      title.toLowerCase().includes('claim') ||
+      message.toLowerCase().includes('claim');
+
     const isClearance = linkUrl.includes('clearance') || title.toLowerCase().includes('clearance');
     const isAttendance = linkUrl.includes('attendance') || title.toLowerCase().includes('attendance');
     const isVendor = linkUrl.includes('vendor') || title.toLowerCase().includes('vendor');
@@ -191,7 +204,11 @@ export const Header: React.FC<HeaderProps> = ({
     } else if (isPO) {
       onNavigate('Purchase Order (PO)', { orderId, orderNumber });
     } else if (isExpense) {
-      onNavigate('Employee Expenses');
+      onNavigate('Employee Expenses', {
+        expenseId,
+        claimNumber: expMatch ? expMatch[0] : undefined,
+        openDetail: true,
+      });
     } else if (isClearance) {
       onNavigate('Bill Clearance');
     } else if (isAttendance) {

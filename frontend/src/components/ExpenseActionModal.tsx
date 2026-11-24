@@ -1,5 +1,18 @@
-import React, { useState } from 'react';
-import { X, ReceiptIndianRupee, Check, XCircle, FileText, ExternalLink } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import {
+  X,
+  ReceiptIndianRupee,
+  Check,
+  XCircle,
+  FileText,
+  ExternalLink,
+  Bell,
+  Camera,
+  Upload,
+  AlertCircle,
+  CheckCircle2,
+  Image as ImageIcon,
+} from 'lucide-react';
 import { ExpenseClaim } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { api } from '../services/api';
@@ -26,9 +39,46 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentReceiptUrl, setCurrentReceiptUrl] = useState<string | null>(claim.receiptUrl || null);
+  const [isSendingReminder, setIsSendingReminder] = useState(false);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
+
+  const receiptFileInputRef = useRef<HTMLInputElement | null>(null);
+  const receiptCameraInputRef = useRef<HTMLInputElement | null>(null);
 
   const isAdmin = user?.role === 'ADMIN';
   const isAccountant = user?.role === 'ACCOUNTANT';
+  const isClaimant = user?.employee?.id === (claim as any).employeeId || user?.name === claim.employeeName;
+
+  const handleSendReminder = async () => {
+    try {
+      setIsSendingReminder(true);
+      await api.requestExpenseReceipt(claim.id);
+      onNotify(`Notification sent to ${claim.employeeName} to upload mandatory bill/receipt image.`);
+    } catch (err: any) {
+      onNotify(err.message || 'Failed to send reminder notification');
+    } finally {
+      setIsSendingReminder(false);
+    }
+  };
+
+  const handleUploadReceiptFile = async (file: File) => {
+    try {
+      setIsUploadingReceipt(true);
+      const fd = new FormData();
+      fd.append('receipt', file);
+      const res = await api.uploadExpenseReceipt(claim.id, fd);
+      if (res?.claim?.receiptUrl) {
+        setCurrentReceiptUrl(res.claim.receiptUrl);
+      }
+      onNotify(`Bill image uploaded successfully for ${claim.claimNumber}!`);
+      onRefresh();
+    } catch (err: any) {
+      onNotify(err.message || 'Failed to upload bill receipt');
+    } finally {
+      setIsUploadingReceipt(false);
+    }
+  };
 
   const handleReview = async () => {
     try {
@@ -142,20 +192,109 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
             </p>
           </div>
 
-          {/* Receipt attachment link */}
-          {claim.receiptUrl && (
-            <div className="flex items-center justify-between p-2.5 bg-emerald-50 rounded-lg border border-emerald-200">
-              <div className="flex items-center gap-2 text-emerald-800 font-semibold">
-                <FileText size={16} /> Attached Receipt Document
+          {/* Hidden inputs for bill image upload */}
+          <input
+            type="file"
+            ref={receiptCameraInputRef}
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.[0]) handleUploadReceiptFile(e.target.files[0]);
+            }}
+          />
+          <input
+            type="file"
+            ref={receiptFileInputRef}
+            accept=".pdf,.jpg,.jpeg,.png"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.[0]) handleUploadReceiptFile(e.target.files[0]);
+            }}
+          />
+
+          {/* Receipt attachment section (With mandatory check & reminder dispatch) */}
+          {currentReceiptUrl ? (
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-900 font-extrabold">
+                  <CheckCircle2 size={16} className="text-emerald-700" />
+                  Attached Bill / Receipt Proof
+                </div>
+                <a
+                  href={currentReceiptUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-[#087A3E] font-bold hover:underline inline-flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-emerald-300 shadow-2xs"
+                >
+                  View Full Attachment <ExternalLink size={12} />
+                </a>
               </div>
-              <a
-                href={claim.receiptUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-[#087A3E] font-bold hover:underline inline-flex items-center gap-1"
-              >
-                View Attachment <ExternalLink size={13} />
-              </a>
+
+              {/* If image, show clean inline preview thumbnail */}
+              {/\.(jpg|jpeg|png|webp)($|\?)/i.test(currentReceiptUrl) && (
+                <div className="pt-1">
+                  <a href={currentReceiptUrl} target="_blank" rel="noreferrer" className="block max-w-xs group">
+                    <img
+                      src={currentReceiptUrl}
+                      alt="Receipt Document"
+                      className="max-h-48 rounded-lg border border-emerald-300 shadow-2xs group-hover:opacity-90 transition object-contain bg-white"
+                    />
+                    <span className="text-[10px] text-emerald-700 font-semibold block mt-1">
+                      Click image to inspect full-screen proof ↗
+                    </span>
+                  </a>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-300 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-rose-900 font-bold text-xs">
+                  <AlertCircle size={15} className="text-rose-700" />
+                  Missing Bill / Receipt Image
+                </div>
+                <span className="text-[10px] font-black uppercase text-rose-800 bg-rose-100 px-2 py-0.5 rounded border border-rose-300">
+                  Mandatory Required
+                </span>
+              </div>
+              <p className="text-[11px] text-rose-800">
+                This claim has no receipt or tax bill attached. Claims cannot be cleared without mandatory bill proof.
+              </p>
+
+              <div className="flex items-center gap-2 flex-wrap pt-1">
+                {(isAdmin || isAccountant) && (
+                  <button
+                    type="button"
+                    onClick={handleSendReminder}
+                    disabled={isSendingReminder}
+                    className="px-3 py-1.5 bg-rose-700 hover:bg-rose-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition"
+                  >
+                    <Bell size={13} />
+                    {isSendingReminder ? 'Sending Notification...' : 'Send Notification (Image Required)'}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => receiptCameraInputRef.current?.click()}
+                  disabled={isUploadingReceipt}
+                  className="px-3 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition"
+                >
+                  <Camera size={13} />
+                  {isUploadingReceipt ? 'Uploading...' : 'Snap Bill Photo'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => receiptFileInputRef.current?.click()}
+                  disabled={isUploadingReceipt}
+                  className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 transition"
+                >
+                  <Upload size={13} />
+                  Choose File
+                </button>
+              </div>
             </div>
           )}
 

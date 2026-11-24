@@ -1,5 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { X, Upload, ReceiptIndianRupee, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  X,
+  Upload,
+  ReceiptIndianRupee,
+  ArrowRight,
+  Camera,
+  FileText,
+  Trash2,
+  AlertCircle,
+  CheckCircle2,
+} from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Employee } from '../types';
@@ -34,8 +44,27 @@ export const SubmitExpenseModal: React.FC<SubmitExpenseModalProps> = ({ onClose,
   const [amountSpent, setAmountSpent] = useState('');
   const [paymentMethodUsed, setPaymentMethodUsed] = useState('Personal Account / UPI');
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = (file: File | null) => {
+    setReceiptFile(file);
+    if (file) {
+      setError('');
+      if (file.type.startsWith('image/')) {
+        const url = URL.createObjectURL(file);
+        setReceiptPreview(url);
+      } else {
+        setReceiptPreview(null);
+      }
+    } else {
+      setReceiptPreview(null);
+    }
+  };
 
   const isEmployee = user?.role === 'EMPLOYEE';
 
@@ -64,6 +93,11 @@ export const SubmitExpenseModal: React.FC<SubmitExpenseModalProps> = ({ onClose,
     }
     if (!businessPurpose) {
       setError('Business purpose is required for company spending compliance');
+      return;
+    }
+    // STRICT MANDATORY RECEIPT VALIDATION:
+    if (!isDraft && !receiptFile) {
+      setError('Receipt / Bill image is strictly mandatory! Please take a photo or upload your bill/receipt before submitting.');
       return;
     }
 
@@ -206,17 +240,92 @@ export const SubmitExpenseModal: React.FC<SubmitExpenseModalProps> = ({ onClose,
             />
           </div>
 
-          <div>
-            <label className="block text-gray-700 font-semibold mb-1">Upload Bill or Receipt Attachment</label>
-            <div className="flex items-center gap-3">
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
-                className="text-xs text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
-              />
-              <span className="text-[11px] text-gray-400">PDF, JPG, PNG up to 10MB</span>
+          {/* Mandatory Bill/Receipt Image Upload Section */}
+          <div className="p-3.5 bg-emerald-50/40 border-2 border-dashed border-emerald-300 rounded-2xl space-y-2.5">
+            <div className="flex items-center justify-between">
+              <label className="text-gray-800 font-extrabold flex items-center gap-1.5 text-xs">
+                <FileText size={14} className="text-emerald-700" />
+                Upload Bill or Receipt Attachment *
+              </label>
+              <span className="text-[10px] font-black uppercase tracking-wider text-rose-800 bg-rose-100 px-2 py-0.5 rounded-full border border-rose-300 flex items-center gap-1">
+                <AlertCircle size={10} /> Mandatory
+              </span>
             </div>
+            <p className="text-[11px] text-gray-500">
+              Clear photo or PDF receipt of original tax invoice, toll/fuel bill, or travel ticket. Claims without proof cannot be approved.
+            </p>
+
+            {/* Hidden inputs */}
+            <input
+              type="file"
+              ref={cameraInputRef}
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+            />
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".pdf,.jpg,.jpeg,.png"
+              className="hidden"
+              onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+            />
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                className="px-3 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
+              >
+                <Camera size={14} /> Open Camera (Live Photo)
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95 transition"
+              >
+                <Upload size={14} /> Choose File (Image or PDF)
+              </button>
+              <span className="text-[10px] text-gray-400">JPG, PNG, PDF up to 10MB</span>
+            </div>
+
+            {/* Selected File Preview */}
+            {receiptFile && (
+              <div className="p-2.5 bg-white border border-emerald-300 rounded-xl flex items-center justify-between gap-3 shadow-2xs mt-2">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {receiptPreview ? (
+                    <img
+                      src={receiptPreview}
+                      alt="Receipt preview"
+                      className="w-12 h-12 object-cover rounded-lg border border-gray-200 flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center flex-shrink-0 font-bold">
+                      PDF
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <span className="text-xs font-bold text-gray-900 block truncate flex items-center gap-1">
+                      <CheckCircle2 size={12} className="text-emerald-600 flex-shrink-0" />
+                      {receiptFile.name}
+                    </span>
+                    <span className="text-[10px] text-gray-400 block">
+                      {(receiptFile.size / 1024).toFixed(1)} KB · Bill image attached ✓
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleFileChange(null)}
+                  className="p-1.5 text-gray-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition cursor-pointer flex-shrink-0"
+                  title="Remove attached receipt"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

@@ -166,6 +166,12 @@ export const api = {
     request<any>(`/expenses/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
   recordExpensePayment: (id: string, data: any) =>
     request<any>(`/expenses/${id}/payments`, { method: 'POST', body: JSON.stringify(data) }),
+  requestExpenseReceipt: (id: string) =>
+    request<any>(`/expenses/${id}/request-receipt`, { method: 'POST' }),
+  notifyAllMissingReceipts: () =>
+    request<any>('/expenses/notify-missing-receipts', { method: 'POST' }),
+  uploadExpenseReceipt: (id: string, formData: FormData) =>
+    request<any>(`/expenses/${id}/receipt`, { method: 'POST', body: formData }),
 
   // Clearance
   getClearanceBills: (params: string = '') => request<any>(`/clearance/bills${params}`),
