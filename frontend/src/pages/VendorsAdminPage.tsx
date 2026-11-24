@@ -461,11 +461,11 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     try {
       setIsApprovingPO(true);
       await api.closePurchaseOrder(op.id);
-      onNotify(`Consignment ${op.poNumber || 'PO'} verified and approved as CLEARED! Vendor dashboard updated.`);
+      onNotify(`Consignment ${op.poNumber || 'PO'} truck arrival verified at Hub! Commercial balance remains OPEN awaiting final settlement.`);
       setVerifyApprovalPO(null);
       await loadVendorsAndOperations();
     } catch (err: any) {
-      onNotify(err.message || 'Failed to approve consignment');
+      onNotify(err.message || 'Failed to verify consignment delivery');
     } finally {
       setIsApprovingPO(false);
     }
@@ -489,6 +489,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     if (!selectedPOForAdvance) return;
     if (!advancePaymentUtr.trim()) {
       onNotify('Please enter the bank transfer UTR or Reference Number');
+      return;
+    }
+    if (!advanceProofFile && !advanceProofPreview) {
+      onNotify('Mandatory: Please upload or capture the Advance Payment bank receipt proof (RTGS / NEFT receipt).');
       return;
     }
     try {
@@ -542,6 +546,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     if (!selectedPOForSettlement) return;
     if (!settlementPaymentUtr.trim()) {
       onNotify('Please enter the settlement UTR or transaction reference number');
+      return;
+    }
+    if (!settlementProofFile && !settlementProofPreview) {
+      onNotify('Mandatory: Please upload or capture the Final Mandi Settlement receipt proof.');
       return;
     }
     try {
@@ -1518,43 +1526,77 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               </button>
                             )}
                           </td>
+                          {/* Net Balance Due */}
                           <td className="text-right py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
-                            <span className="font-bold text-gray-700 font-mono block">
-                              ₹{(status === 'CLOSED' ? settle.finalBalancePaid : settle.finalBalanceDue).toLocaleString('en-IN')}
-                            </span>
-                            <span className="text-[9px] font-medium text-gray-500 block mt-0.5">
-                              {status === 'CLOSED' ? 'Settled (5% Admin & 1% APMC)' : 'Net (Less 5% Admin + 1% APMC)'}
-                            </span>
-                            {status === 'CLOSED' && settle.finalSettlementProofUrl && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setPreviewDoc({
-                                    url: settle.finalSettlementProofUrl!,
-                                    title: `${poCode} - Final Mandi Settlement Receipt (${settle.finalSettlingHub || hub})`,
-                                  })
-                                }
-                                className="text-[9px] font-bold text-blue-700 hover:underline inline-flex items-center gap-0.5 mt-0.5 cursor-pointer"
-                              >
-                                <Eye size={9} /> Settlement Slip ↗
-                              </button>
-                            )}
+                            {(() => {
+                              const isReallySettled = Boolean(
+                                settle.settlementCompleted &&
+                                Number(settle.finalBalanceDue ?? 0) === 0 &&
+                                (Number(settle.finalBalancePaid ?? 0) > 0 || status === 'CLOSED')
+                              );
+                              const potentialDue = settle.finalBalanceDue > 0
+                                ? settle.finalBalanceDue
+                                : (settle.calculatedPotentialDue || Math.max(0, fin.baseCost - Math.round(fin.baseCost * 0.06) - settle.advanceAmount));
+
+                              return (
+                                <div>
+                                  <span className="font-bold text-gray-900 font-mono block">
+                                    ₹{(isReallySettled ? settle.finalBalancePaid : potentialDue).toLocaleString('en-IN')}
+                                  </span>
+                                  <span className="text-[9px] font-medium text-gray-500 block mt-0.5">
+                                    {isReallySettled ? 'Settled (5% Admin & 1% APMC) ✓' : 'Net Due (Less 5% Admin + 1% APMC)'}
+                                  </span>
+                                  {isReallySettled && settle.finalSettlementProofUrl && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setPreviewDoc({
+                                          url: settle.finalSettlementProofUrl!,
+                                          title: `${poCode} - Final Mandi Settlement Receipt (${settle.finalSettlingHub || hub})`,
+                                        })
+                                      }
+                                      className="text-[9px] font-bold text-blue-700 hover:underline inline-flex items-center gap-0.5 mt-0.5 cursor-pointer"
+                                    >
+                                      <Eye size={9} /> Settlement Slip ↗
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
+
+                          {/* Commercial Settlement Status */}
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {status === 'CLOSED' ? (
-                              <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
-                                <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
-                              </span>
-                            ) : settle.advanceDisbursed ? (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 inline-flex items-center gap-1">
-                                <Clock size={10} className="text-blue-700" /> Advance Paid · Due Awaiting
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
-                                Pending Advance
-                              </span>
-                            )}
+                            {(() => {
+                              const isReallySettled = Boolean(
+                                settle.settlementCompleted &&
+                                Number(settle.finalBalanceDue ?? 0) === 0 &&
+                                (Number(settle.finalBalancePaid ?? 0) > 0 || status === 'CLOSED')
+                              );
+
+                              if (isReallySettled) {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                                    <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
+                                  </span>
+                                );
+                              }
+                              if (settle.advanceDisbursed) {
+                                return (
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 inline-flex items-center gap-1">
+                                    <Clock size={10} className="text-blue-700" /> Advance Paid · Due Awaiting
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
+                                  Pending Advance
+                                </span>
+                              );
+                            })()}
                           </td>
+
+                          {/* Fleet & Driver */}
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             <span className="font-mono text-[11px] font-bold text-gray-900 flex items-center justify-center gap-1">
                               <Truck size={12} className="text-gray-500" /> {truck}
@@ -1566,87 +1608,139 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               <Phone size={10} className="text-blue-600" /> {driver}
                             </a>
                           </td>
-                          <td className="text-center py-3.5 px-4 whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                              {vehiclePhoto && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPreviewDoc({ url: vehiclePhoto, title: `${poCode} - Truck Photo (${truck})` })
-                                  }
-                                  className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 border border-emerald-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                  title="View Vehicle Photo"
-                                >
-                                  <Eye size={11} className="text-emerald-700" /> Photo
-                                </button>
-                              )}
 
-                              {bilty && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPreviewDoc({ url: bilty, title: `${poCode} - Transporter Bilty (${transporter})` })
-                                  }
-                                  className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-900 border border-blue-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                  title="View Transporter Bilty"
-                                >
-                                  <FileText size={11} className="text-blue-700" /> Bilty
-                                </button>
-                              )}
+                          {/* Proofs & Actions (Clean 2-Tier Structured Buttons) */}
+                          <td className="text-center py-3.5 px-4 whitespace-nowrap min-w-[230px]">
+                            {(() => {
+                              const isReallySettled = Boolean(
+                                settle.settlementCompleted &&
+                                Number(settle.finalBalanceDue ?? 0) === 0 &&
+                                (Number(settle.finalBalancePaid ?? 0) > 0 || status === 'CLOSED')
+                              );
 
-                              {scaleSlip && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPreviewDoc({ url: scaleSlip, title: `${poCode} - Weighbridge Scale Slip` })
-                                  }
-                                  className="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-900 border border-purple-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                  title="View Scale Slip"
-                                >
-                                  <Scale size={11} className="text-purple-700" /> Slip
-                                </button>
-                              )}
+                              return (
+                                <div className="flex flex-col items-center gap-1.5">
+                                  {/* Row 1: Document Evidence Pills */}
+                                  <div className="flex items-center justify-center gap-1 flex-wrap">
+                                    {vehiclePhoto ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewDoc({ url: vehiclePhoto, title: `${poCode} - Truck Photo (${truck})` })
+                                        }
+                                        className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                        title="View Vehicle Photo"
+                                      >
+                                        <Camera size={10} className="text-emerald-700" /> Photo
+                                      </button>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded text-[9px]">No Photo</span>
+                                    )}
 
-                              {/* Pay Advance / Upload Advance Slip Action Button */}
-                              {!settle.advanceProofUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() => openAdvanceModal(op)}
-                                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
-                                  title="Disburse advance payment or upload bank receipt proof"
-                                >
-                                  <CreditCard size={11} />
-                                  <span>{settle.advanceDisbursed ? 'Upload Advance Slip' : 'Pay Advance'}</span>
-                                </button>
-                              )}
+                                    {bilty ? (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewDoc({ url: bilty, title: `${poCode} - Transporter Bilty (${transporter})` })
+                                        }
+                                        className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                        title="View Transporter Bilty"
+                                      >
+                                        <FileText size={10} className="text-blue-700" /> Bilty
+                                      </button>
+                                    ) : (
+                                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded text-[9px]">No Bilty</span>
+                                    )}
 
-                              {/* Settle Balance & Clear Consignment Action Button */}
-                              {status !== 'CLOSED' ? (
-                                <button
-                                  type="button"
-                                  onClick={() => openSettlementModal(op)}
-                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95 ring-1 ring-emerald-300"
-                                  title="Settle balance with 5% Admin Share & 1% APMC Cess deduction, and clear PO"
-                                >
-                                  <ShieldCheck size={11} className="text-emerald-300" />
-                                  <span>Settle &amp; Clear ✓</span>
-                                </button>
-                              ) : (
-                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded text-[9px] font-black inline-flex items-center gap-0.5">
-                                  <CheckCircle2 size={9} /> CLEARED ✓
-                                </span>
-                              )}
+                                    {scaleSlip && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewDoc({ url: scaleSlip, title: `${poCode} - Weighbridge Scale Slip` })
+                                        }
+                                        className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                        title="View Scale Slip"
+                                      >
+                                        <Scale size={10} className="text-purple-700" /> Slip
+                                      </button>
+                                    )}
 
-                              <button
-                                type="button"
-                                onClick={() => openPLModal(op)}
-                                className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                title="Open Mandi P&L Dossier"
-                              >
-                                <Calculator size={11} className="text-amber-800" />
-                                <span>P&amp;L</span>
-                              </button>
-                            </div>
+                                    {settle.advanceProofUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewDoc({
+                                            url: settle.advanceProofUrl!,
+                                            title: `${poCode} - Advance Bank Receipt (${settle.advancePayingHub || hub})`,
+                                          })
+                                        }
+                                        className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                        title="View Advance Payment Slip"
+                                      >
+                                        <Receipt size={10} className="text-teal-700" /> Adv Slip
+                                      </button>
+                                    )}
+
+                                    {isReallySettled && settle.finalSettlementProofUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewDoc({
+                                            url: settle.finalSettlementProofUrl!,
+                                            title: `${poCode} - Final Settlement Receipt (${settle.finalSettlingHub || hub})`,
+                                          })
+                                        }
+                                        className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                        title="View Final Settlement Slip"
+                                      >
+                                        <ShieldCheck size={10} className="text-indigo-700" /> Settle Slip
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Row 2: Dedicated Clickable Action Buttons */}
+                                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                    {!settle.advanceProofUrl && (
+                                      <button
+                                        type="button"
+                                        onClick={() => openAdvanceModal(op)}
+                                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                        title="Disburse advance payment or upload bank receipt proof"
+                                      >
+                                        <CreditCard size={11} />
+                                        <span>{settle.advanceDisbursed ? 'Upload Advance Slip' : 'Pay Advance'}</span>
+                                      </button>
+                                    )}
+
+                                    {isReallySettled ? (
+                                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
+                                        <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => openSettlementModal(op)}
+                                        className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95 ring-1 ring-emerald-300"
+                                        title="Settle balance with 5% Admin Share & 1% APMC Cess deduction, and clear PO"
+                                      >
+                                        <ShieldCheck size={11} className="text-emerald-300" />
+                                        <span>Settle &amp; Clear ✓</span>
+                                      </button>
+                                    )}
+
+                                    <button
+                                      type="button"
+                                      onClick={() => openPLModal(op)}
+                                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                      title="Open Mandi P&L Dossier"
+                                    >
+                                      <Calculator size={11} className="text-amber-800" />
+                                      <span>P&amp;L</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                         </tr>
                       );
@@ -1658,7 +1752,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
           ) : (
             /* EXTENDED FINANCIAL AUDIT & P&L VIEW TABLE (Zero raw emojis) */
             <div className="table-scroll-wrap overflow-x-auto w-full">
-              <table className="w-full border-collapse min-w-[1100px] text-xs">
+              <table className="w-full border-collapse min-w-[1250px] text-xs">
                 <thead>
                   <tr className="bg-[#064D2B] text-white">
                     <th className="py-3 px-3 text-center font-bold w-12 border-r border-[#085A33]">S.No.</th>
@@ -1666,38 +1760,57 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                     <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Vendor Partner</th>
                     <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Commodity &amp; Volume</th>
                     <th className="py-3 px-3 text-right font-bold bg-[#085A33] border-r border-[#064D2B]">
-                      Buying Cost / Unit (Procurement)
+                      Procurement Base
                     </th>
                     <th className="py-3 px-3 text-right font-bold bg-[#085A33] border-r border-[#064D2B]">
-                      Closing Mandi Rate (Selling)
+                      Closing Mandi Rate
                     </th>
                     <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">
-                      Landed Outlay (Base + Freight + Hamali)
+                      5% Safal + 1% APMC
+                    </th>
+                    <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">
+                      Landed Outlay (Freight+Hamali)
                     </th>
                     <th className="py-3 px-3 text-right font-bold bg-[#054024] border-r border-[#085A33]">
-                      Mandi Turnover (Realization)
+                      Mandi Turnover
                     </th>
                     <th className="py-3 px-3 text-center font-bold bg-[#054024] border-r border-[#085A33]">
                       Net Realized P&amp;L (Margin %)
                     </th>
-                    <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Status</th>
+                    <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Settlement</th>
                     <th className="py-3 px-3 text-center font-bold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredConsignments.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="text-center py-12 text-gray-400">
+                      <td colSpan={12} className="text-center py-12 text-gray-400">
                         No consignments found.
                       </td>
                     </tr>
                   ) : (
                     filteredConsignments.map((op, index) => {
                       const fin = getConsignmentFinancials(op);
+                      const settle = op.settlementDetails || {
+                        advanceDisbursed: Boolean(op.advanceAmount > 0 || op.paymentProofUrl),
+                        advanceAmount: Math.round(fin.baseCost * 0.55),
+                        adminShareAmount: Math.round(fin.baseCost * 0.05),
+                        apmcShareAmount: Math.round(fin.baseCost * 0.01),
+                        finalBalanceDue: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.55)),
+                        finalBalancePaid: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.55)),
+                        settlementCompleted: op.status === 'CLOSED',
+                      };
                       const poCode = op.poNumber || `PO/SF/2026/02${index}`;
                       const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || 'Wholesale Vendor';
                       const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || 'VND-001';
-                      const status = op.dispatchStatus || op.status || 'OPEN';
+                      const status = op.status === 'CLOSED' ? 'CLOSED' : (op.dispatchStatus || op.status || 'OPEN');
+                      const isReallySettled = Boolean(
+                        settle.settlementCompleted &&
+                        Number(settle.finalBalanceDue ?? 0) === 0 &&
+                        (Number(settle.finalBalancePaid ?? 0) > 0 || status === 'CLOSED')
+                      );
+                      const safalShare = Number(settle.adminShareAmount ?? Math.round(fin.baseCost * 0.05));
+                      const apmcShare = Number(settle.apmcShareAmount ?? Math.round(fin.baseCost * 0.01));
 
                       return (
                         <tr key={op.id || poCode} className="hover:bg-emerald-50/20 transition text-xs">
@@ -1739,6 +1852,23 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-right border-r border-gray-100 whitespace-nowrap">
+                            {isReallySettled ? (
+                              <div>
+                                <span className="text-rose-600 font-bold font-mono block text-xs">
+                                  -₹{(safalShare + apmcShare).toLocaleString('en-IN')}
+                                </span>
+                                <span className="text-[9px] text-gray-500 block">
+                                  5% (₹{safalShare.toLocaleString('en-IN')}) + 1% (₹{apmcShare.toLocaleString('en-IN')})
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <span className="text-gray-900 font-bold font-mono block text-xs">₹0.00</span>
+                                <span className="text-[9px] text-gray-400 block">Pending Realization</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-3 text-right border-r border-gray-100 whitespace-nowrap">
                             <strong className="text-gray-900 text-xs block font-mono">
                               ₹{fin.totalLandedCost.toLocaleString('en-IN')}
                             </strong>
@@ -1778,25 +1908,39 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             )}
                           </td>
                           <td className="py-3.5 px-3 text-center border-r border-gray-100 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                status === 'CLOSED'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}
-                            >
-                              {status}
-                            </span>
+                            {isReallySettled ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                Cleared ✓
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                                Due Pending
+                              </span>
+                            )}
                           </td>
                           <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={() => openPLModal(op)}
-                              className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[11px] font-black inline-flex items-center gap-1 shadow-2xs cursor-pointer"
-                            >
-                              <Calculator size={11} className="text-amber-800" />
-                              <span>P&amp;L Dossier</span>
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => openPLModal(op)}
+                                className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer"
+                                title="Edit Mandi Auction Selling Rate, Freight, and Hamali"
+                              >
+                                <Calculator size={11} className="text-amber-800" />
+                                <span>Edit P&amp;L</span>
+                              </button>
+                              {!isReallySettled && (
+                                <button
+                                  type="button"
+                                  onClick={() => openSettlementModal(op)}
+                                  className="px-2 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                  title="Settle Mandi Balance & Clear PO"
+                                >
+                                  <ShieldCheck size={11} className="text-emerald-300" />
+                                  <span>Settle</span>
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1955,18 +2099,27 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
                           </span>
                         ) : (
-                          <div className="flex items-center justify-center gap-1.5">
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-300">
                               In Transit
                             </span>
                             <button
                               type="button"
                               onClick={() => handleClearVendorPO(op)}
-                              className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
-                              title="Verify consignment & approve/clear PO"
+                              className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                              title="Verify truck arrival at Hub"
                             >
                               <CheckCircle2 size={11} className="text-emerald-300" />
-                              <span>Approve &amp; Clear</span>
+                              <span>Verify Hub Arrival</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openSettlementModal(op)}
+                              className="px-2 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95 ring-1 ring-emerald-300"
+                              title="Settle commercial balance with 5% Admin Share & 1% APMC Cess deduction"
+                            >
+                              <ShieldCheck size={11} className="text-emerald-300" />
+                              <span>Settle &amp; Clear ✓</span>
                             </button>
                           </div>
                         )}
@@ -2830,7 +2983,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-gray-900 font-['Manrope']">
-                    Verify &amp; Approve Consignment PO
+                    Verify Consignment Hub Arrival
                   </h3>
                   <p className="text-xs text-gray-500 font-mono">
                     {verifyApprovalPO.poNumber} · {verifyApprovalPO.vendorProfile?.businessName || verifyApprovalPO.supplier?.name} ({verifyApprovalPO.vendorProfile?.vendorId || verifyApprovalPO.supplier?.supplierCode})
@@ -2999,8 +3152,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
 
               {/* Verification statement */}
               <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-950 text-[11px] leading-relaxed">
-                <span className="font-bold block mb-0.5">Admin Clearance Confirmation:</span>
-                I have inspected the submitted photographic evidence, truck number plate, and delivery consignment details. Approving this PO will officially mark it as <strong>CLEARED ✓</strong> in both the Safal Executive Control and the Vendor Dashboard.
+                <span className="font-bold block mb-0.5">Hub Delivery Arrival Confirmation:</span>
+                I have inspected the submitted photographic evidence, truck number plate, and delivery bilty. Verifying this consignment confirms truck arrival at <strong>{verifyApprovalPO.orderPersonPlace || 'Hub'}</strong> (Status: <strong>DELIVERED AT HUB</strong>). The consignment commercial balance remains <strong>OPEN</strong> awaiting Mandi Sales Realization &amp; Final Settlement.
               </div>
             </div>
 
@@ -3020,7 +3173,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 className="px-5 py-2.5 rounded-xl bg-[#064D2B] hover:bg-[#087A3E] text-white font-extrabold text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <CheckCircle2 size={15} className="text-emerald-300" />
-                <span>{isApprovingPO ? 'Approving & Clearing...' : 'Approve & Mark as Cleared ✓'}</span>
+                <span>{isApprovingPO ? 'Verifying Arrival...' : 'Confirm Hub Arrival ✓'}</span>
               </button>
             </div>
           </div>
@@ -3227,9 +3380,14 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <strong className="text-gray-900 text-xs block">
-                        Upload Advance Payment Receipt / Bank Counterfoil Photo
-                      </strong>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-gray-900 text-xs block">
+                          Upload Advance Payment Receipt / Bank Counterfoil Photo
+                        </strong>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                          Mandatory *
+                        </span>
+                      </div>
                       <span className="text-[10px] text-gray-500">
                         Take a photo or upload screenshot of the bank transfer slip. Stamped automatically with time &amp; GPS.
                       </span>
@@ -3644,9 +3802,14 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
                   <div className="flex items-center justify-between">
                     <div>
-                      <strong className="text-gray-900 text-xs block">
-                        Upload Final Settlement Payment Slip / Bank Transfer Proof
-                      </strong>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-gray-900 text-xs block">
+                          Upload Final Settlement Payment Slip / Bank Transfer Proof
+                        </strong>
+                        <span className="px-2 py-0.5 rounded text-[9px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                          Mandatory *
+                        </span>
+                      </div>
                       <span className="text-[10px] text-gray-500">
                         Take a photo or upload screenshot of final settlement transfer receipt. Stamped with time &amp; GPS.
                       </span>

@@ -814,6 +814,7 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
     const po = await prisma.purchaseOrder.findUnique({
       where: { id },
       include: {
+        financialRecord: true,
         vendorProfile: {
           include: {
             user: true,
@@ -849,25 +850,43 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
       });
     }
 
+    // Strict Rule: For Vendor Consignment POs (PO/SF/...), commercial PO can ONLY be marked 'CLOSED' via Settle & Clear!
+    // Arrival verification at Hub updates dispatchStatus to 'DELIVERED_AT_HUB' while keeping financial status 'OPEN'.
+    const isVendorPO = po.poNumber.startsWith('PO/SF/') || Boolean(po.vendorProfileId);
+    let isVendorSettled = false;
+    if (isVendorPO && po.financialRecord?.revenueNotes) {
+      try {
+        const rev = JSON.parse(po.financialRecord.revenueNotes);
+        if (rev.settlementCompleted && Number(rev.finalBalanceDue ?? 0) === 0 && Number(rev.finalBalancePaid ?? 0) > 0) {
+          isVendorSettled = true;
+        }
+      } catch {}
+    }
+
+    const finalStatus = isVendorPO && !isVendorSettled ? 'OPEN' : 'CLOSED';
+    const auditComment = isVendorPO && !isVendorSettled
+      ? 'Consignment delivery & vehicle evidence verified at Hub. Record remains OPEN awaiting final commercial balance settlement.'
+      : (po.poNumber.startsWith('CD/')
+        ? 'Customer Due verified and settled'
+        : 'Consignment delivery, vehicle evidence, and weighbridge slip verified and cleared by Admin');
+
     const updated = await prisma.purchaseOrder.update({
       where: { id },
       data: {
-        status: 'CLOSED',
+        status: finalStatus,
         dispatchStatus: 'DELIVERED_AT_HUB',
         statusHistory: {
           create: {
-            status: 'CLOSED',
+            status: finalStatus,
             changedById: req.user!.id,
-            comment: po.poNumber.startsWith('CD/')
-              ? 'Customer Due verified and settled'
-              : 'Consignment delivery, vehicle evidence, and weighbridge slip verified and cleared by Admin',
+            comment: auditComment,
           },
         },
       },
     });
 
-    // Notify Vendor if this is a vendor consignment PO
-    if (po.vendorProfile?.user?.id) {
+    // Notify Vendor if this is a vendor consignment PO and was formally cleared
+    if (po.vendorProfile?.user?.id && finalStatus === 'CLOSED') {
       await prisma.notification.create({
         data: {
           userId: po.vendorProfile.user.id,

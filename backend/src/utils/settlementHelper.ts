@@ -110,12 +110,12 @@ export function enrichPOWithSettlementDetails(po: any): any {
   if (hasSettlementEntry) {
     finalBalancePaid = Number(storedSettlement.finalBalancePaid || 0);
     remainingDue = Number(storedSettlement.finalBalanceDue ?? 0);
-    // STRICT RULE: Consignment is ONLY CLEARED if remainingDue === 0 AND (settlementCompleted is true OR (po.status === 'CLOSED' && po.pendingAmount === 0))
+    // STRICT RULE: Consignment is ONLY CLEARED if remainingDue === 0 AND (settlementCompleted is true OR (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 && finalBalancePaid > 0))
     settlementCompleted = remainingDue === 0 && Boolean(
       storedSettlement.settlementCompleted ||
-      (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0)
+      (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 && finalBalancePaid > 0)
     );
-  } else if (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0) {
+  } else if (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 && Boolean(po.paymentProofUrl) && !po.poNumber?.startsWith('PO/SF/')) {
     finalBalancePaid = calculatedPotentialDue;
     remainingDue = 0;
     settlementCompleted = true;

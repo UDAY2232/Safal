@@ -1885,6 +1885,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     orders.map((po) => {
                       const total = Number(po.grandTotal || po.totalAmount || 0);
                       const settle = (po as any).settlementDetails || {};
+                      const isSettled = Boolean(settle.settlementCompleted || settle.hasSettlementEntry);
                       const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
                       const safalShare = Number(settle.adminShareAmount ?? Math.round(total * 0.05));
                       const apmcShare = Number(settle.apmcShareAmount ?? Math.round(total * 0.01));
@@ -1909,13 +1910,25 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             ₹{advance.toLocaleString('en-IN')}
                           </td>
                           <td className="py-3 px-3 text-right text-rose-600 font-medium">
-                            -₹{safalShare.toLocaleString('en-IN')}
+                            {isSettled ? (
+                              `-₹${safalShare.toLocaleString('en-IN')}`
+                            ) : (
+                              <span className="text-gray-500 font-normal">₹0 (Pending)</span>
+                            )}
                           </td>
                           <td className="py-3 px-3 text-right text-rose-600 font-medium">
-                            -₹{apmcShare.toLocaleString('en-IN')}
+                            {isSettled ? (
+                              `-₹${apmcShare.toLocaleString('en-IN')}`
+                            ) : (
+                              <span className="text-gray-500 font-normal">₹0 (Pending)</span>
+                            )}
                           </td>
                           <td className="py-3 px-3 text-right font-black text-emerald-900 font-mono">
-                            ₹{netGain.toLocaleString('en-IN')}
+                            {isSettled ? (
+                              `₹${netGain.toLocaleString('en-IN')}`
+                            ) : (
+                              <span className="text-gray-700 font-mono">₹0.00</span>
+                            )}
                           </td>
                           <td className="py-3 px-3 text-center">
                             {hasPL ? (
@@ -2441,16 +2454,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     const netVendorPayable = Number(settle.netVendorPayable ?? Math.max(0, total - totalDeductions));
 
                     // Safal Mandi Sales Realization Check:
-                    // Net Balance Due is 0 until Safal accounts records the sales settlement!
+                    // Net Balance Due & Mandi Deductions are 0 until Safal accounts records the sales settlement!
                     const hasSettlementEntry = Boolean(
                       settle.hasSettlementEntry ||
                       settle.settlementCompleted ||
-                      (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0)
+                      (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 && Number(settle.finalBalancePaid || 0) > 0)
                     );
                     const remainingDue = hasSettlementEntry ? Number(settle.finalBalanceDue ?? 0) : 0;
 
                     // STRICT CLEARANCE RULE: "1 ruppe unna clear radhu open ane vastadhi"
-                    const isFullyCleared = hasSettlementEntry && remainingDue === 0 && (Boolean(settle.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
+                    const isFullyCleared = hasSettlementEntry && remainingDue === 0 && (Boolean(settle.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 && Number(settle.finalBalancePaid || 0) > 0));
                     const isExpanded = expandedPOId === po.id;
 
                     // Compute fruit summary & layer counts
@@ -2530,14 +2543,27 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             </span>
                           </td>
 
-                          {/* Charges (6% Mandi: 5% Safal + 1% APMC) */}
+                          {/* Charges (6% Mandi: 5% Safal + 1% APMC) - ₹0.00 until Safal settles consignment */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <strong className="text-rose-600 font-black block font-mono text-xs">
-                              -₹{totalDeductions.toLocaleString('en-IN')}
-                            </strong>
-                            <span className="text-[9px] font-bold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200 inline-block mt-0.5">
-                              5% Safal (-₹{adminShare.toLocaleString('en-IN')}) + 1% APMC (-₹{apmcShare.toLocaleString('en-IN')})
-                            </span>
+                            {isFullyCleared || hasSettlementEntry ? (
+                              <div>
+                                <strong className="text-rose-600 font-black block font-mono text-xs">
+                                  -₹{totalDeductions.toLocaleString('en-IN')}
+                                </strong>
+                                <span className="text-[9px] font-bold text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-200 inline-block mt-0.5">
+                                  5% Safal (-₹{adminShare.toLocaleString('en-IN')}) + 1% APMC (-₹{apmcShare.toLocaleString('en-IN')})
+                                </span>
+                              </div>
+                            ) : (
+                              <div>
+                                <strong className="text-gray-900 font-black block font-mono text-xs">
+                                  ₹0.00
+                                </strong>
+                                <span className="text-[9px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 inline-block mt-0.5">
+                                  Pending Safal Settlement
+                                </span>
+                              </div>
+                            )}
                           </td>
 
                           {/* Net Balance Due (Cleared shows actual Net Balance paid by Safal; 0 if pending sales realization) */}
