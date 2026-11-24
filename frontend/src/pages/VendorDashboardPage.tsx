@@ -2314,7 +2314,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
       {/* 5. Tab Content: Fruit Supply Consignments */}
       {activeTab === 'orders' && (
-        <section className="bg-white rounded-3xl border border-[#D5E3D8] shadow-sm overflow-hidden space-y-0">
+        <div className="space-y-6">
+          <section className="bg-white rounded-3xl border border-[#D5E3D8] shadow-sm overflow-hidden space-y-0">
           {/* Header Banner */}
           <div className="p-4 sm:p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-r from-emerald-50/80 via-white to-white">
             <div className="flex items-center gap-3">
@@ -2692,225 +2693,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   <Upload size={11} /> Dispatch
                                 </button>
                               )}
-
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setExpandedPOId(isExpanded ? null : po.id);
-                                }}
-                                className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 flex items-center justify-center cursor-pointer transition"
-                                title="Toggle item details breakdown"
-                              >
-                                {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                              </button>
                             </div>
                           </td>
                         </tr>
-
-                        {/* Dedicated Slips & Receipts Row (Clean separated row per consignment) */}
-                        <tr className="bg-emerald-50/20 border-b-2 border-emerald-100" onClick={(e) => e.stopPropagation()}>
-                          <td colSpan={11} className="py-2.5 px-4">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase text-emerald-950 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 flex items-center gap-1.5 shadow-2xs">
-                                  <FileText size={12} className="text-emerald-700" />
-                                  Verified Slips &amp; Documents
-                                </span>
-                                <span className="text-[11px] text-gray-500 font-medium hidden sm:inline">
-                                  (Click any document to inspect full-screen proof with timestamp &amp; watermark)
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                {/* 1. Vehicle Photo */}
-                                {po.vehiclePhotoUrl ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewMediaModal({
-                                      url: po.vehiclePhotoUrl!,
-                                      title: `Vehicle Dispatch Photo: ${po.dispatchVehicleNumber || po.poNumber}`,
-                                    })}
-                                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
-                                    title="View vehicle photo"
-                                  >
-                                    <Camera size={11} className="text-emerald-600" />
-                                    <span>Vehicle Photo ({po.dispatchVehicleNumber || 'Loaded'})</span>
-                                    <Eye size={10} className="text-emerald-700 ml-0.5" />
-                                  </button>
-                                ) : (
-                                  <span className="px-2.5 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
-                                    <Camera size={11} /> Vehicle Photo Pending
-                                  </span>
-                                )}
-
-                                {/* 2. Transport Bilty */}
-                                {po.transportBillUrl ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewMediaModal({
-                                      url: po.transportBillUrl!,
-                                      title: `Transport Bill (Bilty / LR Receipt): ${po.poNumber}`,
-                                    })}
-                                    className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-800 border border-blue-300 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
-                                    title="View transport bill"
-                                  >
-                                    <ReceiptText size={11} className="text-blue-600" />
-                                    <span>Transport Bilty / LR</span>
-                                    <Eye size={10} className="text-blue-700 ml-0.5" />
-                                  </button>
-                                ) : (
-                                  <span className="px-2.5 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
-                                    <ReceiptText size={11} /> Bilty Pending
-                                  </span>
-                                )}
-
-                                {/* 3. Advance Payment Bank Slip (Strictly advance slip only - no cross-contamination) */}
-                                {settle.advanceProofUrl ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewMediaModal({
-                                      url: settle.advanceProofUrl!,
-                                      title: `Advance Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
-                                    })}
-                                    className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-400 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
-                                    title="View advance payment receipt slip"
-                                  >
-                                    <CreditCard size={11} className="text-emerald-700" />
-                                    <span>Advance Payment Slip (₹{advance.toLocaleString('en-IN')})</span>
-                                    <Eye size={10} className="text-emerald-800 ml-0.5" />
-                                  </button>
-                                ) : (
-                                  <span className="px-2.5 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
-                                    <CreditCard size={11} /> Advance Slip Pending
-                                  </span>
-                                )}
-
-                                {/* 4. Final Settlement Slip (Strictly settlement slip only) */}
-                                {settle.finalSettlementProofUrl ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setPreviewMediaModal({
-                                      url: settle.finalSettlementProofUrl!,
-                                      title: `Final Settlement Clearance Slip: ${po.poNumber} (${settle.finalSettlingHub || 'Warangal Hub'})`,
-                                    })}
-                                    className="px-2.5 py-1 bg-white hover:bg-purple-50 text-purple-900 border border-purple-300 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
-                                    title="View final commercial settlement receipt"
-                                  >
-                                    <Scale size={11} className="text-purple-700" />
-                                    <span>Final Settlement Slip</span>
-                                    <Eye size={10} className="text-purple-800 ml-0.5" />
-                                  </button>
-                                ) : isFullyCleared ? (
-                                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold">
-                                    Settlement Realized
-                                  </span>
-                                ) : (
-                                  <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-semibold">
-                                    Settlement Slip Awaiting Clearance
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-
-                        {/* Expanded Item Breakdown Sub-Row */}
-                        {isExpanded && (
-                          <tr className="bg-emerald-50/40 border-b-2 border-emerald-300">
-                            <td colSpan={10} className="p-4">
-                              <div className="p-4 bg-white rounded-2xl border border-emerald-200 shadow-xs space-y-3">
-                                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-black text-gray-900">
-                                      Consignment Breakdown: {po.poNumber}
-                                    </span>
-                                    <span className="text-[10px] text-gray-500 font-bold">
-                                      Destination: {po.orderPersonPlace || 'Warangal Hub'}
-                                    </span>
-                                  </div>
-                                  <span className="text-xs font-black text-emerald-800">
-                                    Total: ₹{total.toLocaleString('en-IN')} (Adv: ₹{advance.toLocaleString('en-IN')} | Due: ₹{balance.toLocaleString('en-IN')})
-                                  </span>
-                                </div>
-
-                                {po.items && po.items.length > 0 ? (
-                                  <div className="overflow-x-auto">
-                                    <table className="w-full text-xs">
-                                      <thead>
-                                        <tr className="text-gray-500 text-[10px] uppercase border-b border-gray-100">
-                                          <th className="py-1 px-2 text-left">Item Name / Grade</th>
-                                          <th className="py-1 px-2 text-right">Quantity</th>
-                                          <th className="py-1 px-2 text-center">Unit</th>
-                                          <th className="py-1 px-2 text-right">Rate (₹)</th>
-                                          <th className="py-1 px-2 text-right">Subtotal (₹)</th>
-                                        </tr>
-                                      </thead>
-                                      <tbody className="divide-y divide-gray-50 font-medium">
-                                        {po.items.map((it, i) => (
-                                          <tr key={i}>
-                                            <td className="py-1.5 px-2 font-bold text-gray-800">
-                                              {it.fruitName} <span className="text-gray-500 font-normal">({it.varietyGrade})</span>
-                                            </td>
-                                            <td className="py-1.5 px-2 text-right font-black text-gray-900">{it.quantity}</td>
-                                            <td className="py-1.5 px-2 text-center text-gray-500">{it.unit}</td>
-                                            <td className="py-1.5 px-2 text-right text-gray-700">₹{Number(it.ratePerUnit || 0).toLocaleString('en-IN')}</td>
-                                            <td className="py-1.5 px-2 text-right font-black text-emerald-800">₹{Number(it.lineTotal || 0).toLocaleString('en-IN')}</td>
-                                          </tr>
-                                        ))}
-                                      </tbody>
-                                    </table>
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-gray-500">No individual line items recorded.</p>
-                                )}
-
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-gray-100 text-xs">
-                                  <div className="p-2 bg-gray-50 rounded-xl">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Vehicle &amp; Transporter</span>
-                                    <strong className="text-gray-900 block mt-0.5">{po.dispatchVehicleNumber || 'Pending'} {po.transporterName ? `(${po.transporterName})` : ''}</strong>
-                                    {po.driverPhone && <span className="text-[10px] text-gray-600 block">Driver: {po.driverPhone}</span>}
-                                  </div>
-
-                                  <div className="p-2 bg-gray-50 rounded-xl">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Weighbridge &amp; QC Verification</span>
-                                    <strong className="text-gray-900 block mt-0.5">
-                                      {po.weighbridgeNetKg ? `${Number(po.weighbridgeNetKg).toLocaleString('en-IN')} KG Verified` : 'Pending Hub Weighing'}
-                                    </strong>
-                                    {po.qcInspectionStatus && <span className="text-[10px] text-emerald-700 font-bold block">Status: {po.qcInspectionStatus}</span>}
-                                  </div>
-
-                                  <div className="p-2 bg-gray-50 rounded-xl">
-                                    <span className="text-[10px] text-gray-400 font-bold uppercase block">Attached Documents</span>
-                                    <div className="flex items-center gap-2 mt-1">
-                                      {po.vehiclePhotoUrl ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => setPreviewMediaModal({ url: po.vehiclePhotoUrl!, title: `Truck Photo: ${po.dispatchVehicleNumber}` })}
-                                          className="text-[10px] font-bold text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
-                                        >
-                                          <ImageIcon size={12} /> Truck Photo ✓
-                                        </button>
-                                      ) : (
-                                        <span className="text-[10px] text-gray-400">No Photo</span>
-                                      )}
-                                      {po.transportBillUrl ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => setPreviewMediaModal({ url: po.transportBillUrl!, title: `Transport Bill: ${po.poNumber}` })}
-                                          className="text-[10px] font-bold text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer"
-                                        >
-                                          <FileText size={12} /> Bilty / LR ✓
-                                        </button>
-                                      ) : (
-                                        <span className="text-[10px] text-gray-400">No Bilty</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
                       </React.Fragment>
                     );
                   })
@@ -2919,6 +2704,158 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             </table>
           </div>
         </section>
+
+        {/* SEPARATE DEDICATED SECTION: VERIFIED SLIPS & DOCUMENTS */}
+        <section className="bg-white rounded-3xl border border-[#D5E3D8] shadow-sm overflow-hidden p-4 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 border-b border-gray-100 gap-2">
+            <div>
+              <span className="text-[10px] uppercase font-black text-emerald-800 tracking-wider block">
+                OFFICIAL AUDIT PROOFS
+              </span>
+              <h3 className="text-base font-black text-gray-900 font-['Manrope'] flex items-center gap-2">
+                <FileText size={18} className="text-[#087A3E]" />
+                Verified Slips &amp; Documents
+              </h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                (Click any document to inspect full-screen proof with timestamp &amp; watermark)
+              </p>
+            </div>
+            <span className="px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-bold self-start sm:self-auto flex items-center gap-1.5 shadow-2xs">
+              <CheckCircle2 size={13} className="text-emerald-700" />
+              <span>Geo-Stamped &amp; Verified Slips ✓</span>
+            </span>
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {filteredOrders.length === 0 ? (
+              <div className="py-8 text-center text-gray-400 text-xs">
+                No consignment proof documents available.
+              </div>
+            ) : (
+              filteredOrders.map((po) => {
+                const total = Number(po.grandTotal || po.totalAmount || 0);
+                const settle = (po as any).settlementDetails || {};
+                const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                const isFullyCleared = Boolean(settle.settlementCompleted && Number(settle.finalBalanceDue ?? 0) === 0);
+
+                return (
+                  <div
+                    key={po.id}
+                    className="py-3.5 flex flex-col lg:flex-row lg:items-center justify-between gap-3 hover:bg-emerald-50/20 px-3 rounded-2xl transition"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="font-mono font-bold text-xs text-emerald-900 bg-emerald-100 px-2.5 py-1 rounded-lg border border-emerald-300 flex-shrink-0">
+                        {po.poNumber}
+                      </span>
+                      <div className="min-w-0">
+                        <strong className="text-xs text-gray-900 block truncate">
+                          {po.fruitName || 'Fresh Fruits'}
+                        </strong>
+                        <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                          <MapPin size={10} className="text-emerald-700 flex-shrink-0" />
+                          <span>{po.orderPersonPlace || 'Warangal Hub'}</span>
+                          <span className="text-gray-300">·</span>
+                          <span>Vehicle: <strong>{po.dispatchVehicleNumber || 'Pending'}</strong></span>
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {/* 1. Vehicle Photo */}
+                      {po.vehiclePhotoUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewMediaModal({
+                            url: po.vehiclePhotoUrl!,
+                            title: `Vehicle Dispatch Photo: ${po.dispatchVehicleNumber || po.poNumber}`,
+                          })}
+                          className="px-2.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                          title="View vehicle photo"
+                        >
+                          <Camera size={11} className="text-emerald-600" />
+                          <span>Vehicle Photo ({po.dispatchVehicleNumber || 'Loaded'})</span>
+                          <Eye size={10} className="text-emerald-700 ml-0.5" />
+                        </button>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
+                          <Camera size={11} /> Vehicle Photo Pending
+                        </span>
+                      )}
+
+                      {/* 2. Transport Bilty */}
+                      {po.transportBillUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewMediaModal({
+                            url: po.transportBillUrl!,
+                            title: `Transport Bill (Bilty / LR Receipt): ${po.poNumber}`,
+                          })}
+                          className="px-2.5 py-1.5 bg-white hover:bg-blue-50 text-blue-800 border border-blue-300 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                          title="View transport bill"
+                        >
+                          <ReceiptText size={11} className="text-blue-600" />
+                          <span>Transport Bilty / LR</span>
+                          <Eye size={10} className="text-blue-700 ml-0.5" />
+                        </button>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
+                          <ReceiptText size={11} /> Bilty Pending
+                        </span>
+                      )}
+
+                      {/* 3. Advance Payment Bank Slip */}
+                      {settle.advanceProofUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewMediaModal({
+                            url: settle.advanceProofUrl!,
+                            title: `Advance Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
+                          })}
+                          className="px-2.5 py-1.5 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-400 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                          title="View advance payment receipt slip"
+                        >
+                          <CreditCard size={11} className="text-emerald-700" />
+                          <span>Advance Slip (₹{advance.toLocaleString('en-IN')})</span>
+                          <Eye size={10} className="text-emerald-800 ml-0.5" />
+                        </button>
+                      ) : (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-400 border border-gray-200 rounded-lg text-[10px] font-medium flex items-center gap-1">
+                          <CreditCard size={11} /> Advance Slip Pending
+                        </span>
+                      )}
+
+                      {/* 4. Final Settlement Slip */}
+                      {settle.finalSettlementProofUrl ? (
+                        <button
+                          type="button"
+                          onClick={() => setPreviewMediaModal({
+                            url: settle.finalSettlementProofUrl!,
+                            title: `Final Settlement Clearance Slip: ${po.poNumber} (${settle.finalSettlingHub || 'Warangal Hub'})`,
+                          })}
+                          className="px-2.5 py-1.5 bg-white hover:bg-purple-50 text-purple-900 border border-purple-300 rounded-lg text-[10px] font-black flex items-center gap-1 shadow-2xs cursor-pointer transition active:scale-95"
+                          title="View final commercial settlement receipt"
+                        >
+                          <Scale size={11} className="text-purple-700" />
+                          <span>Final Settlement Slip</span>
+                          <Eye size={10} className="text-purple-800 ml-0.5" />
+                        </button>
+                      ) : isFullyCleared ? (
+                        <span className="px-2 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold">
+                          Settlement Realized ✓
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg text-[10px] font-semibold">
+                          Settlement Slip Awaiting Clearance
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+      </div>
       )}
 
       {/* 6. Tab Content: Vendor Profile & KYC */}
