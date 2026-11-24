@@ -161,9 +161,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
   // Vendor Supply PO Creation State
   const [showCreatePOModal, setShowCreatePOModal] = useState(false);
+  const [poInitiateDate, setPoInitiateDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [targetHub, setTargetHub] = useState<string>('Warangal');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [poNotes, setPoNotes] = useState('');
+
+  // Dispatch Tab Table Filter & Search State
+  const [dispatchTabFilter, setDispatchTabFilter] = useState<'ALL' | 'PENDING' | 'IN_TRANSIT' | 'COMPLETED'>('ALL');
+  const [dispatchTabSearch, setDispatchTabSearch] = useState('');
 
   // Selected Fruit & Commodity States
   const [selectedFruit, setSelectedFruit] = useState<string>('Kashmir Apples');
@@ -664,6 +669,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     try {
       setIsSubmittingPO(true);
       const formData = new FormData();
+      formData.append('poInitiateDate', poInitiateDate || new Date().toISOString().split('T')[0]);
+      formData.append('poDate', poInitiateDate || new Date().toISOString().split('T')[0]);
       formData.append('destinationHub', targetHub);
       if (expectedDeliveryDate) {
         formData.append('expectedDeliveryDate', expectedDeliveryDate);
@@ -987,6 +994,48 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const clearedOrders = orders.filter((o) => o.status === 'CLOSED');
   const deliveredAndVerifiedOrders = clearedOrders;
 
+  const completedOrders = orders.filter(
+    (o) =>
+      o.status === 'CLOSED' ||
+      o.dispatchStatus === 'DELIVERED_AT_HUB'
+  );
+
+  const filteredDispatchTabOrders = orders.filter((o) => {
+    if (dispatchTabFilter === 'PENDING') {
+      if (
+        o.status === 'CLOSED' ||
+        o.dispatchStatus === 'LOADED_AND_DISPATCHED' ||
+        o.dispatchStatus === 'IN_TRANSIT' ||
+        o.dispatchStatus === 'DELIVERED_AT_HUB'
+      ) {
+        return false;
+      }
+    } else if (dispatchTabFilter === 'IN_TRANSIT') {
+      if (
+        o.status === 'CLOSED' ||
+        (o.dispatchStatus !== 'LOADED_AND_DISPATCHED' && o.dispatchStatus !== 'IN_TRANSIT')
+      ) {
+        return false;
+      }
+    } else if (dispatchTabFilter === 'COMPLETED') {
+      if (o.status !== 'CLOSED' && o.dispatchStatus !== 'DELIVERED_AT_HUB') {
+        return false;
+      }
+    }
+
+    if (dispatchTabSearch.trim()) {
+      const q = dispatchTabSearch.toLowerCase();
+      const matchPO = o.poNumber?.toLowerCase().includes(q);
+      const matchFruit = o.fruitName?.toLowerCase().includes(q) || o.items?.some((it) => it.fruitName?.toLowerCase().includes(q));
+      const matchVehicle = o.dispatchVehicleNumber?.toLowerCase().includes(q);
+      const matchTransporter = o.transporterName?.toLowerCase().includes(q);
+      const matchHub = (o.orderPersonPlace || '').toLowerCase().includes(q);
+      return matchPO || matchFruit || matchVehicle || matchTransporter || matchHub;
+    }
+
+    return true;
+  });
+
   const filteredOrders = orders.filter((po) => {
     if (consignmentFilter === 'PENDING') {
       if (
@@ -1109,7 +1158,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
           }`}
         >
-          <Truck size={15} /> Ready for Dispatch &amp; Transit ({pendingDispatchOrders.length + inTransitOrders.length})
+          <Truck size={15} /> Ready for Dispatch &amp; Transit ({orders.length})
         </button>
 
         <button
@@ -1732,205 +1781,338 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         </div>
       )}
 
-      {/* 4. Tab Content: Dispatch Queue */}
+      {/* 4. Tab Content: Dispatch Queue & Fleet Transit Management */}
       {activeTab === 'dispatch' && (
-        <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden p-5 space-y-4">
-          <div className="border-b border-gray-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <section className="bg-white rounded-3xl border border-[#D5E3D8] shadow-sm overflow-hidden p-4 sm:p-6 space-y-5">
+          {/* Header Banner */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-gray-100 pb-4">
             <div>
-              <h2 className="text-lg font-black text-gray-900 flex items-center gap-2">
-                <Truck className="text-amber-600" size={20} />
-                Orders Pending Dispatch Proof Submission
-              </h2>
-              <p className="text-xs text-gray-600 mt-0.5">
-                Upload clear vehicle photo showing registration number plate and transport bill (bilty) to notify Safal logistics.
+              <div className="flex items-center gap-2">
+                <Truck className="text-amber-600" size={24} />
+                <h2 className="text-xl font-extrabold text-gray-900">
+                  Consignments Dispatch &amp; Transit Tracking Desk
+                </h2>
+              </div>
+              <p className="text-xs text-gray-600 mt-1">
+                Real-time tracking of pending vehicle loading, on-road transit consignments, and hub delivery clearance.
               </p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 text-xs font-black self-start sm:self-auto">
-              {pendingDispatchOrders.length} Ready for Loading
-            </span>
+            <div className="flex items-center gap-2 flex-wrap self-start md:self-auto">
+              <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-xs font-black inline-flex items-center gap-1.5">
+                <Clock size={13} className="text-amber-700" />
+                <span>{pendingDispatchOrders.length} Ready for Loading</span>
+              </span>
+              <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-900 border border-blue-300 text-xs font-black inline-flex items-center gap-1.5">
+                <Truck size={13} className="text-blue-700" />
+                <span>{inTransitOrders.length} In Transit</span>
+              </span>
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-black inline-flex items-center gap-1.5">
+                <CheckCircle2 size={13} className="text-emerald-700" />
+                <span>{completedOrders.length} Cleared &amp; Completed</span>
+              </span>
+            </div>
           </div>
 
-          {pendingDispatchOrders.length === 0 ? (
-            <div className="py-6 text-center text-gray-400 bg-gray-50/70 rounded-2xl border border-gray-200">
-              <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-1" />
-              <p className="font-bold text-gray-800 text-xs">All Consignments Dispatched!</p>
-              <p className="text-[11px] text-gray-500 mt-0.5">There are no pending purchase orders waiting for truck dispatch.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {pendingDispatchOrders.map((order) => {
-                const advance = Number(order.advanceAmount || 0);
-                const total = Number(order.grandTotal || 0);
-                const balance = Number(order.pendingAmount ?? Math.max(0, total - advance));
-
-                return (
-                  <div
-                    key={order.id}
-                    className="p-4 rounded-2xl border border-amber-200 bg-amber-50/40 hover:bg-amber-50/80 transition flex flex-col justify-between gap-3"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="text-base font-extrabold text-[#087A3E]">{order.poNumber}</strong>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-200 text-amber-900 uppercase">
-                          Awaiting Dispatch
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1 flex items-center gap-1.5">
-                        <MapPin size={13} className="text-gray-400" /> Delivery Hub:{' '}
-                        <strong>{order.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal'}</strong>
-                      </p>
-
-                      {/* Items */}
-                      <div className="mt-2.5 pt-2 border-t border-amber-200/60 text-xs">
-                        <span className="font-bold text-gray-700 block mb-1">Items for Transit:</span>
-                        {order.items && order.items.length > 0 ? (
-                          <ul className="space-y-0.5">
-                            {order.items.map((it, idx) => (
-                              <li key={idx} className="text-gray-600 text-[11px] flex justify-between">
-                                <span>{it.fruitName} ({it.varietyGrade})</span>
-                                <strong>{it.quantity} {it.unit}</strong>
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <span className="text-gray-400 text-[11px]">Commodity items specified in PO</span>
-                        )}
-                      </div>
-
-                      {/* Financial info */}
-                      <div className="mt-3 grid grid-cols-3 gap-2 p-2 bg-white rounded-xl border border-amber-200/80 text-center">
-                        <div>
-                          <span className="text-[10px] text-gray-500 block">Total Value</span>
-                          <strong className="text-xs font-bold text-gray-900">₹{total.toLocaleString('en-IN')}</strong>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-emerald-700 block">Advance Cleared</span>
-                          <strong className="text-xs font-bold text-emerald-700">₹{advance.toLocaleString('en-IN')}</strong>
-                        </div>
-                        <div>
-                          <span className="text-[10px] text-amber-800 block">Balance Due</span>
-                          <strong className="text-xs font-bold text-amber-900">₹{balance.toLocaleString('en-IN')}</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedPOForDispatch(order);
-                        setDispatchError('');
-                      }}
-                      className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-extrabold transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <Upload size={14} /> Submit Vehicle Photo &amp; Bilty
-                    </button>
-                  </div>
-                );
-              })}
+          {/* If there are pending dispatch orders, show a priority action callout banner */}
+          {pendingDispatchOrders.length > 0 && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-50 to-emerald-50 border-2 border-amber-300 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <Upload size={18} />
+                </div>
+                <div>
+                  <strong className="text-sm font-extrabold text-amber-950 block">
+                    {pendingDispatchOrders.length} Consignment(s) Awaiting Dispatch Proof Submission
+                  </strong>
+                  <span className="text-xs text-amber-800">
+                    Upload vehicle photo with visible registration plate &amp; transporter bilty to initiate live transit and 55% advance clearance.
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPOForDispatch(pendingDispatchOrders[0]);
+                  setDispatchError('');
+                }}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap self-start sm:self-auto active:scale-95"
+              >
+                <Upload size={14} /> Dispatch PO: {pendingDispatchOrders[0].poNumber}
+              </button>
             </div>
           )}
 
-          {/* Active Fleets In Transit & Dispatched Consignments Section */}
-          <div className="pt-4 border-t border-gray-100 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div>
-                <h3 className="text-base font-black text-gray-900 flex items-center gap-2">
-                  <Truck className="text-emerald-700" size={18} />
-                  Live Fleets Dispatched &amp; In Transit
-                </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Trucks dispatched with verified vehicle photos, transporter bilty, and 55% advance cleared.
-                </p>
-              </div>
-              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-black self-start sm:self-auto border border-emerald-300">
-                {inTransitOrders.length} Fleets on Road
-              </span>
+          {/* Filter Pills & Search Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setDispatchTabFilter('ALL')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  dispatchTabFilter === 'ALL'
+                    ? 'bg-[#064D2B] text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                All Consignments ({orders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDispatchTabFilter('PENDING')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  dispatchTabFilter === 'PENDING'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                Ready for Loading ({pendingDispatchOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDispatchTabFilter('IN_TRANSIT')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  dispatchTabFilter === 'IN_TRANSIT'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                In Transit ({inTransitOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setDispatchTabFilter('COMPLETED')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer ${
+                  dispatchTabFilter === 'COMPLETED'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                }`}
+              >
+                Delivered &amp; Cleared ✓ ({completedOrders.length})
+              </button>
             </div>
 
-            {inTransitOrders.length === 0 ? (
-              <div className="p-6 text-center text-gray-400 bg-gray-50 rounded-2xl border border-gray-200">
-                <Truck size={32} className="mx-auto text-gray-300 mb-1" />
-                <p className="text-xs font-bold text-gray-600">No trucks currently on the road</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {inTransitOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="p-4 rounded-2xl border border-emerald-200 bg-emerald-50/30 hover:bg-emerald-50/60 transition flex flex-col justify-between gap-3 shadow-2xs"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2">
-                        <strong className="text-base font-extrabold text-[#087A3E] font-mono">{order.poNumber}</strong>
-                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-300 uppercase flex items-center gap-1">
-                          <Truck size={11} /> In Transit
-                        </span>
-                      </div>
+            <div className="relative sm:w-72">
+              <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
+              <input
+                type="text"
+                value={dispatchTabSearch}
+                onChange={(e) => setDispatchTabSearch(e.target.value)}
+                placeholder="Search PO #, Hub, Fruit, Truck..."
+                className="w-full h-8 pl-8 pr-3 border border-gray-300 rounded-xl text-xs font-medium text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
+              />
+            </div>
+          </div>
 
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                        <div className="p-2 bg-white rounded-xl border border-emerald-100">
-                          <span className="text-[10px] font-bold text-gray-500 uppercase block">Vehicle / Truck</span>
-                          <strong className="text-xs text-gray-900 font-mono block mt-0.5 truncate">
-                            {order.dispatchVehicleNumber || '-'}
+          {/* Unified Consignments Dispatch & Transit Table */}
+          <div className="overflow-x-auto w-full rounded-2xl border border-gray-200 shadow-2xs">
+            <table className="w-full border-collapse min-w-[980px] text-xs">
+              <thead>
+                <tr className="bg-[#064D2B] text-white">
+                  <th className="py-3 px-3 text-center font-bold w-12 border-r border-[#085A33]">S.No.</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Consignment PO # &amp; Date</th>
+                  <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Commodity &amp; Volume</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Destination Hub</th>
+                  <th className="py-3 px-3 text-left font-bold border-r border-[#085A33]">Vehicle &amp; Transporter</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Dispatch Proofs</th>
+                  <th className="py-3 px-3 text-right font-bold border-r border-[#085A33]">55% Advance</th>
+                  <th className="py-3 px-3 text-center font-bold border-r border-[#085A33]">Consignment Status</th>
+                  <th className="py-3 px-3 text-center font-bold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {filteredDispatchTabOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-gray-400">
+                      <Truck size={36} className="mx-auto text-gray-300 mb-2" />
+                      <p className="font-bold text-gray-700 text-sm">No consignments found</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {dispatchTabSearch ? `No matches for "${dispatchTabSearch}"` : 'No purchase orders in this dispatch filter.'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredDispatchTabOrders.map((po, index) => {
+                    const total = Number(po.grandTotal || po.totalAmount || 0);
+                    const advance = Number(po.advanceAmount || Math.round(total * 0.55));
+                    const isAppleConsignment = po.fruitName === 'Kashmir Apples' || po.fruitName?.toLowerCase().includes('apple') || po.items?.some(it => it.fruitName?.toLowerCase().includes('apple'));
+                    const totalBoxes = po.items && po.items.length > 0 ? po.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0) : 0;
+                    const isPendingDispatch = (!po.dispatchStatus || po.dispatchStatus === 'PENDING_DISPATCH') && po.status !== 'CLOSED';
+                    const isInTransit = (po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT') && po.status !== 'CLOSED';
+
+                    return (
+                      <tr key={po.id} className="hover:bg-emerald-50/20 transition">
+                        {/* S.No */}
+                        <td className="text-center py-3.5 px-3 font-mono font-bold text-gray-500 border-r border-gray-100">
+                          {index + 1}
+                        </td>
+
+                        {/* PO Number & Initiate Date */}
+                        <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                          <strong className="text-emerald-800 font-mono font-bold text-xs block">
+                            {po.poNumber}
                           </strong>
-                        </div>
-                        <div className="p-2 bg-white rounded-xl border border-emerald-100">
-                          <span className="text-[10px] font-bold text-gray-500 uppercase block">Destination Hub</span>
-                          <strong className="text-xs text-gray-900 block mt-0.5 truncate">
-                            {order.orderPersonPlace || 'Warangal Hub'}
+                          <span className="text-[10px] text-gray-500 font-semibold inline-flex items-center gap-1 mt-0.5">
+                            <Calendar size={10} className="text-emerald-700" />
+                            Initiated: {po.poDate ? new Date(po.poDate).toLocaleDateString('en-GB') : (po.createdAt ? new Date(po.createdAt).toLocaleDateString('en-GB') : '-')}
+                          </span>
+                        </td>
+
+                        {/* Commodity & Volume */}
+                        <td className="py-3.5 px-3 border-r border-gray-100">
+                          <div className="font-extrabold text-gray-900 flex items-center gap-1.5">
+                            <Package size={14} className="text-[#087A3E]" />
+                            {isAppleConsignment ? 'Kashmir Apples' : (po.fruitName || 'Fresh Fruits')}
+                          </div>
+                          {po.items && po.items.length > 0 ? (
+                            <div className="mt-0.5 text-[10px] text-gray-600 font-semibold flex flex-wrap gap-1">
+                              {isAppleConsignment ? (
+                                <>
+                                  {po.items.map((it, i) => (
+                                    <span key={i} className="px-1.5 py-0.5 bg-gray-100 rounded border border-gray-200">
+                                      {it.varietyGrade?.includes('4-Layer') || it.fruitName.includes('4L') ? '4L' : it.varietyGrade?.includes('5-Layer') || it.fruitName.includes('5L') ? '5L' : it.varietyGrade?.includes('Roller') || it.fruitName.includes('Roll') ? 'Roll' : it.varietyGrade}: <strong>{it.quantity}</strong>
+                                    </span>
+                                  ))}
+                                  <span className="text-emerald-800 font-black">({totalBoxes} Boxes)</span>
+                                </>
+                              ) : (
+                                <span>{totalBoxes} {po.items[0]?.unit || 'BOX'}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-gray-400">{po.fruitName || 'Standard Fruit Consignment'}</span>
+                          )}
+                        </td>
+
+                        {/* Destination Hub */}
+                        <td className="text-center py-3.5 px-3 text-gray-800 border-r border-gray-100 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1 font-bold text-gray-900">
+                            <MapPin size={11} className="text-gray-400" />
+                            {po.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal Hub'}
+                          </span>
+                        </td>
+
+                        {/* Vehicle & Transporter */}
+                        <td className="py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                          {po.dispatchVehicleNumber ? (
+                            <div>
+                              <strong className="text-xs font-mono font-black text-gray-900 block">
+                                {po.dispatchVehicleNumber}
+                              </strong>
+                              <span className="text-[10px] text-gray-500 block truncate max-w-[170px]">
+                                {po.transporterName || 'Transporter Assigned'} {po.driverPhone ? `· ${po.driverPhone}` : ''}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                              Vehicle Not Assigned
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Dispatch Proofs */}
+                        <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                          {po.vehiclePhotoUrl || po.transportBillUrl ? (
+                            <div className="flex items-center justify-center gap-1">
+                              {po.vehiclePhotoUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewMediaModal({ url: po.vehiclePhotoUrl!, title: `Truck Photo: ${po.dispatchVehicleNumber || po.poNumber}` })}
+                                  className="px-2 py-0.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Camera size={10} /> Photo ✓
+                                </button>
+                              )}
+                              {po.transportBillUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewMediaModal({ url: po.transportBillUrl!, title: `Transport Bill (Bilty): ${po.poNumber}` })}
+                                  className="px-2 py-0.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                                >
+                                  <ReceiptText size={10} /> Bilty ✓
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-semibold text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                              Proof Pending
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 55% Advance Cleared */}
+                        <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                          <strong className="text-emerald-700 font-black block">
+                            ₹{advance.toLocaleString('en-IN')}
                           </strong>
-                        </div>
-                      </div>
+                          <span className="text-[10px] text-gray-400 block font-mono">
+                            of ₹{total.toLocaleString('en-IN')}
+                          </span>
+                        </td>
 
-                      <div className="mt-2 p-2 bg-white rounded-xl border border-emerald-100 text-xs">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-bold text-gray-500 uppercase">Transporter &amp; Driver</span>
-                          <span className="text-xs font-mono font-bold text-emerald-800">{order.driverPhone || '-'}</span>
-                        </div>
-                        <span className="text-xs font-medium text-gray-800 block truncate mt-0.5">
-                          {order.transporterName || 'Transporter Assigned'}
-                        </span>
-                      </div>
+                        {/* Status */}
+                        <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                          {po.status === 'CLOSED' ? (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
+                              <CheckCircle2 size={12} className="text-emerald-700" /> Cleared ✓
+                            </span>
+                          ) : po.dispatchStatus === 'DELIVERED_AT_HUB' ? (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+                              <Clock size={12} className="text-amber-700" /> Awaiting Admin Clearance
+                            </span>
+                          ) : isInTransit ? (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
+                              <Truck size={12} className="text-blue-700" /> In Transit
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+                              <Clock size={12} className="text-amber-700" /> Ready for Loading
+                            </span>
+                          )}
+                        </td>
 
-                      {/* Proof badges */}
-                      <div className="mt-2.5 pt-2 border-t border-emerald-200/60 flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-gray-600 mr-1">Proofs:</span>
-                        {order.vehiclePhotoUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewMediaModal({ url: order.vehiclePhotoUrl!, title: `Vehicle Photo - ${order.poNumber}` })}
-                            className="px-2 py-0.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Camera size={10} /> Photo Attached
-                          </button>
-                        )}
-                        {order.transportBillUrl && (
-                          <button
-                            type="button"
-                            onClick={() => setPreviewMediaModal({ url: order.transportBillUrl!, title: `Transport Bill - ${order.poNumber}` })}
-                            className="px-2 py-0.5 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-900 text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <ReceiptText size={10} /> Bilty Attached
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="pt-2 border-t border-emerald-200/80 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="text-[10px] text-gray-500 block">55% Auto-Advance:</span>
-                        <strong className="text-emerald-800 font-mono font-bold">
-                          ₹{Number(order.advanceAmount || 0).toLocaleString('en-IN')} CLEARED
-                        </strong>
-                      </div>
-                      <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-bold text-[11px] border border-amber-300">
-                        Awaiting Admin Clearance
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                        {/* Action */}
+                        <td className="text-center py-3.5 px-3 whitespace-nowrap">
+                          {isPendingDispatch ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPOForDispatch(po);
+                                setDispatchError('');
+                              }}
+                              className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold text-[11px] transition shadow-xs cursor-pointer inline-flex items-center gap-1 active:scale-95"
+                            >
+                              <Upload size={12} /> Dispatch Truck
+                            </button>
+                          ) : isInTransit ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPOForDispatch(po);
+                                setDispatchError('');
+                              }}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-lg font-bold text-[10px] border border-blue-200 cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Edit3 size={11} /> Update Proof
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPOForDispatch(po);
+                                setDispatchError('');
+                              }}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold text-[10px] border border-emerald-200 cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <Eye size={11} /> View Proofs
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
       )}
@@ -2090,8 +2272,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           {/* Consignment PO Number */}
                           <td className="text-center py-3.5 px-3 font-black text-[#087A3E] border-r border-gray-100 whitespace-nowrap">
                             <span>{po.poNumber}</span>
-                            <span className="text-[10px] text-gray-400 block font-normal">
-                              {po.poDate ? new Date(po.poDate).toLocaleDateString('en-IN') : '-'}
+                            <span className="text-[10px] text-gray-500 block font-semibold flex items-center justify-center gap-1 mt-0.5">
+                              <Calendar size={10} className="text-emerald-700" />
+                              Initiated: {po.poDate ? new Date(po.poDate).toLocaleDateString('en-GB') : (po.createdAt ? new Date(po.createdAt).toLocaleDateString('en-GB') : '-')}
                             </span>
                           </td>
 
@@ -3073,11 +3256,32 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             )}
 
             <form onSubmit={handleSubmitVendorPO} className="overflow-y-auto flex-1 pr-1 py-3 space-y-4 text-xs">
-              {/* Destination Hub and Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Destination Hub and Date Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* 1. PO Initiate Date (Creation Date) */}
                 <div>
-                  <label className="block text-gray-700 font-bold mb-1">
-                    Destination Regional Hub *
+                  <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1.5">
+                    <Calendar size={13} className="text-emerald-700" />
+                    PO Initiate Date (Today) *
+                  </label>
+                  <input
+                    type="date"
+                    value={poInitiateDate}
+                    onChange={(e) => setPoInitiateDate(e.target.value)}
+                    className="w-full h-10 px-3 border border-emerald-400 bg-emerald-50/40 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 focus:outline-none"
+                    required
+                  />
+                  <span className="text-[10px] text-emerald-800 font-bold mt-0.5 block flex items-center gap-1">
+                    <Clock size={10} className="text-emerald-600" />
+                    Creation Day: {poInitiateDate ? new Date(poInitiateDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Today'}
+                  </span>
+                </div>
+
+                {/* 2. Destination Regional Hub */}
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1.5">
+                    <MapPin size={13} className="text-emerald-700" />
+                    Destination Hub *
                   </label>
                   <select
                     value={targetHub}
@@ -3092,13 +3296,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     ))}
                   </select>
                   <span className="text-[10px] text-gray-500 mt-0.5 block">
-                    Strictly restricted to 8 whitelisted hubs.
+                    Restricted to 8 whitelisted hubs.
                   </span>
                 </div>
 
+                {/* 3. Expected Dispatch / Delivery Date */}
                 <div>
-                  <label className="block text-gray-700 font-bold mb-1">
-                    Expected Dispatch / Delivery Date
+                  <label className="block text-gray-700 font-bold mb-1 flex items-center gap-1.5">
+                    <Truck size={13} className="text-blue-700" />
+                    Expected Delivery Date
                   </label>
                   <input
                     type="date"
@@ -3106,6 +3312,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     onChange={(e) => setExpectedDeliveryDate(e.target.value)}
                     className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
                   />
+                  <span className="text-[10px] text-gray-500 mt-0.5 block">
+                    Target hub arrival date.
+                  </span>
                 </div>
               </div>
 

@@ -663,9 +663,9 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               <strong className="text-gray-800 text-xs block mt-0.5 truncate">{supplierDisplayName}</strong>
             </div>
             <div>
-              <span className="text-gray-400 font-medium block">Order Date</span>
+              <span className="text-gray-400 font-medium block">Initiate / Order Date</span>
               <strong className="text-gray-800 text-xs block mt-0.5">
-                {new Date(order.poDate).toLocaleDateString('en-GB')}
+                {order.poDate ? new Date(order.poDate).toLocaleDateString('en-GB') : (order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB') : '-')}
               </strong>
             </div>
             <div>

@@ -1008,6 +1008,8 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
     const {
       destinationHub,
       expectedDeliveryDate,
+      poInitiateDate,
+      poDate,
       fruitName,
       items: rawItems,
       dispatchVehicleNumber,
@@ -1133,7 +1135,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
       return await tx.purchaseOrder.create({
         data: {
           poNumber,
-          poDate: new Date(),
+          poDate: poInitiateDate ? new Date(poInitiateDate) : (poDate ? new Date(poDate) : new Date()),
           expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
           supplierId: supplier.id,
           vendorProfileId: profile.id,
