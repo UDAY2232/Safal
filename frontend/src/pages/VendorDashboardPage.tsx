@@ -1184,7 +1184,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   });
   const deliveredAndVerifiedOrders = clearedOrders;
 
-  // 2. Orders Awaiting Vehicle Allotment from Safal Hub
+  // 2. Orders Awaiting Vehicle Allotment from Safal Hub (No vehicle allotted yet)
   const awaitingAllotmentOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
     const hasVehicle = Boolean(
@@ -1195,14 +1195,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     return (
       !isCleared &&
       !hasVehicle &&
-      (!o.dispatchStatus || o.dispatchStatus === 'PENDING_DISPATCH' || o.status === 'PENDING_APPROVAL') &&
       o.status !== 'CLOSED' &&
       o.status !== 'CANCELLED' &&
       o.status !== 'REJECTED'
     );
   });
 
-  // 3. Ready for Loading & Dispatch (Vehicle has been allotted by Admin, awaiting vendor carton loading & signature)
+  // 3. Ready for Loading & Dispatch (Vehicle has been allotted by Admin, awaiting vendor carton loading & signature/photos)
   const pendingDispatchOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
     const hasVehicle = Boolean(
@@ -1210,26 +1209,36 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       o.dispatchVehicleNumber !== '-' &&
       o.dispatchVehicleNumber.trim() !== ''
     );
+    const hasLoadedProof = Boolean(o.vehiclePhotoUrl);
     return (
       !isCleared &&
       hasVehicle &&
-      !o.vehiclePhotoUrl &&
-      (!o.dispatchStatus || o.dispatchStatus === 'PENDING_DISPATCH') &&
+      !hasLoadedProof &&
+      o.dispatchStatus !== 'DELIVERED_AT_HUB' &&
       o.status !== 'CLOSED' &&
       o.status !== 'CANCELLED' &&
       o.status !== 'REJECTED'
     );
   });
 
-  // 4. In Transit (Truck on the road with photos/bilty submitted, not yet marked delivered at hub)
+  // 4. In Transit (Truck actually on the road from farm to hub with vehicle allotted AND loading photos/bilty submitted)
   const inTransitOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
-    const isPending = pendingDispatchOrders.some((p) => p.id === o.id);
-    const isAwaitingAllotment = awaitingAllotmentOrders.some((a) => a.id === o.id);
-    if (isCleared || isPending || isAwaitingAllotment) return false;
+    const hasVehicle = Boolean(
+      o.dispatchVehicleNumber &&
+      o.dispatchVehicleNumber !== '-' &&
+      o.dispatchVehicleNumber.trim() !== ''
+    );
+    const hasLoadedProof = Boolean(o.vehiclePhotoUrl);
     return (
+      !isCleared &&
+      hasVehicle &&
+      hasLoadedProof &&
       (o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'IN_TRANSIT') &&
-      o.dispatchStatus !== 'DELIVERED_AT_HUB'
+      o.dispatchStatus !== 'DELIVERED_AT_HUB' &&
+      o.status !== 'CLOSED' &&
+      o.status !== 'CANCELLED' &&
+      o.status !== 'REJECTED'
     );
   });
 
@@ -1456,7 +1465,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="min-w-0 flex-1">
               <span className="text-[11px] sm:text-xs font-bold text-emerald-900 block truncate">Trucks in Transit</span>
               <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
-                {stats.inTransitPOs}
+                {inTransitOrders.length}
               </strong>
               <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Dispatched on road · Tap info</small>
             </div>
@@ -1638,7 +1647,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="mt-2">
                 <span className="text-xs font-bold text-gray-600 block">Trucks in Transit</span>
                 <strong className="text-lg sm:text-xl font-black text-amber-700 font-['Manrope'] block mt-0.5">
-                  {stats.inTransitPOs || 0} on Road
+                  {inTransitOrders.length} on Road
                 </strong>
                 <span className="text-[10px] text-gray-500 font-bold block mt-1">
                   With Transporter Bilty
@@ -1679,10 +1688,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
           {/* LIVE COLD-CHAIN HIGHWAY TRANSIT TRACKER (Motion Tracking Truck En-Route) */}
           {(() => {
-            // Strictly display ONLY when vehicle transit has actually started and is currently en-route
+            // Strictly display ONLY when vehicle transit has actually started and is currently en-route from farm to hub
             const activeOrder = inTransitOrders.find(
-              (o) => o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED'
-            ) || inTransitOrders[0];
+              (o) =>
+                (o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED') &&
+                Boolean(o.dispatchVehicleNumber && o.dispatchVehicleNumber !== '-') &&
+                Boolean(o.vehiclePhotoUrl)
+            );
 
             if (!activeOrder) return null;
 
@@ -1690,7 +1702,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             const activeDest = activeOrder?.deliveryAddress?.includes('➔')
               ? activeOrder.deliveryAddress.split('➔')[1].replace('Regional Hub Receiving Desk', '').trim()
               : (targetHub || 'Warangal');
-            const activeTruck = activeOrder?.dispatchVehicleNumber || 'TS09UB4521';
+            const activeTruck = activeOrder.dispatchVehicleNumber || 'SAFAL-TRUCK';
 
             return (
               <div className="bg-gradient-to-br from-slate-950 via-[#052b1b] to-slate-950 rounded-3xl p-4 sm:p-6 border border-emerald-500/30 shadow-xl overflow-hidden text-white relative">

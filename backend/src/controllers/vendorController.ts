@@ -263,7 +263,21 @@ export async function getVendorPOs(req: AuthRequest, res: Response) {
       orderBy: { poDate: 'desc' },
     });
 
-    const enriched = pos.map((p) => enrichPOWithSettlementDetails(p));
+    const sanitizedPOs = pos.map((p) => {
+      // If order was marked LOADED_AND_DISPATCHED or IN_TRANSIT without vehicle or loading photo proof, reset to PENDING_DISPATCH
+      const hasVehicle = Boolean(p.dispatchVehicleNumber && p.dispatchVehicleNumber !== '-');
+      const hasProof = Boolean(p.vehiclePhotoUrl);
+      let dispatchStatus = p.dispatchStatus;
+      if ((dispatchStatus === 'LOADED_AND_DISPATCHED' || dispatchStatus === 'IN_TRANSIT') && (!hasVehicle || !hasProof)) {
+        dispatchStatus = 'PENDING_DISPATCH';
+      }
+      return {
+        ...p,
+        dispatchStatus,
+      };
+    });
+
+    const enriched = sanitizedPOs.map((p) => enrichPOWithSettlementDetails(p));
     return res.json(enriched);
   } catch (error: any) {
     console.error('getVendorPOs error:', error);
@@ -552,7 +566,11 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
 
     const totalPOs = pos.length;
     const inTransitPOs = pos.filter(
-      (p) => (p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchStatus === 'IN_TRANSIT') && p.status !== 'CLOSED'
+      (p) =>
+        (p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchStatus === 'IN_TRANSIT') &&
+        Boolean(p.dispatchVehicleNumber && p.dispatchVehicleNumber !== '-') &&
+        Boolean(p.vehiclePhotoUrl) &&
+        p.status !== 'CLOSED'
     ).length;
     const pendingDispatchPOs = pos.filter(
       (p) => (!p.dispatchStatus || p.dispatchStatus === 'PENDING_DISPATCH') && p.status !== 'CLOSED' && p.status !== 'CANCELLED'
@@ -1462,7 +1480,6 @@ export async function disburseVendorAdvance(req: AuthRequest, res: Response) {
           pendingAmount: po.status === 'CLOSED' ? 0 : pendingBalance,
           paymentProofUrl: advanceProofUrl || po.paymentProofUrl,
           paymentProofNotes: utrNumber ? `Advance UTR: ${utrNumber}` : po.paymentProofNotes,
-          dispatchStatus: po.dispatchStatus === 'PENDING_DISPATCH' ? 'LOADED_AND_DISPATCHED' : (po.dispatchStatus || 'IN_TRANSIT'),
           statusHistory: {
             create: {
               status: po.status,
