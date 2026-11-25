@@ -336,7 +336,13 @@ function MainApp() {
           {activePage === 'Wages & Salary' && user?.role === 'ADMIN' && <WagesPage onNotify={notify} />}
           {activePage === 'Employees' && user?.role === 'ADMIN' && <EmployeesPage onNotify={notify} />}
           {activePage === 'Vendors (KYC)' && (user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
-            <VendorsAdminPage onNotify={notify} />
+            <VendorsAdminPage
+              onNotify={notify}
+              initialSearch={navParams?.orderNumber}
+              initialSection={navParams?.section}
+              initialAllotPO={navParams?.allotPO}
+              onClearNavParams={() => setNavParams(null)}
+            />
           )}
           {activePage === 'Suppliers' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <SuppliersPage onNotify={notify} />}
           {activePage === 'Reports' && user?.role !== 'EMPLOYEE' && user?.role !== 'VENDOR' && <ReportsPage onNotify={notify} />}

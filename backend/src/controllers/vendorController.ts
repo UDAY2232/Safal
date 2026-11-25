@@ -592,7 +592,7 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
           title: `Truck Dispatched: ${po.poNumber}`,
           message: `Vendor ${profile.businessName} (${profile.vendorId}) dispatched PO ${po.poNumber} with Vehicle ${dispatchVehicleNumber.toUpperCase()}. Transport bill and vehicle photo attached.`,
           type: 'INFO',
-          linkUrl: '/purchase-orders',
+          linkUrl: '/vendors',
         },
       });
     }

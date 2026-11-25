@@ -57,11 +57,21 @@ import { resolvePhotoUrl } from '../utils/imageUtils';
 
 interface VendorsAdminPageProps {
   onNotify: (msg: string) => void;
+  initialSearch?: string;
+  initialSection?: 'all' | 'allotment' | 'transit' | 'weighbridge' | 'rates' | 'directory';
+  initialAllotPO?: boolean;
+  onClearNavParams?: () => void;
 }
 
 const isPORejected = (op: any) => Boolean(op) && (op.status === 'REJECTED' || Boolean(op.rejectionReason && String(op.rejectionReason).trim() !== ''));
 
-export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) => {
+export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
+  onNotify,
+  initialSearch,
+  initialSection,
+  initialAllotPO,
+  onClearNavParams,
+}) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const isAccountant = user?.role === 'ACCOUNTANT';
@@ -71,9 +81,11 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [loading, setLoading] = useState(true);
 
   // CD-style navigation & filter state
-  const [activeSection, setActiveSection] = useState<'all' | 'allotment' | 'transit' | 'weighbridge' | 'rates' | 'directory'>('all');
+  const [activeSection, setActiveSection] = useState<'all' | 'allotment' | 'transit' | 'weighbridge' | 'rates' | 'directory'>(
+    initialSection || 'all'
+  );
   const [viewMode, setViewMode] = useState<'reference' | 'financial'>('reference');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch || '');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -436,6 +448,31 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     setAllotBiltyPreview(po.transportBillUrl ? (po.transportBillUrl.startsWith('/') ? `/api${po.transportBillUrl}` : po.transportBillUrl) : '');
     setAllotError('');
   };
+
+  // Deep-link routing from Notifications (e.g. Vehicle Allotment Required, Truck Dispatched)
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    }
+    if (initialSearch) {
+      setSearch(initialSearch);
+    }
+  }, [initialSearch, initialSection]);
+
+  useEffect(() => {
+    if (initialAllotPO && initialSearch && operations.length > 0) {
+      const match = operations.find(
+        (op: any) =>
+          op.poNumber === initialSearch ||
+          op.id === initialSearch ||
+          (op.poNumber && op.poNumber.toLowerCase().includes(initialSearch.toLowerCase()))
+      );
+      if (match) {
+        openAllotModal(match);
+        if (onClearNavParams) onClearNavParams();
+      }
+    }
+  }, [initialAllotPO, initialSearch, operations]);
 
   const handleAllotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

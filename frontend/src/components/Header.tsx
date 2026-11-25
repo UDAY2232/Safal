@@ -154,9 +154,27 @@ export const Header: React.FC<HeaderProps> = ({
       linkUrl.includes('type=CD') ||
       title.toLowerCase().includes('customer due') ||
       message.toLowerCase().includes('customer due');
+
+    // Vendor / Consignment Notifications (e.g. Vehicle Allotment, Truck Dispatched, Mandi QC/Weighbridge)
+    const isVendorConsignment =
+      linkUrl.includes('/vendors') ||
+      linkUrl.includes('vendor') ||
+      title.toLowerCase().includes('vehicle allotment') ||
+      title.toLowerCase().includes('allotment required') ||
+      title.toLowerCase().includes('truck dispatch') ||
+      title.toLowerCase().includes('truck dispatched') ||
+      title.toLowerCase().includes('weighbridge') ||
+      title.toLowerCase().includes('consignment') ||
+      message.toLowerCase().includes('requested consignment po') ||
+      message.toLowerCase().includes('consignment po') ||
+      message.toLowerCase().includes('allot a refrigerated vehicle') ||
+      message.toLowerCase().includes('refrigerated vehicle') ||
+      message.toLowerCase().includes('dispatched po');
+
     const isPO =
-      Boolean(poMatch) ||
-      (!isCD && (linkUrl.includes('purchase-order') || title.toLowerCase().includes('po')));
+      !isVendorConsignment &&
+      (Boolean(poMatch) ||
+        (!isCD && (linkUrl.includes('purchase-order') || title.toLowerCase().includes('po'))));
 
     const expIdMatch = linkUrl.match(/\/expenses\/([a-zA-Z0-9_-]+)/) || linkUrl.match(/expenseId=([a-zA-Z0-9_-]+)/);
     const expenseId = expIdMatch ? expIdMatch[1] : undefined;
@@ -171,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
 
     const isClearance = linkUrl.includes('clearance') || title.toLowerCase().includes('clearance');
     const isAttendance = linkUrl.includes('attendance') || title.toLowerCase().includes('attendance');
-    const isVendor = linkUrl.includes('vendor') || title.toLowerCase().includes('vendor');
+    const isVendor = isVendorConsignment || linkUrl.includes('vendor') || title.toLowerCase().includes('vendor');
 
     const idMatch = linkUrl.match(/\/purchase-orders\/([a-zA-Z0-9_-]+)/);
     const orderId = idMatch ? idMatch[1] : undefined;
@@ -196,7 +214,34 @@ export const Header: React.FC<HeaderProps> = ({
       return;
     }
 
-    if (isCD) {
+    if (isVendorConsignment) {
+      const isAllotment =
+        title.toLowerCase().includes('allot') ||
+        title.toLowerCase().includes('vehicle') ||
+        message.toLowerCase().includes('allot');
+      const isTransit =
+        title.toLowerCase().includes('dispatch') ||
+        title.toLowerCase().includes('transit') ||
+        message.toLowerCase().includes('dispatched');
+      const isWeighbridge =
+        title.toLowerCase().includes('weighbridge') ||
+        title.toLowerCase().includes('qc');
+
+      const section = isAllotment
+        ? 'allotment'
+        : isTransit
+        ? 'transit'
+        : isWeighbridge
+        ? 'weighbridge'
+        : 'all';
+
+      onNavigate('Vendors (KYC)', {
+        orderId,
+        orderNumber,
+        section,
+        allotPO: isAllotment,
+      });
+    } else if (isCD) {
       onNavigate('Customer Due (CD)', { orderId, orderNumber, openProof });
     } else if (isPO) {
       onNavigate('Purchase Order (PO)', { orderId, orderNumber });

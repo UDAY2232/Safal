@@ -673,7 +673,9 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
             : `New PO Awaiting Approval: ${newPO.poNumber}`,
           message: `${newPO.poNumber} from ${newPO.supplier.name} for ₹${grandTotal.toLocaleString('en-IN')} submitted by ${req.user!.name}${newPO.paymentProofUrl ? ' (Payment proof attached for verification)' : ''}`,
           type: 'ACTION_REQUIRED',
-          linkUrl: `/purchase-orders/${newPO.id}?type=${isCD ? 'CD' : 'PO'}${newPO.paymentProofUrl ? '&proof=true' : ''}`,
+          linkUrl: isVendorUser
+            ? `/vendors?poId=${newPO.id}`
+            : `/purchase-orders/${newPO.id}?type=${isCD ? 'CD' : 'PO'}${newPO.paymentProofUrl ? '&proof=true' : ''}`,
         },
       });
     }
