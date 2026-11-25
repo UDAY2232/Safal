@@ -1810,6 +1810,20 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                 (Number(settle.finalBalancePaid ?? 0) > 0 || status === 'CLOSED')
                               );
 
+                              if (op.status === 'REJECTED') {
+                                return (
+                                  <div className="inline-flex flex-col items-center">
+                                    <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1 shadow-2xs">
+                                      <AlertTriangle size={11} className="text-rose-700" /> REJECTED
+                                    </span>
+                                    {op.rejectionReason && (
+                                      <span className="text-[9px] text-rose-700 font-bold max-w-[130px] truncate mt-0.5" title={op.rejectionReason}>
+                                        {op.rejectionReason}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
                               if (isReallySettled) {
                                 return (
                                   <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
@@ -1939,7 +1953,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               return (
                                 <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                   {/* Action 1: Allot Vehicle & Approve (for un-allotted POs) */}
-                                  {(!truck || truck === '-' || isAwaitingAllotment) && (
+                                  {op.status !== 'REJECTED' && (!truck || truck === '-' || isAwaitingAllotment) && (
                                     <button
                                       type="button"
                                       onClick={() => openAllotModal(op)}
@@ -1949,6 +1963,12 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                       <Truck size={11} />
                                       <span>Allot Vehicle</span>
                                     </button>
+                                  )}
+
+                                  {op.status === 'REJECTED' && (
+                                    <span className="px-2 py-1 bg-rose-50 text-rose-800 border border-rose-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
+                                      <AlertTriangle size={10} className="text-rose-600" /> Order Rejected
+                                    </span>
                                   )}
 
                                   {/* Action: Confirm Hub Arrival (when truck is in transit/dispatched and not yet marked reached) */}

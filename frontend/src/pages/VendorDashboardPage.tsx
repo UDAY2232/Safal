@@ -1418,13 +1418,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     return !isCleared && o.dispatchStatus === 'DELIVERED_AT_HUB';
   });
 
-  // 6. Awaiting Safal Clearance (Arrived at regional hub / weighbridge recorded / awaiting final settlement clearance)
+  // 6. Rejected Orders by Safal
+  const rejectedOrders = React.useMemo(() => {
+    return orders.filter((o) => o.status === 'REJECTED');
+  }, [orders]);
+
+  // 7. Awaiting Safal Clearance (Arrived at regional hub / weighbridge recorded / awaiting final settlement clearance)
   const awaitingClearanceOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
     const isPending = pendingDispatchOrders.some((p) => p.id === o.id);
     const isAwaitingAllotment = awaitingAllotmentOrders.some((a) => a.id === o.id);
     const isInTransit = inTransitOrders.some((t) => t.id === o.id);
-    return !isCleared && !isPending && !isAwaitingAllotment && !isInTransit;
+    const isRejected = o.status === 'REJECTED' || o.status === 'CANCELLED';
+    return !isCleared && !isPending && !isAwaitingAllotment && !isInTransit && !isRejected;
   });
 
   const completedOrders = clearedOrders;
@@ -1460,6 +1466,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       if (!awaitingClearanceOrders.some((a) => a.id === po.id)) return false;
     } else if (consignmentFilter === 'CLEARED' || consignmentFilter === 'DELIVERED') {
       if (!clearedOrders.some((c) => c.id === po.id)) return false;
+    } else if (consignmentFilter === 'REJECTED') {
+      if (po.status !== 'REJECTED') return false;
     }
 
     if (consignmentSearch.trim()) {
@@ -1779,6 +1787,54 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               </div>
             </div>
           )}
+          {/* SAFAL REJECTED YOUR ORDER BANNER */}
+          {rejectedOrders.length > 0 && (
+            <div className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-rose-50 via-red-50 to-rose-100 border-2 border-rose-400 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-md">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-red-600 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <AlertTriangle size={22} className="text-white" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-red-200 text-red-950 border border-red-300">
+                      ORDER ACTION REQUIRED
+                    </span>
+                    <strong className="text-sm font-extrabold text-red-950">
+                      Safal Rejected Your Order
+                    </strong>
+                  </div>
+                  <div className="mt-1 space-y-1">
+                    {rejectedOrders.map((ro) => (
+                      <p key={ro.id} className="text-xs text-red-900">
+                        Consignment <strong className="font-mono text-red-950 font-bold">{ro.poNumber}</strong> was rejected by Safal administration.
+                        {ro.rejectionReason && (
+                          <span className="block font-bold text-red-800 mt-0.5">
+                            Reason: {ro.rejectionReason}
+                          </span>
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start md:self-auto flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleTabClick('orders');
+                    if (rejectedOrders[0]) {
+                      setSelectedPODetail(rejectedOrders[0]);
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-xl text-xs font-black transition shadow-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap active:scale-95"
+                >
+                  <Eye size={14} />
+                  <span>View Details</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* MOBILE PHONE APP NOTIFICATIONS PROMPT BANNER */}
           {pushStatus === 'default' && !dismissPushBanner && (
             <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#064D2B] via-emerald-800 to-teal-800 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md border border-emerald-500/30">
@@ -3144,6 +3200,23 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   </sup>
                 )}
               </button>
+              {rejectedOrders.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setConsignmentFilter('REJECTED')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition cursor-pointer flex items-center gap-1 ${
+                    consignmentFilter === 'REJECTED'
+                      ? 'bg-rose-700 text-white shadow-xs'
+                      : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-300'
+                  }`}
+                >
+                  <AlertTriangle size={12} className={consignmentFilter === 'REJECTED' ? 'text-white' : 'text-rose-600'} />
+                  <span>Safal Rejected</span>
+                  <sup className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-rose-600 text-white leading-none">
+                    {rejectedOrders.length}
+                  </sup>
+                </button>
+              )}
             </div>
 
             <div className="relative sm:w-72">
@@ -3276,33 +3349,44 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Advance Amount */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            <strong className="text-emerald-700 font-black block font-mono text-xs">
-                              ₹{advance.toLocaleString('en-IN')}
-                            </strong>
-                            {settle.advanceProofUrl || po.paymentProofUrl ? (
-                              <div className="flex items-center justify-end gap-1 mt-0.5">
-                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block">
-                                  Paid by {settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
+                            {po.status === 'REJECTED' ? (
+                              <div>
+                                <strong className="text-gray-400 font-mono text-xs block">₹0.00</strong>
+                                <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 inline-block mt-0.5">
+                                  Order Rejected
                                 </span>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPreviewMediaModal({
-                                      url: resolvePhotoUrl(settle.advanceProofUrl || po.paymentProofUrl),
-                                      title: `Advance Bank Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'})`,
-                                    });
-                                  }}
-                                  className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
-                                  title="View Advance Payment Slip"
-                                >
-                                  <Eye size={9} /> Slip
-                                </button>
                               </div>
                             ) : (
-                              <span className="text-[9px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
-                                Pending Admin Slip
-                              </span>
+                              <>
+                                <strong className="text-emerald-700 font-black block font-mono text-xs">
+                                  ₹{advance.toLocaleString('en-IN')}
+                                </strong>
+                                {settle.advanceProofUrl || po.paymentProofUrl ? (
+                                  <div className="flex items-center justify-end gap-1 mt-0.5">
+                                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block">
+                                      Paid by {settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPreviewMediaModal({
+                                          url: resolvePhotoUrl(settle.advanceProofUrl || po.paymentProofUrl),
+                                          title: `Advance Bank Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'})`,
+                                        });
+                                      }}
+                                      className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                      title="View Advance Payment Slip"
+                                    >
+                                      <Eye size={9} /> Slip
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <span className="text-[9px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
+                                    Pending Admin Slip
+                                  </span>
+                                )}
+                              </>
                             )}
                           </td>
 
@@ -3331,7 +3415,14 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Net Balance Due (Cleared shows actual Net Balance paid by Safal; 0 if pending sales realization) */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {isFullyCleared ? (
+                            {po.status === 'REJECTED' ? (
+                              <div>
+                                <strong className="text-gray-400 font-mono text-xs block">₹0.00</strong>
+                                <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 inline-block mt-0.5">
+                                  Order Rejected
+                                </span>
+                              </div>
+                            ) : isFullyCleared ? (
                               <div>
                                 <strong className="text-emerald-700 font-black block font-mono text-xs">
                                   ₹{Number(
@@ -3398,7 +3489,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Status */}
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {isFullyCleared ? (
+                            {po.status === 'REJECTED' ? (
+                              <div className="inline-flex flex-col items-center gap-0.5">
+                                <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1 shadow-xs">
+                                  <AlertTriangle size={12} className="text-rose-600" /> Safal Rejected Your Order
+                                </span>
+                                {po.rejectionReason && (
+                                  <span className="text-[9px] text-rose-700 font-bold block mt-0.5 max-w-[200px] truncate" title={po.rejectionReason}>
+                                    Reason: {po.rejectionReason}
+                                  </span>
+                                )}
+                              </div>
+                            ) : isFullyCleared ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
                                 <CheckCircle2 size={12} className="text-emerald-700" /> Cleared ✓
                               </span>
@@ -3449,7 +3551,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                 <Eye size={12} /> Dossier
                               </button>
 
-                              {po.dispatchStatus === 'PENDING_DISPATCH' && (
+                              {po.status === 'REJECTED' ? (
+                                <span className="h-7 px-2 bg-rose-50 text-rose-800 border border-rose-300 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs whitespace-nowrap">
+                                  <AlertTriangle size={11} className="text-rose-600" /> Order Rejected
+                                </span>
+                              ) : po.dispatchStatus === 'PENDING_DISPATCH' && (
                                 (!po.dispatchVehicleNumber || po.dispatchVehicleNumber === '-') ? (
                                   <span className="h-7 px-2 bg-amber-50 text-amber-900 border border-amber-200 rounded-lg font-bold text-[10px] inline-flex items-center gap-1 shadow-2xs whitespace-nowrap">
                                     <Clock size={11} className="text-amber-700 animate-spin" /> Awaiting Allotment

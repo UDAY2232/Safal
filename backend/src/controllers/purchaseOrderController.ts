@@ -826,15 +826,30 @@ export async function rejectPurchaseOrder(req: AuthRequest, res: Response) {
       },
     });
 
-    await prisma.notification.create({
-      data: {
-        userId: po.createdById,
-        title: 'Purchase Order Rejected',
-        message: `Your PO ${po.poNumber} was rejected: ${reason}`,
-        type: 'WARNING',
-        linkUrl: `/purchase-orders/${po.id}`,
-      },
-    });
+    // Resolve vendor recipient
+    let vendorUserId = po.createdById;
+    if (po.vendorProfileId) {
+      const vProfile = await prisma.vendorProfile.findUnique({
+        where: { id: po.vendorProfileId },
+        select: { userId: true },
+      });
+      if (vProfile?.userId) {
+        vendorUserId = vProfile.userId;
+      }
+    }
+
+    const notifyUserIds = Array.from(new Set([po.createdById, vendorUserId].filter(Boolean)));
+    for (const targetId of notifyUserIds) {
+      await prisma.notification.create({
+        data: {
+          userId: targetId,
+          title: 'Safal Rejected Your Order',
+          message: `Safal rejected your order ${po.poNumber}. Reason: ${reason}`,
+          type: 'WARNING',
+          linkUrl: `/purchase-orders/${po.id}`,
+        },
+      });
+    }
 
     await createAuditLog({
       userId: req.user?.id,

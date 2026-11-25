@@ -808,12 +808,16 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
           </div>
 
           {/* Rejection alert if applicable */}
-          {order.rejectionReason && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 flex items-start gap-2">
-              <XCircle size={16} className="mt-0.5 flex-shrink-0" />
+          {(order.rejectionReason || order.status === 'REJECTED') && (
+            <div className="p-3.5 bg-red-50 border-2 border-red-300 rounded-xl text-red-900 flex items-start gap-2.5 shadow-xs">
+              <XCircle size={18} className="mt-0.5 text-red-600 flex-shrink-0" />
               <div>
-                <strong>Rejection Reason:</strong>
-                <p className="mt-0.5">{order.rejectionReason}</p>
+                <strong className="text-xs font-black uppercase tracking-wider block text-red-900">
+                  Safal Rejected Your Order
+                </strong>
+                <p className="mt-0.5 text-xs text-red-800 font-semibold">
+                  {order.rejectionReason ? `Rejection Reason: ${order.rejectionReason}` : 'This purchase order consignment was rejected by Safal administration.'}
+                </p>
               </div>
             </div>
           )}
@@ -1135,6 +1139,8 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             )}
 
             {onOpenDuePayment &&
+              order.status !== 'REJECTED' &&
+              order.status !== 'CANCELLED' &&
               Number(
                 order.pendingAmount ??
                   Math.max(0, order.grandTotal - (order.advanceAmount || 0))

@@ -149,9 +149,11 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     }
   };
 
-  // Calculations for All POs (Strict Rule: If due is pending > 0, status is OPEN!)
-  const totalAmount = orders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
+  // Calculations for All POs (Strict Rule: If due is pending > 0, status is OPEN, unless explicitly REJECTED/CANCELLED!)
+  const nonRejectedOrders = orders.filter((o) => o.status !== 'REJECTED' && o.status !== 'CANCELLED');
+  const totalAmount = nonRejectedOrders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
   const openCount = orders.filter((o) => {
+    if (o.status === 'REJECTED' || o.status === 'CANCELLED' || o.status === 'CLOSED') return false;
     const adv = Number(o.advanceAmount || 0);
     const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
     return pend > 0 || o.status === 'OPEN';
@@ -167,6 +169,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
   const dueOrders = orders.filter((o) => {
+    if (o.status === 'REJECTED' || o.status === 'CANCELLED' || o.status === 'CLOSED') return false;
     const adv = Number(o.advanceAmount || 0);
     const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
     if (pend <= 0) return false;
@@ -672,6 +675,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               <option value="OPEN">Open</option>
               <option value="CLOSED">Closed</option>
               <option value="PENDING_APPROVAL">Pending Approval</option>
+              <option value="REJECTED">Rejected</option>
               <option value="DRAFT">Draft</option>
             </select>
           </div>
@@ -942,10 +946,12 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                   ) : (
                     displayedOrders.map((order, index) => {
                       const isPending = order.status === 'PENDING_APPROVAL' || order.status === 'DRAFT';
+                      const isRejected = order.status === 'REJECTED';
+                      const isCancelled = order.status === 'CANCELLED';
                       const adv = Number(order.advanceAmount || 0);
                       const pendingDue = Number(order.pendingAmount ?? Math.max(0, Number(order.grandTotal) - adv));
                       // Strict Business Rule: Closed ONLY when pendingDue <= 0. If even 1 rupee is pending, status MUST BE OPEN!
-                      const isClosed = !isPending && pendingDue <= 0 && order.status === 'CLOSED';
+                      const isClosed = !isPending && !isRejected && !isCancelled && pendingDue <= 0 && order.status === 'CLOSED';
 
                       return (
                         <tr
@@ -993,7 +999,15 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             <div>₹{order.grandTotal.toLocaleString('en-IN')}</div>
                           </td>
                           <td className="text-center py-3 px-4 border-r border-gray-200 whitespace-nowrap">
-                            {pendingDue > 0 ? (
+                            {isRejected ? (
+                              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                ₹0 (Rejected)
+                              </span>
+                            ) : isCancelled ? (
+                              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 text-gray-500 border border-gray-200">
+                                ₹0 (Cancelled)
+                              </span>
+                            ) : pendingDue > 0 ? (
                               <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 shadow-xs">
                                 ₹{pendingDue.toLocaleString('en-IN')}
                               </span>
@@ -1027,6 +1041,21 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             {isClosed ? (
                               <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-[#D8F6D4] text-[#1E7438] border border-[#BCECC5] shadow-xs">
                                 Closed (Cleared)
+                              </span>
+                            ) : isRejected ? (
+                              <div className="inline-flex flex-col items-center">
+                                <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-800 border border-rose-300 shadow-xs">
+                                  Rejected
+                                </span>
+                                {order.rejectionReason && (
+                                  <span className="text-[10px] text-rose-600 font-semibold max-w-[130px] truncate mt-0.5" title={order.rejectionReason}>
+                                    {order.rejectionReason}
+                                  </span>
+                                )}
+                              </div>
+                            ) : isCancelled ? (
+                              <span className="inline-block px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-700 border border-gray-300">
+                                Cancelled
                               </span>
                             ) : order.paymentProofUrl ? (
                               <div className="inline-flex flex-col items-center">
@@ -1097,7 +1126,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           )}
                           <td className="text-center py-3 px-4 border-l border-gray-200 whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                              {pendingDue > 0 && (
+                              {!isRejected && !isCancelled && pendingDue > 0 && (
                                 <button
                                   type="button"
                                   onClick={() => setDuePaymentPO(order)}
@@ -1106,6 +1135,11 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 >
                                   <CreditCard size={12} /> Pay Due
                                 </button>
+                              )}
+                              {isRejected && (
+                                <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded text-[10px] font-black border border-rose-200">
+                                  Order Rejected
+                                </span>
                               )}
                               {((order.status === 'PENDING_APPROVAL' || order.paymentProofUrl) && !isClosed && (isAdmin || isAccountant)) ? (
                                 <button
