@@ -1628,8 +1628,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         </button>
       </div>
 
-      {/* Compact Stat Cards (Visible on secondary tabs: orders, dispatch, qc, kyc) */}
-      {activeTab !== 'dashboard' && (
+      {/* Compact Stat Cards (Strictly for Supply Consignments tab; hidden on dispatch, qc, kyc per user request) */}
+      {activeTab === 'orders' && (
         <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5">
           {/* Card 1: Total POs */}
           <div
@@ -1642,7 +1642,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="min-w-0 flex-1">
               <span className="text-[11px] sm:text-xs font-bold text-gray-700 block truncate">My Total Orders</span>
               <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-gray-900 font-['Manrope'] block mt-0.5">
-                {stats.totalPOs}
+                {activeOrders.length}
               </strong>
               <small className="text-[10px] text-gray-500 hidden sm:block truncate">Procurement contracts · Tap info</small>
             </div>

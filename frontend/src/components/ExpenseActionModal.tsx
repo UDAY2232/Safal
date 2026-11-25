@@ -12,11 +12,14 @@ import {
   AlertCircle,
   CheckCircle2,
   Image as ImageIcon,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { ExpenseClaim } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { resolvePhotoUrl } from '../utils/imageUtils';
 
 interface ExpenseActionModalProps {
   claim: ExpenseClaim;
@@ -40,6 +43,7 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
   const [showRejectForm, setShowRejectForm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentReceiptUrl, setCurrentReceiptUrl] = useState<string | null>(claim.receiptUrl || null);
+  const [showAttachmentViewer, setShowAttachmentViewer] = useState(false);
   const [isSendingReminder, setIsSendingReminder] = useState(false);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
@@ -221,31 +225,33 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
                   <CheckCircle2 size={16} className="text-emerald-700" />
                   Attached Bill / Receipt Proof
                 </div>
-                <a
-                  href={currentReceiptUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-[#087A3E] font-bold hover:underline inline-flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-emerald-300 shadow-2xs"
+                <button
+                  type="button"
+                  onClick={() => setShowAttachmentViewer(true)}
+                  className="text-xs text-[#087A3E] font-bold hover:underline inline-flex items-center gap-1 bg-white px-2.5 py-1 rounded-lg border border-emerald-300 shadow-2xs cursor-pointer hover:bg-emerald-50 transition"
+                  title="View full attachment image"
                 >
-                  View Full Attachment <ExternalLink size={12} />
-                </a>
+                  <Eye size={13} /> View Full Attachment
+                </button>
               </div>
 
-              {/* If image, show clean inline preview thumbnail */}
-              {/\.(jpg|jpeg|png|webp)($|\?)/i.test(currentReceiptUrl) && (
-                <div className="pt-1">
-                  <a href={currentReceiptUrl} target="_blank" rel="noreferrer" className="block max-w-xs group">
-                    <img
-                      src={currentReceiptUrl}
-                      alt="Receipt Document"
-                      className="max-h-48 rounded-lg border border-emerald-300 shadow-2xs group-hover:opacity-90 transition object-contain bg-white"
-                    />
-                    <span className="text-[10px] text-emerald-700 font-semibold block mt-1">
-                      Click image to inspect full-screen proof ↗
-                    </span>
-                  </a>
+              {/* Clean inline preview thumbnail */}
+              <div className="pt-1">
+                <div
+                  onClick={() => setShowAttachmentViewer(true)}
+                  className="block max-w-xs group cursor-pointer"
+                  title="Click image to inspect full proof"
+                >
+                  <img
+                    src={resolvePhotoUrl(currentReceiptUrl)}
+                    alt="Receipt Document"
+                    className="max-h-48 rounded-lg border border-emerald-300 shadow-2xs group-hover:opacity-90 transition object-contain bg-white"
+                  />
+                  <span className="text-[10px] text-emerald-700 font-semibold block mt-1 flex items-center gap-1">
+                    <Eye size={11} /> Click image to inspect full-screen proof ↗
+                  </span>
                 </div>
-              )}
+              </div>
             </div>
           ) : (
             <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-300 space-y-2.5">
@@ -399,6 +405,79 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Full-Screen Attachment Viewer Modal (Opens right in place without redirecting to dashboard) */}
+      {showAttachmentViewer && currentReceiptUrl && (
+        <div className="modal-backdrop !z-[9999]" onClick={() => setShowAttachmentViewer(false)}>
+          <div
+            className="modal !w-[820px] max-w-[96vw] max-h-[92vh] p-4 flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <ReceiptIndianRupee size={20} className="text-emerald-700" />
+                <div>
+                  <h3 className="text-sm font-black text-gray-900">
+                    Expense Receipt Proof - {claim.claimNumber}
+                  </h3>
+                  <span className="text-[11px] text-gray-500 font-medium">
+                    {claim.employeeName} ({claim.employeeCode || 'Staff'}) · ₹{claim.amountSpent.toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={resolvePhotoUrl(currentReceiptUrl)}
+                  download={`receipt-${claim.claimNumber}.jpg`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs inline-flex items-center gap-1 transition"
+                  title="Download receipt"
+                >
+                  <Download size={13} /> Download
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setShowAttachmentViewer(false)}
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition cursor-pointer"
+                  title="Close viewer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-auto p-2 bg-gray-900 rounded-xl flex items-center justify-center my-3 min-h-[300px]">
+              {currentReceiptUrl.toLowerCase().endsWith('.pdf') ? (
+                <iframe
+                  src={resolvePhotoUrl(currentReceiptUrl)}
+                  title="Receipt PDF"
+                  className="w-full h-[70vh] rounded-lg border-0 bg-white"
+                />
+              ) : (
+                <img
+                  src={resolvePhotoUrl(currentReceiptUrl)}
+                  alt={`Receipt for ${claim.claimNumber}`}
+                  className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-lg"
+                />
+              )}
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs flex-shrink-0">
+              <span className="text-[11px] text-gray-500 font-semibold">
+                Category: {claim.category}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAttachmentViewer(false)}
+                className="px-4 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-bold text-xs transition cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

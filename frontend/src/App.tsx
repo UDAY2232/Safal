@@ -55,6 +55,42 @@ function MainApp() {
     openProof?: boolean;
   } | null>(null);
 
+  // Whenever the authenticated user logs in or switches, automatically land on 'Dashboard'
+  const prevUserIdRef = React.useRef<string | null>(null);
+  useEffect(() => {
+    if (user && user.id !== prevUserIdRef.current) {
+      prevUserIdRef.current = user.id;
+      setActivePage('Dashboard');
+      setPageHistory(['Dashboard']);
+      try {
+        window.history.replaceState({ page: 'Dashboard' }, '', window.location.pathname);
+      } catch {}
+    } else if (!user) {
+      prevUserIdRef.current = null;
+      setActivePage('Dashboard');
+      setPageHistory(['Dashboard']);
+    }
+  }, [user]);
+
+  // Role-based navigation safety: ensure Vendor never gets stuck on non-vendor pages (causing blank screen)
+  useEffect(() => {
+    if (user?.role === 'VENDOR') {
+      const vendorAllowed = [
+        'Dashboard',
+        'Purchase Order (PO)',
+        'Supply Consignments',
+        'Ready for Dispatch',
+        'Weighbridge & QC Slips',
+        'Profile',
+        'Vendor Profile',
+      ];
+      if (!vendorAllowed.includes(activePage)) {
+        setActivePage('Dashboard');
+        setPageHistory(['Dashboard']);
+      }
+    }
+  }, [user?.role, activePage]);
+
   const navigate = (
     page: string,
     params?: { orderId?: string; orderNumber?: string; openProof?: boolean }
