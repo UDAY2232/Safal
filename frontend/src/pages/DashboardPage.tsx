@@ -975,6 +975,28 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   // -------------------------------------------------------------
   // 3. ADMIN DASHBOARD VIEW (Section 6 & 18 of Master Prompt)
   // -------------------------------------------------------------
+  const isPORejected = (p: any) => p.status === 'REJECTED' || Boolean(p.rejectionReason && String(p.rejectionReason).trim() !== '');
+  const hasValidVehicle = (p: any) => {
+    const v = (p.dispatchVehicleNumber || p.truckNo || '').trim();
+    return v !== '' && v !== '-';
+  };
+
+  // Only real, active fleet in transit: NOT rejected/cancelled/draft, and has an actual vehicle allotted or is dispatched
+  const liveFleetDispatches = vendorOperations.filter((p: any) => {
+    if (isPORejected(p) || p.status === 'CANCELLED' || p.status === 'DRAFT') return false;
+    const isTransit = p.dispatchStatus === 'IN_TRANSIT' || p.dispatchStatus === 'LOADED_AND_DISPATCHED';
+    return isTransit || hasValidVehicle(p);
+  });
+
+  // Only sum advance outlay for active live consignments where advance has an uploaded slip or is cleared
+  const liveAdvanceOutlay = liveFleetDispatches.reduce((sum: number, p: any) => {
+    const hasSlip = Boolean(p.paymentProofUrl || p.advancePaymentReceiptUrl || (p as any).settlementDetails?.advanceProofUrl);
+    if (!hasSlip) return sum;
+    return sum + Number(p.advancePaymentAmount || p.advanceAmount || (Number(p.grandTotal || 0) * 0.70));
+  }, 0);
+
+  const qcList = vendorOperations.filter((p: any) => !isPORejected(p) && p.status !== 'CANCELLED' && (p.weighbridgeGrossKg || p.qcInspectionStatus || p.weighbridgeScaleSlipUrl));
+
   return (
     <>
       {/* Mobile Device Push Notifications Prompt Banner */}
@@ -1324,7 +1346,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           <div className="bg-white p-3.5 rounded-xl border border-blue-100 shadow-2xs">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Active Fleet in Transit</span>
             <p className="text-xl font-black text-blue-700 mt-1">
-              {vendorOperations.filter((p: any) => p.dispatchStatus === 'IN_TRANSIT' || p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchVehicleNumber).length}
+              {liveFleetDispatches.length}
             </p>
             <span className="text-[10px] text-blue-600 font-bold block mt-0.5">Trucks En-Route to Hubs</span>
           </div>
@@ -1332,9 +1354,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
             <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">70% Advance Outlay</span>
             <p className="text-xl font-black text-emerald-800 mt-1">
-              {formatCurrency(
-                vendorOperations.reduce((sum: number, p: any) => sum + Number(p.advancePaymentAmount || p.advanceAmount || 0), 0)
-              )}
+              {formatCurrency(liveAdvanceOutlay)}
             </p>
             <span className="text-[10px] text-emerald-700 font-bold block mt-0.5">Instant Disbursed on Dispatch</span>
           </div>
@@ -1354,7 +1374,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             <Truck size={15} className={vendorOpsTab === 'dispatches' ? 'text-[#087A3E]' : 'text-gray-400'} />
             <span>Live Fleet &amp; Dispatches in Transit</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-100 text-emerald-900 font-mono font-bold">
-              {vendorOperations.filter((p: any) => p.dispatchVehicleNumber || p.dispatchStatus === 'IN_TRANSIT').length}
+              {liveFleetDispatches.length}
             </span>
           </button>
 
@@ -1370,7 +1390,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
             <Scale size={15} className={vendorOpsTab === 'weighbridge' ? 'text-[#087A3E]' : 'text-gray-400'} />
             <span>Mandi Weighbridge &amp; QC Slips</span>
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-900 font-mono font-bold">
-              {vendorOperations.filter((p: any) => p.weighbridgeGrossKg || p.qcInspectionStatus).length}
+              {qcList.length}
             </span>
           </button>
 
@@ -1412,16 +1432,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {vendorOperations.length === 0 ? (
+                {liveFleetDispatches.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="text-center py-12 text-gray-400">
                       <Truck size={32} className="mx-auto text-gray-300 mb-2" />
                       <p className="font-bold text-gray-700 text-sm">No live fleet dispatches in transit</p>
-                      <p className="text-xs text-gray-400 mt-1">When vendors dispatch consignments, live trucks will appear here.</p>
+                      <p className="text-xs text-gray-400 mt-1">When vendors dispatch consignments with allotted vehicles, live trucks will appear here.</p>
                     </td>
                   </tr>
                 ) : (
-                  vendorOperations.map((op: any) => {
+                  liveFleetDispatches.map((op: any) => {
                     const poCode = op.poNumber || 'PO/SF/2026/001';
                     const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || '-';
                     const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '-';
@@ -1432,12 +1452,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                     const vehiclePhoto = op.vehiclePhotoUrl || op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
                     const bilty = op.transportBillUrl || op.dispatchTransportBillUrl || op.bilty;
                     const fin = getConsignmentFinancials(op);
+                    const hasAdvanceSlip = Boolean(op.paymentProofUrl || op.advancePaymentReceiptUrl || (op as any).settlementDetails?.advanceProofUrl);
                     const advAmt = op.advancePaymentAmount
                       ? formatCurrency(Number(op.advancePaymentAmount))
                       : op.advanceAmount
                       ? formatCurrency(Number(op.advanceAmount))
-                      : formatCurrency(Math.round(fin.baseCost * 0.70));
-                    const advStatus = op.advancePaymentStatus || op.advanceStatus || 'CLEARED';
+                      : hasAdvanceSlip
+                      ? formatCurrency(Math.round(fin.baseCost * 0.70))
+                      : '₹0';
+                    const advStatus = hasAdvanceSlip ? 'CLEARED' : 'PENDING SLIP';
 
                     const gradeInfo = getCommodityGradeDetails(op, adminFruitRates);
 
@@ -1521,7 +1544,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                             Turnover: ₹{fin.totalRevenue.toLocaleString('en-IN')}
                           </span>
                           <span className="text-[9px] text-blue-600 block">
-                            Mandi Realized
+                            {op.financialRecord?.linkedRevenue ? 'Mandi Realized' : 'Estimated Mandi Rate'}
                           </span>
                         </td>
                         <td className="py-3 px-3 text-center bg-gray-50/50">
@@ -1637,7 +1660,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {(() => {
-                  const qcList = vendorOperations.filter((p: any) => p.weighbridgeGrossKg || p.qcInspectionStatus || p.weighbridgeScaleSlipUrl);
                   if (qcList.length === 0) {
                     return (
                       <tr>

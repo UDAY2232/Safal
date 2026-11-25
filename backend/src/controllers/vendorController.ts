@@ -798,8 +798,14 @@ export async function getVendorOperationsForAdmin(req: AuthRequest, res: Respons
       orderBy: { poDate: 'desc' },
     });
 
-    const enriched = operations.map((op) => enrichPOWithSettlementDetails(op));
-    return res.json(enriched);
+    const formatted = operations.map((op) => {
+      const isRejected = op.status === 'REJECTED' || Boolean(op.rejectionReason && String(op.rejectionReason).trim() !== '');
+      if (isRejected) {
+        op.status = 'REJECTED';
+      }
+      return enrichPOWithSettlementDetails(op);
+    });
+    return res.json(formatted);
   } catch (error: any) {
     console.error('getVendorOperationsForAdmin error:', error);
     return res.status(500).json({ error: 'Failed to list vendor operations' });

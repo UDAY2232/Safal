@@ -382,15 +382,22 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       })
     : filteredConsignments;
 
-  // Transit fleet list
-  const transitConsignments = allConsignments.filter(
-    (op) => op.dispatchStatus === 'IN_TRANSIT' || (op.dispatchVehicleNumber && op.dispatchVehicleNumber !== '-') || op.truckNo
-  );
+  // Transit fleet list (only non-rejected, active vehicles actually in transit)
+  const hasTransitVehicle = (op: any) => {
+    const v = (op.dispatchVehicleNumber || op.truckNo || '').trim();
+    return v !== '' && v !== '-';
+  };
+
+  const transitConsignments = allConsignments.filter((op) => {
+    if (isPORejected(op) || op.status === 'CANCELLED' || op.status === 'DRAFT') return false;
+    return op.dispatchStatus === 'IN_TRANSIT' || op.dispatchStatus === 'LOADED_AND_DISPATCHED' || hasTransitVehicle(op);
+  });
 
   // Weighbridge slips list
-  const weighbridgeConsignments = allConsignments.filter(
-    (op) => op.weighbridgeGrossKg || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl || op.qcGrade
-  );
+  const weighbridgeConsignments = allConsignments.filter((op) => {
+    if (isPORejected(op) || op.status === 'CANCELLED') return false;
+    return op.weighbridgeGrossKg || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl || op.qcGrade;
+  });
 
   // Filtered Vendors Directory
   const filteredVendors = vendors.filter((v) => {
@@ -404,14 +411,17 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     );
   });
 
-  // Aggregate KPI Stat Card Calculations
-  const totalConsignmentsCount = allConsignments.length;
+  // Aggregate KPI Stat Card Calculations (excluding rejected or cancelled orders from live commitments)
+  const activeConsignments = allConsignments.filter((op) => !isPORejected(op) && op.status !== 'CANCELLED');
+  const totalConsignmentsCount = activeConsignments.length;
   const transitCount = transitConsignments.length;
-  const totalAdvanceCleared = allConsignments.reduce((sum, op) => {
-    const adv = Number(op.advancePaymentAmount || (Number(op.grandTotal || 0) * 0.70));
+  const totalAdvanceCleared = activeConsignments.reduce((sum, op) => {
+    const hasSlip = Boolean(op.paymentProofUrl || op.advancePaymentReceiptUrl || op.settlementDetails?.advanceProofUrl);
+    if (!hasSlip) return sum;
+    const adv = Number(op.advancePaymentAmount || op.advanceAmount || (Number(op.grandTotal || 0) * 0.70));
     return sum + adv;
   }, 0);
-  const totalProcurementValue = allConsignments.reduce((sum, op) => {
+  const totalProcurementValue = activeConsignments.reduce((sum, op) => {
     const cost = Number(op.grandTotal || op.totalAmount || 0);
     return sum + cost;
   }, 0);
