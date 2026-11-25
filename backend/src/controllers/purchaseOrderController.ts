@@ -189,12 +189,26 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Auto-heal: Ensure any PO with pendingAmount > 0 has status OPEN in the database
+    // Auto-heal: Ensure any PO with rejectionReason has status REJECTED in the database
+    prisma.purchaseOrder
+      .updateMany({
+        where: {
+          rejectionReason: { not: null },
+          status: { not: 'REJECTED' },
+        },
+        data: {
+          status: 'REJECTED',
+        },
+      })
+      .catch(() => {});
+
+    // Auto-heal: Ensure any PO with pendingAmount > 0 has status OPEN in the database (unless rejected)
     prisma.purchaseOrder
       .updateMany({
         where: {
           status: 'CLOSED',
           pendingAmount: { gt: 0 },
+          rejectionReason: null,
         },
         data: {
           status: 'OPEN',
@@ -207,10 +221,11 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
       const profitLoss = fin?.realizedProfitLoss ? Number(fin.realizedProfitLoss) : null;
       let finStatus = fin?.financialStatus || 'PENDING_COST_DATA';
 
+      const isRejected = p.status === 'REJECTED' || Boolean(p.rejectionReason && String(p.rejectionReason).trim() !== '');
       const advance = Number(p.advanceAmount || 0);
       const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - advance));
-      // Strict Business Rule: If due is pending (> 0), status can NEVER be CLOSED! It must be OPEN.
-      const effectiveStatus = (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status;
+      // Strict Business Rule: If rejected, status is ALWAYS REJECTED. If due is pending (> 0), status can NEVER be CLOSED! It must be OPEN.
+      const effectiveStatus = isRejected ? 'REJECTED' : (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status;
 
       return {
         id: p.id,
@@ -300,10 +315,13 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
       return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
+    const isRejected = po.status === 'REJECTED' || Boolean(po.rejectionReason && String(po.rejectionReason).trim() !== '');
     const grand = Number(po.grandTotal);
     const advance = Number(po.advanceAmount || 0);
     const pending = Number(po.pendingAmount ?? Math.max(0, grand - advance));
-    if (pending > 0 && po.status === 'CLOSED') {
+    if (isRejected) {
+      po.status = 'REJECTED';
+    } else if (pending > 0 && po.status === 'CLOSED') {
       po.status = 'OPEN';
     }
 
@@ -702,6 +720,7 @@ export async function submitPurchaseOrder(req: AuthRequest, res: Response) {
       where: { id },
       data: {
         status: 'PENDING_APPROVAL',
+        rejectionReason: null,
         statusHistory: {
           create: {
             status: 'PENDING_APPROVAL',

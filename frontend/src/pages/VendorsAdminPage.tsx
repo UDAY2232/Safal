@@ -362,7 +362,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       op.dispatchVehicleNumber.trim() !== ''
     );
     const isPending = op.status === 'PENDING_APPROVAL' || op.dispatchStatus === 'PENDING_DISPATCH' || !op.dispatchStatus;
-    const isClosed = op.status === 'CLOSED' || op.status === 'CANCELLED' || op.status === 'REJECTED';
+    const isOrderRejected = op.status === 'REJECTED' || Boolean(op.rejectionReason && String(op.rejectionReason).trim() !== '');
+    const isClosed = op.status === 'CLOSED' || op.status === 'CANCELLED' || isOrderRejected;
     return !hasVehicle && isPending && !isClosed;
   });
 
@@ -1810,7 +1811,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                 (Number(settle.finalBalancePaid ?? 0) > 0 || status === 'CLOSED')
                               );
 
-                              if (op.status === 'REJECTED') {
+                              const isOrderRejected = op.status === 'REJECTED' || Boolean(op.rejectionReason && String(op.rejectionReason).trim() !== '');
+
+                              if (isOrderRejected) {
                                 return (
                                   <div className="inline-flex flex-col items-center">
                                     <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1 shadow-2xs">
@@ -1953,7 +1956,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               return (
                                 <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                   {/* Action 1: Allot Vehicle & Approve (for un-allotted POs) */}
-                                  {op.status !== 'REJECTED' && (!truck || truck === '-' || isAwaitingAllotment) && (
+                                  {!isOrderRejected && (!truck || truck === '-' || isAwaitingAllotment) && (
                                     <button
                                       type="button"
                                       onClick={() => openAllotModal(op)}
@@ -1965,7 +1968,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                     </button>
                                   )}
 
-                                  {op.status === 'REJECTED' && (
+                                  {isOrderRejected && (
                                     <span className="px-2 py-1 bg-rose-50 text-rose-800 border border-rose-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
                                       <AlertTriangle size={10} className="text-rose-600" /> Order Rejected
                                     </span>

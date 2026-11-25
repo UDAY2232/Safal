@@ -1343,6 +1343,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   };
 
   // 1. Cleared / Completed Consignments (Strictly 0 remaining balance due & verified settlement)
+  const isOrderRejected = (o: any) => o.status === 'REJECTED' || Boolean(o.rejectionReason && String(o.rejectionReason).trim() !== '');
+
   const clearedOrders = orders.filter((o) => {
     const settle = (o as any).settlementDetails;
     const remainingDue = settle?.finalBalanceDue !== undefined
@@ -1365,7 +1367,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       !hasVehicle &&
       o.status !== 'CLOSED' &&
       o.status !== 'CANCELLED' &&
-      o.status !== 'REJECTED'
+      !isOrderRejected(o)
     );
   });
 
@@ -1385,7 +1387,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       o.dispatchStatus !== 'DELIVERED_AT_HUB' &&
       o.status !== 'CLOSED' &&
       o.status !== 'CANCELLED' &&
-      o.status !== 'REJECTED'
+      !isOrderRejected(o)
     );
   });
 
@@ -1408,19 +1410,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       o.dispatchStatus !== 'DELIVERED_AT_HUB' &&
       o.status !== 'CLOSED' &&
       o.status !== 'CANCELLED' &&
-      o.status !== 'REJECTED'
+      !isOrderRejected(o)
     );
   });
 
   // 5. Arrived at Destination Hub (Vehicle reached location, ready for sell)
   const deliveredHubOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
-    return !isCleared && o.dispatchStatus === 'DELIVERED_AT_HUB';
+    return !isCleared && o.dispatchStatus === 'DELIVERED_AT_HUB' && !isOrderRejected(o);
   });
 
   // 6. Rejected Orders by Safal
   const rejectedOrders = React.useMemo(() => {
-    return orders.filter((o) => o.status === 'REJECTED');
+    return orders.filter((o) => isOrderRejected(o));
   }, [orders]);
 
   // 7. Awaiting Safal Clearance (Arrived at regional hub / weighbridge recorded / awaiting final settlement clearance)
@@ -1429,7 +1431,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     const isPending = pendingDispatchOrders.some((p) => p.id === o.id);
     const isAwaitingAllotment = awaitingAllotmentOrders.some((a) => a.id === o.id);
     const isInTransit = inTransitOrders.some((t) => t.id === o.id);
-    const isRejected = o.status === 'REJECTED' || o.status === 'CANCELLED';
+    const isRejected = isOrderRejected(o) || o.status === 'CANCELLED';
     return !isCleared && !isPending && !isAwaitingAllotment && !isInTransit && !isRejected;
   });
 
@@ -1467,7 +1469,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     } else if (consignmentFilter === 'CLEARED' || consignmentFilter === 'DELIVERED') {
       if (!clearedOrders.some((c) => c.id === po.id)) return false;
     } else if (consignmentFilter === 'REJECTED') {
-      if (po.status !== 'REJECTED') return false;
+      if (!isOrderRejected(po)) return false;
     }
 
     if (consignmentSearch.trim()) {
@@ -3489,7 +3491,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
                           {/* Status */}
                           <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {po.status === 'REJECTED' ? (
+                            {isOrderRejected(po) ? (
                               <div className="inline-flex flex-col items-center gap-0.5">
                                 <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1 shadow-xs">
                                   <AlertTriangle size={12} className="text-rose-600" /> Safal Rejected Your Order

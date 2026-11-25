@@ -195,40 +195,45 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
 
     // Strict Separation: Separate Purchase Orders (PO) from Customer Dues (CD)
     const isCD = (p: any) => p.poNumber?.startsWith('CD/') || p.supplier?.category === 'Customer Due';
+    const isOrderRejected = (p: any) => p.status === 'REJECTED' || Boolean(p.rejectionReason && String(p.rejectionReason).trim() !== '');
     const poOrders = displayPOs.filter((p) => !isCD(p));
     const cdOrders = displayPOs.filter((p) => isCD(p));
 
-    // PO Calculations (Strictly POs only)
+    // PO Calculations (Strictly POs only, excluding rejected orders from open counts and commitment sums)
     const totalPOs = poOrders.length;
     const openPOs = poOrders.filter((p) => {
+      if (isOrderRejected(p)) return false;
       const adv = Number(p.advanceAmount || 0);
       const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
       return p.status === 'OPEN' || (pending > 0 && p.status === 'CLOSED');
     }).length;
     const closedPOs = poOrders.filter((p) => {
+      if (isOrderRejected(p)) return false;
       const adv = Number(p.advanceAmount || 0);
       const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
       return p.status === 'CLOSED' && pending <= 0;
     }).length;
-    const pendingApprovalPOs = poOrders.filter((p) => p.status === 'PENDING_APPROVAL').length;
-    const pendingApprovalCDs = cdOrders.filter((p) => p.status === 'PENDING_APPROVAL').length;
+    const pendingApprovalPOs = poOrders.filter((p) => !isOrderRejected(p) && p.status === 'PENDING_APPROVAL').length;
+    const pendingApprovalCDs = cdOrders.filter((p) => !isOrderRejected(p) && p.status === 'PENDING_APPROVAL').length;
     const totalPendingApprovals = pendingApprovalPOs + pendingApprovalCDs;
-    const totalPOAmount = poOrders.reduce((sum, p) => sum + Number(p.grandTotal), 0);
+    const totalPOAmount = poOrders.filter((p) => !isOrderRejected(p)).reduce((sum, p) => sum + Number(p.grandTotal), 0);
 
     // Customer Due (CD) Calculations (Strictly CDs only)
     const totalCDs = cdOrders.length;
     const openCDs = cdOrders.filter((p) => {
+      if (isOrderRejected(p)) return false;
       const adv = Number(p.advanceAmount || 0);
       const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
       return p.status === 'OPEN' || (pending > 0 && p.status === 'CLOSED');
     }).length;
     const closedCDs = cdOrders.filter((p) => {
+      if (isOrderRejected(p)) return false;
       const adv = Number(p.advanceAmount || 0);
       const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
       return p.status === 'CLOSED' && pending <= 0;
     }).length;
-    const totalCDAmount = cdOrders.reduce((sum, p) => sum + Number(p.grandTotal), 0);
-    const totalCDDue = cdOrders.reduce((sum, p) => {
+    const totalCDAmount = cdOrders.filter((p) => !isOrderRejected(p)).reduce((sum, p) => sum + Number(p.grandTotal), 0);
+    const totalCDDue = cdOrders.filter((p) => !isOrderRejected(p)).reduce((sum, p) => {
       const adv = Number(p.advanceAmount || 0);
       return sum + Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
     }, 0);
@@ -283,7 +288,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       Approved: pos.filter((p) => p.status === 'APPROVED').length,
       Open: openPOs,
       Closed: closedPOs,
-      Rejected: pos.filter((p) => p.status === 'REJECTED').length,
+      Rejected: pos.filter((p) => isOrderRejected(p)).length,
     };
 
     // Real monthly aggregation from actual database records (last 6 calendar months)

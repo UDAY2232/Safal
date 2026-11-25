@@ -128,6 +128,8 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
 
   const supplierDisplayName = order.supplierName || (order as any).supplier?.name || (isCD ? 'Retail Customer' : 'Party / Supplier');
   const createdByDisplayName = order.createdByName || (order as any).createdBy?.name || 'Staff';
+  const isRejected = order.status === 'REJECTED' || Boolean(order.rejectionReason && String(order.rejectionReason).trim() !== '');
+  const effectiveStatus = isRejected ? 'REJECTED' : order.status;
   const financial = order.financial || (order as any).financialRecord || {
     financialStatus: 'NOT_RECORDED',
     realizedProfitLoss: null,
@@ -261,12 +263,12 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               </span>
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold text-gray-900">{order.poNumber}</h2>
-                <StatusBadge status={order.status} />
+                <StatusBadge status={effectiveStatus} />
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {order.status !== 'CLOSED' && user?.role !== 'VENDOR' && (
+            {order.status !== 'CLOSED' && !isRejected && user?.role !== 'VENDOR' && (
               <button
                 type="button"
                 onClick={() => setIsEditing(!isEditing)}
@@ -795,6 +797,9 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               <span className="text-amber-700 font-medium block">Pending Balance</span>
               <strong className="text-amber-800 text-xs block mt-0.5 font-bold">
                 {(() => {
+                  if (isRejected) {
+                    return '₹0.00 (Order Rejected)';
+                  }
                   const settle = (order as any).settlementDetails;
                   const isSettled = Boolean(settle?.settlementCompleted || settle?.hasSettlementEntry || order.status === 'CLOSED');
                   if (!isSettled) {
@@ -1117,7 +1122,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
           </button>
 
           <div className="flex flex-wrap items-center justify-end gap-2 w-full sm:w-auto">
-            {isAdmin && order.status === 'PENDING_APPROVAL' && (
+            {isAdmin && order.status === 'PENDING_APPROVAL' && !isRejected && (
               <>
                 <button
                   type="button"
@@ -1139,7 +1144,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             )}
 
             {onOpenDuePayment &&
-              order.status !== 'REJECTED' &&
+              !isRejected &&
               order.status !== 'CANCELLED' &&
               Number(
                 order.pendingAmount ??

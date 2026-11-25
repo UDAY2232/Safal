@@ -154,15 +154,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   };
 
   // Calculations for All POs (Strict Rule: If due is pending > 0, status is OPEN, unless explicitly REJECTED/CANCELLED!)
-  const nonRejectedOrders = orders.filter((o) => o.status !== 'REJECTED' && o.status !== 'CANCELLED');
+  const isOrderRejected = (o: any) => o.status === 'REJECTED' || Boolean(o.rejectionReason && String(o.rejectionReason).trim() !== '');
+  const nonRejectedOrders = orders.filter((o) => !isOrderRejected(o) && o.status !== 'CANCELLED');
   const totalAmount = nonRejectedOrders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
   const openCount = orders.filter((o) => {
-    if (o.status === 'REJECTED' || o.status === 'CANCELLED' || o.status === 'CLOSED') return false;
+    if (isOrderRejected(o) || o.status === 'CANCELLED' || o.status === 'CLOSED') return false;
     const adv = Number(o.advanceAmount || 0);
     const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
     return pend > 0 || o.status === 'OPEN';
   }).length;
   const closedCount = orders.filter((o) => {
+    if (isOrderRejected(o)) return false;
     const adv = Number(o.advanceAmount || 0);
     const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
     return pend <= 0 && o.status === 'CLOSED';
@@ -173,7 +175,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
   const dueOrders = orders.filter((o) => {
-    if (o.status === 'REJECTED' || o.status === 'CANCELLED' || o.status === 'CLOSED') return false;
+    if (isOrderRejected(o) || o.status === 'CANCELLED' || o.status === 'CLOSED') return false;
     const adv = Number(o.advanceAmount || 0);
     const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
     if (pend <= 0) return false;
@@ -188,6 +190,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
   // Active CDs still within the 1-day grace period
   const activeGraceCDs = isCD ? orders.filter((o) => {
+    if (isOrderRejected(o)) return false;
     const adv = Number(o.advanceAmount || 0);
     const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
     if (pend <= 0) return false;
@@ -197,17 +200,17 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
   // Amount Update Pending Verification: CDs where payment settlement proof was uploaded and awaiting Admin verification & closure
   const amountUpdatePendingOrders = orders.filter((o) => {
-    return Boolean(o.paymentProofUrl) && o.status !== 'CLOSED';
+    return !isOrderRejected(o) && Boolean(o.paymentProofUrl) && o.status !== 'CLOSED';
   });
 
   // New Orders awaiting initial approval (created but not yet approved)
   const newApprovalOrders = orders.filter((o) => {
-    return o.status === 'PENDING_APPROVAL' && !o.paymentProofUrl;
+    return !isOrderRejected(o) && o.status === 'PENDING_APPROVAL' && !o.paymentProofUrl;
   });
 
   // Pending verification records (awaiting Admin/Accountant approval or with proof)
   const pendingVerificationOrders = orders.filter((o) => {
-    return o.status === 'PENDING_APPROVAL' || (Boolean(o.paymentProofUrl) && o.status !== 'CLOSED');
+    return !isOrderRejected(o) && (o.status === 'PENDING_APPROVAL' || (Boolean(o.paymentProofUrl) && o.status !== 'CLOSED'));
   });
 
   const displayedOrders =
@@ -949,11 +952,11 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                     </tr>
                   ) : (
                     displayedOrders.map((order, index) => {
-                      const isPending = order.status === 'PENDING_APPROVAL' || order.status === 'DRAFT';
-                      const isRejected = order.status === 'REJECTED';
+                      const isRejected = isOrderRejected(order);
+                      const isPending = !isRejected && (order.status === 'PENDING_APPROVAL' || order.status === 'DRAFT');
                       const isCancelled = order.status === 'CANCELLED';
                       const adv = Number(order.advanceAmount || 0);
-                      const pendingDue = Number(order.pendingAmount ?? Math.max(0, Number(order.grandTotal) - adv));
+                      const pendingDue = isRejected ? 0 : Number(order.pendingAmount ?? Math.max(0, Number(order.grandTotal) - adv));
                       // Strict Business Rule: Closed ONLY when pendingDue <= 0. If even 1 rupee is pending, status MUST BE OPEN!
                       const isClosed = !isPending && !isRejected && !isCancelled && pendingDue <= 0 && order.status === 'CLOSED';
 
@@ -1145,7 +1148,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   Order Rejected
                                 </span>
                               )}
-                              {((order.status === 'PENDING_APPROVAL' || order.paymentProofUrl) && !isClosed && (isAdmin || isAccountant)) ? (
+                              {!isRejected && ((order.status === 'PENDING_APPROVAL' || order.paymentProofUrl) && !isClosed && (isAdmin || isAccountant)) ? (
                                 <button
                                   type="button"
                                   onClick={async (e) => {
