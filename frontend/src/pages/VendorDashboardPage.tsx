@@ -528,7 +528,42 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   useEffect(() => {
     fetchAdminRates();
     const interval = setInterval(fetchAdminRates, 15000);
-    return () => clearInterval(interval);
+
+    const handleRatesUpdate = (e: any) => {
+      if (e.detail) {
+        const r = e.detail;
+        setAdminFruitRates({
+          apples: {
+            layer4L: Number(r.apples?.layer4L) || 1300,
+            layer5L: Number(r.apples?.layer5L) || 1400,
+            roll: Number(r.apples?.roll) || 600,
+          },
+          pomegranate: Number(r.pomegranate) || 950,
+          watermelon: Number(r.watermelon) || 14000,
+          muskmelon: Number(r.muskmelon) || 18000,
+          banana: Number(r.banana) || 550,
+          orange: Number(r.orange) || 780,
+          plum: Number(r.plum) || 850,
+        });
+        if (r.apples) {
+          if (r.apples.layer4L) setLayer4LRate(String(r.apples.layer4L));
+          if (r.apples.layer5L) setLayer5LRate(String(r.apples.layer5L));
+          if (r.apples.roll) setRollRate(String(r.apples.roll));
+        }
+        if (r.pomegranate) setPomegranateRate(String(r.pomegranate));
+        if (r.watermelon) setWatermelonRate(String(r.watermelon));
+        if (r.muskmelon) setMuskmelonRate(String(r.muskmelon));
+        if (r.banana) setBananaRate(String(r.banana));
+        if (r.orange) setOrangeRate(String(r.orange));
+        if (r.plum) setPlumRate(String(r.plum));
+      }
+    };
+    window.addEventListener('safal_fruit_rates_updated', handleRatesUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('safal_fruit_rates_updated', handleRatesUpdate);
+    };
   }, [fetchAdminRates]);
 
   // Global Escape key listener to close any open modal

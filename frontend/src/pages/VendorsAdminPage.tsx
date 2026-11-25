@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { getCommodityGradeDetails } from '../utils/pricingHelper';
 import {
   ShieldCheck,
   Lock,
@@ -244,7 +245,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       await api.updateSettings({
         fruitProcurementRates: fruitRates,
       });
+      localStorage.setItem('safal_fruit_rates', JSON.stringify(fruitRates));
+      window.dispatchEvent(new CustomEvent('safal_fruit_rates_updated', { detail: fruitRates }));
       onNotify('Fruit procurement rates successfully saved and enforced for all vendors!');
+      await loadVendorsAndOperations();
     } catch (err: any) {
       console.error('Failed to update fruit rates:', err);
       onNotify(err.message || 'Failed to save fruit rates');
@@ -2080,6 +2084,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       );
                       const safalShare = Number(settle.adminShareAmount ?? Math.round(fin.baseCost * 0.05));
                       const apmcShare = Number(settle.apmcShareAmount ?? Math.round(fin.baseCost * 0.01));
+                      const gradeInfo = getCommodityGradeDetails(op, fruitRates);
 
                       return (
                         <tr key={op.id || poCode} className="hover:bg-emerald-50/20 transition text-xs">
@@ -2097,20 +2102,56 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             <span className="text-[10px] font-mono text-emerald-800 font-bold">{vCode}</span>
                           </td>
                           <td className="py-3.5 px-3 border-r border-gray-100">
-                            <span className="font-semibold text-gray-800 block truncate max-w-[140px]">
-                              {(op.commodity || 'Kashmir Apples').replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
-                            </span>
-                            <span className="text-[10px] text-gray-500 font-mono font-bold">
-                              {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
+                            <strong className="text-gray-900 block font-bold text-xs truncate max-w-[150px]">
+                              {gradeInfo.fruitName}
+                            </strong>
+                            {gradeInfo.hasMultipleGrades && gradeInfo.gradedItems.some((g) => g.quantity > 0) ? (
+                              <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                {gradeInfo.gradedItems
+                                  .filter((g) => g.quantity > 0)
+                                  .map((g, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 font-mono font-bold border border-emerald-200"
+                                    >
+                                      {g.shortGrade}: {g.quantity.toLocaleString('en-IN')}
+                                    </span>
+                                  ))}
+                              </div>
+                            ) : null}
+                            <span className="text-[10px] text-gray-500 font-mono font-bold block mt-0.5">
+                              Total: {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
                             </span>
                           </td>
-                          <td className="py-3.5 px-3 text-right bg-emerald-50/30 border-r border-gray-100 whitespace-nowrap">
-                            <strong className="text-gray-900 text-xs block font-mono">
-                              ₹{fin.unitCost.toLocaleString('en-IN')} / {fin.unit}
-                            </strong>
-                            <span className="text-[10px] text-gray-600 font-bold block">
-                              Base: ₹{fin.baseCost.toLocaleString('en-IN')}
-                            </span>
+                          <td className="py-3.5 px-3 text-right bg-emerald-50/30 border-r border-gray-100">
+                            {gradeInfo.hasMultipleGrades ? (
+                              <div className="space-y-1">
+                                <div className="flex flex-col items-end gap-0.5">
+                                  {gradeInfo.gradedItems.map((g, idx) => (
+                                    <div key={idx} className="flex items-center justify-end gap-1 text-right">
+                                      <span className="text-[10px] text-emerald-800 font-extrabold uppercase">{g.shortGrade}:</span>
+                                      <strong className="text-gray-900 text-xs font-mono font-bold">
+                                        ₹{g.ratePerUnit.toLocaleString('en-IN')}/{g.unit}
+                                      </strong>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="pt-1 border-t border-emerald-100/80">
+                                  <span className="text-[10px] text-gray-600 font-bold block">
+                                    Base: ₹{fin.baseCost.toLocaleString('en-IN')}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : (
+                              <div>
+                                <strong className="text-gray-900 text-xs block font-mono font-bold">
+                                  ₹{gradeInfo.singleRate.toLocaleString('en-IN')} / {fin.unit}
+                                </strong>
+                                <span className="text-[10px] text-gray-600 font-bold block">
+                                  Base: ₹{fin.baseCost.toLocaleString('en-IN')}
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="py-3.5 px-3 text-right bg-blue-50/30 border-r border-gray-100 whitespace-nowrap">
                             <strong className="text-blue-900 text-xs block font-mono">
@@ -3350,11 +3391,25 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2.5 bg-white rounded-xl border border-gray-200">
-                      <span className="text-[10px] text-gray-500 block">Procurement Rate (Buying)</span>
-                      <strong className="text-sm font-bold text-gray-900 block mt-0.5">
-                        ₹{fin.unitCost.toLocaleString('en-IN')} / {fin.unit}
-                      </strong>
-                      <span className="text-[10px] text-emerald-700 font-bold block">
+                      <span className="text-[10px] text-gray-500 block font-bold uppercase tracking-wider">Procurement Rate (Buying)</span>
+                      {selectedPOForPL && (() => {
+                        const modalGradeInfo = getCommodityGradeDetails(selectedPOForPL, fruitRates);
+                        return modalGradeInfo.hasMultipleGrades ? (
+                          <div className="space-y-1 mt-1">
+                            {modalGradeInfo.gradedItems.map((g, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-[11px] font-mono bg-gray-50/80 px-2 py-0.5 rounded border border-gray-100">
+                                <span className="text-gray-700 font-bold">{g.shortGrade} ({g.quantity > 0 ? `${g.quantity} ` : ''}{g.unit}):</span>
+                                <strong className="text-emerald-950 font-black">₹{g.ratePerUnit.toLocaleString('en-IN')}/{g.unit}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <strong className="text-sm font-bold text-gray-900 block mt-0.5 font-mono">
+                            ₹{modalGradeInfo.singleRate.toLocaleString('en-IN')} / {fin.unit}
+                          </strong>
+                        );
+                      })()}
+                      <span className="text-[10px] text-emerald-700 font-bold block mt-1.5 pt-1 border-t border-gray-100">
                         Base PO Value: ₹{fin.baseCost.toLocaleString('en-IN')}
                       </span>
                     </div>

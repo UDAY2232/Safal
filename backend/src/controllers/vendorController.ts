@@ -463,12 +463,24 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
       } catch {}
     }
 
+    let officialFruitRates: any = null;
+    try {
+      const setting = await prisma.applicationSetting.findUnique({
+        where: { key: 'fruitProcurementRates' },
+      });
+      if (setting?.value) officialFruitRates = JSON.parse(setting.value);
+    } catch {}
+
+    const default4L = Number(officialFruitRates?.apples?.layer4L) || 1300;
+    const default5L = Number(officialFruitRates?.apples?.layer5L) || 1400;
+    const defaultRoll = Number(officialFruitRates?.apples?.roll) || 600;
+
     const d4LBoxes = Number(req.body.layer4LBoxes) || 0;
-    const d4LRate = Number(req.body.layer4LRate) || 0;
+    const d4LRate = Number(req.body.layer4LRate) > 0 ? Number(req.body.layer4LRate) : default4L;
     const d5LBoxes = Number(req.body.layer5LBoxes) || 0;
-    const d5LRate = Number(req.body.layer5LRate) || 0;
+    const d5LRate = Number(req.body.layer5LRate) > 0 ? Number(req.body.layer5LRate) : default5L;
     const dRollBoxes = Number(req.body.rollBoxes) || 0;
-    const dRollRate = Number(req.body.rollRate) || 0;
+    const dRollRate = Number(req.body.rollRate) > 0 ? Number(req.body.rollRate) : defaultRoll;
 
     if (d4LBoxes > 0 || d5LBoxes > 0 || dRollBoxes > 0) {
       dispatchItems = [];
@@ -1380,13 +1392,25 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
       }
     }
 
+    let officialFruitRates: any = null;
+    try {
+      const setting = await prisma.applicationSetting.findUnique({
+        where: { key: 'fruitProcurementRates' },
+      });
+      if (setting?.value) officialFruitRates = JSON.parse(setting.value);
+    } catch {}
+
+    const default4L = Number(officialFruitRates?.apples?.layer4L) || 1300;
+    const default5L = Number(officialFruitRates?.apples?.layer5L) || 1400;
+    const defaultRoll = Number(officialFruitRates?.apples?.roll) || 600;
+
     // If apple layer fields are passed directly in body:
     const layer4LBoxes = Number(req.body.layer4LBoxes) || 0;
-    const layer4LRate = Number(req.body.layer4LRate) || 0;
+    const layer4LRate = Number(req.body.layer4LRate) > 0 ? Number(req.body.layer4LRate) : default4L;
     const layer5LBoxes = Number(req.body.layer5LBoxes) || 0;
-    const layer5LRate = Number(req.body.layer5LRate) || 0;
+    const layer5LRate = Number(req.body.layer5LRate) > 0 ? Number(req.body.layer5LRate) : default5L;
     const rollBoxes = Number(req.body.rollBoxes) || 0;
-    const rollRate = Number(req.body.rollRate) || 0;
+    const rollRate = Number(req.body.rollRate) > 0 ? Number(req.body.rollRate) : defaultRoll;
 
     if (layer4LBoxes > 0 || layer5LBoxes > 0 || rollBoxes > 0) {
       itemsToProcess = [];

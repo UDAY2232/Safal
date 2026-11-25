@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
+  FruitProcurementRates,
+  DEFAULT_FRUIT_PROCUREMENT_RATES,
+  getStoredFruitRates,
+  getCommodityGradeDetails,
+} from '../utils/pricingHelper';
+import {
   CircleDollarSign,
   Clock,
   Clock3,
@@ -139,6 +145,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   const [submittingVendor, setSubmittingVendor] = useState<boolean>(false);
   const [vendorFormError, setVendorFormError] = useState<string>('');
 
+  // Admin-Enforced Wholesale Fruit Procurement Rates (Live synchronized across entire application)
+  const [adminFruitRates, setAdminFruitRates] = useState<FruitProcurementRates>(getStoredFruitRates);
+
   // Add Vendor form state
   const [vBusinessName, setVBusinessName] = useState('');
   const [vContactPerson, setVContactPerson] = useState('');
@@ -273,15 +282,34 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
     try {
       setLoadingVendors(true);
       setLoadingOps(true);
-      const [resVendors, resOps] = await Promise.allSettled([
+      const [resVendors, resOps, resSettings] = await Promise.allSettled([
         api.getAllVendors(),
         api.getVendorOperationsForAdmin(),
+        api.getSettings(),
       ]);
       if (resVendors.status === 'fulfilled') {
         setVendors(Array.isArray(resVendors.value) ? resVendors.value : []);
       }
       if (resOps.status === 'fulfilled') {
         setVendorOperations(Array.isArray(resOps.value) ? resOps.value : []);
+      }
+      if (resSettings.status === 'fulfilled' && resSettings.value?.fruitProcurementRates) {
+        const r = resSettings.value.fruitProcurementRates;
+        const newRates: FruitProcurementRates = {
+          apples: {
+            layer4L: Number(r.apples?.layer4L) || DEFAULT_FRUIT_PROCUREMENT_RATES.apples.layer4L,
+            layer5L: Number(r.apples?.layer5L) || DEFAULT_FRUIT_PROCUREMENT_RATES.apples.layer5L,
+            roll: Number(r.apples?.roll) || DEFAULT_FRUIT_PROCUREMENT_RATES.apples.roll,
+          },
+          pomegranate: Number(r.pomegranate) || DEFAULT_FRUIT_PROCUREMENT_RATES.pomegranate,
+          watermelon: Number(r.watermelon) || DEFAULT_FRUIT_PROCUREMENT_RATES.watermelon,
+          muskmelon: Number(r.muskmelon) || DEFAULT_FRUIT_PROCUREMENT_RATES.muskmelon,
+          banana: Number(r.banana) || DEFAULT_FRUIT_PROCUREMENT_RATES.banana,
+          orange: Number(r.orange) || DEFAULT_FRUIT_PROCUREMENT_RATES.orange,
+          plum: Number(r.plum) || DEFAULT_FRUIT_PROCUREMENT_RATES.plum,
+        };
+        setAdminFruitRates(newRates);
+        localStorage.setItem('safal_fruit_rates', JSON.stringify(newRates));
       }
     } catch (e) {
       console.warn('Failed to load vendors & operations:', e);
@@ -290,6 +318,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
       setLoadingOps(false);
     }
   };
+
+  useEffect(() => {
+    const handleRatesUpdate = (e: any) => {
+      if (e.detail) {
+        setAdminFruitRates(e.detail);
+      }
+    };
+    window.addEventListener('safal_fruit_rates_updated', handleRatesUpdate);
+    return () => window.removeEventListener('safal_fruit_rates_updated', handleRatesUpdate);
+  }, []);
 
   const handleCreateVendor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1401,9 +1439,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       : formatCurrency(Math.round(fin.baseCost * 0.55));
                     const advStatus = op.advancePaymentStatus || op.advanceStatus || 'CLEARED';
 
-                    const itemDesc = op.items && op.items.length > 0
-                      ? op.items.map((it: any) => `${it.fruitName} (${it.quantity} ${it.unit || 'BOX'})`).join(', ')
-                      : (op.commodity ? `${op.commodity} · ${op.volume}` : 'Wholesale Fruit Consignment');
+                    const gradeInfo = getCommodityGradeDetails(op, adminFruitRates);
 
                     return (
                       <tr key={op.id || poCode} className="hover:bg-emerald-50/30 transition text-xs">
@@ -1420,19 +1456,62 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                           </span>
                         </td>
                         <td className="py-3 px-3">
-                          <span className="font-semibold text-gray-800 block truncate max-w-[140px]">{itemDesc}</span>
-                          <span className="text-[10px] text-gray-500 font-mono font-bold">{fin.totalQty.toLocaleString('en-IN')} {fin.unit}s</span>
+                          <strong className="text-gray-900 block font-bold text-xs truncate max-w-[150px]">
+                            {gradeInfo.fruitName}
+                          </strong>
+                          {gradeInfo.hasMultipleGrades && gradeInfo.gradedItems.some((g) => g.quantity > 0) ? (
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                              {gradeInfo.gradedItems
+                                .filter((g) => g.quantity > 0)
+                                .map((g, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-800 font-mono font-bold border border-emerald-200"
+                                  >
+                                    {g.shortGrade}: {g.quantity.toLocaleString('en-IN')}
+                                  </span>
+                                ))}
+                            </div>
+                          ) : null}
+                          <span className="text-[10px] text-gray-500 font-mono font-bold block mt-0.5">
+                            Total: {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
+                          </span>
                         </td>
                         <td className="py-3 px-3 text-right bg-emerald-50/30">
-                          <strong className="text-gray-900 text-xs block font-mono">
-                            ₹{fin.unitCost.toLocaleString('en-IN')} / {fin.unit}
-                          </strong>
-                          <span className="text-[10px] text-gray-600 font-bold block">
-                            Base: ₹{fin.baseCost.toLocaleString('en-IN')}
-                          </span>
-                          <span className="text-[9px] text-gray-400 block">
-                            +₹{(fin.transportCost + fin.laborCost).toLocaleString('en-IN')} logistics
-                          </span>
+                          {gradeInfo.hasMultipleGrades ? (
+                            <div className="space-y-1">
+                              <div className="flex flex-col items-end gap-0.5">
+                                {gradeInfo.gradedItems.map((g, idx) => (
+                                  <div key={idx} className="flex items-center justify-end gap-1 text-right">
+                                    <span className="text-[10px] text-emerald-800 font-extrabold uppercase">{g.shortGrade}:</span>
+                                    <strong className="text-gray-900 text-xs font-mono font-bold">
+                                      ₹{g.ratePerUnit.toLocaleString('en-IN')}/{g.unit}
+                                    </strong>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="pt-1 border-t border-emerald-100/80">
+                                <span className="text-[10px] text-gray-600 font-bold block">
+                                  Base: ₹{fin.baseCost.toLocaleString('en-IN')}
+                                </span>
+                                <span className="text-[9px] text-gray-400 block">
+                                  +₹{(fin.transportCost + fin.laborCost).toLocaleString('en-IN')} logistics
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              <strong className="text-gray-900 text-xs block font-mono font-bold">
+                                ₹{gradeInfo.singleRate.toLocaleString('en-IN')} / {fin.unit}
+                              </strong>
+                              <span className="text-[10px] text-gray-600 font-bold block">
+                                Base: ₹{fin.baseCost.toLocaleString('en-IN')}
+                              </span>
+                              <span className="text-[9px] text-gray-400 block">
+                                +₹{(fin.transportCost + fin.laborCost).toLocaleString('en-IN')} logistics
+                              </span>
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-3 text-right bg-blue-50/30">
                           <strong className="text-blue-900 text-xs block font-mono">
@@ -2395,11 +2474,25 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2.5 bg-white rounded-xl border border-gray-200">
-                      <span className="text-[10px] text-gray-500 block">Procurement Rate (Buying)</span>
-                      <strong className="text-sm font-bold text-gray-900 block mt-0.5">
-                        ₹{fin.unitCost.toLocaleString('en-IN')} / {fin.unit}
-                      </strong>
-                      <span className="text-[10px] text-emerald-700 font-bold block">Base PO Value: ₹{fin.baseCost.toLocaleString('en-IN')}</span>
+                      <span className="text-[10px] text-gray-500 block font-bold uppercase tracking-wider">Procurement Rate (Buying)</span>
+                      {selectedPOForPL && (() => {
+                        const modalGradeInfo = getCommodityGradeDetails(selectedPOForPL, adminFruitRates);
+                        return modalGradeInfo.hasMultipleGrades ? (
+                          <div className="space-y-1 mt-1">
+                            {modalGradeInfo.gradedItems.map((g, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-[11px] font-mono bg-gray-50/80 px-2 py-0.5 rounded border border-gray-100">
+                                <span className="text-gray-700 font-bold">{g.shortGrade} ({g.quantity > 0 ? `${g.quantity} ` : ''}{g.unit}):</span>
+                                <strong className="text-emerald-950 font-black">₹{g.ratePerUnit.toLocaleString('en-IN')}/{g.unit}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <strong className="text-sm font-bold text-gray-900 block mt-0.5 font-mono">
+                            ₹{modalGradeInfo.singleRate.toLocaleString('en-IN')} / {fin.unit}
+                          </strong>
+                        );
+                      })()}
+                      <span className="text-[10px] text-emerald-700 font-bold block mt-1.5 pt-1 border-t border-gray-100">Base PO Value: ₹{fin.baseCost.toLocaleString('en-IN')}</span>
                     </div>
 
                     <div className="p-2.5 bg-white rounded-xl border border-gray-200">

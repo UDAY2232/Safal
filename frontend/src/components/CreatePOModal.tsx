@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getStoredFruitRates } from '../utils/pricingHelper';
 import {
   X,
   ArrowRight,
@@ -155,6 +156,36 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
     setItems((prev) => {
       const updated = [...prev];
       const item = { ...updated[index], [field]: val };
+
+      if (field === 'fruitName' && (!item.ratePerUnit || Number(item.ratePerUnit) === 0)) {
+        const rates = getStoredFruitRates();
+        const fname = String(val).toLowerCase();
+        if (fname.includes('apple')) {
+          item.ratePerUnit = String(rates.apples.layer4L);
+          if (!item.varietyGrade || item.varietyGrade === 'Grade A') item.varietyGrade = '4L (Large)';
+        } else if (fname.includes('pomegranate')) {
+          item.ratePerUnit = String(rates.pomegranate);
+          if (!item.varietyGrade || item.varietyGrade === 'Grade A') item.varietyGrade = 'Export Grade A';
+        } else if (fname.includes('watermelon')) {
+          item.ratePerUnit = String(rates.watermelon);
+          item.unit = 'TON';
+        } else if (fname.includes('muskmelon')) {
+          item.ratePerUnit = String(rates.muskmelon);
+          item.unit = 'TON';
+        } else if (fname.includes('banana')) {
+          item.ratePerUnit = String(rates.banana);
+        } else if (fname.includes('orange')) {
+          item.ratePerUnit = String(rates.orange);
+        } else if (fname.includes('plum')) {
+          item.ratePerUnit = String(rates.plum);
+        }
+      } else if (field === 'varietyGrade' && String(item.fruitName).toLowerCase().includes('apple')) {
+        const rates = getStoredFruitRates();
+        const vgrade = String(val);
+        if (vgrade.includes('5L')) item.ratePerUnit = String(rates.apples.layer5L);
+        else if (vgrade.toLowerCase().includes('roll')) item.ratePerUnit = String(rates.apples.roll);
+        else if (vgrade.includes('4L')) item.ratePerUnit = String(rates.apples.layer4L);
+      }
 
       const qty = Number(item.quantity) || 0;
       const rate = Number(item.ratePerUnit) || 0;
