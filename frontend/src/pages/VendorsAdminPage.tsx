@@ -144,7 +144,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     orange: number;
     plum: number;
   }>({
-    apples: { layer4L: 1200, layer5L: 1100, roll: 700 },
+    apples: { layer4L: 1300, layer5L: 1400, roll: 600 },
     pomegranate: 950,
     watermelon: 14000,
     muskmelon: 18000,
@@ -210,9 +210,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
         const r = settingsData.value.fruitProcurementRates;
         setFruitRates({
           apples: {
-            layer4L: Number(r.apples?.layer4L) || 1200,
-            layer5L: Number(r.apples?.layer5L) || 1100,
-            roll: Number(r.apples?.roll) || 700,
+            layer4L: Number(r.apples?.layer4L) || 1300,
+            layer5L: Number(r.apples?.layer5L) || 1400,
+            roll: Number(r.apples?.roll) || 600,
           },
           pomegranate: Number(r.pomegranate) || 950,
           watermelon: Number(r.watermelon) || 14000,

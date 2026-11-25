@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Truck,
   FileText,
@@ -245,13 +245,32 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   // Selected Fruit & Commodity States
   const [selectedFruit, setSelectedFruit] = useState<string>('Kashmir Apples');
 
+  // Admin-Enforced Fruit Procurement Rates State (Live sync with Admin Desk)
+  const [adminFruitRates, setAdminFruitRates] = useState<{
+    apples: { layer4L: number; layer5L: number; roll: number };
+    pomegranate: number;
+    watermelon: number;
+    muskmelon: number;
+    banana: number;
+    orange: number;
+    plum: number;
+  }>({
+    apples: { layer4L: 1300, layer5L: 1400, roll: 600 },
+    pomegranate: 950,
+    watermelon: 14000,
+    muskmelon: 18000,
+    banana: 550,
+    orange: 780,
+    plum: 850,
+  });
+
   // 1. Kashmir Apples Layer Breakdown (4L, 5L, Roll, Total, Amount)
   const [layer4LBoxes, setLayer4LBoxes] = useState<string>('200');
-  const [layer4LRate, setLayer4LRate] = useState<string>('1498');
+  const [layer4LRate, setLayer4LRate] = useState<string>('1300');
   const [layer5LBoxes, setLayer5LBoxes] = useState<string>('250');
-  const [layer5LRate, setLayer5LRate] = useState<string>('1100');
+  const [layer5LRate, setLayer5LRate] = useState<string>('1400');
   const [rollBoxes, setRollBoxes] = useState<string>('50');
-  const [rollRate, setRollRate] = useState<string>('900');
+  const [rollRate, setRollRate] = useState<string>('600');
 
   // 2. Pomegranate (No. Of boxes, Total amount)
   const [pomegranateBoxes, setPomegranateBoxes] = useState<string>('300');
@@ -469,31 +488,48 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     }
   }, [navParams, orders]);
 
-  // Load Admin-Fixed Fruit Procurement Rates from application settings
-  useEffect(() => {
-    const fetchAdminRates = async () => {
-      try {
-        const settings = await api.getSettings();
-        if (settings && settings.fruitProcurementRates) {
-          const r = settings.fruitProcurementRates;
-          if (r.apples) {
-            if (r.apples.layer4L) setLayer4LRate(String(r.apples.layer4L));
-            if (r.apples.layer5L) setLayer5LRate(String(r.apples.layer5L));
-            if (r.apples.roll) setRollRate(String(r.apples.roll));
-          }
-          if (r.pomegranate) setPomegranateRate(String(r.pomegranate));
-          if (r.watermelon) setWatermelonRate(String(r.watermelon));
-          if (r.muskmelon) setMuskmelonRate(String(r.muskmelon));
-          if (r.banana) setBananaRate(String(r.banana));
-          if (r.orange) setOrangeRate(String(r.orange));
-          if (r.plum) setPlumRate(String(r.plum));
+  // Load Admin-Fixed Fruit Procurement Rates from application settings with live polling
+  const fetchAdminRates = useCallback(async () => {
+    try {
+      const settings = await api.getSettings();
+      if (settings && settings.fruitProcurementRates) {
+        const r = settings.fruitProcurementRates;
+        setAdminFruitRates((prev) => ({
+          ...prev,
+          apples: {
+            layer4L: r.apples?.layer4L ? Number(r.apples.layer4L) : prev.apples.layer4L,
+            layer5L: r.apples?.layer5L ? Number(r.apples.layer5L) : prev.apples.layer5L,
+            roll: r.apples?.roll ? Number(r.apples.roll) : prev.apples.roll,
+          },
+          pomegranate: r.pomegranate ? Number(r.pomegranate) : prev.pomegranate,
+          watermelon: r.watermelon ? Number(r.watermelon) : prev.watermelon,
+          muskmelon: r.muskmelon ? Number(r.muskmelon) : prev.muskmelon,
+          banana: r.banana ? Number(r.banana) : prev.banana,
+          orange: r.orange ? Number(r.orange) : prev.orange,
+          plum: r.plum ? Number(r.plum) : prev.plum,
+        }));
+        if (r.apples) {
+          if (r.apples.layer4L) setLayer4LRate(String(r.apples.layer4L));
+          if (r.apples.layer5L) setLayer5LRate(String(r.apples.layer5L));
+          if (r.apples.roll) setRollRate(String(r.apples.roll));
         }
-      } catch (err) {
-        console.warn('Could not load fruit procurement rates from settings:', err);
+        if (r.pomegranate) setPomegranateRate(String(r.pomegranate));
+        if (r.watermelon) setWatermelonRate(String(r.watermelon));
+        if (r.muskmelon) setMuskmelonRate(String(r.muskmelon));
+        if (r.banana) setBananaRate(String(r.banana));
+        if (r.orange) setOrangeRate(String(r.orange));
+        if (r.plum) setPlumRate(String(r.plum));
       }
-    };
-    fetchAdminRates();
+    } catch (err) {
+      console.warn('Could not load fruit procurement rates from settings:', err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchAdminRates();
+    const interval = setInterval(fetchAdminRates, 15000);
+    return () => clearInterval(interval);
+  }, [fetchAdminRates]);
 
   // Global Escape key listener to close any open modal
   useEffect(() => {
@@ -710,30 +746,30 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     setSelectedFruit(fruit);
     if (fruit === 'Kashmir Apples' || fruit.toLowerCase().includes('apple')) {
       if (!layer4LBoxes) setLayer4LBoxes('200');
-      if (!layer4LRate) setLayer4LRate('1498');
+      setLayer4LRate(String(adminFruitRates.apples.layer4L || 1300));
       if (!layer5LBoxes) setLayer5LBoxes('250');
-      if (!layer5LRate) setLayer5LRate('1100');
+      setLayer5LRate(String(adminFruitRates.apples.layer5L || 1400));
       if (!rollBoxes) setRollBoxes('50');
-      if (!rollRate) setRollRate('900');
+      setRollRate(String(adminFruitRates.apples.roll || 600));
     } else if (fruit === 'Pomegranate') {
       if (!pomegranateBoxes) setPomegranateBoxes('300');
-      if (!pomegranateRate) setPomegranateRate('950');
+      setPomegranateRate(String(adminFruitRates.pomegranate || 950));
     } else if (fruit === 'Watermelon') {
       if (!watermelonWeight) setWatermelonWeight('15');
-      if (!watermelonRate) setWatermelonRate('14000');
+      setWatermelonRate(String(adminFruitRates.watermelon || 14000));
     } else if (fruit === 'Muskmelon') {
       if (!muskmelonWeight) setMuskmelonWeight('8');
-      if (!muskmelonRate) setMuskmelonRate('18000');
+      setMuskmelonRate(String(adminFruitRates.muskmelon || 18000));
     } else if (fruit === 'Banana') {
       if (!bananaBoxes) setBananaBoxes('400');
-      if (!bananaRate) setBananaRate('550');
+      setBananaRate(String(adminFruitRates.banana || 550));
     } else if (fruit === 'Orange') {
       if (!orangeBoxes) setOrangeBoxes('350');
-      if (!orangeRate) setOrangeRate('780');
+      setOrangeRate(String(adminFruitRates.orange || 780));
       if (!orangeCount) setOrangeCount('54');
     } else if (fruit === 'Plum') {
       if (!plumBoxes) setPlumBoxes('200');
-      if (!plumRate) setPlumRate('850');
+      setPlumRate(String(adminFruitRates.plum || 850));
     } else {
       if (!otherQuantity) setOtherQuantity('500');
       if (!otherRate) setOtherRate('950');
@@ -966,9 +1002,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         const b4L = Number(layer4LBoxes) || 0;
         const b5L = Number(layer5LBoxes) || 0;
         const bRoll = Number(rollBoxes) || 0;
-        const r4L = Number(layer4LRate) || 1498;
-        const r5L = Number(layer5LRate) || 1100;
-        const rRoll = Number(rollRate) || 900;
+        const r4L = Number(layer4LRate) || adminFruitRates.apples.layer4L || 1300;
+        const r5L = Number(layer5LRate) || adminFruitRates.apples.layer5L || 1400;
+        const rRoll = Number(rollRate) || adminFruitRates.apples.roll || 600;
         const totalB = b4L + b5L + bRoll;
         if (totalB <= 0) {
           setDispatchError('Please enter at least one apple box (4L, 5L, or Roll) loaded onto the vehicle.');
@@ -1172,7 +1208,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     clearSignature();
     setDispatchError('');
 
-    // Pre-populate fruit variety and box counts
+    // Pre-populate fruit variety and box counts with latest Admin fixed rates
+    fetchAdminRates();
     const fruit = po.commodity || po.items?.[0]?.fruitName || 'Kashmir Apples';
     setSelectedFruit(fruit);
     if (fruit === 'Kashmir Apples' || fruit.toLowerCase().includes('apple')) {
@@ -1180,15 +1217,35 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       const it5L = po.items?.find((i: any) => i.varietyGrade?.includes('5L'));
       const itRoll = po.items?.find((i: any) => i.varietyGrade?.includes('Roll'));
       setLayer4LBoxes(it4L && it4L.quantity ? String(it4L.quantity) : '200');
-      setLayer4LRate(it4L && it4L.ratePerUnit ? String(it4L.ratePerUnit) : '1498');
+      setLayer4LRate(String(adminFruitRates.apples.layer4L || 1300));
       setLayer5LBoxes(it5L && it5L.quantity ? String(it5L.quantity) : '250');
-      setLayer5LRate(it5L && it5L.ratePerUnit ? String(it5L.ratePerUnit) : '1100');
+      setLayer5LRate(String(adminFruitRates.apples.layer5L || 1400));
       setRollBoxes(itRoll && itRoll.quantity ? String(itRoll.quantity) : '50');
-      setRollRate(itRoll && itRoll.ratePerUnit ? String(itRoll.ratePerUnit) : '900');
+      setRollRate(String(adminFruitRates.apples.roll || 600));
     } else if (fruit === 'Pomegranate') {
       const pIt = po.items?.[0];
       setPomegranateBoxes(pIt && pIt.quantity ? String(pIt.quantity) : '300');
-      setPomegranateRate(pIt && pIt.ratePerUnit ? String(pIt.ratePerUnit) : '950');
+      setPomegranateRate(String(adminFruitRates.pomegranate || 950));
+    } else if (fruit === 'Watermelon') {
+      const wIt = po.items?.[0];
+      setWatermelonWeight(wIt && wIt.quantity ? String(wIt.quantity) : '15');
+      setWatermelonRate(String(adminFruitRates.watermelon || 14000));
+    } else if (fruit === 'Muskmelon') {
+      const mIt = po.items?.[0];
+      setMuskmelonWeight(mIt && mIt.quantity ? String(mIt.quantity) : '8');
+      setMuskmelonRate(String(adminFruitRates.muskmelon || 18000));
+    } else if (fruit === 'Banana') {
+      const bIt = po.items?.[0];
+      setBananaBoxes(bIt && bIt.quantity ? String(bIt.quantity) : '400');
+      setBananaRate(String(adminFruitRates.banana || 550));
+    } else if (fruit === 'Orange') {
+      const oIt = po.items?.[0];
+      setOrangeBoxes(oIt && oIt.quantity ? String(oIt.quantity) : '350');
+      setOrangeRate(String(adminFruitRates.orange || 780));
+    } else if (fruit === 'Plum') {
+      const plIt = po.items?.[0];
+      setPlumBoxes(plIt && plIt.quantity ? String(plIt.quantity) : '200');
+      setPlumRate(String(adminFruitRates.plum || 850));
     }
   };
 
@@ -1353,7 +1410,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <ShieldCheck size={14} className="text-emerald-300" /> Verified Partner
             </span>
             <button
-              onClick={() => setShowCreatePOModal(true)}
+              onClick={() => {
+                fetchAdminRates();
+                setShowCreatePOModal(true);
+              }}
               className="px-4 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-gray-950 text-xs font-black transition shadow-md inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
             >
               <Plus size={15} /> Create Supply PO
@@ -2885,7 +2945,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="flex items-center gap-2 self-start md:self-auto">
               <button
                 type="button"
-                onClick={() => setShowCreatePOModal(true)}
+                onClick={() => {
+                  fetchAdminRates();
+                  setShowCreatePOModal(true);
+                }}
                 className="px-4 py-2.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-black transition shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <Plus size={15} /> Create Supply Consignment
@@ -4127,7 +4190,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         </div>
                         <div className="w-[28%] text-right">
                           <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                            ₹{Number(layer4LRate || 1498).toLocaleString('en-IN')}
+                            ₹{Number(layer4LRate || adminFruitRates?.apples?.layer4L || 1300).toLocaleString('en-IN')}
                           </span>
                         </div>
                       </div>
@@ -4150,7 +4213,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         </div>
                         <div className="w-[28%] text-right">
                           <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                            ₹{Number(layer5LRate || 1100).toLocaleString('en-IN')}
+                            ₹{Number(layer5LRate || adminFruitRates?.apples?.layer5L || 1400).toLocaleString('en-IN')}
                           </span>
                         </div>
                       </div>
@@ -4173,7 +4236,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         </div>
                         <div className="w-[28%] text-right">
                           <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                            ₹{Number(rollRate || 900).toLocaleString('en-IN')}
+                            ₹{Number(rollRate || adminFruitRates?.apples?.roll || 600).toLocaleString('en-IN')}
                           </span>
                         </div>
                       </div>
@@ -4301,6 +4364,206 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200 flex items-center justify-between">
                       <span className="text-xs font-bold text-gray-700">Total Consignment Value:</span>
                       <span className="text-base font-black text-emerald-800 font-mono">₹{watermelonTotalAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                ) : isMuskmelon ? (
+                  /* Muskmelon Consignment Sizing Form */
+                  <div className="p-3.5 bg-white border border-amber-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-extrabold text-amber-800 tracking-wider block">
+                          Muskmelon Harvest Weight
+                        </span>
+                        <p className="text-[11px] text-gray-600">Bulk sweet melon truckload harvest.</p>
+                      </div>
+                      <span className="px-2.5 py-1 bg-amber-100 text-amber-900 rounded-lg text-[11px] font-black">
+                        Muskmelon
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Total Weight ({muskmelonUnit}) *
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0.1"
+                          value={muskmelonWeight}
+                          onChange={(e) => setMuskmelonWeight(e.target.value)}
+                          placeholder="Weight"
+                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-amber-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Rate (₹ / {muskmelonUnit})
+                        </label>
+                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
+                          <strong className="font-mono text-sm text-gray-900">₹{Number(muskmelonRate || adminFruitRates?.muskmelon || 18000).toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200 flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700">Total Consignment Value:</span>
+                      <span className="text-base font-black text-amber-800 font-mono">₹{muskmelonTotalAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                ) : isBanana ? (
+                  /* Banana Consignment Sizing Form */
+                  <div className="p-3.5 bg-white border border-yellow-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-extrabold text-yellow-800 tracking-wider block">
+                          Banana Loaded Boxes
+                        </span>
+                        <p className="text-[11px] text-gray-600">13-14 Kg export corrugated box.</p>
+                      </div>
+                      <span className="px-2.5 py-1 bg-yellow-100 text-yellow-900 rounded-lg text-[11px] font-black">
+                        Banana
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          No. of Boxes *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={bananaBoxes}
+                          onChange={(e) => setBananaBoxes(e.target.value)}
+                          placeholder="e.g. 400"
+                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-yellow-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Rate (₹ / Box)
+                        </label>
+                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
+                          <strong className="font-mono text-sm text-gray-900">₹{Number(bananaRate || adminFruitRates?.banana || 550).toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-yellow-50/50 rounded-xl border border-yellow-200 flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700">Total Consignment Value:</span>
+                      <span className="text-base font-black text-yellow-800 font-mono">₹{bananaTotalAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                ) : isOrange ? (
+                  /* Orange Consignment Sizing Form */
+                  <div className="p-3.5 bg-white border border-orange-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-extrabold text-orange-800 tracking-wider block">
+                          Orange Loaded Boxes (Count Graded)
+                        </span>
+                        <p className="text-[11px] text-gray-600">Nagpur / Kinnow fruit cartons.</p>
+                      </div>
+                      <span className="px-2.5 py-1 bg-orange-100 text-orange-900 rounded-lg text-[11px] font-black">
+                        Orange
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 items-end">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Count *
+                        </label>
+                        <select
+                          value={orangeCount}
+                          onChange={(e) => setOrangeCount(e.target.value)}
+                          className="w-full h-10 px-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-orange-500 focus:outline-none"
+                        >
+                          {ORANGE_COUNTS.map((c) => (
+                            <option key={c} value={c}>
+                              Count {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          No. of Boxes *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={orangeBoxes}
+                          onChange={(e) => setOrangeBoxes(e.target.value)}
+                          placeholder="e.g. 350"
+                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-orange-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Rate (₹ / Box)
+                        </label>
+                        <div className="w-full h-10 px-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                          <strong className="font-mono text-sm text-gray-900">₹{Number(orangeRate || adminFruitRates?.orange || 780).toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-orange-50/50 rounded-xl border border-orange-200 flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700">Total Consignment Value:</span>
+                      <span className="text-base font-black text-orange-800 font-mono">₹{orangeTotalAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  </div>
+                ) : isPlum ? (
+                  /* Plum Consignment Sizing Form */
+                  <div className="p-3.5 bg-white border border-purple-200 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] uppercase font-extrabold text-purple-800 tracking-wider block">
+                          Plum Loaded Boxes
+                        </span>
+                        <p className="text-[11px] text-gray-600">Stone fruit wholesale cartons.</p>
+                      </div>
+                      <span className="px-2.5 py-1 bg-purple-100 text-purple-900 rounded-lg text-[11px] font-black">
+                        Plum
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          No. of Boxes *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={plumBoxes}
+                          onChange={(e) => setPlumBoxes(e.target.value)}
+                          placeholder="e.g. 200"
+                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-purple-500 focus:outline-none"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                          Rate (₹ / Box)
+                        </label>
+                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
+                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
+                          <strong className="font-mono text-sm text-gray-900">₹{Number(plumRate || adminFruitRates?.plum || 850).toLocaleString('en-IN')}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-200 flex items-center justify-between">
+                      <span className="text-xs font-bold text-gray-700">Total Consignment Value:</span>
+                      <span className="text-base font-black text-purple-800 font-mono">₹{plumTotalAmount.toLocaleString('en-IN')}</span>
                     </div>
                   </div>
                 ) : (

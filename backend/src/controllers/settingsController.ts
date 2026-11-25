@@ -27,9 +27,9 @@ const defaultSettings: Record<string, any> = {
   wageTypes: ['Monthly Salary', 'Daily Wages', 'Hourly Wages'],
   fruitProcurementRates: {
     apples: {
-      layer4L: 1200,
-      layer5L: 1100,
-      roll: 700,
+      layer4L: 1300,
+      layer5L: 1400,
+      roll: 600,
     },
     pomegranate: 950,
     watermelon: 14000,

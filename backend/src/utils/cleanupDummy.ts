@@ -87,6 +87,29 @@ export async function cleanupDummyOrders() {
         console.log('✓ Successfully migrated vendor VND-002 to reverse sequence ID VND-599');
       }
     }
+
+    // 5. Ensure default fruit procurement rates in application settings
+    const existingFruitRates = await prisma.applicationSetting.findUnique({
+      where: { key: 'fruitProcurementRates' },
+    });
+    if (!existingFruitRates) {
+      await prisma.applicationSetting.create({
+        data: {
+          key: 'fruitProcurementRates',
+          value: JSON.stringify({
+            apples: { layer4L: 1300, layer5L: 1400, roll: 600 },
+            pomegranate: 950,
+            watermelon: 14000,
+            muskmelon: 18000,
+            banana: 550,
+            orange: 780,
+            plum: 850,
+          }),
+          category: 'APPLICATION',
+        },
+      });
+      console.log('✓ Initialized default fruit procurement rates in application settings');
+    }
   } catch (err) {
     console.warn('[CLEANUP] Warning during dummy orders cleanup:', err);
   }
