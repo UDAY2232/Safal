@@ -21,9 +21,10 @@ import { VendorDashboardPage } from './pages/VendorDashboardPage';
 import { VendorsAdminPage } from './pages/VendorsAdminPage';
 import { CreatePOModal } from './components/CreatePOModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
+import { ServerMaintenanceScreen } from './components/ServerMaintenanceScreen';
 
 function MainApp() {
-  const { user, token, isLoading, logout } = useAuth();
+  const { user, token, isLoading, isMaintenance, maintenanceMessage, logout, checkMaintenance } = useAuth();
   const [activePage, setActivePage] = useState('Dashboard');
   const [pageHistory, setPageHistory] = useState<string[]>(['Dashboard']);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -174,6 +175,25 @@ function MainApp() {
 
   if (!token || !user) {
     return <LoginPage />;
+  }
+
+  // Intercept suspended or maintenance-mode vendor accounts
+  const isSuspendedVendor =
+    user?.role === 'VENDOR' &&
+    (isMaintenance || user?.vendorProfile?.status === 'SUSPENDED' || user?.isActive === false);
+
+  if (isSuspendedVendor) {
+    return (
+      <ServerMaintenanceScreen
+        vendorName={user?.vendorProfile?.businessName || user?.name}
+        vendorId={user?.vendorProfile?.vendorId}
+        message={maintenanceMessage}
+        onRetry={async () => {
+          await checkMaintenance();
+        }}
+        onLogout={logout}
+      />
+    );
   }
 
   return (

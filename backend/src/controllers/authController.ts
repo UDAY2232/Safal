@@ -46,6 +46,28 @@ export async function login(req: Request, res: Response) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
+    const isVendorSuspended =
+      user.role === 'VENDOR' &&
+      (user.vendorProfile?.status === 'SUSPENDED' || !user.isActive);
+
+    if (isVendorSuspended) {
+      await createAuditLog({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: 'FAILED_LOGIN',
+        entityType: 'AUTH',
+        details: 'Suspended vendor login attempt - Server Under Maintenance',
+        ipAddress: req.ip,
+      });
+      return res.status(403).json({
+        error: 'SERVER_UNDER_MAINTENANCE',
+        message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+        underMaintenance: true,
+        isSuspended: true,
+      });
+    }
+
     if (!user.isActive) {
       await createAuditLog({
         userId: user.id,
@@ -103,6 +125,7 @@ export async function login(req: Request, res: Response) {
         department: user.department,
         designation: user.designation,
         phone: user.phone,
+        isActive: user.isActive,
         accountantProfile: user.accountantProfile,
         employee: user.employee
           ? {
@@ -123,6 +146,7 @@ export async function login(req: Request, res: Response) {
               businessName: user.vendorProfile.businessName,
               primaryLocation: user.vendorProfile.primaryLocation,
               isKycLocked: user.vendorProfile.isKycLocked,
+              status: user.vendorProfile.status,
             }
           : null,
       },
@@ -148,6 +172,30 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
       },
     });
 
+    if (user && user.role === 'VENDOR' && (user.vendorProfile?.status === 'SUSPENDED' || !user.isActive)) {
+      return res.status(403).json({
+        error: 'SERVER_UNDER_MAINTENANCE',
+        message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+        underMaintenance: true,
+        isSuspended: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          isActive: false,
+          vendorProfile: user.vendorProfile
+            ? {
+                id: user.vendorProfile.id,
+                vendorId: user.vendorProfile.vendorId,
+                businessName: user.vendorProfile.businessName,
+                status: 'SUSPENDED',
+              }
+            : null,
+        },
+      });
+    }
+
     if (!user || !user.isActive) {
       return res.status(404).json({ error: 'User not found or inactive' });
     }
@@ -161,6 +209,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
         department: user.department,
         designation: user.designation,
         phone: user.phone,
+        isActive: user.isActive,
         accountantProfile: user.accountantProfile,
         employee: user.employee
           ? {
@@ -181,6 +230,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
               businessName: user.vendorProfile.businessName,
               primaryLocation: user.vendorProfile.primaryLocation,
               isKycLocked: user.vendorProfile.isKycLocked,
+              status: user.vendorProfile.status,
             }
           : null,
       },

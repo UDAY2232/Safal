@@ -2622,11 +2622,18 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                         <td className="text-center py-3.5 px-3 font-bold text-gray-600 border-r border-gray-100">
                           {idx + 1}
                         </td>
-                        <td className="text-center py-3.5 px-4 font-black text-[#087A3E] border-r border-gray-100 whitespace-nowrap">
+                        <td className={`text-center py-3.5 px-4 font-black border-r border-gray-100 whitespace-nowrap ${vendor.status === 'SUSPENDED' ? 'text-rose-600' : 'text-[#087A3E]'}`}>
                           {vendor.vendorId}
                         </td>
                         <td className="py-3.5 px-4 font-bold text-gray-900 border-r border-gray-100">
-                          {vendor.businessName}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>{vendor.businessName}</span>
+                            {vendor.status === 'SUSPENDED' && (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                Suspended · Maint. Active
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3.5 px-4 border-r border-gray-100">
                           <strong className="text-gray-900 block truncate">{vendor.contactPerson}</strong>

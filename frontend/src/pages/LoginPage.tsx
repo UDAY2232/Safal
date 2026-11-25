@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Database,
   Building2,
+  HardHat,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -169,9 +170,33 @@ export const LoginPage: React.FC = () => {
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
-                  {error}
-                </div>
+                error.toLowerCase().includes('maintenance') ? (
+                  <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl text-amber-950 space-y-2 text-left shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="w-8 h-8 rounded-xl bg-amber-200/80 text-amber-900 flex items-center justify-center flex-shrink-0">
+                        <HardHat size={18} />
+                      </span>
+                      <div>
+                        <strong className="block text-xs font-black text-amber-900 uppercase tracking-wide">
+                          Server Under Maintenance
+                        </strong>
+                        <span className="text-[10px] text-amber-700 font-bold block">
+                          Status Code: 503 · Node Offline
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-xs font-medium text-amber-900 leading-relaxed">
+                      {error}
+                    </p>
+                    <div className="text-[10px] text-amber-800 font-bold pt-1 border-t border-amber-200/70">
+                      Need urgent assistance? Contact Safal Logistics Support Desk at <strong>+91 98480 12345</strong>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+                    {error}
+                  </div>
+                )
               )}
 
               <div>

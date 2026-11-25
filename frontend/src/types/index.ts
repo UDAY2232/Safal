@@ -56,6 +56,9 @@ export interface User {
   department?: string | null;
   designation?: string | null;
   phone?: string | null;
+  isActive?: boolean;
+  isSuspended?: boolean;
+  underMaintenance?: boolean;
   accountantProfile?: {
     id: string;
     accountantId: string;

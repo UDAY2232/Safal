@@ -23,16 +23,31 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   if (!response.ok) {
     let errorMsg = 'An error occurred';
+    let data: any = null;
     try {
-      const data = await response.json();
+      data = await response.json();
       errorMsg = data.error || data.message || errorMsg;
     } catch {
       errorMsg = response.statusText || errorMsg;
     }
     const error: any = new Error(errorMsg);
     error.status = response.status;
+    error.data = data;
     if (response.status === 401) {
       window.dispatchEvent(new CustomEvent('safal_auth_expired', { detail: { message: errorMsg } }));
+    }
+    if (
+      response.status === 403 &&
+      (data?.underMaintenance ||
+        data?.error === 'SERVER_UNDER_MAINTENANCE' ||
+        errorMsg.toLowerCase().includes('maintenance') ||
+        errorMsg.toLowerCase().includes('suspended'))
+    ) {
+      window.dispatchEvent(
+        new CustomEvent('safal_server_maintenance', {
+          detail: { message: errorMsg, isSuspended: true, data },
+        })
+      );
     }
     throw error;
   }

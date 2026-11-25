@@ -112,6 +112,15 @@ export async function getVendorProfile(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Vendor profile not found' });
     }
 
+    if (profile.status === 'SUSPENDED') {
+      return res.status(403).json({
+        error: 'SERVER_UNDER_MAINTENANCE',
+        message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+        underMaintenance: true,
+        isSuspended: true,
+      });
+    }
+
     return res.json({
       vendor: {
         id: profile.id,
@@ -159,6 +168,15 @@ export async function updateVendorProfile(req: AuthRequest, res: Response) {
 
     if (!profile) {
       return res.status(404).json({ error: 'Vendor profile not found' });
+    }
+
+    if (profile.status === 'SUSPENDED') {
+      return res.status(403).json({
+        error: 'SERVER_UNDER_MAINTENANCE',
+        message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+        underMaintenance: true,
+        isSuspended: true,
+      });
     }
 
     const {
@@ -265,6 +283,15 @@ export async function getVendorPOs(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Vendor profile not found' });
     }
 
+    if (profile.status === 'SUSPENDED') {
+      return res.status(403).json({
+        error: 'SERVER_UNDER_MAINTENANCE',
+        message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+        underMaintenance: true,
+        isSuspended: true,
+      });
+    }
+
     // Match either via vendorProfileId OR via supplierCode matching vendorId OR supplier name containing vendor business name
     const pos = await prisma.purchaseOrder.findMany({
       where: {
@@ -337,6 +364,15 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
 
     if (!profile) {
       return res.status(404).json({ error: 'Vendor profile not found' });
+    }
+
+    if (profile.status === 'SUSPENDED') {
+      return res.status(403).json({
+        error: 'SERVER_UNDER_MAINTENANCE',
+        message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+        underMaintenance: true,
+        isSuspended: true,
+      });
     }
 
     const { poId, dispatchVehicleNumber, transporterName, driverPhone } = req.body;
@@ -575,6 +611,15 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
 
     if (!profile) {
       return res.status(404).json({ error: 'Vendor profile not found' });
+    }
+
+    if (profile.status === 'SUSPENDED') {
+      return res.status(403).json({
+        error: 'SERVER_UNDER_MAINTENANCE',
+        message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+        underMaintenance: true,
+        isSuspended: true,
+      });
     }
 
     const pos = await prisma.purchaseOrder.findMany({
@@ -1043,9 +1088,12 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
       },
     });
 
-    // Synchronize linked user credentials and contact details
+    // Synchronize linked user credentials, active status and contact details
     if (existingProfile.userId) {
       const userUpdates: any = {};
+      if (status) {
+        userUpdates.isActive = status !== 'SUSPENDED';
+      }
       if (contactPerson || businessName) {
         userUpdates.name = contactPerson?.trim() || businessName?.trim();
       }
@@ -1243,6 +1291,15 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
 
     if (!profile) {
       return res.status(404).json({ error: 'Vendor profile not found' });
+    }
+
+    if (profile.status === 'SUSPENDED') {
+      return res.status(403).json({
+        error: 'SERVER_UNDER_MAINTENANCE',
+        message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+        underMaintenance: true,
+        isSuspended: true,
+      });
     }
 
     // Resolve or find supplier record linked to this vendor

@@ -900,6 +900,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         setStats(statsRes.stats);
       }
       if (profileRes && profileRes.vendor) {
+        if (profileRes.vendor.status === 'SUSPENDED') {
+          window.dispatchEvent(
+            new CustomEvent('safal_server_maintenance', {
+              detail: {
+                message:
+                  'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+                isSuspended: true,
+              },
+            })
+          );
+          return;
+        }
         setVendorProfile(profileRes.vendor);
       }
       if (Array.isArray(poRes)) {
@@ -915,6 +927,39 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.getVendorProfile();
+        if (res?.vendor?.status === 'SUSPENDED') {
+          window.dispatchEvent(
+            new CustomEvent('safal_server_maintenance', {
+              detail: {
+                message:
+                  'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+                isSuspended: true,
+              },
+            })
+          );
+        }
+      } catch (err: any) {
+        if (
+          err?.status === 403 &&
+          (err?.data?.underMaintenance ||
+            err?.message?.toLowerCase().includes('maintenance') ||
+            err?.message?.toLowerCase().includes('suspended'))
+        ) {
+          window.dispatchEvent(
+            new CustomEvent('safal_server_maintenance', {
+              detail: {
+                message: err.message || 'Server Under Maintenance',
+                isSuspended: true,
+              },
+            })
+          );
+        }
+      }
+    }, 12000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleVehiclePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

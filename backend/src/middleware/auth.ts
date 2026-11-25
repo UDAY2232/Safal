@@ -35,6 +35,7 @@ export interface AuthenticatedUser {
     businessName: string;
     primaryLocation: string;
     isKycLocked: boolean;
+    status?: string;
   } | null;
 }
 
@@ -65,8 +66,20 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
       },
     });
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({ error: 'User is inactive or not found' });
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    if (!user.isActive || (user.role === 'VENDOR' && user.vendorProfile?.status === 'SUSPENDED')) {
+      if (user.role === 'VENDOR') {
+        return res.status(403).json({
+          error: 'SERVER_UNDER_MAINTENANCE',
+          message: 'Server Under Maintenance. The vendor procurement portal is temporarily under scheduled maintenance. Please contact Safal Administration.',
+          underMaintenance: true,
+          isSuspended: true,
+        });
+      }
+      return res.status(401).json({ error: 'User is inactive' });
     }
 
     req.user = {
@@ -96,6 +109,7 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
             businessName: user.vendorProfile.businessName,
             primaryLocation: user.vendorProfile.primaryLocation,
             isKycLocked: user.vendorProfile.isKycLocked,
+            status: user.vendorProfile.status,
           }
         : null,
     };
