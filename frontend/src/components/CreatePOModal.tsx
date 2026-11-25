@@ -125,7 +125,20 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
         ]);
         setSuppliers(list);
         setRegisteredVendors(Array.isArray(vList) ? vList : []);
-        if (list.length > 0 && !supplierName && !isCD && (!vList || vList.length === 0)) setSupplierName(list[0].name);
+        if (user?.role === 'VENDOR' && Array.isArray(vList)) {
+          const myVendor = vList.find((v: any) => v.id === user.vendorProfile?.id || v.userId === user.id);
+          if (myVendor) {
+            setSelectedVendorId(myVendor.id);
+            setSupplierName(myVendor.businessName);
+            if (myVendor.phone) setCustomerPhone(myVendor.phone);
+            if (myVendor.primaryLocation) {
+              setDeliveryAddress(`${myVendor.primaryLocation} Regional Hub Receiving Desk`);
+              setOrderPersonPlace(`${myVendor.primaryLocation} Hub`);
+            }
+          }
+        } else if (list.length > 0 && !supplierName && !isCD && (!vList || vList.length === 0)) {
+          setSupplierName(list[0].name);
+        }
       } catch {}
     }
     loadSuppliers();

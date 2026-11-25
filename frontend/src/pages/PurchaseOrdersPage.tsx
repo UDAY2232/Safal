@@ -106,6 +106,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
   useEffect(() => {
     loadOrders();
+    const interval = setInterval(() => {
+      loadOrders();
+    }, 15000);
+    return () => clearInterval(interval);
   }, [status, financialStatus]);
 
   // Deep-link from System Notifications: auto-search and open modal

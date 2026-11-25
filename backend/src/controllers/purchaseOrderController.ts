@@ -102,66 +102,75 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
   try {
     const { search, status, financialStatus, supplierId, fromDate, toDate, type } = req.query;
 
-    const where: any = {};
+    const andConditions: any[] = [];
 
     // Strict Role-based visibility:
     // Whichever CD an employee created, ONLY that record is visible to that employee.
     // ALL POs and CDs are visible to ADMIN and ACCOUNTANT.
     // Vendors see only their own supply orders (matched via vendorProfileId, supplierCode, or createdById).
     if (req.user?.role === 'EMPLOYEE') {
-      where.createdById = req.user.id;
-      where.poNumber = { startsWith: 'CD/' };
+      andConditions.push({ createdById: req.user.id });
+      andConditions.push({ poNumber: { startsWith: 'CD/' } });
     } else if (req.user?.role === 'VENDOR') {
       const vProf = await prisma.vendorProfile.findUnique({
         where: { userId: req.user.id },
       });
       if (vProf) {
-        where.OR = [
-          { vendorProfileId: vProf.id },
-          { supplier: { supplierCode: vProf.vendorId } },
-          { supplier: { name: { contains: vProf.businessName, mode: 'insensitive' } } },
-          { createdById: req.user.id },
-        ];
+        andConditions.push({
+          OR: [
+            { vendorProfileId: vProf.id },
+            { supplier: { supplierCode: vProf.vendorId } },
+            { supplier: { name: { contains: vProf.businessName, mode: 'insensitive' } } },
+            { createdById: req.user.id },
+          ],
+        });
       } else {
-        where.createdById = req.user.id;
+        andConditions.push({ createdById: req.user.id });
       }
     } else if (req.query.myOrders === 'true' && req.user?.id) {
-      where.createdById = req.user.id;
+      andConditions.push({ createdById: req.user.id });
     }
 
     if (type === 'CD') {
-      where.poNumber = { startsWith: 'CD/' };
+      andConditions.push({ poNumber: { startsWith: 'CD/' } });
     } else if (type === 'PO') {
-      where.poNumber = { startsWith: 'PO/' };
+      andConditions.push({ poNumber: { startsWith: 'PO/' } });
     }
 
     if (status && status !== 'All') {
-      where.status = status as any;
+      andConditions.push({ status: status as any });
     }
 
     if (financialStatus && financialStatus !== 'All') {
-      where.financialRecord = {
-        financialStatus: financialStatus as any,
-      };
+      andConditions.push({
+        financialRecord: {
+          financialStatus: financialStatus as any,
+        },
+      });
     }
 
     if (supplierId && supplierId !== 'All') {
-      where.supplierId = supplierId as string;
+      andConditions.push({ supplierId: supplierId as string });
     }
 
     if (fromDate || toDate) {
-      where.poDate = {};
-      if (fromDate) where.poDate.gte = new Date(fromDate as string);
-      if (toDate) where.poDate.lte = new Date(toDate as string);
+      const dateFilter: any = {};
+      if (fromDate) dateFilter.gte = new Date(fromDate as string);
+      if (toDate) dateFilter.lte = new Date(toDate as string);
+      andConditions.push({ poDate: dateFilter });
     }
 
     if (search) {
-      where.OR = [
-        { poNumber: { contains: search as string, mode: 'insensitive' } },
-        { supplier: { name: { contains: search as string, mode: 'insensitive' } } },
-        { notes: { contains: search as string, mode: 'insensitive' } },
-      ];
+      andConditions.push({
+        OR: [
+          { poNumber: { contains: search as string, mode: 'insensitive' } },
+          { supplier: { name: { contains: search as string, mode: 'insensitive' } } },
+          { notes: { contains: search as string, mode: 'insensitive' } },
+        ],
+      });
     }
+
+    const where: any = andConditions.length > 0 ? { AND: andConditions } : {};
 
     const pos = await prisma.purchaseOrder.findMany({
       where,
