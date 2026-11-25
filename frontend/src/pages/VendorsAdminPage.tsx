@@ -1728,57 +1728,72 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             {new Date(op.poDate || Date.now()).toLocaleDateString('en-GB')}
                           </td>
                           <td className="text-right py-3.5 px-4 font-black text-gray-900 border-r border-gray-100 whitespace-nowrap font-mono">
-                            ₹{fin.baseCost.toLocaleString('en-IN')}
+                            {isOrderRejected ? (
+                              <span className="text-gray-400 line-through">₹{fin.baseCost.toLocaleString('en-IN')}</span>
+                            ) : (
+                              `₹${fin.baseCost.toLocaleString('en-IN')}`
+                            )}
                           </td>
                           <td className="text-right py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
-                            <span className="font-bold text-emerald-800 font-mono block">
-                              ₹{settle.advanceAmount.toLocaleString('en-IN')}
-                            </span>
-                            {settle.advanceProofUrl ? (
-                              <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
-                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5">
-                                  <CheckCircle2 size={9} /> PAID ({settle.advancePayingHub || hub})
-                                </span>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPreviewDoc({
-                                        url: resolvePhotoUrl(settle.advanceProofUrl!),
-                                        title: `${poCode} - Advance Payment Receipt (${settle.advancePayingHub || hub})`,
-                                      })
-                                    }
-                                    className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
-                                    title="View Advance Bank Receipt Slip"
-                                  >
-                                    <Eye size={9} /> Slip
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => openAdvanceModal(op)}
-                                    className="px-1 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-[9px] font-bold cursor-pointer"
-                                    title="Edit or replace advance receipt slip"
-                                  >
-                                    Edit
-                                  </button>
-                                </div>
-                              </div>
+                            {isOrderRejected ? (
+                              <span className="font-bold text-gray-400 font-mono block">₹0</span>
                             ) : (
-                              <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
-                                <button
-                                  type="button"
-                                  onClick={() => openAdvanceModal(op)}
-                                  className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs active:scale-95"
-                                  title="Upload Advance Bank Payment Slip to verify payout"
-                                >
-                                  <Upload size={9} /> Upload Slip
-                                </button>
-                              </div>
+                              <>
+                                <span className="font-bold text-emerald-800 font-mono block">
+                                  ₹{settle.advanceAmount.toLocaleString('en-IN')}
+                                </span>
+                                {settle.advanceProofUrl ? (
+                                  <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
+                                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5">
+                                      <CheckCircle2 size={9} /> PAID ({settle.advancePayingHub || hub})
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setPreviewDoc({
+                                            url: resolvePhotoUrl(settle.advanceProofUrl!),
+                                            title: `${poCode} - Advance Payment Receipt (${settle.advancePayingHub || hub})`,
+                                          })
+                                        }
+                                        className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                        title="View Advance Bank Receipt Slip"
+                                      >
+                                        <Eye size={9} /> Slip
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => openAdvanceModal(op)}
+                                        className="px-1 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-[9px] font-bold cursor-pointer"
+                                        title="Edit or replace advance receipt slip"
+                                      >
+                                        Edit
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => openAdvanceModal(op)}
+                                      className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs active:scale-95"
+                                      title="Upload Advance Bank Payment Slip to verify payout"
+                                    >
+                                      <Upload size={9} /> Upload Slip
+                                    </button>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </td>
                           {/* Net Balance Due */}
                           <td className="text-right py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
-                            {(() => {
+                            {isOrderRejected ? (
+                              <div>
+                                <span className="font-bold text-gray-400 font-mono block">₹0</span>
+                                <span className="text-[9px] font-bold text-rose-600 block mt-0.5">Rejected Order</span>
+                              </div>
+                            ) : (() => {
                               const isReallySettled = Boolean(
                                 settle.settlementCompleted &&
                                 Number(settle.finalBalanceDue ?? 0) === 0 &&
@@ -1964,10 +1979,31 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                 (Number(settle.finalBalancePaid ?? 0) > 0 || status === 'CLOSED')
                               );
 
+                              if (isOrderRejected) {
+                                return (
+                                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                    <span className="px-2 py-1 bg-rose-50 text-rose-800 border border-rose-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
+                                      <AlertTriangle size={10} className="text-rose-600" /> Order Rejected
+                                    </span>
+                                    {isAdmin && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeletePO(op)}
+                                        className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer active:scale-95"
+                                        title="Delete this Purchase Order permanently"
+                                      >
+                                        <Trash2 size={11} className="text-rose-600" />
+                                        <span>Delete</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              }
+
                               return (
                                 <div className="flex items-center justify-center gap-1.5 flex-wrap">
                                   {/* Action 1: Allot Vehicle & Approve (for un-allotted POs) */}
-                                  {!isOrderRejected && (!truck || truck === '-' || isAwaitingAllotment) && (
+                                  {(!truck || truck === '-' || isAwaitingAllotment) && (
                                     <button
                                       type="button"
                                       onClick={() => openAllotModal(op)}
@@ -1977,12 +2013,6 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                       <Truck size={11} />
                                       <span>Allot Vehicle</span>
                                     </button>
-                                  )}
-
-                                  {isOrderRejected && (
-                                    <span className="px-2 py-1 bg-rose-50 text-rose-800 border border-rose-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
-                                      <AlertTriangle size={10} className="text-rose-600" /> Order Rejected
-                                    </span>
                                   )}
 
                                   {/* Action: Confirm Hub Arrival (when truck is in transit/dispatched and not yet marked reached) */}
@@ -2231,7 +2261,11 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-center bg-gray-50/50 border-r border-gray-100 whitespace-nowrap">
-                            {fin.isProfit ? (
+                            {isOrderRejected ? (
+                              <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                Rejected (₹0)
+                              </span>
+                            ) : fin.isProfit ? (
                               <div className="inline-flex flex-col items-center">
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
                                   <TrendingUp size={12} className="text-emerald-700" />
@@ -2254,7 +2288,11 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             )}
                           </td>
                           <td className="py-3.5 px-3 text-center border-r border-gray-100 whitespace-nowrap">
-                            {isReallySettled ? (
+                            {isOrderRejected ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                Rejected
+                              </span>
+                            ) : isReallySettled ? (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                 Cleared ✓
                               </span>
@@ -2265,39 +2303,57 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             )}
                           </td>
                           <td className="py-3.5 px-3 text-center whitespace-nowrap">
-                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                              {(!op.dispatchVehicleNumber || op.dispatchVehicleNumber === '-') && (
+                            {isOrderRejected ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <span className="px-2 py-0.5 bg-rose-50 text-rose-800 border border-rose-300 rounded text-[10px] font-bold">
+                                  Rejected
+                                </span>
+                                {isAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePO(op)}
+                                    className="px-2 py-0.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded text-[10px] font-bold cursor-pointer"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={10} />
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                {(!op.dispatchVehicleNumber || op.dispatchVehicleNumber === '-') && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openAllotModal(op)}
+                                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                    title="Allot Vehicle Registration & Transporter to approve PO and unlock vendor loading"
+                                  >
+                                    <Truck size={11} />
+                                    <span>Allot Vehicle</span>
+                                  </button>
+                                )}
                                 <button
                                   type="button"
-                                  onClick={() => openAllotModal(op)}
-                                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
-                                  title="Allot Vehicle Registration & Transporter to approve PO and unlock vendor loading"
+                                  onClick={() => openPLModal(op)}
+                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer"
+                                  title="Edit Mandi Auction Selling Rate, Freight, and Hamali"
                                 >
-                                  <Truck size={11} />
-                                  <span>Allot Vehicle</span>
+                                  <Calculator size={11} className="text-amber-800" />
+                                  <span>Edit P&amp;L</span>
                                 </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => openPLModal(op)}
-                                className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer"
-                                title="Edit Mandi Auction Selling Rate, Freight, and Hamali"
-                              >
-                                <Calculator size={11} className="text-amber-800" />
-                                <span>Edit P&amp;L</span>
-                              </button>
-                              {!isReallySettled && (
-                                <button
-                                  type="button"
-                                  onClick={() => openSettlementModal(op)}
-                                  className="px-2 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
-                                  title="Settle Mandi Balance & Clear PO"
-                                >
-                                  <ShieldCheck size={11} className="text-emerald-300" />
-                                  <span>Settle</span>
-                                </button>
-                              )}
-                            </div>
+                                {!isReallySettled && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openSettlementModal(op)}
+                                    className="px-2 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                    title="Settle Mandi Balance & Clear PO"
+                                  >
+                                    <ShieldCheck size={11} className="text-emerald-300" />
+                                    <span>Settle</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );

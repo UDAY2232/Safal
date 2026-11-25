@@ -93,6 +93,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     return f.includes('watermelon') || f.includes('water melon') || f.includes('muskmelon') || f.includes('musk melon') || f.includes('melon');
   };
 
+  const isOrderRejected = (o: any) =>
+    o?.status === 'REJECTED' || Boolean(o?.rejectionReason && String(o?.rejectionReason).trim() !== '');
+
+  const activeOrders = React.useMemo(() => {
+    return orders.filter((o) => !isOrderRejected(o) && o.status !== 'CANCELLED' && o.status !== 'DRAFT');
+  }, [orders]);
+
   // Dynamic Mandi Commercial Realization Calculations (Entered by Safal Accounts upon Mandi sales realization)
   const derivedFinancialStats = React.useMemo(() => {
     let grossContractValue = 0;
@@ -103,7 +110,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     let totalNetPayable = 0;
     let totalNetBalanceDue = 0;
 
-    for (const po of orders) {
+    for (const po of activeOrders) {
       const gross = Number(po.grandTotal || 0);
       const settle = (po as any).settlementDetails;
       const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(gross * 0.70));
@@ -141,7 +148,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       totalNetPayable,
       totalNetBalanceDue,
     };
-  }, [orders]);
+  }, [activeOrders]);
 
   // Weighbridge & QC Slip Entry Modal State
   const [showRecordQCModal, setShowRecordQCModal] = useState(false);
@@ -392,9 +399,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
   const qcNetKg = Math.max(0, (Number(qcGrossKg) || 0) - (Number(qcTareKg) || 0));
 
-  // Compute Fruit Commodity Breakdown for Donut Chart
+  // Compute Fruit Commodity Breakdown for Donut Chart (Strictly Active Consignments, excluding rejected/cancelled)
   const fruitBreakdown = React.useMemo(() => {
-    if (orders.length === 0) {
+    if (activeOrders.length === 0) {
       return [];
     }
 
@@ -408,7 +415,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       'Plum': { count: 0, boxes: 0, amount: 0, color: '#9333EA' },
     };
 
-    orders.forEach((po) => {
+    activeOrders.forEach((po) => {
       const poFruit = po.fruitName || 'Kashmir Apples';
       let matchedKey = 'Kashmir Apples';
       if (poFruit.toLowerCase().includes('apple')) matchedKey = 'Kashmir Apples';
@@ -440,22 +447,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       percent: Math.round((v.amount / totalAmt) * 100) || 1,
       color: v.color,
     }));
-  }, [orders]);
+  }, [activeOrders]);
 
-  // Compute Total Volume in Boxes
+  // Compute Total Volume in Boxes (Strictly Active Consignments, excluding rejected/cancelled)
   const totalVolumeBoxes = React.useMemo(() => {
-    return orders.reduce((sum, po) => {
+    return activeOrders.reduce((sum, po) => {
       const poBoxes = po.items?.reduce((s, it) => s + (Number(it.quantity) || 0), 0) || 0;
       return sum + poBoxes;
     }, 0);
-  }, [orders]);
+  }, [activeOrders]);
 
-  // Compute Bar Chart Data (Comparison of Consignments / Orders)
+  // Compute Bar Chart Data (Comparison of Consignments / Orders - Strictly Active Consignments)
   const barChartData = React.useMemo(() => {
-    if (orders.length === 0) {
+    if (activeOrders.length === 0) {
       return [];
     }
-    return orders.slice(0, 3).map((po, idx) => {
+    return activeOrders.slice(0, 3).map((po, idx) => {
       const total = Number(po.grandTotal || po.totalAmount || po.totalOrderValue || 0);
       const adv = Number(po.advancePaymentAmount || po.advancePaid || po.advanceAmount || Math.round(total * 0.70));
       const due = Number(po.pendingPaymentAmount || po.balanceDue || po.pendingAmount || Math.max(0, total - adv));
@@ -468,7 +475,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         due,
       };
     });
-  }, [orders]);
+  }, [activeOrders]);
 
   // Synchronize activeTab when navigation changes from the left sidebar
   useEffect(() => {
@@ -1343,8 +1350,6 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   };
 
   // 1. Cleared / Completed Consignments (Strictly 0 remaining balance due & verified settlement)
-  const isOrderRejected = (o: any) => o.status === 'REJECTED' || Boolean(o.rejectionReason && String(o.rejectionReason).trim() !== '');
-
   const clearedOrders = orders.filter((o) => {
     const settle = (o as any).settlementDetails;
     const remainingDue = settle?.finalBalanceDue !== undefined
@@ -1671,7 +1676,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="min-w-0 flex-1">
               <span className="text-[11px] sm:text-xs font-bold text-gray-800 block truncate">Total Contract Value</span>
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
-                ₹{Number(derivedFinancialStats.grossContractValue || stats.totalOrderValue || 0).toLocaleString('en-IN')}
+                ₹{Number(derivedFinancialStats.grossContractValue || 0).toLocaleString('en-IN')}
               </strong>
               <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross commitments · Tap info</small>
             </div>
@@ -1894,10 +1899,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="mt-2">
                 <span className="text-xs font-bold text-gray-600 block">Total Contract Value</span>
                 <strong className="text-lg sm:text-xl font-black text-gray-900 font-['Manrope'] block mt-0.5">
-                  ₹{Number(stats.totalOrderValue || 0).toLocaleString('en-IN')}
+                  ₹{Number(derivedFinancialStats.grossContractValue || 0).toLocaleString('en-IN')}
                 </strong>
                 <span className="text-[10px] text-emerald-700 font-bold block mt-1">
-                  ✓ {stats.totalPOs || 0} Active PO Contracts
+                  ✓ {activeOrders.length} Active PO Contracts
                 </span>
               </div>
               <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">

@@ -1133,7 +1133,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           )}
                           <td className="text-center py-3 px-4 border-l border-gray-200 whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                              {!isRejected && !isCancelled && pendingDue > 0 && (
+                              {isCD && !isRejected && !isCancelled && pendingDue > 0 && (
                                 <button
                                   type="button"
                                   onClick={() => setDuePaymentPO(order)}
@@ -1143,12 +1143,11 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   <CreditCard size={12} /> Pay Due
                                 </button>
                               )}
-                              {isRejected && (
+                              {isRejected ? (
                                 <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded text-[10px] font-black border border-rose-200">
                                   Order Rejected
                                 </span>
-                              )}
-                              {!isRejected && ((order.status === 'PENDING_APPROVAL' || order.paymentProofUrl) && !isClosed && (isAdmin || isAccountant)) ? (
+                              ) : isCD && ((order.status === 'PENDING_APPROVAL' || order.paymentProofUrl) && !isClosed && (isAdmin || isAccountant)) ? (
                                 <button
                                   type="button"
                                   onClick={async (e) => {
@@ -1167,7 +1166,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 >
                                   <CheckCircle2 size={12} /> Approve Close
                                 </button>
-                              ) : pendingDue === 0 && !isClosed && isAdmin ? (
+                              ) : isCD && pendingDue === 0 && !isClosed && isAdmin ? (
                                 <button
                                   type="button"
                                   onClick={async (e) => {
@@ -1185,6 +1184,25 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   title="Approve proof and close CD"
                                 >
                                   <CheckCircle2 size={12} /> Close CD
+                                </button>
+                              ) : !isCD && pendingDue === 0 && order.status === 'OPEN' && isAdmin ? (
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      onNotify(`Closing ${order.poNumber}...`);
+                                      await api.closePurchaseOrder(order.id);
+                                      onNotify(`Order ${order.poNumber} verified and formally CLOSED!`);
+                                      loadOrders();
+                                    } catch (err: any) {
+                                      alert(err.message || 'Failed to close order');
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
+                                  title="Approve and close PO"
+                                >
+                                  <CheckCircle2 size={12} /> Close PO
                                 </button>
                               ) : null}
                               {order.paymentProofUrl && (
@@ -1309,35 +1327,50 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           </td>
                           <td className="py-3 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
-                              {pendingDue > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => setDuePaymentPO(order)}
-                                  className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
-                                  title="Submit Due Payment"
-                                >
-                                  <CreditCard size={12} /> Pay Due
-                                </button>
-                              )}
-                              {pendingDue === 0 && order.status !== 'CLOSED' && isAdmin && (
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      onNotify(`Closing ${order.poNumber}...`);
-                                      await api.closePurchaseOrder(order.id);
-                                      onNotify(`Order ${order.poNumber} verified and CLOSED!`);
-                                      loadOrders();
-                                    } catch (err: any) {
-                                      alert(err.message || 'Failed to close order');
-                                    }
-                                  }}
-                                  className="px-2 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
-                                  title="Approve & Close"
-                                >
-                                  <CheckCircle2 size={12} /> Close
-                                </button>
+                              {isRejected ? (
+                                <span className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded text-[10px] font-black border border-rose-200">
+                                  Order Rejected
+                                </span>
+                              ) : (
+                                <>
+                                  {pendingDue > 0 && isCD && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setDuePaymentPO(order)}
+                                      className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
+                                      title="Submit Due Payment"
+                                    >
+                                      <CreditCard size={12} /> Pay Due
+                                    </button>
+                                  )}
+                                  {pendingDue === 0 && order.status !== 'CLOSED' && isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          onNotify(`Closing ${order.poNumber}...`);
+                                          await api.closePurchaseOrder(order.id);
+                                          onNotify(`Order ${order.poNumber} verified and CLOSED!`);
+                                          loadOrders();
+                                        } catch (err: any) {
+                                          alert(err.message || 'Failed to close order');
+                                        }
+                                      }}
+                                      className="px-2 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
+                                      title="Approve & Close"
+                                    >
+                                      <CheckCircle2 size={12} /> Close
+                                    </button>
+                                  )}
+                                  <button
+                                    className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
+                                    onClick={() => setFinancialPO(order)}
+                                    title="Update Verified Profit / Loss"
+                                  >
+                                    <TrendingUp size={12} /> P&amp;L
+                                  </button>
+                                </>
                               )}
                               {order.paymentProofUrl && (
                                 <button
@@ -1352,13 +1385,6 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   <ImageIcon size={12} /> Proof
                                 </button>
                               )}
-                              <button
-                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition cursor-pointer"
-                                onClick={() => setFinancialPO(order)}
-                                title="Update Verified Profit / Loss"
-                              >
-                                <TrendingUp size={12} /> P&amp;L
-                              </button>
                               <button
                                 type="button"
                                 onClick={async (e) => {

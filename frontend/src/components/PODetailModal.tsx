@@ -324,7 +324,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 >
                   <Eye size={13} /> View Proof
                 </button>
-                {(isAdmin || isAccountant) && order.status !== 'CLOSED' && (
+                {(isAdmin || isAccountant) && order.status !== 'CLOSED' && !isRejected && isCD && (
                   <button
                     type="button"
                     onClick={async () => {
@@ -517,7 +517,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                       QC: {order.qcInspectionStatus}
                     </span>
                   )}
-                  {(isAdmin || isAccountant) && (
+                  {(isAdmin || isAccountant) && !isRejected && (
                     <button
                       type="button"
                       onClick={() => setShowQCModal(true)}

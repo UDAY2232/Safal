@@ -647,10 +647,15 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
       },
     });
 
-    const enriched = pos.map((p) => enrichPOWithSettlementDetails(p));
+    const isPORejected = (p: any) =>
+      p.status === 'REJECTED' || Boolean(p.rejectionReason && String(p.rejectionReason).trim() !== '');
 
-    const totalPOs = pos.length;
-    const inTransitPOs = pos.filter(
+    // Exclude rejected, cancelled, or draft POs from live vendor commitments and KPI stat cards
+    const activePos = pos.filter((p) => !isPORejected(p) && p.status !== 'CANCELLED' && p.status !== 'DRAFT');
+    const enriched = activePos.map((p) => enrichPOWithSettlementDetails(p));
+
+    const totalPOs = activePos.length;
+    const inTransitPOs = activePos.filter(
       (p) =>
         (p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchStatus === 'IN_TRANSIT') &&
         Boolean(p.dispatchVehicleNumber && p.dispatchVehicleNumber !== '-') &&
@@ -658,10 +663,10 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
         Boolean(p.dispatchDate) &&
         p.status !== 'CLOSED'
     ).length;
-    const pendingDispatchPOs = pos.filter(
-      (p) => (!p.dispatchStatus || p.dispatchStatus === 'PENDING_DISPATCH') && p.status !== 'CLOSED' && p.status !== 'CANCELLED'
+    const pendingDispatchPOs = activePos.filter(
+      (p) => (!p.dispatchStatus || p.dispatchStatus === 'PENDING_DISPATCH') && p.status !== 'CLOSED'
     ).length;
-    const awaitingClearancePOs = pos.filter(
+    const awaitingClearancePOs = activePos.filter(
       (p) => (p.dispatchStatus === 'DELIVERED_AT_HUB' || p.dispatchVehicleNumber) && p.status !== 'CLOSED'
     ).length;
     const deliveredPOs = enriched.filter(
