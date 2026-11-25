@@ -1230,10 +1230,12 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       o.dispatchVehicleNumber.trim() !== ''
     );
     const hasLoadedProof = Boolean(o.vehiclePhotoUrl);
+    const hasDispatchDate = Boolean(o.dispatchDate);
     return (
       !isCleared &&
       hasVehicle &&
       hasLoadedProof &&
+      hasDispatchDate &&
       (o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'IN_TRANSIT') &&
       o.dispatchStatus !== 'DELIVERED_AT_HUB' &&
       o.status !== 'CLOSED' &&
@@ -1693,7 +1695,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               (o) =>
                 (o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED') &&
                 Boolean(o.dispatchVehicleNumber && o.dispatchVehicleNumber !== '-') &&
-                Boolean(o.vehiclePhotoUrl)
+                Boolean(o.vehiclePhotoUrl) &&
+                Boolean(o.dispatchDate)
             );
 
             if (!activeOrder) return null;

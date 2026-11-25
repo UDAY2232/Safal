@@ -264,11 +264,15 @@ export async function getVendorPOs(req: AuthRequest, res: Response) {
     });
 
     const sanitizedPOs = pos.map((p) => {
-      // If order was marked LOADED_AND_DISPATCHED or IN_TRANSIT without vehicle or loading photo proof, reset to PENDING_DISPATCH
+      // An order is strictly in transit ONLY if:
+      // 1. Vehicle is allotted
+      // 2. Loading proof (photo) is uploaded
+      // 3. Dispatch has actually been submitted by vendor (dispatchDate is recorded)
       const hasVehicle = Boolean(p.dispatchVehicleNumber && p.dispatchVehicleNumber !== '-');
       const hasProof = Boolean(p.vehiclePhotoUrl);
+      const hasDispatchDate = Boolean(p.dispatchDate);
       let dispatchStatus = p.dispatchStatus;
-      if ((dispatchStatus === 'LOADED_AND_DISPATCHED' || dispatchStatus === 'IN_TRANSIT') && (!hasVehicle || !hasProof)) {
+      if ((dispatchStatus === 'LOADED_AND_DISPATCHED' || dispatchStatus === 'IN_TRANSIT') && (!hasVehicle || !hasProof || !hasDispatchDate)) {
         dispatchStatus = 'PENDING_DISPATCH';
       }
       return {
@@ -570,6 +574,7 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
         (p.dispatchStatus === 'LOADED_AND_DISPATCHED' || p.dispatchStatus === 'IN_TRANSIT') &&
         Boolean(p.dispatchVehicleNumber && p.dispatchVehicleNumber !== '-') &&
         Boolean(p.vehiclePhotoUrl) &&
+        Boolean(p.dispatchDate) &&
         p.status !== 'CLOSED'
     ).length;
     const pendingDispatchPOs = pos.filter(
@@ -1279,8 +1284,9 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
       transportBillUrl = `/uploads/${files['transportBill'][0].filename}`;
     }
 
-    const hasDispatchProof = Boolean(dispatchVehicleNumber && (vehiclePhotoUrl || req.body.vehiclePhotoUrl));
-    const dispatchStatus = hasDispatchProof ? 'LOADED_AND_DISPATCHED' : 'PENDING_DISPATCH';
+    // Phase 1: PO Creation by Vendor requests vehicle allotment from Safal Hub.
+    // Vehicle, loading proof photos, and dispatch date remain null until Admin allots vehicle and Vendor submits dispatch.
+    const dispatchStatus = 'PENDING_DISPATCH';
 
     // Atomic transaction to generate next PO number and create PO
     const newPO = await prisma.$transaction(async (tx) => {
@@ -1299,13 +1305,13 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
             ? `${resolvedOrigin} ➔ ${targetHub} Regional Hub Receiving Desk`
             : `${targetHub} Regional Hub Receiving Desk`,
           paymentTerms: '55% Advance on Dispatch + 45% on QC Acceptance',
-          dispatchVehicleNumber: dispatchVehicleNumber ? dispatchVehicleNumber.trim().toUpperCase() : null,
-          transporterName: transporterName ? transporterName.trim() : null,
-          driverPhone: driverPhone ? driverPhone.trim() : null,
-          vehiclePhotoUrl: vehiclePhotoUrl || req.body.vehiclePhotoUrl || null,
-          transportBillUrl: transportBillUrl || req.body.transportBillUrl || vendorSignature || req.body.vendorSignature || null,
+          dispatchVehicleNumber: null,
+          transporterName: null,
+          driverPhone: null,
+          vehiclePhotoUrl: null,
+          transportBillUrl: null,
           dispatchStatus,
-          dispatchDate: hasDispatchProof ? new Date() : null,
+          dispatchDate: null,
           subtotal: grandTotal,
           grandTotal,
           advanceAmount: autoAdvance,

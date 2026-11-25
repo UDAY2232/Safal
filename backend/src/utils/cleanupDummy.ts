@@ -2,6 +2,41 @@ import { prisma } from '../config/db.js';
 
 export async function cleanupDummyOrders() {
   try {
+    // 1. Reset test PO PO/SF/2026/014 so user can cleanly test the full lifecycle:
+    // PO Request -> Admin Allots Vehicle -> Vendor Loads & Dispatches -> Hub Delivery
+    await prisma.purchaseOrder.updateMany({
+      where: {
+        poNumber: 'PO/SF/2026/014',
+      },
+      data: {
+        dispatchStatus: 'PENDING_DISPATCH',
+        dispatchVehicleNumber: null,
+        vehiclePhotoUrl: null,
+        transporterName: null,
+        driverPhone: null,
+        dispatchDate: null,
+        status: 'PENDING_APPROVAL',
+      },
+    });
+
+    // 2. Automatically fix any active PO where vendor has not actually completed loading & dispatch
+    await prisma.purchaseOrder.updateMany({
+      where: {
+        status: { in: ['PENDING_APPROVAL', 'APPROVED'] },
+        OR: [
+          { dispatchVehicleNumber: null },
+          { dispatchVehicleNumber: '' },
+          { dispatchVehicleNumber: '-' },
+          { vehiclePhotoUrl: null },
+          { dispatchDate: null },
+        ],
+        dispatchStatus: { not: 'DELIVERED_AT_HUB' },
+      },
+      data: {
+        dispatchStatus: 'PENDING_DISPATCH',
+      },
+    });
+
     const dummyOrders = await prisma.purchaseOrder.findMany({
       where: {
         OR: [
