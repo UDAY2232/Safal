@@ -173,6 +173,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
 
   // Form state for editing vendor by Admin
   const [editingVendor, setEditingVendor] = useState<any | null>(null);
+  const [editVendorId, setEditVendorId] = useState('');
   const [editBusinessName, setEditBusinessName] = useState('');
   const [editContactPerson, setEditContactPerson] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -576,6 +577,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
 
   const handleOpenEditVendor = (vendor: any) => {
     setEditingVendor(vendor);
+    setEditVendorId(vendor.vendorId || '');
     setEditBusinessName(vendor.businessName || '');
     setEditContactPerson(vendor.contactPerson || '');
     setEditPhone(vendor.phone || '');
@@ -602,6 +604,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       setEditFormError('');
 
       const payload: any = {
+        vendorId: editVendorId.trim().toUpperCase(),
         businessName: editBusinessName.trim(),
         contactPerson: editContactPerson.trim(),
         phone: editPhone.trim(),
@@ -2980,6 +2983,29 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   <span className="text-[10px] text-blue-700 font-bold block uppercase tracking-wider">Linked Account User</span>
                   <span className="text-blue-900 font-semibold">{editingVendor.phone}</span>
                 </div>
+              </div>
+
+              {/* Vendor System ID (Reverse Sequence Code e.g. VND-599, VND-598) */}
+              <div className="p-3 bg-emerald-50/70 border border-emerald-300 rounded-xl space-y-1">
+                <label className="block text-emerald-950 font-black text-xs">
+                  Vendor ID Sequence Code *
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={editVendorId}
+                    onChange={(e) => setEditVendorId(e.target.value.toUpperCase())}
+                    placeholder="e.g. VND-599"
+                    className="w-full px-3 py-2 border border-emerald-300 rounded-xl text-xs font-mono font-black text-[#087A3E] uppercase bg-white outline-none focus:border-[#087A3E]"
+                  />
+                  <span className="text-[10px] text-emerald-800 font-bold bg-white px-2 py-1.5 rounded-lg border border-emerald-200 shrink-0">
+                    Auto Reverse
+                  </span>
+                </div>
+                <span className="text-[10px] text-emerald-800 block">
+                  Reverse countdown sequence (e.g. VND-599, VND-598, VND-597...). Editable by Admin.
+                </span>
               </div>
 
               {/* Business Name & Contact Person */}

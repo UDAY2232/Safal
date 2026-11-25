@@ -66,6 +66,27 @@ export async function cleanupDummyOrders() {
       }
       console.log(`[CLEANUP] Successfully cleaned up dummy orders.`);
     }
+
+    // 4. Migrate vendor VND-002 to VND-599 as per reverse countdown ID sequence (VND-599, VND-598...)
+    const vnd002 = await prisma.vendorProfile.findUnique({
+      where: { vendorId: 'VND-002' },
+    });
+    if (vnd002) {
+      const vnd599 = await prisma.vendorProfile.findUnique({
+        where: { vendorId: 'VND-599' },
+      });
+      if (!vnd599) {
+        await prisma.vendorProfile.update({
+          where: { id: vnd002.id },
+          data: { vendorId: 'VND-599' },
+        });
+        await prisma.supplier.updateMany({
+          where: { supplierCode: 'VND-002' },
+          data: { supplierCode: 'VND-599' },
+        });
+        console.log('✓ Successfully migrated vendor VND-002 to reverse sequence ID VND-599');
+      }
+    }
   } catch (err) {
     console.warn('[CLEANUP] Warning during dummy orders cleanup:', err);
   }

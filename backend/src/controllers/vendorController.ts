@@ -12,24 +12,36 @@ import { enrichPOWithSettlementDetails } from '../utils/settlementHelper.js';
 export { enrichPOWithSettlementDetails } from '../utils/settlementHelper.js';
 
 /**
- * Generates sequential, collision-safe Vendor ID: VND-001, VND-002, etc.
+ * Generates reverse sequential Vendor ID starting from VND-599 downwards:
+ * VND-599, VND-598, VND-597, etc.
  */
 export async function generateNextVendorId(tx: any = prisma): Promise<string> {
   const existingVendors = await tx.vendorProfile.findMany({
     select: { vendorId: true },
   });
 
-  let maxSeq = 0;
+  const reverseSeqNums: number[] = [];
   for (const v of existingVendors) {
-    const parts = v.vendorId.split('-');
-    const seqNum = parseInt(parts[parts.length - 1], 10);
-    if (!isNaN(seqNum) && seqNum > maxSeq) {
-      maxSeq = seqNum;
+    const match = (v.vendorId || '').match(/^VND-(\d+)$/i);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      // Collect numbers in the reverse range [2..599]
+      if (num >= 2 && num <= 599) {
+        reverseSeqNums.push(num);
+      }
     }
   }
 
-  let nextSeq = maxSeq + 1;
-  while (true) {
+  // If no vendor exists in reverse sequence yet, start at 599
+  let nextSeq = 599;
+  if (reverseSeqNums.length > 0) {
+    // Next ID is 1 less than the lowest existing number in the reverse sequence
+    const minSeq = Math.min(...reverseSeqNums);
+    nextSeq = minSeq - 1;
+  }
+
+  // Safety loop: decrement until an unused ID candidate is found
+  while (nextSeq >= 2) {
     const candidate = `VND-${String(nextSeq).padStart(3, '0')}`;
     const exists = await tx.vendorProfile.findUnique({
       where: { vendorId: candidate },
@@ -38,7 +50,19 @@ export async function generateNextVendorId(tx: any = prisma): Promise<string> {
     if (!exists) {
       return candidate;
     }
-    nextSeq++;
+    nextSeq--;
+  }
+
+  // Fallback safety if 2..599 are somehow exhausted
+  let fallback = 599;
+  while (true) {
+    const candidate = `VND-${String(fallback).padStart(3, '0')}`;
+    const exists = await tx.vendorProfile.findUnique({
+      where: { vendorId: candidate },
+      select: { id: true },
+    });
+    if (!exists) return candidate;
+    fallback--;
   }
 }
 
@@ -927,6 +951,7 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
 
     const { id } = req.params;
     const {
+      vendorId,
       businessName,
       contactPerson,
       phone,
@@ -959,6 +984,23 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
       return res.status(404).json({ error: 'Vendor profile not found' });
     }
 
+    // Check duplicate vendorId if modified
+    let newVendorId = existingProfile.vendorId;
+    if (vendorId && vendorId.trim().toUpperCase() !== existingProfile.vendorId) {
+      newVendorId = vendorId.trim().toUpperCase();
+      const duplicateVendor = await prisma.vendorProfile.findFirst({
+        where: {
+          vendorId: newVendorId,
+          id: { not: id },
+        },
+      });
+      if (duplicateVendor) {
+        return res.status(400).json({
+          error: `Vendor ID "${newVendorId}" is already assigned to vendor ${duplicateVendor.businessName}`,
+        });
+      }
+    }
+
     // Check duplicate phone if modified
     if (phone && phone.trim() !== existingProfile.phone) {
       const duplicatePhone = await prisma.vendorProfile.findFirst({
@@ -977,6 +1019,7 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
     const updated = await prisma.vendorProfile.update({
       where: { id },
       data: {
+        vendorId: newVendorId,
         businessName: businessName?.trim() || existingProfile.businessName,
         contactPerson: contactPerson?.trim() || existingProfile.contactPerson,
         phone: phone?.trim() || existingProfile.phone,
@@ -1028,7 +1071,7 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
     }
 
     // Synchronize linked supplier record if exists
-    if (businessName || contactPerson || phone) {
+    if (newVendorId !== existingProfile.vendorId || businessName || contactPerson || phone) {
       await prisma.supplier
         .updateMany({
           where: {
@@ -1038,6 +1081,7 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
             ],
           },
           data: {
+            supplierCode: newVendorId,
             name: businessName?.trim() || existingProfile.businessName,
             contactPerson: contactPerson?.trim() || existingProfile.contactPerson,
             phone: phone?.trim() || existingProfile.phone,
