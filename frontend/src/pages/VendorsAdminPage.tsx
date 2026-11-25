@@ -59,6 +59,8 @@ interface VendorsAdminPageProps {
   onNotify: (msg: string) => void;
 }
 
+const isPORejected = (op: any) => Boolean(op) && (op.status === 'REJECTED' || Boolean(op.rejectionReason && String(op.rejectionReason).trim() !== ''));
+
 export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
@@ -363,8 +365,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       op.dispatchVehicleNumber.trim() !== ''
     );
     const isPending = op.status === 'PENDING_APPROVAL' || op.dispatchStatus === 'PENDING_DISPATCH' || !op.dispatchStatus;
-    const isOrderRejected = op.status === 'REJECTED' || Boolean(op.rejectionReason && String(op.rejectionReason).trim() !== '');
-    const isClosed = op.status === 'CLOSED' || op.status === 'CANCELLED' || isOrderRejected;
+    const isClosed = op.status === 'CLOSED' || op.status === 'CANCELLED' || isPORejected(op);
     return !hasVehicle && isPending && !isClosed;
   });
 
@@ -1657,6 +1658,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                     </tr>
                   ) : (
                     displayedConsignments.map((op, index) => {
+                      const isOrderRejected = isPORejected(op);
                       const fin = getConsignmentFinancials(op);
                       const settle = op.settlementDetails || {
                         advanceDisbursed: Boolean(op.advanceAmount > 0 || op.paymentProofUrl),
@@ -1811,8 +1813,6 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                 Number(settle.finalBalanceDue ?? 0) === 0 &&
                                 (Number(settle.finalBalancePaid ?? 0) > 0 || status === 'CLOSED')
                               );
-
-                              const isOrderRejected = op.status === 'REJECTED' || Boolean(op.rejectionReason && String(op.rejectionReason).trim() !== '');
 
                               if (isOrderRejected) {
                                 return (
@@ -2088,6 +2088,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                     </tr>
                   ) : (
                     displayedConsignments.map((op, index) => {
+                      const isOrderRejected = isPORejected(op);
                       const fin = getConsignmentFinancials(op);
                       const settle = op.settlementDetails || {
                         advanceDisbursed: Boolean(op.advanceAmount > 0 || op.paymentProofUrl),
