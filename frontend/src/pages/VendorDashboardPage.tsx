@@ -1529,6 +1529,39 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       {/* 3. Primary Tab Content: Dashboard Analytics & Operations Command Center */}
       {activeTab === 'dashboard' && (
         <div className="space-y-6">
+          {/* VEHICLE ALLOTTED ACTION BANNER (When Admin allots vehicle, vendor must record boxes & sign) */}
+          {pendingDispatchOrders.length > 0 && (
+            <div className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-50 to-emerald-50 border-2 border-amber-300 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <Truck size={22} className="animate-bounce" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-amber-200 text-amber-950 border border-amber-300">
+                      ACTION REQUIRED
+                    </span>
+                    <strong className="text-sm font-extrabold text-amber-950">
+                      {pendingDispatchOrders.length} Vehicle(s) Allotted by Safal Admin! Ready for Carton Loading &amp; Dispatch
+                    </strong>
+                  </div>
+                  <p className="text-xs text-amber-900 mt-1">
+                    Safal Admin has approved and allotted truck <strong className="font-mono text-gray-950">{pendingDispatchOrders[0].dispatchVehicleNumber}</strong> ({pendingDispatchOrders[0].transporterName || 'SAFAL Cold-Chain Express'}) for PO <strong className="font-mono text-gray-950">{pendingDispatchOrders[0].poNumber}</strong>. Please record fruit box counts, upload loaded truck photo, and digitally sign to start transit.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start md:self-auto flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => openDispatchModal(pendingDispatchOrders[0])}
+                  className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black transition shadow-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap active:scale-95"
+                >
+                  <Truck size={15} />
+                  <span>Load &amp; Sign: {pendingDispatchOrders[0].poNumber}</span>
+                </button>
+              </div>
+            </div>
+          )}
           {/* Executive 6 KPI Cards Grid */}
           <section className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-3.5">
             {/* KPI 1: Total Contract Value */}
@@ -2614,30 +2647,28 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <strong className="text-emerald-700 font-black block">
                             ₹{advance.toLocaleString('en-IN')}
                           </strong>
-                          {settle.advanceDisbursed ? (
+                          {settle.advanceProofUrl || po.paymentProofUrl ? (
                             <div className="flex items-center justify-end gap-1 mt-0.5">
                               <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
                                 Paid by {settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
                               </span>
-                              {settle.advanceProofUrl && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setPreviewMediaModal({
-                                      url: settle.advanceProofUrl!,
-                                      title: `Advance Bank Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
-                                    })
-                                  }
-                                  className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
-                                  title="View Advance Payment Proof Slip"
-                                >
-                                  <Eye size={9} /> Receipt
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setPreviewMediaModal({
+                                    url: resolvePhotoUrl(settle.advanceProofUrl || po.paymentProofUrl),
+                                    title: `Advance Bank Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || 'Warangal Hub'})`,
+                                  })
+                                }
+                                className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                title="View Advance Payment Proof Slip"
+                              >
+                                <Eye size={9} /> Receipt
+                              </button>
                             </div>
                           ) : (
-                            <span className="text-[10px] text-gray-400 block font-mono">
-                              of ₹{total.toLocaleString('en-IN')}
+                            <span className="text-[9px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
+                              Pending Admin Slip
                             </span>
                           )}
                         </td>
@@ -2953,9 +2984,31 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             <strong className="text-emerald-700 font-black block font-mono text-xs">
                               ₹{advance.toLocaleString('en-IN')}
                             </strong>
-                            <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
-                              Paid by {settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
-                            </span>
+                            {settle.advanceProofUrl || po.paymentProofUrl ? (
+                              <div className="flex items-center justify-end gap-1 mt-0.5">
+                                <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block">
+                                  Paid by {settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'} ✓
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPreviewMediaModal({
+                                      url: resolvePhotoUrl(settle.advanceProofUrl || po.paymentProofUrl),
+                                      title: `Advance Bank Payment Receipt: ${po.poNumber} (${settle.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'})`,
+                                    });
+                                  }}
+                                  className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                  title="View Advance Payment Slip"
+                                >
+                                  <Eye size={9} /> Slip
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-[9px] font-bold text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 inline-block mt-0.5">
+                                Pending Admin Slip
+                              </span>
+                            )}
                           </td>
 
                           {/* Charges (6% Mandi: 5% Safal + 1% APMC) - ₹0.00 until Safal settles consignment */}

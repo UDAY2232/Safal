@@ -82,13 +82,14 @@ export function enrichPOWithSettlementDetails(po: any): any {
     ? Number(storedAdvance.advanceAmount)
     : (Number(po.advanceAmount) > 0 ? Number(po.advanceAmount) : autoAdvance);
 
+  const hasAdvanceSlip = Boolean(
+    storedAdvance?.advanceProofUrl ||
+    po.paymentProofUrl
+  );
+
+  // Strict Rule: Advance is ONLY considered disbursed/PAID when an official payment slip/receipt is actually uploaded
   const advanceDisbursed = Boolean(
-    storedAdvance?.advanceDisbursed ||
-    po.advancePaymentUtr ||
-    po.paymentProofUrl ||
-    po.dispatchStatus === 'LOADED_AND_DISPATCHED' ||
-    po.dispatchStatus === 'DELIVERED_AT_HUB' ||
-    po.status === 'CLOSED'
+    hasAdvanceSlip && (storedAdvance?.advanceDisbursed || po.paymentProofUrl || po.advancePaymentUtr)
   );
 
   // Theoretical balance due before final settlement payment:

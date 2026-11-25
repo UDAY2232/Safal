@@ -42,6 +42,7 @@ import {
   Upload,
   Clock,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -50,6 +51,7 @@ import { CreatePOModal } from '../components/CreatePOModal';
 import { PODetailModal } from '../components/PODetailModal';
 import { StatusBadge } from '../components/StatusBadge';
 import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
+import { resolvePhotoUrl } from '../utils/imageUtils';
 
 interface VendorsAdminPageProps {
   onNotify: (msg: string) => void;
@@ -462,6 +464,27 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       setSelectedPOForPL(null);
     } finally {
       setSavingPL(false);
+    }
+  };
+
+  const handleDeletePO = async (op: any) => {
+    const poCode = op.poNumber || `PO #${op.id}`;
+    if (
+      !window.confirm(
+        `Are you sure you want to permanently delete Purchase Order "${poCode}"? This action will remove the consignment from both Admin and Vendor portals.`
+      )
+    ) {
+      return;
+    }
+    try {
+      if (op.id && !op.id.startsWith('demo-') && !op.id.startsWith('op-')) {
+        await api.deletePurchaseOrder(op.id);
+      }
+      onNotify(`Purchase Order ${poCode} deleted successfully.`);
+      await loadVendorsAndOperations();
+    } catch (err: any) {
+      console.error('Failed to delete PO:', err);
+      alert(err?.response?.data?.error || err.message || 'Failed to delete Purchase Order');
     }
   };
 
@@ -1528,15 +1551,18 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                     <th className="py-3.5 px-3 text-center font-bold border-r border-[#085A33]">
                       Fleet / Tracker
                     </th>
+                    <th className="py-3.5 px-3 text-center font-bold border-r border-[#085A33]">
+                      Dispatch Proofs
+                    </th>
                     <th className="py-3.5 px-4 text-center font-bold">
-                      Proofs &amp; Actions
+                      Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {displayedConsignments.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="text-center py-12 text-gray-400">
+                      <td colSpan={12} className="text-center py-12 text-gray-400">
                         {loading ? 'Loading vendor operations...' : (activeSection === 'allotment' ? 'No consignments awaiting vehicle allotment.' : 'No consignments found matching your criteria.')}
                       </td>
                     </tr>
@@ -1607,54 +1633,46 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             <span className="font-bold text-emerald-800 font-mono block">
                               ₹{settle.advanceAmount.toLocaleString('en-IN')}
                             </span>
-                            {settle.advanceDisbursed ? (
+                            {settle.advanceProofUrl ? (
                               <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
                                 <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-flex items-center gap-0.5">
                                   <CheckCircle2 size={9} /> PAID ({settle.advancePayingHub || hub})
                                 </span>
-                                {settle.advanceProofUrl ? (
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setPreviewDoc({
-                                          url: settle.advanceProofUrl!,
-                                          title: `${poCode} - Advance Payment Receipt (${settle.advancePayingHub || hub})`,
-                                        })
-                                      }
-                                      className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
-                                      title="View Advance Bank Receipt Slip"
-                                    >
-                                      <Eye size={9} /> Slip
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => openAdvanceModal(op)}
-                                      className="px-1 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-[9px] font-bold cursor-pointer"
-                                      title="Edit or replace advance receipt slip"
-                                    >
-                                      Edit
-                                    </button>
-                                  </div>
-                                ) : (
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewDoc({
+                                        url: resolvePhotoUrl(settle.advanceProofUrl!),
+                                        title: `${poCode} - Advance Payment Receipt (${settle.advancePayingHub || hub})`,
+                                      })
+                                    }
+                                    className="px-1.5 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-900 text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs"
+                                    title="View Advance Bank Receipt Slip"
+                                  >
+                                    <Eye size={9} /> Slip
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => openAdvanceModal(op)}
-                                    className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs active:scale-95"
-                                    title="Upload Advance Bank Payment Slip"
+                                    className="px-1 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-700 text-[9px] font-bold cursor-pointer"
+                                    title="Edit or replace advance receipt slip"
                                   >
-                                    <Upload size={9} /> Upload Slip
+                                    Edit
                                   </button>
-                                )}
+                                </div>
                               </div>
                             ) : (
-                              <button
-                                type="button"
-                                onClick={() => openAdvanceModal(op)}
-                                className="mt-0.5 px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-xs active:scale-95"
-                              >
-                                <CreditCard size={9} /> Pay Advance / Upload Slip
-                              </button>
+                              <div className="flex items-center justify-end gap-1 mt-0.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => openAdvanceModal(op)}
+                                  className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white text-[9px] font-extrabold inline-flex items-center gap-0.5 cursor-pointer shadow-2xs active:scale-95"
+                                  title="Upload Advance Bank Payment Slip to verify payout"
+                                >
+                                  <Upload size={9} /> Upload Slip
+                                </button>
+                              </div>
                             )}
                           </td>
                           {/* Net Balance Due */}
@@ -1758,8 +1776,65 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                             )}
                           </td>
 
-                          {/* Proofs & Actions (Clean 2-Tier Structured Buttons) */}
-                          <td className="text-center py-3.5 px-4 whitespace-nowrap min-w-[230px]">
+                          {/* Dispatch Proofs */}
+                          <td className="text-center py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap max-w-[150px] mx-auto">
+                              {vehiclePhoto ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewDoc({
+                                      url: resolvePhotoUrl(vehiclePhoto),
+                                      title: `${poCode} - Truck Photo (${truck})`,
+                                    })
+                                  }
+                                  className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                  title="View Vehicle Photo"
+                                >
+                                  <Camera size={10} className="text-emerald-700" /> Photo
+                                </button>
+                              ) : (
+                                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded text-[9px]">No Photo</span>
+                              )}
+
+                              {bilty ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewDoc({
+                                      url: resolvePhotoUrl(bilty),
+                                      title: `${poCode} - Transporter Bilty (${transporter})`,
+                                    })
+                                  }
+                                  className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                  title="View Transporter Bilty"
+                                >
+                                  <FileText size={10} className="text-blue-700" /> Bilty
+                                </button>
+                              ) : (
+                                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded text-[9px]">No Bilty</span>
+                              )}
+
+                              {scaleSlip && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setPreviewDoc({
+                                      url: resolvePhotoUrl(scaleSlip),
+                                      title: `${poCode} - Weighbridge Scale Slip`,
+                                    })
+                                  }
+                                  className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                  title="View Scale Slip"
+                                >
+                                  <Scale size={10} className="text-purple-700" /> Slip
+                                </button>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="text-center py-3.5 px-3 whitespace-nowrap min-w-[210px]">
                             {(() => {
                               const isReallySettled = Boolean(
                                 settle.settlementCompleted &&
@@ -1768,138 +1843,57 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                               );
 
                               return (
-                                <div className="flex flex-col items-center gap-1.5">
-                                  {/* Row 1: Document Evidence Pills */}
-                                  <div className="flex items-center justify-center gap-1 flex-wrap">
-                                    {vehiclePhoto ? (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setPreviewDoc({ url: vehiclePhoto, title: `${poCode} - Truck Photo (${truck})` })
-                                        }
-                                        className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                        title="View Vehicle Photo"
-                                      >
-                                        <Camera size={10} className="text-emerald-700" /> Photo
-                                      </button>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded text-[9px]">No Photo</span>
-                                    )}
-
-                                    {bilty ? (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setPreviewDoc({ url: bilty, title: `${poCode} - Transporter Bilty (${transporter})` })
-                                        }
-                                        className="px-2 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                        title="View Transporter Bilty"
-                                      >
-                                        <FileText size={10} className="text-blue-700" /> Bilty
-                                      </button>
-                                    ) : (
-                                      <span className="px-1.5 py-0.5 bg-gray-100 text-gray-400 rounded text-[9px]">No Bilty</span>
-                                    )}
-
-                                    {scaleSlip && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setPreviewDoc({ url: scaleSlip, title: `${poCode} - Weighbridge Scale Slip` })
-                                        }
-                                        className="px-2 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                        title="View Scale Slip"
-                                      >
-                                        <Scale size={10} className="text-purple-700" /> Slip
-                                      </button>
-                                    )}
-
-                                    {settle.advanceProofUrl && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setPreviewDoc({
-                                            url: settle.advanceProofUrl!,
-                                            title: `${poCode} - Advance Bank Receipt (${settle.advancePayingHub || hub})`,
-                                          })
-                                        }
-                                        className="px-2 py-0.5 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                        title="View Advance Payment Slip"
-                                      >
-                                        <Receipt size={10} className="text-teal-700" /> Adv Slip
-                                      </button>
-                                    )}
-
-                                    {isReallySettled && settle.finalSettlementProofUrl && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          setPreviewDoc({
-                                            url: settle.finalSettlementProofUrl!,
-                                            title: `${poCode} - Final Settlement Receipt (${settle.finalSettlingHub || hub})`,
-                                          })
-                                        }
-                                        className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-300 rounded-md text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                        title="View Final Settlement Slip"
-                                      >
-                                        <ShieldCheck size={10} className="text-indigo-700" /> Settle Slip
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  {/* Row 2: Dedicated Clickable Action Buttons */}
-                                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                    {/* Action 1: Allot Vehicle & Approve (for un-allotted POs) */}
-                                    {(!truck || truck === '-' || isAwaitingAllotment) && (
-                                      <button
-                                        type="button"
-                                        onClick={() => openAllotModal(op)}
-                                        className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
-                                        title="Allot Vehicle Registration & Transporter to approve PO and unlock vendor loading"
-                                      >
-                                        <Truck size={11} />
-                                        <span>Allot Vehicle &amp; Approve</span>
-                                      </button>
-                                    )}
-
-                                    {!settle.advanceProofUrl && (
-                                      <button
-                                        type="button"
-                                        onClick={() => openAdvanceModal(op)}
-                                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
-                                        title="Disburse advance payment or upload bank receipt proof"
-                                      >
-                                        <CreditCard size={11} />
-                                        <span>{settle.advanceDisbursed ? 'Upload Advance Slip' : 'Pay Advance'}</span>
-                                      </button>
-                                    )}
-
-                                    {isReallySettled ? (
-                                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
-                                        <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
-                                      </span>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => openSettlementModal(op)}
-                                        className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95 ring-1 ring-emerald-300"
-                                        title="Settle balance with 5% Admin Share & 1% APMC Cess deduction, and clear PO"
-                                      >
-                                        <ShieldCheck size={11} className="text-emerald-300" />
-                                        <span>Settle &amp; Clear ✓</span>
-                                      </button>
-                                    )}
-
+                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                  {/* Action 1: Allot Vehicle & Approve (for un-allotted POs) */}
+                                  {(!truck || truck === '-' || isAwaitingAllotment) && (
                                     <button
                                       type="button"
-                                      onClick={() => openPLModal(op)}
-                                      className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
-                                      title="Open Mandi P&L Dossier"
+                                      onClick={() => openAllotModal(op)}
+                                      className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95"
+                                      title="Allot Vehicle Registration & Transporter to approve PO and unlock vendor loading"
                                     >
-                                      <Calculator size={11} className="text-amber-800" />
-                                      <span>P&amp;L</span>
+                                      <Truck size={11} />
+                                      <span>Allot Vehicle</span>
                                     </button>
-                                  </div>
+                                  )}
+
+                                  {isReallySettled ? (
+                                    <span className="px-2 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
+                                      <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => openSettlementModal(op)}
+                                      className="px-2 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95 ring-1 ring-emerald-300"
+                                      title="Settle balance with 5% Admin Share & 1% APMC Cess deduction, and clear PO"
+                                    >
+                                      <ShieldCheck size={11} className="text-emerald-300" />
+                                      <span>Settle &amp; Clear</span>
+                                    </button>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => openPLModal(op)}
+                                    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer"
+                                    title="Open Mandi P&L Dossier"
+                                  >
+                                    <Calculator size={11} className="text-amber-800" />
+                                    <span>P&amp;L</span>
+                                  </button>
+
+                                  {isAdmin && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePO(op)}
+                                      className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 hover:text-rose-800 border border-rose-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer active:scale-95"
+                                      title="Delete this Purchase Order permanently"
+                                    >
+                                      <Trash2 size={11} className="text-rose-600" />
+                                      <span>Delete</span>
+                                    </button>
+                                  )}
                                 </div>
                               );
                             })()}
@@ -3080,13 +3074,13 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
             <div className="py-4 flex-1 flex items-center justify-center overflow-auto bg-gray-50 rounded-2xl my-3">
               {previewDoc.url.endsWith('.pdf') ? (
                 <iframe
-                  src={previewDoc.url}
+                  src={resolvePhotoUrl(previewDoc.url)}
                   title={previewDoc.title}
                   className="w-full h-96 rounded-xl border-0"
                 />
               ) : (
                 <img
-                  src={previewDoc.url}
+                  src={resolvePhotoUrl(previewDoc.url)}
                   alt={previewDoc.title}
                   className="max-h-[65vh] object-contain rounded-xl shadow-xs"
                 />
@@ -3097,7 +3091,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
               <span className="text-gray-500 font-medium">Verified Mandi Procurement Documentation</span>
               <div className="flex items-center gap-2">
                 <a
-                  href={previewDoc.url}
+                  href={resolvePhotoUrl(previewDoc.url)}
                   target="_blank"
                   rel="noreferrer"
                   download
@@ -3106,7 +3100,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   <Download size={13} /> Download Document
                 </a>
                 <a
-                  href={previewDoc.url}
+                  href={resolvePhotoUrl(previewDoc.url)}
                   target="_blank"
                   rel="noreferrer"
                   className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
@@ -3223,13 +3217,13 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                         className="relative group cursor-pointer"
                         onClick={() =>
                           setPreviewDoc({
-                            url: verifyApprovalPO.vehiclePhotoUrl,
+                            url: resolvePhotoUrl(verifyApprovalPO.vehiclePhotoUrl),
                             title: `${verifyApprovalPO.poNumber} - Vehicle Photo`,
                           })
                         }
                       >
                         <img
-                          src={verifyApprovalPO.vehiclePhotoUrl}
+                          src={resolvePhotoUrl(verifyApprovalPO.vehiclePhotoUrl)}
                           alt="Vehicle Dispatch Proof"
                           className="w-full h-36 object-contain rounded-xl bg-black/5 border border-gray-100"
                         />
@@ -3265,7 +3259,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                         className="relative group cursor-pointer"
                         onClick={() =>
                           setPreviewDoc({
-                            url: verifyApprovalPO.transportBillUrl,
+                            url: resolvePhotoUrl(verifyApprovalPO.transportBillUrl),
                             title: `${verifyApprovalPO.poNumber} - Transporter Bilty`,
                           })
                         }
@@ -3278,7 +3272,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                           </div>
                         ) : (
                           <img
-                            src={verifyApprovalPO.transportBillUrl}
+                            src={resolvePhotoUrl(verifyApprovalPO.transportBillUrl)}
                             alt="Transport Bilty Proof"
                             className="w-full h-36 object-contain rounded-xl bg-black/5 border border-gray-100"
                           />
@@ -3312,7 +3306,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                     type="button"
                     onClick={() =>
                       setPreviewDoc({
-                        url: verifyApprovalPO.weighbridgeSlipUrl,
+                        url: resolvePhotoUrl(verifyApprovalPO.weighbridgeSlipUrl),
                         title: `${verifyApprovalPO.poNumber} - Weighbridge Slip`,
                       })
                     }
