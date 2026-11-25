@@ -32,8 +32,10 @@ import {
   Receipt,
   ArrowUpRight,
   ArrowDownRight,
+  Smartphone,
 } from 'lucide-react';
 import { VENDOR_WHITELISTED_LOCATIONS, MySalaryData } from '../types';
+import { getMobilePushStatus, requestMobileNotificationPermission, PushPermissionStatus } from '../utils/mobilePush';
 import {
   ResponsiveContainer,
   BarChart,
@@ -168,6 +170,22 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   // Personal Employee Salary State (Self-Only)
   const [showMySalaryModal, setShowMySalaryModal] = useState(false);
   const [mySalaryData, setMySalaryData] = useState<MySalaryData | null>(null);
+
+  // Mobile Push Notification Prompt State
+  const [pushStatus, setPushStatus] = useState<PushPermissionStatus>('default');
+  const [dismissPushBanner, setDismissPushBanner] = useState(false);
+
+  useEffect(() => {
+    setPushStatus(getMobilePushStatus());
+  }, []);
+
+  const handleEnablePush = async () => {
+    const res = await requestMobileNotificationPermission();
+    setPushStatus(res);
+    if (res === 'granted' && onNotify) {
+      onNotify('Mobile Phone Alerts Activated ✓! You will now receive daily push notifications.');
+    }
+  };
 
   const getConsignmentFinancials = (op: any) => {
     const items = op.items || [];
@@ -921,6 +939,47 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   // -------------------------------------------------------------
   return (
     <>
+      {/* Mobile Device Push Notifications Prompt Banner */}
+      {pushStatus === 'default' && !dismissPushBanner && (
+        <div className="mb-4 p-3.5 rounded-2xl bg-gradient-to-r from-[#064D2B] via-emerald-800 to-teal-800 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md border border-emerald-500/30">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
+              <Smartphone size={22} className="text-emerald-200" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
+                  MOBILE ALERTS
+                </span>
+                <strong className="text-xs sm:text-sm font-extrabold block">
+                  Enable Mobile Phone Notifications
+                </strong>
+              </div>
+              <p className="text-[11px] text-emerald-100 mt-0.5 leading-tight">
+                Receive instant phone push alerts for orders, approvals, salary disbursements &amp; vehicle arrivals like a mobile app.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+            <button
+              type="button"
+              onClick={handleEnablePush}
+              className="px-3.5 py-1.5 rounded-xl bg-white text-[#064D2B] font-black text-xs hover:bg-emerald-50 transition shadow-sm cursor-pointer active:scale-95 whitespace-nowrap"
+            >
+              Enable Mobile Alerts ✓
+            </button>
+            <button
+              type="button"
+              onClick={() => setDismissPushBanner(true)}
+              className="p-1.5 text-emerald-200 hover:text-white transition cursor-pointer"
+              title="Dismiss banner"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Executive Command Hero Banner (Clean, Creative, Real-World) */}
       <div className="bg-gradient-to-r from-[#064D2B] via-[#086333] to-[#0A7B3E] text-white p-6 rounded-2xl shadow-sm border border-emerald-800 mb-6 relative overflow-hidden">
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">

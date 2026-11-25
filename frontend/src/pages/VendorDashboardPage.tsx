@@ -43,6 +43,7 @@ import {
   ReceiptText,
   AlertTriangle,
   Navigation,
+  Smartphone,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -51,6 +52,7 @@ import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
 import { PODetailModal } from '../components/PODetailModal';
 import { stampImageFile, compressImageFile } from '../utils/watermark';
 import { resolvePhotoUrl, downloadProofFile, compressImageFile as compressImageBlob } from '../utils/imageUtils';
+import { getMobilePushStatus, requestMobileNotificationPermission, PushPermissionStatus } from '../utils/mobilePush';
 
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
@@ -143,6 +145,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const [qcSlipPreview, setQcSlipPreview] = useState<string>('');
   const [isSubmittingQC, setIsSubmittingQC] = useState(false);
   const [qcError, setQcError] = useState('');
+
+  // Mobile Device Push Notification Status for Vendor
+  const [pushStatus, setPushStatus] = useState<PushPermissionStatus>('default');
+  const [dismissPushBanner, setDismissPushBanner] = useState(false);
+
+  useEffect(() => {
+    setPushStatus(getMobilePushStatus());
+  }, []);
+
+  const handleEnablePush = async () => {
+    const res = await requestMobileNotificationPermission();
+    setPushStatus(res);
+    if (res === 'granted') {
+      onNotify('Mobile Phone Alerts Activated ✓! You will now receive daily push notifications.');
+    }
+  };
 
   // Selected KPI Card Modal State for In-depth Insights & Quick Navigation
   const [selectedKpiModal, setSelectedKpiModal] = useState<'orders' | 'advance' | 'due' | 'volume' | 'transit' | 'qc' | null>(null);
@@ -1602,6 +1620,47 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               </div>
             </div>
           )}
+          {/* MOBILE PHONE APP NOTIFICATIONS PROMPT BANNER */}
+          {pushStatus === 'default' && !dismissPushBanner && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#064D2B] via-emerald-800 to-teal-800 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md border border-emerald-500/30">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0">
+                  <Smartphone size={22} className="text-emerald-200" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
+                      MOBILE ALERTS
+                    </span>
+                    <strong className="text-xs sm:text-sm font-extrabold block">
+                      Enable Mobile Phone Notifications
+                    </strong>
+                  </div>
+                  <p className="text-[11px] text-emerald-100 mt-0.5 leading-tight">
+                    Get instant phone push alerts for truck allotments, advance bank credits &amp; Mandi hub arrivals like a mobile app.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={handleEnablePush}
+                  className="px-3.5 py-1.5 rounded-xl bg-white text-[#064D2B] font-black text-xs hover:bg-emerald-50 transition shadow-sm cursor-pointer active:scale-95 whitespace-nowrap"
+                >
+                  Enable Mobile Alerts ✓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDismissPushBanner(true)}
+                  className="p-1.5 text-emerald-200 hover:text-white transition cursor-pointer"
+                  title="Dismiss banner"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Executive 6 KPI Cards Grid */}
           <section className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-3.5">
             {/* KPI 1: Total Contract Value */}

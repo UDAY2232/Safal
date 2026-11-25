@@ -1,0 +1,24 @@
+{
+  "name": "SAFAL EXPORT & IMPORT",
+  "short_name": "SAFAL",
+  "description": "SAFAL Wholesale Fruits Procurement, Logistics & Mandi Management Platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F4F7F5",
+  "theme_color": "#064D2B",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

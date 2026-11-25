@@ -6,13 +6,13 @@ import { createAuditLog } from '../services/auditService.js';
 
 function getScopedNotificationWhere(userId?: string, role?: string) {
   if (role === 'VENDOR') {
-    // Vendors are external fruit suppliers. They ONLY see notifications specifically addressed
-    // to their userId or VENDOR role. They NEVER see internal company POs, employee CDs, or admin alerts.
+    // Vendors are external fruit suppliers. Each vendor MUST ONLY see their own notifications.
+    // They NEVER see notifications of other vendors' consignments, trucks, advance payments or clearances.
+    if (!userId) {
+      return { id: '__none__' };
+    }
     return {
-      OR: [
-        { userId: userId || '__none__' },
-        { recipientRole: 'VENDOR' },
-      ],
+      userId: userId,
     };
   }
 
@@ -20,9 +20,12 @@ function getScopedNotificationWhere(userId?: string, role?: string) {
     // Employees ONLY see notifications directed to their specific userId,
     // or broadcast notices sent by Admin/Accountant specifically to all employees or all company.
     // They NEVER see notifications of other employees' POs, expenses, or personal alerts.
+    if (!userId) {
+      return { id: '__none__' };
+    }
     return {
       OR: [
-        { userId: userId || '__none__' },
+        { userId: userId },
         { recipientRole: 'EMPLOYEE', userId: null },
         { recipientRole: 'ALL', userId: null },
       ],
@@ -31,11 +34,14 @@ function getScopedNotificationWhere(userId?: string, role?: string) {
 
   if (role === 'ACCOUNTANT') {
     // Accountants see personal notifications, accountant alerts, or broadcast announcements
+    if (!userId) {
+      return { id: '__none__' };
+    }
     return {
       OR: [
-        { userId: userId || '__none__' },
-        { recipientRole: 'ACCOUNTANT' },
-        { recipientRole: 'ALL' },
+        { userId: userId },
+        { recipientRole: 'ACCOUNTANT', userId: null },
+        { recipientRole: 'ALL', userId: null },
       ],
     };
   }

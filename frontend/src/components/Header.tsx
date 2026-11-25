@@ -10,11 +10,19 @@ import {
   PanelLeftOpen,
   Menu,
   Megaphone,
+  Smartphone,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import type { Notification as AppNotification } from '../types';
 import { SendNoticeModal } from './SendNoticeModal';
+import {
+  getMobilePushStatus,
+  requestMobileNotificationPermission,
+  sendTestMobileAlert,
+  showNativeMobileNotification,
+  PushPermissionStatus,
+} from '../utils/mobilePush';
 
 interface HeaderProps {
   onNavigate: (
@@ -44,42 +52,22 @@ export const Header: React.FC<HeaderProps> = ({
   const [showNoticeModal, setShowNoticeModal] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
+  const [pushStatus, setPushStatus] = useState<PushPermissionStatus>('default');
 
   const navRef = useRef<HTMLDivElement>(null);
   const lastNotifIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPushStatus(Notification.permission);
-    } else {
-      setPushStatus('unsupported');
-    }
+    setPushStatus(getMobilePushStatus());
   }, []);
 
   const requestPushPermission = async () => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    try {
-      const res = await Notification.requestPermission();
-      setPushStatus(res);
-      if (res === 'granted') {
-        new Notification('SAFAL Alerts Enabled ✓', {
-          body: 'You will now receive instant mobile notifications for orders, dues & approvals.',
-          icon: '/favicon.ico',
-        });
-      }
-    } catch (e) {
-      console.warn('Notification permission error:', e);
-    }
+    const res = await requestMobileNotificationPermission();
+    setPushStatus(res);
   };
 
-  const sendTestPush = () => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification('SAFAL Mobile Alert (Test)', {
-        body: 'Mobile notifications are working perfectly on this device! ✓',
-        icon: '/favicon.ico',
-      });
-    }
+  const sendTestPush = async () => {
+    await sendTestMobileAlert();
   };
 
   const loadNotifications = useCallback(async () => {
@@ -90,36 +78,30 @@ export const Header: React.FC<HeaderProps> = ({
       setNotifications(list);
       setUnreadCount(count);
 
-      // Check for newly arrived unread notification to trigger native mobile push
-      if (list.length > 0 && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      // Check for newly arrived unread notification to trigger native mobile push alert
+      if (list.length > 0 && typeof window !== 'undefined') {
         const top = list[0];
-        if (!top.isRead && lastNotifIdRef.current && top.id !== lastNotifIdRef.current) {
-          try {
-            new Notification(top.title || 'SAFAL Update', {
-              body: top.message || 'New activity recorded in SAFAL.',
-              icon: '/favicon.ico',
-              tag: top.id,
-            });
-          } catch {
-            if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
-              navigator.serviceWorker.ready.then((reg) => {
-                reg.showNotification(top.title || 'SAFAL Update', {
-                  body: top.message || 'New activity recorded in SAFAL.',
-                  icon: '/favicon.ico',
-                  tag: top.id,
-                });
-              });
-            }
-          }
+        const lastSeenId = localStorage.getItem('safal_last_notified_id');
+
+        if (!top.isRead && top.id && top.id !== lastSeenId && top.id !== lastNotifIdRef.current) {
+          lastNotifIdRef.current = top.id;
+          localStorage.setItem('safal_last_notified_id', top.id);
+
+          // Dispatch native notification to mobile device with sound & vibration
+          await showNativeMobileNotification({
+            title: top.title || 'SAFAL Alert',
+            body: top.message || 'New activity recorded on your SAFAL account.',
+            tag: top.id,
+            url: top.linkUrl || '/dashboard',
+          });
         }
-        lastNotifIdRef.current = top.id;
       }
     } catch {}
   }, []);
 
   useEffect(() => {
     loadNotifications();
-    const interval = setInterval(loadNotifications, 30000);
+    const interval = setInterval(loadNotifications, 20000);
     return () => clearInterval(interval);
   }, [loadNotifications]);
 
@@ -372,30 +354,54 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
 
                 {/* Mobile Device Push Alerts Banner */}
-                <div className="mb-2 p-2 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${pushStatus === 'granted' ? 'bg-emerald-600' : 'bg-amber-500 animate-pulse'}`} />
-                    <span className="text-[10px] font-bold text-emerald-950 truncate">
-                      {pushStatus === 'granted' ? 'Mobile Phone Alerts: Active ✓' : 'Enable Mobile Device Alerts'}
-                    </span>
+                <div className={`mb-2 p-2.5 rounded-xl border transition ${
+                  pushStatus === 'granted'
+                    ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+                    : pushStatus === 'denied'
+                    ? 'bg-rose-50 border-rose-200 text-rose-950'
+                    : 'bg-emerald-100/70 border-emerald-300 text-emerald-950'
+                }`}>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Smartphone size={13} className={pushStatus === 'granted' ? 'text-emerald-700' : 'text-emerald-800'} />
+                      <span className="text-[11px] font-black truncate">
+                        {pushStatus === 'granted'
+                          ? 'Mobile Phone Push Alerts: Active ✓'
+                          : pushStatus === 'denied'
+                          ? 'Mobile Alerts Blocked in Browser'
+                          : 'Turn On Mobile Phone Alerts'}
+                      </span>
+                    </div>
+                    {pushStatus === 'granted' ? (
+                      <button
+                        type="button"
+                        onClick={sendTestPush}
+                        className="px-2.5 py-0.5 rounded-md bg-white border border-emerald-300 text-[10px] font-black text-[#087a3e] hover:bg-emerald-100 transition shrink-0 cursor-pointer shadow-2xs active:scale-95"
+                        title="Send test push alert to phone"
+                      >
+                        Test Alert
+                      </button>
+                    ) : pushStatus === 'denied' ? (
+                      <span className="text-[9px] font-bold text-rose-700 bg-white px-2 py-0.5 rounded border border-rose-200">
+                        Blocked
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={requestPushPermission}
+                        className="px-2.5 py-1 rounded-lg bg-[#087a3e] hover:bg-[#066131] text-[10px] font-black text-white transition shrink-0 cursor-pointer shadow-xs active:scale-95 animate-pulse"
+                      >
+                        Enable Alerts ✓
+                      </button>
+                    )}
                   </div>
-                  {pushStatus === 'granted' ? (
-                    <button
-                      type="button"
-                      onClick={sendTestPush}
-                      className="px-2 py-0.5 rounded-md bg-white border border-emerald-300 text-[10px] font-extrabold text-[#087a3e] hover:bg-emerald-100 transition shrink-0 cursor-pointer"
-                    >
-                      Test
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={requestPushPermission}
-                      className="px-2.5 py-0.5 rounded-md bg-[#087a3e] hover:bg-[#066131] text-[10px] font-extrabold text-white transition shrink-0 cursor-pointer shadow-xs"
-                    >
-                      Enable
-                    </button>
-                  )}
+                  <p className="text-[10px] text-gray-600 leading-tight">
+                    {pushStatus === 'granted'
+                      ? 'Live sound & vibration alerts delivered directly to your device like a mobile app.'
+                      : pushStatus === 'denied'
+                      ? 'Permission was blocked in browser settings. Please click lock/tune icon on address bar to allow notifications.'
+                      : 'Receive instant phone alerts for consignments, truck arrivals, advance disbursements & mandi realization.'}
+                  </p>
                 </div>
 
                 <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
