@@ -931,18 +931,31 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
       },
     });
 
-    // Notify Vendor if this is a vendor consignment PO and was formally cleared
-    if (po.vendorProfile?.user?.id && finalStatus === 'CLOSED') {
-      await prisma.notification.create({
-        data: {
-          userId: po.vendorProfile.user.id,
-          recipientRole: 'VENDOR',
-          title: `Consignment Cleared: ${po.poNumber}`,
-          message: `Consignment PO ${po.poNumber} has been verified and cleared by Admin. Status in your dashboard is now Cleared ✓.`,
-          type: 'SUCCESS',
-          linkUrl: `/dashboard`,
-        },
-      });
+    // Notify Vendor if this is a vendor consignment PO
+    if (po.vendorProfile?.user?.id) {
+      if (finalStatus === 'CLOSED') {
+        await prisma.notification.create({
+          data: {
+            userId: po.vendorProfile.user.id,
+            recipientRole: 'VENDOR',
+            title: `Consignment Cleared: ${po.poNumber}`,
+            message: `Consignment PO ${po.poNumber} has been verified and cleared by Admin. Status in your dashboard is now Cleared ✓.`,
+            type: 'SUCCESS',
+            linkUrl: `/dashboard`,
+          },
+        });
+      } else {
+        await prisma.notification.create({
+          data: {
+            userId: po.vendorProfile.user.id,
+            recipientRole: 'VENDOR',
+            title: `📍 Vehicle Reached Location · Ready for Sell`,
+            message: `Consignment PO ${po.poNumber} (Truck ${po.dispatchVehicleNumber || 'Carrier'}) has arrived at destination hub ${po.orderPersonPlace || 'Warangal Hub'}. Consignment is verified and Ready for Mandi Sale / Auction!`,
+            type: 'INFO',
+            linkUrl: `/dashboard`,
+          },
+        });
+      }
     }
 
     await createAuditLog({

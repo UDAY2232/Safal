@@ -159,7 +159,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [primaryLocation, setPrimaryLocation] = useState<string>(VENDOR_WHITELISTED_LOCATIONS[0]);
+  const [primaryLocation, setPrimaryLocation] = useState<string>('');
   const [aadharNumber, setAadharNumber] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
@@ -563,7 +563,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
     try {
       setIsApprovingPO(true);
       await api.closePurchaseOrder(op.id);
-      onNotify(`Consignment ${op.poNumber || 'PO'} truck arrival verified at Hub! Commercial balance remains OPEN awaiting final settlement.`);
+      onNotify(`Consignment ${op.poNumber || 'PO'} verified! Marked as Vehicle Reached Hub · Ready for Sell.`);
       setVerifyApprovalPO(null);
       await loadVendorsAndOperations();
     } catch (err: any) {
@@ -1737,6 +1737,13 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                   </span>
                                 );
                               }
+                              if (status === 'DELIVERED_AT_HUB' || op.dispatchStatus === 'DELIVERED_AT_HUB') {
+                                return (
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-teal-100 text-teal-950 border border-teal-300 inline-flex items-center gap-1 shadow-2xs">
+                                    <MapPin size={11} className="text-teal-700" /> Reached Hub (Ready for Sell)
+                                  </span>
+                                );
+                              }
                               if (settle.advanceDisbursed) {
                                 return (
                                   <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-200 inline-flex items-center gap-1">
@@ -1855,6 +1862,30 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                                       <Truck size={11} />
                                       <span>Allot Vehicle</span>
                                     </button>
+                                  )}
+
+                                  {/* Action: Confirm Hub Arrival (when truck is in transit/dispatched and not yet marked reached) */}
+                                  {!isReallySettled &&
+                                    (op.dispatchStatus === 'LOADED_AND_DISPATCHED' ||
+                                      op.dispatchStatus === 'IN_TRANSIT' ||
+                                      Boolean(truck && truck !== '-' && (vehiclePhoto || bilty))) &&
+                                    op.dispatchStatus !== 'DELIVERED_AT_HUB' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleClearVendorPO(op)}
+                                        className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-xs transition cursor-pointer active:scale-95 ring-1 ring-emerald-400"
+                                        title="Confirm truck arrival at Hub - marks consignment as Reached Hub & Ready for Sell"
+                                      >
+                                        <MapPin size={11} className="text-emerald-200" />
+                                        <span>Reached Hub</span>
+                                      </button>
+                                    )}
+
+                                  {/* Badge: Vehicle Reached Hub (Ready for Sell) */}
+                                  {!isReallySettled && op.dispatchStatus === 'DELIVERED_AT_HUB' && (
+                                    <span className="px-2 py-1 bg-teal-50 text-teal-900 border border-teal-300 rounded-lg text-[10px] font-black inline-flex items-center gap-1 shadow-2xs">
+                                      <MapPin size={10} className="text-teal-700" /> Reached Hub (Ready for Sell)
+                                    </span>
                                   )}
 
                                   {isReallySettled ? (
@@ -2668,23 +2699,30 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 </div>
               </div>
 
-              {/* Registered Location */}
+              {/* Vendor Location (Manual Text Entry) */}
               <div>
                 <label className="block text-gray-700 font-bold mb-1">
-                  Registered Location *
+                  Vendor Location *
                 </label>
-                <select
-                  required
-                  value={primaryLocation}
-                  onChange={(e) => setPrimaryLocation(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 font-bold bg-white outline-none focus:border-[#087A3E]"
-                >
-                  {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={primaryLocation}
+                    onChange={(e) => setPrimaryLocation(e.target.value)}
+                    placeholder="Enter vendor location (e.g. Kashmir, Shimla, Varanasi)"
+                    list="vendor-locations-list"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 font-bold bg-white outline-none focus:border-[#087A3E]"
+                  />
+                  <datalist id="vendor-locations-list">
+                    {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
+                      <option key={loc} value={loc} />
+                    ))}
+                  </datalist>
+                </div>
+                <span className="text-[10px] text-gray-500 mt-1 block">
+                  Enter the vendor's farm, orchard, or regional procurement origin location manually.
+                </span>
               </div>
 
               {/* Statutory Identity */}
@@ -3150,7 +3188,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 </div>
                 <div>
                   <h3 className="text-base font-extrabold text-gray-900 font-['Manrope']">
-                    Verify Consignment Hub Arrival
+                    Verify Consignment Hub Arrival &amp; Mark Ready for Sell
                   </h3>
                   <p className="text-xs text-gray-500 font-mono">
                     {verifyApprovalPO.poNumber} · {verifyApprovalPO.vendorProfile?.businessName || verifyApprovalPO.supplier?.name} ({verifyApprovalPO.vendorProfile?.vendorId || verifyApprovalPO.supplier?.supplierCode})
@@ -3319,8 +3357,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
 
               {/* Verification statement */}
               <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-950 text-[11px] leading-relaxed">
-                <span className="font-bold block mb-0.5">Hub Delivery Arrival Confirmation:</span>
-                I have inspected the submitted photographic evidence, truck number plate, and delivery bilty. Verifying this consignment confirms truck arrival at <strong>{verifyApprovalPO.orderPersonPlace || 'Hub'}</strong> (Status: <strong>DELIVERED AT HUB</strong>). The consignment commercial balance remains <strong>OPEN</strong> awaiting Mandi Sales Realization &amp; Final Settlement.
+                <span className="font-bold block mb-0.5">Hub Delivery Arrival Confirmation &amp; Ready for Sell:</span>
+                I have inspected the submitted photographic evidence, truck number plate, and delivery bilty. Verifying this consignment confirms truck arrival at <strong>{verifyApprovalPO.orderPersonPlace || 'Hub'}</strong> (Status: <strong>DELIVERED AT HUB · Ready for Sell</strong>). The consignment is received at destination hub and ready for wholesale Mandi sale / auction. The vendor dashboard will now display: <strong>Vehicle Reached Location · Ready for Sell</strong>.
               </div>
             </div>
 
@@ -3340,7 +3378,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 className="px-5 py-2.5 rounded-xl bg-[#064D2B] hover:bg-[#087A3E] text-white font-extrabold text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50"
               >
                 <CheckCircle2 size={15} className="text-emerald-300" />
-                <span>{isApprovingPO ? 'Verifying Arrival...' : 'Confirm Hub Arrival ✓'}</span>
+                <span>{isApprovingPO ? 'Verifying Arrival...' : 'Confirm Hub Arrival · Ready for Sell ✓'}</span>
               </button>
             </div>
           </div>

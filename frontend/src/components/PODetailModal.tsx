@@ -358,9 +358,38 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                     Logistics &amp; Dispatch Verification
                   </strong>
                 </div>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-200 text-blue-900 uppercase">
-                  {order.dispatchStatus || 'IN TRANSIT'}
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {order.dispatchStatus === 'DELIVERED_AT_HUB' ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-950 border border-emerald-300 uppercase inline-flex items-center gap-1 shadow-2xs">
+                      <MapPin size={11} className="text-emerald-700" /> Vehicle Reached Location · Ready for Sell
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-200 text-blue-900 uppercase">
+                      {order.dispatchStatus || 'IN TRANSIT'}
+                    </span>
+                  )}
+                  {isAdmin && (order.dispatchStatus === 'LOADED_AND_DISPATCHED' || order.dispatchStatus === 'IN_TRANSIT' || Boolean(order.dispatchVehicleNumber && order.dispatchVehicleNumber !== '-' && order.vehiclePhotoUrl && order.dispatchStatus !== 'DELIVERED_AT_HUB')) && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setIsProcessing(true);
+                          await api.closePurchaseOrder(order.id);
+                          onNotify(`Consignment ${order.poNumber} verified! Marked as Vehicle Reached Hub · Ready for Sell.`);
+                          onRefresh();
+                        } catch (err: any) {
+                          onNotify(err.message || 'Failed to update hub arrival');
+                        } finally {
+                          setIsProcessing(false);
+                        }
+                      }}
+                      disabled={isProcessing}
+                      className="px-2 py-0.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[10px] font-bold inline-flex items-center gap-1 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <MapPin size={10} className="text-emerald-200" /> Confirm Reached Hub (Ready for Sell)
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">

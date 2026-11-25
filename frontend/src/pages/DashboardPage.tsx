@@ -2037,18 +2037,21 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                   />
                 </div>
                 <div>
-                  <label className="block text-gray-700 font-bold mb-1">Primary Delivery Hub *</label>
-                  <select
+                  <label className="block text-gray-700 font-bold mb-1">Vendor Location *</label>
+                  <input
+                    type="text"
+                    required
                     value={vPrimaryLocation}
                     onChange={(e) => setVPrimaryLocation(e.target.value)}
+                    placeholder="e.g. Kashmir, Shimla, Varanasi"
+                    list="v-loc-list"
                     className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white focus:border-emerald-600 focus:outline-none"
-                  >
+                  />
+                  <datalist id="v-loc-list">
                     {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
-                      <option key={loc} value={loc}>
-                        {loc} Hub
-                      </option>
+                      <option key={loc} value={loc} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
               </div>
 

@@ -1244,7 +1244,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     );
   });
 
-  // 5. Awaiting Safal Clearance (Arrived at regional hub / weighbridge recorded / awaiting final settlement clearance)
+  // 5. Arrived at Destination Hub (Vehicle reached location, ready for sell)
+  const deliveredHubOrders = orders.filter((o) => {
+    const isCleared = clearedOrders.some((c) => c.id === o.id);
+    return !isCleared && o.dispatchStatus === 'DELIVERED_AT_HUB';
+  });
+
+  // 6. Awaiting Safal Clearance (Arrived at regional hub / weighbridge recorded / awaiting final settlement clearance)
   const awaitingClearanceOrders = orders.filter((o) => {
     const isCleared = clearedOrders.some((c) => c.id === o.id);
     const isPending = pendingDispatchOrders.some((p) => p.id === o.id);
@@ -1562,6 +1568,40 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               </div>
             </div>
           )}
+
+          {/* VEHICLE REACHED HUB ACTION BANNER (Admin confirmed arrival, consignment ready for sell) */}
+          {deliveredHubOrders.length > 0 && (
+            <div className="p-4 sm:p-4.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-50 to-emerald-50 border-2 border-emerald-300 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-[#064D2B] text-white flex items-center justify-center flex-shrink-0 shadow-xs">
+                  <MapPin size={22} className="text-emerald-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-200 text-emerald-950 border border-emerald-300">
+                      DESTINATION REACHED
+                    </span>
+                    <strong className="text-sm font-extrabold text-emerald-950">
+                      Vehicle Reached Location · Ready for Sell!
+                    </strong>
+                  </div>
+                  <p className="text-xs text-emerald-900 mt-1">
+                    Safal Admin confirmed that vehicle <strong className="font-mono text-gray-950">{deliveredHubOrders[0].dispatchVehicleNumber}</strong> for PO <strong className="font-mono text-gray-950">{deliveredHubOrders[0].poNumber}</strong> has safely arrived at <strong className="text-gray-950">{deliveredHubOrders[0].orderPersonPlace || 'Warangal Regional Hub'}</strong>. Consignment is inspected and ready for wholesale Mandi auction / sale!
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-start md:self-auto flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleTabClick('orders')}
+                  className="px-4 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl text-xs font-black transition shadow-sm flex items-center gap-1.5 cursor-pointer whitespace-nowrap active:scale-95"
+                >
+                  <MapPin size={14} className="text-emerald-300" />
+                  <span>View Consignment ({deliveredHubOrders[0].poNumber})</span>
+                </button>
+              </div>
+            </div>
+          )}
           {/* Executive 6 KPI Cards Grid */}
           <section className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-3.5">
             {/* KPI 1: Total Contract Value */}
@@ -1723,17 +1763,24 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
 
           {/* LIVE COLD-CHAIN HIGHWAY TRANSIT TRACKER (Motion Tracking Truck En-Route) */}
           {(() => {
-            // Strictly display ONLY when vehicle transit has actually started and is currently en-route from farm to hub
-            const activeOrder = inTransitOrders.find(
-              (o) =>
-                (o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED') &&
-                Boolean(o.dispatchVehicleNumber && o.dispatchVehicleNumber !== '-') &&
-                Boolean(o.vehiclePhotoUrl) &&
-                Boolean(o.dispatchDate)
-            );
+            // Strictly display when vehicle transit has started, is en-route, or has arrived at destination hub
+            const activeOrder =
+              inTransitOrders.find(
+                (o) =>
+                  (o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED') &&
+                  Boolean(o.dispatchVehicleNumber && o.dispatchVehicleNumber !== '-') &&
+                  Boolean(o.vehiclePhotoUrl) &&
+                  Boolean(o.dispatchDate)
+              ) ||
+              deliveredHubOrders.find(
+                (o) =>
+                  o.dispatchStatus === 'DELIVERED_AT_HUB' &&
+                  Boolean(o.dispatchVehicleNumber && o.dispatchVehicleNumber !== '-')
+              );
 
             if (!activeOrder) return null;
 
+            const isDeliveredAtHub = activeOrder.dispatchStatus === 'DELIVERED_AT_HUB';
             const activeOrigin = activeOrder?.orderPersonPlace || 'Kashmir Apple Farm';
             const activeDest = activeOrder?.deliveryAddress?.includes('➔')
               ? activeOrder.deliveryAddress.split('➔')[1].replace('Regional Hub Receiving Desk', '').trim()
@@ -1746,9 +1793,22 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-emerald-500/20">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 text-[10px] font-black tracking-wider uppercase animate-pulse">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-ping" />
-                        ● LIVE EN-ROUTE
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[10px] font-black tracking-wider uppercase ${
+                        isDeliveredAtHub
+                          ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                          : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300 animate-pulse'
+                      }`}>
+                        {isDeliveredAtHub ? (
+                          <>
+                            <CheckCircle2 size={11} className="text-emerald-400" />
+                            ● VEHICLE REACHED HUB · READY FOR SELL
+                          </>
+                        ) : (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-ping" />
+                            ● LIVE EN-ROUTE
+                          </>
+                        )}
                       </span>
                       <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400/90">
                         SAFAL REFRIGERATED HIGHWAY LOGISTICS
@@ -1764,7 +1824,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   <div className="flex items-center gap-2 flex-wrap text-xs font-mono">
                     <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-emerald-500/40 text-emerald-300 font-bold flex items-center gap-1.5 shadow-2xs">
                       <Activity size={13} className="text-emerald-400" />
-                      <span>Speed: <strong>62 KM/H</strong></span>
+                      <span>Speed: <strong>{isDeliveredAtHub ? '0 KM/H (Parked at Dock)' : '62 KM/H'}</strong></span>
                     </div>
                     <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-teal-500/40 text-teal-300 font-bold flex items-center gap-1.5 shadow-2xs">
                       <Sparkles size={13} className="text-teal-400" />
@@ -1772,7 +1832,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     </div>
                     <div className="px-3 py-1.5 rounded-xl bg-black/50 border border-amber-500/40 text-amber-300 font-bold flex items-center gap-1.5 shadow-2xs">
                       <Navigation size={13} className="text-amber-400" />
-                      <span>NH44 Cold Corridor</span>
+                      <span>{isDeliveredAtHub ? 'Arrived at Regional Hub' : 'NH44 Cold Corridor'}</span>
                     </div>
                   </div>
                 </div>
@@ -1920,11 +1980,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     <span className="flex items-center gap-1 text-emerald-400 font-bold">
                       <CheckCircle2 size={12} /> 1. Farm Loading Confirmed
                     </span>
-                    <span className="flex items-center gap-1 text-amber-300 font-black animate-pulse">
-                      <Activity size={12} /> 2. Cold Reefer Transit Active (68% Complete)
+                    <span className={`flex items-center gap-1 ${isDeliveredAtHub ? 'text-emerald-400 font-bold' : 'text-amber-300 font-black animate-pulse'}`}>
+                      {isDeliveredAtHub ? <CheckCircle2 size={12} /> : <Activity size={12} />} 2. Cold Reefer Transit {isDeliveredAtHub ? 'Completed' : 'Active (68% Complete)'}
                     </span>
-                    <span className="flex items-center gap-1 text-gray-300 font-bold">
-                      <Scale size={12} /> 3. Regional Hub Mandi Weighment Pending
+                    <span className={`flex items-center gap-1 ${isDeliveredAtHub ? 'text-emerald-300 font-black' : 'text-gray-300 font-bold'}`}>
+                      {isDeliveredAtHub ? (
+                        <>
+                          <CheckCircle2 size={12} className="text-emerald-400" /> 3. Vehicle Reached Hub · Ready for Sell ✓
+                        </>
+                      ) : (
+                        <>
+                          <Scale size={12} /> 3. Regional Hub Mandi Weighment Pending
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -2680,8 +2748,8 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               <CheckCircle2 size={12} className="text-emerald-700" /> Cleared ✓
                             </span>
                           ) : po.dispatchStatus === 'DELIVERED_AT_HUB' ? (
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
-                              <Clock size={12} className="text-amber-700" /> Awaiting Safal Clearance{remainingDue > 0 ? ` (₹${remainingDue.toLocaleString('en-IN')} Due)` : ''}
+                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-950 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                              <MapPin size={12} className="text-emerald-700" /> Vehicle Reached Hub · Ready for Sell
                             </span>
                           ) : isInTransit ? (
                             <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
@@ -3114,12 +3182,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               >
                                 <Clock size={12} className="text-amber-700" /> Awaiting Safal Clearance (₹{remainingDue.toLocaleString('en-IN')} Due)
                               </span>
-                            ) : po.dispatchStatus === 'DELIVERED_AT_HUB' || po.dispatchVehicleNumber || po.vehiclePhotoUrl ? (
+                            ) : po.dispatchStatus === 'DELIVERED_AT_HUB' ? (
                               <span
-                                className="px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 inline-flex items-center gap-1"
-                                title="Consignment dispatched and submitted. Awaiting Safal Mandi sales realization & clearance."
+                                className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-950 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs"
+                                title="Safal Admin has verified vehicle arrival at destination hub. Consignment is inspected and ready for Mandi sale / auction."
                               >
-                                <Clock size={12} className="text-amber-700" /> Awaiting Safal Clearance
+                                <MapPin size={11} className="text-emerald-700" /> Vehicle Reached Location · Ready for Sell
+                              </span>
+                            ) : po.dispatchVehicleNumber || po.vehiclePhotoUrl ? (
+                              <span
+                                className="px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1"
+                                title="Consignment dispatched and in transit to hub."
+                              >
+                                <Truck size={12} className="text-blue-700" /> Dispatched &amp; In Transit
                               </span>
                             ) : po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
                               <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300 inline-flex items-center gap-1">
