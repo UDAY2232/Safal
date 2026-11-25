@@ -26,10 +26,8 @@ export type VendorWhitelistedFruit = typeof VENDOR_WHITELISTED_FRUITS[number];
 export const VENDOR_ADVANCE_PERCENTAGE = 70;
 
 export function isValidVendorLocation(location: string): boolean {
-  if (!location) return false;
-  return VENDOR_WHITELISTED_LOCATIONS.some(
-    (loc) => loc.toLowerCase() === location.trim().toLowerCase()
-  );
+  if (!location || typeof location !== 'string' || !location.trim()) return false;
+  return true;
 }
 
 export function isValidVendorFruit(fruit: string): boolean {

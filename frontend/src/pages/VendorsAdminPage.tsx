@@ -171,6 +171,26 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // Form state for editing vendor by Admin
+  const [editingVendor, setEditingVendor] = useState<any | null>(null);
+  const [editBusinessName, setEditBusinessName] = useState('');
+  const [editContactPerson, setEditContactPerson] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPrimaryLocation, setEditPrimaryLocation] = useState('');
+  const [editAadharNumber, setEditAadharNumber] = useState('');
+  const [editPanNumber, setEditPanNumber] = useState('');
+  const [editBankAccountNumber, setEditBankAccountNumber] = useState('');
+  const [editBankIfscCode, setEditBankIfscCode] = useState('');
+  const [editBankAccountHolder, setEditBankAccountHolder] = useState('');
+  const [editBankName, setEditBankName] = useState('');
+  const [editBankBranch, setEditBankBranch] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [editIsKycLocked, setEditIsKycLocked] = useState(false);
+  const [editStatus, setEditStatus] = useState('ACTIVE');
+  const [isEditingSubmitting, setIsEditingSubmitting] = useState(false);
+  const [editFormError, setEditFormError] = useState('');
+
   const loadVendorsAndOperations = async () => {
     try {
       setLoading(true);
@@ -551,6 +571,65 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       loadVendorsAndOperations();
     } catch (err: any) {
       onNotify(err.message || 'Failed to toggle KYC lock');
+    }
+  };
+
+  const handleOpenEditVendor = (vendor: any) => {
+    setEditingVendor(vendor);
+    setEditBusinessName(vendor.businessName || '');
+    setEditContactPerson(vendor.contactPerson || '');
+    setEditPhone(vendor.phone || '');
+    setEditEmail(vendor.email || '');
+    setEditPrimaryLocation(vendor.primaryLocation || '');
+    setEditAadharNumber(vendor.aadharNumber || '');
+    setEditPanNumber(vendor.panNumber || '');
+    setEditBankAccountNumber(vendor.bankAccountNumber || '');
+    setEditBankIfscCode(vendor.bankIfscCode || '');
+    setEditBankAccountHolder(vendor.bankAccountHolder || '');
+    setEditBankName(vendor.bankName || '');
+    setEditBankBranch(vendor.bankBranch || '');
+    setEditPassword('');
+    setEditIsKycLocked(Boolean(vendor.isKycLocked));
+    setEditStatus(vendor.status || 'ACTIVE');
+    setEditFormError('');
+  };
+
+  const handleSaveVendorEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVendor) return;
+    try {
+      setIsEditingSubmitting(true);
+      setEditFormError('');
+
+      const payload: any = {
+        businessName: editBusinessName.trim(),
+        contactPerson: editContactPerson.trim(),
+        phone: editPhone.trim(),
+        email: editEmail ? editEmail.trim() : null,
+        primaryLocation: editPrimaryLocation.trim(),
+        aadharNumber: editAadharNumber.trim(),
+        panNumber: editPanNumber.trim().toUpperCase(),
+        bankAccountNumber: editBankAccountNumber.trim(),
+        bankIfscCode: editBankIfscCode.trim().toUpperCase(),
+        bankAccountHolder: editBankAccountHolder.trim(),
+        bankName: editBankName ? editBankName.trim() : null,
+        bankBranch: editBankBranch ? editBankBranch.trim() : null,
+        isKycLocked: editIsKycLocked,
+        status: editStatus,
+      };
+
+      if (editPassword && editPassword.trim()) {
+        payload.password = editPassword.trim();
+      }
+
+      const res = await api.updateVendorByAdmin(editingVendor.id, payload);
+      onNotify(res.message || `Vendor ${editingVendor.vendorId} updated successfully!`);
+      setEditingVendor(null);
+      await loadVendorsAndOperations();
+    } catch (err: any) {
+      setEditFormError(err.message || 'Failed to update vendor');
+    } finally {
+      setIsEditingSubmitting(false);
     }
   };
 
@@ -2580,18 +2659,31 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                         </td>
                         {isAdmin && (
                           <td className="text-center py-3.5 px-4 whitespace-nowrap">
-                            <button
-                              onClick={() => handleToggleLock(vendor)}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer border inline-flex items-center gap-1 ${
-                                vendor.isKycLocked
-                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
-                                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
-                              }`}
-                              title={vendor.isKycLocked ? 'Unlock for editing' : 'Lock KYC'}
-                            >
-                              {vendor.isKycLocked ? <Unlock size={11} /> : <Lock size={11} />}
-                              {vendor.isKycLocked ? 'Unlock KYC' : 'Lock KYC'}
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditVendor(vendor)}
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer border bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300 inline-flex items-center gap-1 shadow-2xs active:scale-95"
+                                title={`Edit ${vendor.vendorId} details, bank coordinates, and location`}
+                              >
+                                <Edit3 size={11} className="text-blue-700" />
+                                <span>Edit</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleToggleLock(vendor)}
+                                className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer border inline-flex items-center gap-1 active:scale-95 ${
+                                  vendor.isKycLocked
+                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300'
+                                }`}
+                                title={vendor.isKycLocked ? 'Unlock for editing' : 'Lock KYC'}
+                              >
+                                {vendor.isKycLocked ? <Unlock size={11} /> : <Lock size={11} />}
+                                {vendor.isKycLocked ? 'Unlock KYC' : 'Lock KYC'}
+                              </button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -2838,6 +2930,285 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 >
                   <CheckCircle2 size={15} />
                   {isSubmitting ? 'Registering & Freezing KYC...' : 'Confirm & Freeze Vendor KYC'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2.5: Edit Vendor Details (Admin Full Override) */}
+      {editingVendor && (
+        <div className="modal-backdrop">
+          <div className="modal !w-[760px] max-w-[96vw] max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden">
+            <div className="modal-header pb-3 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-800 grid place-items-center">
+                  <Edit3 size={20} />
+                </div>
+                <div>
+                  <span className="eyebrow text-blue-800 font-bold">ADMIN VENDOR DIRECTORY</span>
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Edit Vendor Details · {editingVendor.vendorId}
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingVendor(null)}
+                className="text-gray-400 hover:text-gray-700 cursor-pointer p-1 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveVendorEdit} className="overflow-y-auto flex-1 py-4 pr-1 space-y-4 text-xs">
+              {editFormError && (
+                <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl flex items-center gap-2">
+                  <AlertCircle size={15} className="flex-shrink-0" />
+                  <span>{editFormError}</span>
+                </div>
+              )}
+
+              {/* Vendor Identification Pill */}
+              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div>
+                  <span className="text-[10px] text-blue-700 font-bold block uppercase tracking-wider">Vendor System ID</span>
+                  <strong className="text-blue-950 font-mono text-sm">{editingVendor.vendorId}</strong>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] text-blue-700 font-bold block uppercase tracking-wider">Linked Account User</span>
+                  <span className="text-blue-900 font-semibold">{editingVendor.phone}</span>
+                </div>
+              </div>
+
+              {/* Business Name & Contact Person */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Business / Trade Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editBusinessName}
+                    onChange={(e) => setEditBusinessName(e.target.value)}
+                    placeholder="e.g. Ramesh Agro Farms & Cold Storage"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 outline-none focus:border-[#087A3E]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Authorized Contact Person *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editContactPerson}
+                    onChange={(e) => setEditContactPerson(e.target.value)}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 outline-none focus:border-[#087A3E]"
+                  />
+                </div>
+              </div>
+
+              {/* Phone & Email */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Mobile Phone Number (Login User ID) *</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editPhone}
+                    onChange={(e) => setEditPhone(e.target.value)}
+                    placeholder="e.g. 9848012345"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 font-mono outline-none focus:border-[#087A3E]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 font-bold mb-1">Email Address (Optional)</label>
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    placeholder="e.g. vendor@safalexports.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 outline-none focus:border-[#087A3E]"
+                  />
+                </div>
+              </div>
+
+              {/* Vendor Location (Manual Text Entry) */}
+              <div>
+                <label className="block text-gray-700 font-bold mb-1">
+                  Vendor Location *
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={editPrimaryLocation}
+                    onChange={(e) => setEditPrimaryLocation(e.target.value)}
+                    placeholder="Enter vendor location (e.g. Kashmir, Shimla, Varanasi)"
+                    list="vendor-edit-locations-list"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 font-bold bg-white outline-none focus:border-[#087A3E]"
+                  />
+                  <datalist id="vendor-edit-locations-list">
+                    {VENDOR_WHITELISTED_LOCATIONS.map((loc) => (
+                      <option key={loc} value={loc} />
+                    ))}
+                  </datalist>
+                </div>
+                <span className="text-[10px] text-gray-500 mt-1 block">
+                  Origin farm, orchard, or regional procurement location.
+                </span>
+              </div>
+
+              {/* Statutory Identity Records */}
+              <div className="p-3.5 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+                <span className="eyebrow text-gray-700 font-bold block">STATUTORY IDENTITY RECORDS</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">12-Digit Aadhaar Number *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={12}
+                      value={editAadharNumber}
+                      onChange={(e) => setEditAadharNumber(e.target.value.replace(/\D/g, ''))}
+                      placeholder="12 digit Aadhaar"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-mono text-gray-900 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">10-Character PAN Number *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={10}
+                      value={editPanNumber}
+                      onChange={(e) => setEditPanNumber(e.target.value.toUpperCase())}
+                      placeholder="e.g. ABCDE1234F"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-mono uppercase text-gray-900 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Official Disbursement Bank Coordinates */}
+              <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-3">
+                <span className="eyebrow text-emerald-900 font-bold block">OFFICIAL DISBURSEMENT BANK DETAILS</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Bank Account Number *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editBankAccountNumber}
+                      onChange={(e) => setEditBankAccountNumber(e.target.value.trim())}
+                      placeholder="Full account number"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-mono text-gray-900 outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Bank IFSC Code *</label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={11}
+                      value={editBankIfscCode}
+                      onChange={(e) => setEditBankIfscCode(e.target.value.toUpperCase().trim())}
+                      placeholder="e.g. SBIN0001234"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-mono uppercase text-gray-900 outline-none bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Beneficiary Account Holder Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={editBankAccountHolder}
+                      onChange={(e) => setEditBankAccountHolder(e.target.value)}
+                      placeholder="Exact name as in bank records"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Bank &amp; Branch Name (Optional)</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={editBankName}
+                        onChange={(e) => setEditBankName(e.target.value)}
+                        placeholder="e.g. SBI, HDFC"
+                        className="w-full px-2.5 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 outline-none bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={editBankBranch}
+                        onChange={(e) => setEditBankBranch(e.target.value)}
+                        placeholder="e.g. Pulwama"
+                        className="w-full px-2.5 py-2 border border-gray-300 rounded-xl text-xs text-gray-900 outline-none bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security & KYC Controls */}
+              <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-3">
+                <span className="eyebrow text-amber-900 font-bold block">SECURITY &amp; KYC CONTROLS</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Reset Login Password</label>
+                    <input
+                      type="text"
+                      value={editPassword}
+                      onChange={(e) => setEditPassword(e.target.value)}
+                      placeholder="Leave blank to keep current"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-mono text-gray-900 outline-none bg-white"
+                    />
+                    <span className="text-[10px] text-gray-500 mt-0.5 block">Only enter if resetting password</span>
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">KYC Lock Status</label>
+                    <select
+                      value={editIsKycLocked ? 'locked' : 'editable'}
+                      onChange={(e) => setEditIsKycLocked(e.target.value === 'locked')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 outline-none bg-white"
+                    >
+                      <option value="locked">🔒 Frozen &amp; Locked</option>
+                      <option value="editable">🔓 Editable by Vendor</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-1">Account Status</label>
+                    <select
+                      value={editStatus}
+                      onChange={(e) => setEditStatus(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 outline-none bg-white"
+                    >
+                      <option value="ACTIVE">Active Partner</option>
+                      <option value="SUSPENDED">Suspended</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setEditingVendor(null)}
+                  className="secondary-button cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isEditingSubmitting}
+                  className="px-5 py-2.5 rounded-xl bg-[#064D2B] hover:bg-[#087A3E] text-white font-extrabold text-xs shadow-md transition inline-flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+                >
+                  <CheckCircle2 size={15} />
+                  {isEditingSubmitting ? 'Saving Changes...' : 'Save Vendor Changes ✓'}
                 </button>
               </div>
             </form>

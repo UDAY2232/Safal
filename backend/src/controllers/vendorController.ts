@@ -753,12 +753,10 @@ export async function createVendor(req: AuthRequest, res: Response) {
       });
     }
 
-    // Validate location against 8 whitelisted hubs
+    // Validate location
     if (!isValidVendorLocation(primaryLocation)) {
       return res.status(400).json({
-        error: `Invalid location "${primaryLocation}". Vendors can only be registered in one of the 8 allowed locations: ${VENDOR_WHITELISTED_LOCATIONS.join(
-          ', '
-        )}`,
+        error: `Invalid location "${primaryLocation}". Please enter a valid vendor origin location.`,
       });
     }
 
@@ -941,37 +939,112 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
       bankAccountHolder,
       bankName,
       bankBranch,
+      password,
       status,
       isKycLocked,
     } = req.body;
 
     if (primaryLocation && !isValidVendorLocation(primaryLocation)) {
       return res.status(400).json({
-        error: `Invalid location "${primaryLocation}". Must be one of the 8 allowed locations: ${VENDOR_WHITELISTED_LOCATIONS.join(
-          ', '
-        )}`,
+        error: `Invalid location "${primaryLocation}". Please enter a valid vendor origin location.`,
       });
+    }
+
+    const existingProfile = await prisma.vendorProfile.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!existingProfile) {
+      return res.status(404).json({ error: 'Vendor profile not found' });
+    }
+
+    // Check duplicate phone if modified
+    if (phone && phone.trim() !== existingProfile.phone) {
+      const duplicatePhone = await prisma.vendorProfile.findFirst({
+        where: {
+          phone: phone.trim(),
+          id: { not: id },
+        },
+      });
+      if (duplicatePhone) {
+        return res.status(400).json({
+          error: `Phone number ${phone} is already registered to vendor ${duplicatePhone.vendorId}`,
+        });
+      }
     }
 
     const updated = await prisma.vendorProfile.update({
       where: { id },
       data: {
-        businessName: businessName?.trim(),
-        contactPerson: contactPerson?.trim(),
-        phone: phone?.trim(),
-        email: email?.trim(),
-        primaryLocation: primaryLocation?.trim(),
-        aadharNumber: aadharNumber?.trim(),
-        panNumber: panNumber ? panNumber.trim().toUpperCase() : undefined,
-        bankAccountNumber: bankAccountNumber?.trim(),
-        bankIfscCode: bankIfscCode ? bankIfscCode.trim().toUpperCase() : undefined,
-        bankAccountHolder: bankAccountHolder?.trim(),
-        bankName: bankName?.trim(),
-        bankBranch: bankBranch?.trim(),
-        status: status || undefined,
-        isKycLocked: typeof isKycLocked === 'boolean' ? isKycLocked : undefined,
+        businessName: businessName?.trim() || existingProfile.businessName,
+        contactPerson: contactPerson?.trim() || existingProfile.contactPerson,
+        phone: phone?.trim() || existingProfile.phone,
+        email: email !== undefined ? (email ? email.trim() : null) : existingProfile.email,
+        primaryLocation: primaryLocation?.trim() || existingProfile.primaryLocation,
+        aadharNumber: aadharNumber?.trim() || existingProfile.aadharNumber,
+        panNumber: panNumber ? panNumber.trim().toUpperCase() : existingProfile.panNumber,
+        bankAccountNumber: bankAccountNumber?.trim() || existingProfile.bankAccountNumber,
+        bankIfscCode: bankIfscCode ? bankIfscCode.trim().toUpperCase() : existingProfile.bankIfscCode,
+        bankAccountHolder: bankAccountHolder?.trim() || existingProfile.bankAccountHolder,
+        bankName: bankName?.trim() || existingProfile.bankName,
+        bankBranch: bankBranch?.trim() || existingProfile.bankBranch,
+        status: status || existingProfile.status,
+        isKycLocked: typeof isKycLocked === 'boolean' ? isKycLocked : existingProfile.isKycLocked,
+        kycLockedAt:
+          typeof isKycLocked === 'boolean'
+            ? isKycLocked
+              ? existingProfile.kycLockedAt || new Date()
+              : null
+            : undefined,
       },
     });
+
+    // Synchronize linked user credentials and contact details
+    if (existingProfile.userId) {
+      const userUpdates: any = {};
+      if (contactPerson || businessName) {
+        userUpdates.name = contactPerson?.trim() || businessName?.trim();
+      }
+      if (phone) {
+        userUpdates.phone = phone.trim();
+      }
+      if (email !== undefined) {
+        userUpdates.email = email
+          ? email.trim().toLowerCase()
+          : `${(phone || existingProfile.phone).trim()}@vendor.safalexports.com`;
+      }
+      if (password && password.trim()) {
+        userUpdates.passwordHash = await bcrypt.hash(password.trim(), 10);
+      }
+      if (Object.keys(userUpdates).length > 0) {
+        await prisma.user
+          .update({
+            where: { id: existingProfile.userId },
+            data: userUpdates,
+          })
+          .catch((err) => console.warn('User sync error on vendor admin update:', err));
+      }
+    }
+
+    // Synchronize linked supplier record if exists
+    if (businessName || contactPerson || phone) {
+      await prisma.supplier
+        .updateMany({
+          where: {
+            OR: [
+              { supplierCode: existingProfile.vendorId },
+              { name: existingProfile.businessName },
+            ],
+          },
+          data: {
+            name: businessName?.trim() || existingProfile.businessName,
+            contactPerson: contactPerson?.trim() || existingProfile.contactPerson,
+            phone: phone?.trim() || existingProfile.phone,
+          },
+        })
+        .catch((err) => console.warn('Supplier sync error on vendor admin update:', err));
+    }
 
     await createAuditLog({
       userId: req.user.id,
@@ -980,7 +1053,7 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
       action: 'ADMIN_UPDATE_VENDOR',
       entityType: 'VENDOR',
       entityId: id,
-      details: `Admin ${req.user.name} updated vendor ${updated.vendorId} details`,
+      details: `Admin ${req.user.name} updated vendor ${updated.vendorId} (${updated.businessName}) details`,
       ipAddress: req.ip,
     });
 
