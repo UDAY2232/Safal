@@ -4382,93 +4382,74 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </span>
                     </div>
 
-                    {/* Mandi 3-Column Responsive Matrix */}
+                    {/* Mandi 2-Column Responsive Matrix */}
                     <div className="rounded-xl border border-emerald-200 bg-white shadow-2xs overflow-hidden w-full divide-y divide-gray-100">
-                      <div className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center px-2.5 sm:px-3 py-2.5">
-                        <div className="w-[42%] text-left">LAYER GRADE</div>
-                        <div className="w-[30%] text-center">NO. OF BOXES</div>
-                        <div className="w-[28%] text-right">RATE (₹)</div>
+                      <div className="bg-[#064D2B] text-white font-black text-[10px] sm:text-xs uppercase tracking-wider flex items-center justify-between px-3 sm:px-4 py-2.5">
+                        <div className="text-left">LAYER GRADE</div>
+                        <div className="text-right">NO. OF BOXES</div>
                       </div>
 
                       {/* 4L Row */}
-                      <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
-                        <div className="w-[42%] pr-1">
+                      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 hover:bg-gray-50/70 transition">
+                        <div>
                           <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">4L (Large)</div>
                           <span className="text-[10px] text-gray-500 font-medium block">Premium 4-Layer</span>
                         </div>
-                        <div className="w-[30%] flex justify-center">
+                        <div>
                           <input
                             type="number"
                             min="0"
                             value={layer4LBoxes}
                             onChange={(e) => setLayer4LBoxes(e.target.value)}
                             placeholder="0"
-                            className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                            className="w-24 sm:w-28 h-8 px-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none shadow-2xs"
                           />
-                        </div>
-                        <div className="w-[28%] text-right">
-                          <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                            ₹{Number(layer4LRate || adminFruitRates?.apples?.layer4L || 1300).toLocaleString('en-IN')}
-                          </span>
                         </div>
                       </div>
 
                       {/* 5L Row */}
-                      <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
-                        <div className="w-[42%] pr-1">
+                      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 hover:bg-gray-50/70 transition">
+                        <div>
                           <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">5L (Medium)</div>
                           <span className="text-[10px] text-gray-500 font-medium block">Standard 5-Layer</span>
                         </div>
-                        <div className="w-[30%] flex justify-center">
+                        <div>
                           <input
                             type="number"
                             min="0"
                             value={layer5LBoxes}
                             onChange={(e) => setLayer5LBoxes(e.target.value)}
                             placeholder="0"
-                            className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                            className="w-24 sm:w-28 h-8 px-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none shadow-2xs"
                           />
-                        </div>
-                        <div className="w-[28%] text-right">
-                          <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                            ₹{Number(layer5LRate || adminFruitRates?.apples?.layer5L || 1400).toLocaleString('en-IN')}
-                          </span>
                         </div>
                       </div>
 
                       {/* Roll Row */}
-                      <div className="flex items-center px-2.5 sm:px-3 py-2.5 hover:bg-gray-50/70 transition">
-                        <div className="w-[42%] pr-1">
+                      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 hover:bg-gray-50/70 transition">
+                        <div>
                           <div className="font-extrabold text-gray-900 leading-tight text-xs sm:text-sm">Roll (Running)</div>
                           <span className="text-[10px] text-gray-500 font-medium block">Mandi Bulk Pack</span>
                         </div>
-                        <div className="w-[30%] flex justify-center">
+                        <div>
                           <input
                             type="number"
                             min="0"
                             value={rollBoxes}
                             onChange={(e) => setRollBoxes(e.target.value)}
                             placeholder="0"
-                            className="w-16 sm:w-20 h-8 px-1 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-center focus:border-emerald-600 focus:outline-none shadow-2xs"
+                            className="w-24 sm:w-28 h-8 px-2 border border-gray-300 rounded-lg text-xs sm:text-sm font-bold text-gray-900 bg-white text-right focus:border-emerald-600 focus:outline-none shadow-2xs"
                           />
-                        </div>
-                        <div className="w-[28%] text-right">
-                          <span className="inline-flex items-center justify-end px-1.5 sm:px-2 py-0.5 bg-gray-100 rounded text-gray-900 font-mono font-bold text-xs whitespace-nowrap">
-                            ₹{Number(rollRate || adminFruitRates?.apples?.roll || 600).toLocaleString('en-IN')}
-                          </span>
                         </div>
                       </div>
 
                       {/* Total Row */}
-                      <div className="flex items-center px-2.5 sm:px-3 py-2.5 bg-emerald-50/90 font-black border-t-2 border-emerald-300 text-xs">
-                        <div className="w-[42%] uppercase text-[10px] sm:text-xs text-gray-900 font-black">
+                      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 bg-emerald-50/90 font-black border-t-2 border-emerald-300 text-xs">
+                        <div className="uppercase text-[10px] sm:text-xs text-gray-900 font-black">
                           TOTAL CONSIGNMENT
                         </div>
-                        <div className="w-[30%] text-center text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
+                        <div className="text-right text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
                           {totalAppleBoxes.toLocaleString('en-IN')} Boxes
-                        </div>
-                        <div className="w-[28%] text-right text-[10px] sm:text-xs text-gray-600 font-bold whitespace-nowrap">
-                          Mandi Rate
                         </div>
                       </div>
                     </div>
@@ -4506,30 +4487,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 items-end">
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          No. of Boxes *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={pomegranateBoxes}
-                          onChange={(e) => setPomegranateBoxes(e.target.value)}
-                          placeholder="e.g. 300"
-                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-rose-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Rate (₹ / Box)
-                        </label>
-                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
-                          <strong className="font-mono text-sm text-gray-900">₹{Number(pomegranateRate || 950).toLocaleString('en-IN')}</strong>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        No. of Boxes *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={pomegranateBoxes}
+                        onChange={(e) => setPomegranateBoxes(e.target.value)}
+                        placeholder="e.g. 300"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-rose-500 focus:outline-none"
+                        required
+                      />
                     </div>
 
                     <div className="p-3 bg-rose-50/50 rounded-xl border border-rose-200 flex items-center justify-between">
@@ -4552,31 +4522,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 items-end">
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Total Weight ({watermelonUnit}) *
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          min="0.1"
-                          value={watermelonWeight}
-                          onChange={(e) => setWatermelonWeight(e.target.value)}
-                          placeholder="Weight"
-                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Rate (₹ / {watermelonUnit})
-                        </label>
-                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
-                          <strong className="font-mono text-sm text-gray-900">₹{Number(watermelonRate || (watermelonUnit === 'TON' ? 14000 : 14)).toLocaleString('en-IN')}</strong>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Total Weight ({watermelonUnit}) *
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0.1"
+                        value={watermelonWeight}
+                        onChange={(e) => setWatermelonWeight(e.target.value)}
+                        placeholder="Weight"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
+                        required
+                      />
                     </div>
 
                     <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200 flex items-center justify-between">
@@ -4599,31 +4558,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 items-end">
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Total Weight ({muskmelonUnit}) *
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          min="0.1"
-                          value={muskmelonWeight}
-                          onChange={(e) => setMuskmelonWeight(e.target.value)}
-                          placeholder="Weight"
-                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-amber-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Rate (₹ / {muskmelonUnit})
-                        </label>
-                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
-                          <strong className="font-mono text-sm text-gray-900">₹{Number(muskmelonRate || adminFruitRates?.muskmelon || 18000).toLocaleString('en-IN')}</strong>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Total Weight ({muskmelonUnit}) *
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        min="0.1"
+                        value={muskmelonWeight}
+                        onChange={(e) => setMuskmelonWeight(e.target.value)}
+                        placeholder="Weight"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-amber-500 focus:outline-none"
+                        required
+                      />
                     </div>
 
                     <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200 flex items-center justify-between">
@@ -4646,30 +4594,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 items-end">
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          No. of Boxes *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={bananaBoxes}
-                          onChange={(e) => setBananaBoxes(e.target.value)}
-                          placeholder="e.g. 400"
-                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-yellow-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Rate (₹ / Box)
-                        </label>
-                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
-                          <strong className="font-mono text-sm text-gray-900">₹{Number(bananaRate || adminFruitRates?.banana || 550).toLocaleString('en-IN')}</strong>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        No. of Boxes *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={bananaBoxes}
+                        onChange={(e) => setBananaBoxes(e.target.value)}
+                        placeholder="e.g. 400"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-yellow-500 focus:outline-none"
+                        required
+                      />
                     </div>
 
                     <div className="p-3 bg-yellow-50/50 rounded-xl border border-yellow-200 flex items-center justify-between">
@@ -4692,7 +4629,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 items-end">
+                    <div className="grid grid-cols-2 gap-3 items-end">
                       <div>
                         <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
                           Count *
@@ -4723,14 +4660,6 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           required
                         />
                       </div>
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Rate (₹ / Box)
-                        </label>
-                        <div className="w-full h-10 px-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                          <strong className="font-mono text-sm text-gray-900">₹{Number(orangeRate || adminFruitRates?.orange || 780).toLocaleString('en-IN')}</strong>
-                        </div>
-                      </div>
                     </div>
 
                     <div className="p-3 bg-orange-50/50 rounded-xl border border-orange-200 flex items-center justify-between">
@@ -4753,30 +4682,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 items-end">
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          No. of Boxes *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={plumBoxes}
-                          onChange={(e) => setPlumBoxes(e.target.value)}
-                          placeholder="e.g. 200"
-                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-purple-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Rate (₹ / Box)
-                        </label>
-                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
-                          <strong className="font-mono text-sm text-gray-900">₹{Number(plumRate || adminFruitRates?.plum || 850).toLocaleString('en-IN')}</strong>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        No. of Boxes *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={plumBoxes}
+                        onChange={(e) => setPlumBoxes(e.target.value)}
+                        placeholder="e.g. 200"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-purple-500 focus:outline-none"
+                        required
+                      />
                     </div>
 
                     <div className="p-3 bg-purple-50/50 rounded-xl border border-purple-200 flex items-center justify-between">
@@ -4799,30 +4717,19 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 items-end">
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Total Boxes / Crates *
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={otherQuantity}
-                          onChange={(e) => setOtherQuantity(e.target.value)}
-                          placeholder="e.g. 400"
-                          className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
-                          Rate (₹ / {otherUnit})
-                        </label>
-                        <div className="w-full h-10 px-3 border border-gray-200 rounded-xl text-xs font-bold text-gray-900 bg-gray-50 flex items-center justify-between">
-                          <span className="text-gray-500 font-medium text-[11px]">Wholesale</span>
-                          <strong className="font-mono text-sm text-gray-900">₹{Number(otherRate || 950).toLocaleString('en-IN')}</strong>
-                        </div>
-                      </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold text-gray-800 mb-1">
+                        Total Boxes / Crates *
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={otherQuantity}
+                        onChange={(e) => setOtherQuantity(e.target.value)}
+                        placeholder="e.g. 400"
+                        className="w-full h-10 px-3 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 bg-white text-right focus:border-emerald-500 focus:outline-none"
+                        required
+                      />
                     </div>
 
                     <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-200 flex items-center justify-between">

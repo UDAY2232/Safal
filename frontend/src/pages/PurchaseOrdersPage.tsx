@@ -58,6 +58,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const isEmployee = user?.role === 'EMPLOYEE';
   const isAdmin = user?.role === 'ADMIN';
   const isAccountant = user?.role === 'ACCOUNTANT';
+  const isVendor = user?.role === 'VENDOR';
   const isCD = mode === 'CD' || isEmployee;
 
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
@@ -262,7 +263,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           <div className="h-1 w-64 bg-[#087A3E] rounded-full mt-2 ml-1" />
         </div>
 
-        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2.5">
+        <div className={`grid ${isVendor ? 'grid-cols-1' : 'grid-cols-2'} gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2.5`}>
           {/* Direct Settle Due POs / CDs Button */}
           <button
             onClick={() => {
@@ -286,13 +287,15 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             )}
           </button>
 
-          {/* Create CD / PO Button */}
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-5 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition"
-          >
-            <Plus size={16} /> <span className="truncate">{isCD ? 'Create CD' : 'Create PO'}</span>
-          </button>
+          {/* Create CD / PO Button (Hidden for Vendors - Vendors only create Supply PO from their dashboard) */}
+          {!isVendor && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3 sm:px-5 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white text-xs sm:text-sm font-bold rounded-xl shadow-md transition"
+            >
+              <Plus size={16} /> <span className="truncate">{isCD ? 'Create CD' : 'Create PO'}</span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -46,6 +46,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   onOpenDuePayment,
 }) => {
   const { user } = useAuth();
+  const isVendor = user?.role === 'VENDOR';
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showFinancials, setShowFinancials] = useState(false);
@@ -840,8 +841,8 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                     <th className="p-2.5 whitespace-nowrap">Fruit / Item</th>
                     <th className="p-2.5 whitespace-nowrap">Category &amp; Grade</th>
                     <th className="p-2.5 text-right whitespace-nowrap">Quantity</th>
-                    <th className="p-2.5 text-right whitespace-nowrap">Rate</th>
-                    <th className="p-2.5 text-right whitespace-nowrap">Disc / Tax</th>
+                    {!isVendor && <th className="p-2.5 text-right whitespace-nowrap">Rate</th>}
+                    {!isVendor && <th className="p-2.5 text-right whitespace-nowrap">Disc / Tax</th>}
                     <th className="p-2.5 text-right whitespace-nowrap pr-4 min-w-[130px]">Line Total</th>
                   </tr>
                 </thead>
@@ -856,10 +857,14 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                         <td className="p-2.5 text-right whitespace-nowrap font-medium text-gray-700">
                           {item.quantity.toLocaleString('en-IN')} {item.unit}
                         </td>
-                        <td className="p-2.5 text-right whitespace-nowrap text-gray-700">₹{item.ratePerUnit.toLocaleString('en-IN')}</td>
-                        <td className="p-2.5 text-right text-gray-500 whitespace-nowrap">
-                          -{item.discountPercent}% / +{item.taxPercent}%
-                        </td>
+                        {!isVendor && (
+                          <td className="p-2.5 text-right whitespace-nowrap text-gray-700">₹{item.ratePerUnit.toLocaleString('en-IN')}</td>
+                        )}
+                        {!isVendor && (
+                          <td className="p-2.5 text-right text-gray-500 whitespace-nowrap">
+                            -{item.discountPercent}% / +{item.taxPercent}%
+                          </td>
+                        )}
                         <td className="p-2.5 text-right font-bold text-gray-900 whitespace-nowrap pr-4">
                           ₹{item.lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
@@ -867,7 +872,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="p-4 text-center text-gray-400">
+                      <td colSpan={isVendor ? 4 : 6} className="p-4 text-center text-gray-400">
                         Product details available in official record
                       </td>
                     </tr>
