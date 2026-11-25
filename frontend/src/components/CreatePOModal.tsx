@@ -144,7 +144,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       }
       const curTot = Number(totalAmount) || 0;
       if (curTot > 0) {
-        const adv = Math.round(curTot * 0.55);
+        const adv = Math.round(curTot * 0.70);
         setAdvanceAmount(String(adv));
         setPendingAmount(String(curTot - adv));
       }
@@ -197,7 +197,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       if (!manualTotalOverride && itemsSum > 0) {
         setTotalAmount(String(itemsSum));
         if (!isCD) {
-          const adv = Math.round(itemsSum * 0.55);
+          const adv = Math.round(itemsSum * 0.70);
           setAdvanceAmount(String(adv));
           setPendingAmount(String(itemsSum - adv));
         }
@@ -422,7 +422,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                     <ShieldCheck size={14} className="text-emerald-700" /> Select Registered Vendor Partner (KYC Verified)
                   </label>
                   <span className="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                    55% Auto-Advance Policy
+                    70% Auto-Advance Policy
                   </span>
                 </div>
                 <select
@@ -755,7 +755,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                     if (!isCD) {
                       const curTot = Number(val) || 0;
                       if (curTot > 0) {
-                        const adv = Math.round(curTot * 0.55);
+                        const adv = Math.round(curTot * 0.70);
                         setAdvanceAmount(String(adv));
                         setPendingAmount(String(curTot - adv));
                       } else {
@@ -775,11 +775,11 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 </span>
               </div>
 
-              {/* Payed Amount Upfront / 55% Auto Advance */}
+              {/* Payed Amount Upfront / 70% Auto Advance */}
               <div>
                 <label className="block text-gray-700 font-bold mb-1 flex items-center justify-between">
-                  <span>{isCD ? 'Payed Amount (₹)' : 'Advance Amount (₹) (55% Auto)'}</span>
-                  <span className="text-[10px] text-emerald-700 font-bold">{isCD ? 'Paid upfront' : '55% Auto-Advance'}</span>
+                  <span>{isCD ? 'Payed Amount (₹)' : 'Advance Amount (₹) (70% Auto)'}</span>
+                  <span className="text-[10px] text-emerald-700 font-bold">{isCD ? 'Paid upfront' : '70% Auto-Advance'}</span>
                 </label>
                 <input
                   type="number"
@@ -798,20 +798,20 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                 />
                 <span className="text-[10px] text-gray-500 mt-1 block">
                   {currentAdvance > 0
-                    ? `₹${currentAdvance.toLocaleString('en-IN')} ${!isCD ? '(55% Auto-calculated)' : 'collected today'}`
+                    ? `₹${currentAdvance.toLocaleString('en-IN')} ${!isCD ? '(70% Auto-calculated)' : 'collected today'}`
                     : '₹0 (No upfront payment)'}
                 </span>
                 {!isCD && currentTotal > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      const adv = Math.round(currentTotal * 0.55);
+                      const adv = Math.round(currentTotal * 0.70);
                       setAdvanceAmount(String(adv));
                       setPendingAmount(String(currentTotal - adv));
                     }}
                     className="mt-1.5 px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-[#064D2B] rounded-lg text-[10px] font-black transition cursor-pointer flex items-center gap-1"
                   >
-                    <Sparkles size={11} /> Apply 55% Vendor Advance (₹{Math.round(currentTotal * 0.55).toLocaleString('en-IN')})
+                    <Sparkles size={11} /> Apply 70% Vendor Advance (₹{Math.round(currentTotal * 0.70).toLocaleString('en-IN')})
                   </button>
                 )}
               </div>

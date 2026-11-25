@@ -97,6 +97,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const derivedFinancialStats = React.useMemo(() => {
     let grossContractValue = 0;
     let totalAdvanceDisbursed = 0;
+    let totalAdvancePending = 0;
     let totalSafalShare = 0;
     let totalApmcShare = 0;
     let totalNetPayable = 0;
@@ -105,15 +106,26 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     for (const po of orders) {
       const gross = Number(po.grandTotal || 0);
       const settle = (po as any).settlementDetails;
-      const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(gross * 0.55));
+      const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(gross * 0.70));
       const hasSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
       const due = hasSettlement ? Number(settle?.finalBalanceDue ?? 0) : 0;
       const safal = Number(settle?.adminShareAmount ?? Math.round(gross * 0.05));
       const apmc = Number(settle?.apmcShareAmount ?? Math.round(gross * 0.01));
       const net = hasSettlement ? Number(settle?.netVendorPayable ?? Math.max(0, gross - (safal + apmc))) : 0;
 
+      // STRICT RULE: Advance is ONLY considered DISBURSED/RECEIVED when Admin has uploaded official payment receipt slip!
+      const isAdvancePaid = Boolean(
+        settle?.advanceDisbursed ||
+        settle?.advanceProofUrl ||
+        po.paymentProofUrl
+      );
+
       grossContractValue += gross;
-      totalAdvanceDisbursed += adv;
+      if (isAdvancePaid) {
+        totalAdvanceDisbursed += adv;
+      } else {
+        totalAdvancePending += adv;
+      }
       totalSafalShare += (hasSettlement ? safal : 0);
       totalApmcShare += (hasSettlement ? apmc : 0);
       totalNetPayable += net;
@@ -123,6 +135,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     return {
       grossContractValue,
       totalAdvanceDisbursed,
+      totalAdvancePending,
       totalSafalShare,
       totalApmcShare,
       totalNetPayable,
@@ -374,7 +387,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     ? plumTotalAmount
     : otherTotalAmount;
 
-  const autoAdvanceAmount = Math.round(grandSupplyTotal * 0.55);
+  const autoAdvanceAmount = Math.round(grandSupplyTotal * 0.70);
   const pendingBalanceAmount = Math.max(0, grandSupplyTotal - autoAdvanceAmount);
 
   const qcNetKg = Math.max(0, (Number(qcGrossKg) || 0) - (Number(qcTareKg) || 0));
@@ -444,7 +457,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     }
     return orders.slice(0, 3).map((po, idx) => {
       const total = Number(po.grandTotal || po.totalAmount || po.totalOrderValue || 0);
-      const adv = Number(po.advancePaymentAmount || po.advancePaid || po.advanceAmount || Math.round(total * 0.55));
+      const adv = Number(po.advancePaymentAmount || po.advancePaid || po.advanceAmount || Math.round(total * 0.70));
       const due = Number(po.pendingPaymentAmount || po.balanceDue || po.pendingAmount || Math.max(0, total - adv));
       const shortCode = po.poNumber ? po.poNumber.split('/').pop() || `PO #${idx + 1}` : `PO #${idx + 1}`;
       return {
@@ -1665,9 +1678,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             <div className="min-w-0 flex-1">
               <span className="text-[11px] sm:text-xs font-bold text-emerald-950 block truncate">Advance Received</span>
               <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-emerald-800 font-['Manrope'] block mt-0.5 truncate">
-                ₹{Number(derivedFinancialStats.totalAdvanceDisbursed || stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}
+                ₹{Number(derivedFinancialStats.totalAdvanceDisbursed || 0).toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Disbursed to Bank · Tap for PO list</small>
+              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">
+                {derivedFinancialStats.totalAdvanceDisbursed > 0
+                  ? 'Disbursed to Bank · Tap for PO list'
+                  : derivedFinancialStats.totalAdvancePending > 0
+                  ? `₹${derivedFinancialStats.totalAdvancePending.toLocaleString('en-IN')} Pending Admin Slip`
+                  : 'Awaiting Bank Disbursement'}
+              </small>
             </div>
           </div>
 
@@ -1843,10 +1862,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               <div className="mt-2">
                 <span className="text-xs font-bold text-gray-600 block">Bank Advance Received</span>
                 <strong className="text-lg sm:text-xl font-black text-[#087A3E] font-['Manrope'] block mt-0.5">
-                  ₹{Number(stats.totalAdvanceReceived || 0).toLocaleString('en-IN')}
+                  ₹{Number(derivedFinancialStats.totalAdvanceDisbursed || 0).toLocaleString('en-IN')}
                 </strong>
-                <span className="text-[10px] text-emerald-800 font-bold block mt-1">
-                  Direct NEFT/RTGS Cleared
+                <span className="text-[10px] font-bold block mt-1 truncate">
+                  {derivedFinancialStats.totalAdvanceDisbursed > 0 ? (
+                    <span className="text-emerald-800">Direct NEFT/RTGS Cleared</span>
+                  ) : derivedFinancialStats.totalAdvancePending > 0 ? (
+                    <span className="text-amber-700">₹{derivedFinancialStats.totalAdvancePending.toLocaleString('en-IN')} Pending Admin Slip</span>
+                  ) : (
+                    <span className="text-gray-500">Awaiting Bank Disbursement</span>
+                  )}
                 </span>
               </div>
               <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] text-emerald-800 font-bold group-hover:text-emerald-950">
@@ -2346,7 +2371,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 <div className="py-14 text-center text-gray-400">
                   <BarChart3 size={32} className="mx-auto text-gray-300 mb-2" />
                   <p className="font-bold text-gray-700 text-sm">No consignment payouts to compare</p>
-                  <p className="text-xs text-gray-400 mt-1">PO total value, 55% advance, and balance due metrics will plot here.</p>
+                  <p className="text-xs text-gray-400 mt-1">PO total value, 70% advance, and balance due metrics will plot here.</p>
                 </div>
               ) : (
                 <div className="w-full overflow-x-auto pb-2 pt-2">
@@ -2794,7 +2819,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   filteredDispatchTabOrders.map((po, index) => {
                     const total = Number(po.grandTotal || po.totalAmount || 0);
                     const settle = (po as any).settlementDetails || {};
-                    const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                    const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70));
                     const adminShare = Number(settle.adminShareAmount ?? Math.round(total * 0.05));
                     const apmcShare = Number(settle.apmcShareAmount ?? Math.round(total * 0.01));
                     const totalDeductions = adminShare + apmcShare;
@@ -2909,7 +2934,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           )}
                         </td>
 
-                        {/* 55% Advance Cleared */}
+                        {/* 70% Advance Cleared */}
                         <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                           <strong className="text-emerald-700 font-black block">
                             ₹{advance.toLocaleString('en-IN')}
@@ -3163,7 +3188,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                   filteredOrders.map((po, idx) => {
                     const total = Number(po.grandTotal || 0);
                     const settle = (po as any).settlementDetails || {};
-                    const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                    const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70));
                     const adminShare = Number(settle.adminShareAmount ?? Math.round(total * 0.05));
                     const apmcShare = Number(settle.apmcShareAmount ?? Math.round(total * 0.01));
                     const totalDeductions = adminShare + apmcShare;
@@ -3484,7 +3509,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
               filteredOrders.map((po) => {
                 const total = Number(po.grandTotal || po.totalAmount || 0);
                 const settle = (po as any).settlementDetails || {};
-                const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                const advance = Number(settle.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70));
                 const isFullyCleared = Boolean(settle.settlementCompleted && Number(settle.finalBalanceDue ?? 0) === 0);
 
                 return (
@@ -4348,7 +4373,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           ₹{totalAppleAmount.toLocaleString('en-IN')}
                         </span>
                         <span className="text-[10px] text-emerald-700 font-bold">
-                          Direct 55% Advance: ₹{Math.round(totalAppleAmount * 0.55).toLocaleString('en-IN')}
+                          Direct 70% Advance: ₹{Math.round(totalAppleAmount * 0.70).toLocaleString('en-IN')}
                         </span>
                       </div>
                     </div>
@@ -6042,7 +6067,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           orders.map((po) => {
                             const total = Number(po.grandTotal || 0);
                             const settle = (po as any).settlementDetails;
-                            const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                            const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70));
                             const proofUrl = settle?.advanceProofUrl || po.paymentProofUrl;
                             const utr = settle?.advancePaymentUtr || po.paymentProofNotes || 'RTGS-MANDI-ADV';
 
@@ -6176,7 +6201,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           {orders.map((po) => {
                             const total = Number(po.grandTotal || 0);
                             const settle = (po as any).settlementDetails;
-                            const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.55));
+                            const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70));
                             const hasSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
                             const due = hasSettlement ? Number(settle?.finalBalanceDue ?? 0) : 0;
                             const isCleared = hasSettlement && due === 0 && (Boolean(settle?.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));

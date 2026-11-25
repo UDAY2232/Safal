@@ -1271,7 +1271,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 8 Regional Hubs
               </span>
               <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-bold">
-                55% Auto-Advance Policy
+                70% Auto-Advance Policy
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-black text-gray-900 mt-2 font-['Manrope']">
@@ -1330,7 +1330,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           </div>
 
           <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">55% Advance Outlay</span>
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">70% Advance Outlay</span>
             <p className="text-xl font-black text-emerald-800 mt-1">
               {formatCurrency(
                 vendorOperations.reduce((sum: number, p: any) => sum + Number(p.advancePaymentAmount || p.advanceAmount || 0), 0)
@@ -1407,7 +1407,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                     Net Profit / Loss (Margin %)
                   </th>
                   <th className="py-3 px-3 text-center font-bold">Destination &amp; Fleet</th>
-                  <th className="py-3 px-3 text-right font-bold">55% Advance</th>
+                  <th className="py-3 px-3 text-right font-bold">70% Advance</th>
                   <th className="py-3 px-3 text-center font-bold">Actions &amp; P&amp;L</th>
                 </tr>
               </thead>
@@ -1436,7 +1436,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       ? formatCurrency(Number(op.advancePaymentAmount))
                       : op.advanceAmount
                       ? formatCurrency(Number(op.advanceAmount))
-                      : formatCurrency(Math.round(fin.baseCost * 0.55));
+                      : formatCurrency(Math.round(fin.baseCost * 0.70));
                     const advStatus = op.advancePaymentStatus || op.advanceStatus || 'CLEARED';
 
                     const gradeInfo = getCommodityGradeDetails(op, adminFruitRates);
@@ -2578,16 +2578,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 {/* Section 3: Payout Disbursement Coordinates */}
                 <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-2xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-gray-500 uppercase font-bold block">55% Auto-Advance Paid</span>
+                    <span className="text-[10px] text-gray-500 uppercase font-bold block">70% Auto-Advance Paid</span>
                     <strong className="text-sm font-black text-emerald-900 block">
-                      ₹{Number(selectedPOForPL.advancePaymentAmount || (fin.baseCost * 0.55)).toLocaleString('en-IN')}
+                      ₹{Number(selectedPOForPL.advancePaymentAmount || (fin.baseCost * 0.70)).toLocaleString('en-IN')}
                     </strong>
                     <span className="text-[10px] text-emerald-700 font-bold">✓ Direct Bank Cleared</span>
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] text-gray-500 uppercase font-bold block">Final Payout Balance</span>
                     <strong className="text-sm font-black text-gray-900 block">
-                      ₹{Number(selectedPOForPL.balancePaymentAmount || (fin.baseCost * 0.45)).toLocaleString('en-IN')}
+                      ₹{Number(selectedPOForPL.balancePaymentAmount || (fin.baseCost * 0.30)).toLocaleString('en-IN')}
                     </strong>
                     <span className="text-[10px] text-gray-500 font-bold">Payable on Mandi Weighbridge</span>
                   </div>

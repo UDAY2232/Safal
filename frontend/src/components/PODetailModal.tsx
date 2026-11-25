@@ -1022,7 +1022,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                       )}
                     </div>
                     <strong className="font-mono text-emerald-800 font-bold">
-                      ₹{Number(order.advanceAmount || Math.round(grandTotal * 0.55)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{Number(order.advanceAmount || Math.round(grandTotal * 0.70)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </strong>
                   </div>
 

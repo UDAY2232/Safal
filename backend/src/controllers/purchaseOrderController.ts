@@ -546,9 +546,9 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
     let finalAdvance = advance;
     let finalPending = pending;
 
-    // 55% automatic advance calculation for vendor procurement POs
+    // 70% automatic advance calculation for vendor procurement POs
     if (isVendorProcurement && grandTotal > 0) {
-      autoAdvanceCalculated = Math.round(grandTotal * 0.55);
+      autoAdvanceCalculated = Math.round(grandTotal * 0.70);
       finalAdvance = autoAdvanceCalculated;
       finalPending = Math.max(0, grandTotal - finalAdvance);
     }

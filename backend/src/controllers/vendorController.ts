@@ -540,7 +540,7 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
       calculatedGrandTotal = dispatchItems.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
     }
 
-    const autoAdvance = Math.round(calculatedGrandTotal * 0.55);
+    const autoAdvance = Math.round(calculatedGrandTotal * 0.70); // 70% advance policy
 
     const updatedPO = await prisma.purchaseOrder.update({
       where: { id: po.id },
@@ -669,7 +669,13 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
     ).length;
 
     const totalOrderValue = enriched.reduce((sum, p) => sum + Number(p.grandTotal || 0), 0);
-    const totalAdvanceReceived = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.advanceAmount || p.advanceAmount || 0), 0);
+    // STRICT RULE: Only count advance as received if Admin actually uploaded payment slip / proof!
+    const totalAdvanceReceived = enriched
+      .filter((p) => Boolean(p.settlementDetails?.advanceDisbursed || p.paymentProofUrl || p.settlementDetails?.advanceProofUrl))
+      .reduce((sum, p) => sum + Number(p.settlementDetails?.advanceAmount || p.advanceAmount || 0), 0);
+    const totalAdvancePending = enriched
+      .filter((p) => !Boolean(p.settlementDetails?.advanceDisbursed || p.paymentProofUrl || p.settlementDetails?.advanceProofUrl))
+      .reduce((sum, p) => sum + Number(p.settlementDetails?.advanceAmount || p.advanceAmount || 0), 0);
     const totalSafalShare = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.adminShareAmount || 0), 0);
     const totalApmcShare = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.apmcShareAmount || 0), 0);
     const totalNetPayable = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.netVendorPayable || 0), 0);
@@ -686,6 +692,7 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
         deliveredPOs,
         totalOrderValue,
         totalAdvanceReceived,
+        totalAdvancePending,
         totalPendingBalance,
         totalSafalShare,
         totalApmcShare,
@@ -1288,7 +1295,7 @@ export async function submitHubQCInspection(req: AuthRequest, res: Response) {
  * Supports:
  * - Dynamic Apple Sizing (4L, 5L, Roll, Total Boxes, Total Amount)
  * - Direct upload of Vehicle Photo and Transport Bill (Bilty)
- * - 55% automatic advance guarantee calculation
+ * - 70% automatic advance guarantee calculation
  * - Direct mapping to destination regional hub
  */
 export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
@@ -1332,7 +1339,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
           contactPerson: profile.contactPerson,
           phone: profile.phone,
           category: 'Wholesale Fruits',
-          paymentTerms: '55% Advance on Dispatch + 45% on QC Acceptance',
+          paymentTerms: '70% Advance on Dispatch + 30% on QC Acceptance',
           status: 'ACTIVE',
         },
       });
@@ -1464,7 +1471,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
     }
 
     const grandTotal = itemsToProcess.reduce((sum, it) => sum + (it.lineTotal > 0 ? it.lineTotal : 0), 0);
-    const autoAdvance = Math.round(grandTotal * 0.55);
+    const autoAdvance = Math.round(grandTotal * 0.70); // 70% advance policy
     const adminShare = Math.round(grandTotal * 0.05);
     const apmcShare = Math.round(grandTotal * 0.01);
     const netVendorPayable = Math.max(0, grandTotal - (adminShare + apmcShare));
@@ -1502,7 +1509,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
           deliveryAddress: resolvedOrigin
             ? `${resolvedOrigin} ➔ ${targetHub} Regional Hub Receiving Desk`
             : `${targetHub} Regional Hub Receiving Desk`,
-          paymentTerms: '55% Advance on Dispatch + 45% on QC Acceptance',
+          paymentTerms: '70% Advance on Dispatch + 30% on QC Acceptance',
           dispatchVehicleNumber: null,
           transporterName: null,
           driverPhone: null,
@@ -1534,7 +1541,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
             create: {
               status: 'PENDING_APPROVAL',
               changedById: req.user!.id,
-              comment: 'Vendor created supply consignment order with 55% auto-advance guarantee',
+              comment: 'Vendor created supply consignment order with 70% auto-advance guarantee',
             },
           },
           financialRecord: {
@@ -1633,7 +1640,7 @@ export async function disburseVendorAdvance(req: AuthRequest, res: Response) {
     const advanceProofUrl = file ? `/uploads/${file.filename}` : (req.body.advanceProofUrl || null);
 
     const grandTotal = Number(po.grandTotal || 0);
-    const advanceAmount = Number(rawAdvanceAmount) > 0 ? Number(rawAdvanceAmount) : Math.round(grandTotal * 0.55);
+    const advanceAmount = Number(rawAdvanceAmount) > 0 ? Number(rawAdvanceAmount) : Math.round(grandTotal * 0.70);
 
     const adminShareAmount = Math.round(grandTotal * 0.05);
     const apmcShareAmount = Math.round(grandTotal * 0.01);

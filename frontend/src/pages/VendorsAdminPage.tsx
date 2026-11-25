@@ -368,7 +368,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
 
   // Displayed consignments based on active section
   const displayedConsignments = activeSection === 'allotment'
-    ? pendingAllotmentPOs.filter((op) => {
+    ? (pendingAllotmentPOs.length > 0 ? pendingAllotmentPOs : allConsignments).filter((op) => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
         const poNum = (op.poNumber || '').toLowerCase();
@@ -405,7 +405,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const totalConsignmentsCount = allConsignments.length;
   const transitCount = transitConsignments.length;
   const totalAdvanceCleared = allConsignments.reduce((sum, op) => {
-    const adv = Number(op.advancePaymentAmount || (Number(op.grandTotal || 0) * 0.55));
+    const adv = Number(op.advancePaymentAmount || (Number(op.grandTotal || 0) * 0.70));
     return sum + adv;
   }, 0);
   const totalProcurementValue = allConsignments.reduce((sum, op) => {
@@ -447,6 +447,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
       await api.allotVendorPOVehicle(selectedPOForAllot.id, formData);
       onNotify(`Vehicle ${allotVehicleNumber.trim().toUpperCase()} allotted with Transporter Bilty to ${selectedPOForAllot.poNumber || 'PO'}! Consignment approved.`);
       setSelectedPOForAllot(null);
+      setActiveSection('all'); // Keep the allotted consignment in view so data doesn't disappear!
       await loadVendorsAndOperations();
     } catch (err: any) {
       console.error('Failed to allot vehicle:', err);
@@ -662,7 +663,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const openAdvanceModal = (op: any) => {
     setSelectedPOForAdvance(op);
     const grand = Number(op.grandTotal || 0);
-    const defaultAdv = Number(op.advanceAmount) > 0 ? Number(op.advanceAmount) : Math.round(grand * 0.55);
+    const defaultAdv = Number(op.advanceAmount) > 0 ? Number(op.advanceAmount) : Math.round(grand * 0.70);
     setAdvanceAmountInput(defaultAdv);
     setAdvancePaymentMode('Bank Transfer (RTGS / NEFT)');
     setAdvancePaymentUtr(op.settlementDetails?.advancePaymentUtr && op.settlementDetails.advancePaymentUtr !== 'RTGS-MANDI-ADV' ? op.settlementDetails.advancePaymentUtr : '');
@@ -709,7 +710,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
   const openSettlementModal = (op: any) => {
     setSelectedPOForSettlement(op);
     const grand = Number(op.grandTotal || 0);
-    const adv = Number(op.advanceAmount) > 0 ? Number(op.advanceAmount) : Math.round(grand * 0.55);
+    const adv = Number(op.advanceAmount) > 0 ? Number(op.advanceAmount) : Math.round(grand * 0.70);
     const adminShare = Math.round(grand * 0.05);
     const apmcShare = Math.round(grand * 0.01);
     const netPayable = Math.max(0, grand - (adminShare + apmcShare));
@@ -826,8 +827,8 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
           fin.totalRevenue,
           fin.netProfitLoss,
           `"${fin.profitMarginPercent}%"`,
-          Math.round(fin.baseCost * 0.55),
-          Math.round(fin.baseCost * 0.45),
+          Math.round(fin.baseCost * 0.70),
+          Math.round(fin.baseCost * 0.30),
           `"${truck}"`,
           `"${driver}"`,
           `"${status}"`,
@@ -1075,7 +1076,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
           </div>
         </div>
 
-        {/* Card 3: Rose - 55% Advance Cleared */}
+        {/* Card 3: Rose - 70% Advance Cleared */}
         <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEEFEF] border border-[#FCD8D8]">
           <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FFDADA] flex items-center justify-center text-[#D32F2F] flex-shrink-0">
             <CreditCard size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
@@ -1657,11 +1658,11 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       const fin = getConsignmentFinancials(op);
                       const settle = op.settlementDetails || {
                         advanceDisbursed: Boolean(op.advanceAmount > 0 || op.paymentProofUrl),
-                        advanceAmount: Math.round(fin.baseCost * 0.55),
+                        advanceAmount: Math.round(fin.baseCost * 0.70),
                         advancePayingHub: op.orderPersonPlace || 'Warangal Hub',
                         advanceProofUrl: op.paymentProofUrl || null,
-                        finalBalanceDue: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.55)),
-                        finalBalancePaid: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.55)),
+                        finalBalanceDue: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.70)),
+                        finalBalancePaid: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.70)),
                         finalSettlementProofUrl: op.paymentProofUrl || null,
                       };
                       const poCode = op.poNumber || 'PO/SF/2026/001';
@@ -2066,11 +2067,11 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       const fin = getConsignmentFinancials(op);
                       const settle = op.settlementDetails || {
                         advanceDisbursed: Boolean(op.advanceAmount > 0 || op.paymentProofUrl),
-                        advanceAmount: Math.round(fin.baseCost * 0.55),
+                        advanceAmount: Math.round(fin.baseCost * 0.70),
                         adminShareAmount: Math.round(fin.baseCost * 0.05),
                         apmcShareAmount: Math.round(fin.baseCost * 0.01),
-                        finalBalanceDue: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.55)),
-                        finalBalancePaid: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.55)),
+                        finalBalanceDue: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.70)),
+                        finalBalancePaid: Math.max(0, Math.round(fin.baseCost * 0.94) - Math.round(fin.baseCost * 0.70)),
                         settlementCompleted: op.status === 'CLOSED',
                       };
                       const poCode = op.poNumber || `PO/SF/2026/02${index}`;
@@ -2289,7 +2290,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 </span>
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                Real-time truck transit monitoring with driver phone numbers, transporter biltys, and 55% advance settlement.
+                Real-time truck transit monitoring with driver phone numbers, transporter biltys, and 70% advance settlement.
               </p>
             </div>
           </div>
@@ -2333,7 +2334,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                   const bilty = op.transportBillUrl || op.dispatchTransportBillUrl || op.bilty;
                   const scaleSlip = op.weighbridgeSlipUrl || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl;
                   const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Fresh Fruits';
-                  const advAmt = Math.round(fin.baseCost * 0.55);
+                  const advAmt = Math.round(fin.baseCost * 0.70);
 
                   return (
                     <tr key={op.id || poCode} className="hover:bg-rose-50/20 transition text-xs">
@@ -3497,9 +3498,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                 {/* Section 3: Payout Disbursement Coordinates */}
                 <div className="p-3 bg-emerald-50/50 border border-emerald-200 rounded-2xl flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-gray-500 uppercase font-bold block">55% Auto-Advance Paid</span>
+                    <span className="text-[10px] text-gray-500 uppercase font-bold block">70% Auto-Advance Paid</span>
                     <strong className="text-sm font-black text-emerald-900 block font-mono">
-                      ₹{Math.round(fin.baseCost * 0.55).toLocaleString('en-IN')}
+                      ₹{Math.round(fin.baseCost * 0.70).toLocaleString('en-IN')}
                     </strong>
                     <span className="text-[10px] text-emerald-700 font-bold flex items-center gap-1">
                       <CheckCircle2 size={10} /> Direct Bank Cleared
@@ -3931,15 +3932,15 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                     </strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-emerald-700 font-bold block">55% Recommended Advance</span>
+                    <span className="text-[10px] text-emerald-700 font-bold block">70% Recommended Advance</span>
                     <strong className="text-sm font-black text-emerald-800 font-mono">
-                      ₹{Math.round(grand * 0.55).toLocaleString('en-IN')}
+                      ₹{Math.round(grand * 0.70).toLocaleString('en-IN')}
                     </strong>
                   </div>
                   <div>
                     <span className="text-[10px] text-gray-500 block">Balance Payable on Delivery</span>
                     <strong className="text-sm font-black text-gray-700 font-mono">
-                      ₹{Math.round(grand * 0.45).toLocaleString('en-IN')}
+                      ₹{Math.round(grand * 0.30).toLocaleString('en-IN')}
                     </strong>
                   </div>
                 </div>
@@ -3961,7 +3962,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({ onNotify }) 
                       />
                     </div>
                     <span className="text-[10px] text-gray-500 mt-0.5 block">
-                      Default is 55% of total order value (₹{Math.round(grand * 0.55).toLocaleString('en-IN')})
+                      Default is 70% of total order value (₹{Math.round(grand * 0.70).toLocaleString('en-IN')})
                     </span>
                   </div>
 

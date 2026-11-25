@@ -53,7 +53,7 @@ export function enrichPOWithSettlementDetails(po: any): any {
   if (!po) return po;
 
   const grandTotal = Number(po.grandTotal || 0);
-  const autoAdvance = Math.round(grandTotal * 0.55);
+  const autoAdvance = Math.round(grandTotal * 0.70); // 70% advance policy
   const adminShareAmount = Math.round(grandTotal * 0.05);
   const apmcShareAmount = Math.round(grandTotal * 0.01);
   const totalDeductions = adminShareAmount + apmcShareAmount;
@@ -78,9 +78,10 @@ export function enrichPOWithSettlementDetails(po: any): any {
     } catch {}
   }
 
-  const advanceAmount = storedAdvance?.advanceAmount !== undefined
-    ? Number(storedAdvance.advanceAmount)
-    : (Number(po.advanceAmount) > 0 ? Number(po.advanceAmount) : autoAdvance);
+  // If advance was set at 55% previously, upgrade to 70% as requested by user
+  const rawAdv = storedAdvance?.advanceAmount !== undefined ? Number(storedAdvance.advanceAmount) : Number(po.advanceAmount || 0);
+  const isOld55Percent = rawAdv > 0 && Math.abs(rawAdv - Math.round(grandTotal * 0.55)) <= 5;
+  const advanceAmount = rawAdv > 0 && !isOld55Percent ? rawAdv : autoAdvance;
 
   const hasAdvanceSlip = Boolean(
     storedAdvance?.advanceProofUrl ||
