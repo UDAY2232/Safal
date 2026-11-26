@@ -6,7 +6,11 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) => {
+      return Promise.all(keys.map((k) => caches.delete(k)));
+    }).then(() => self.clients.claim())
+  );
 });
 
 // Handle incoming push events from backend or local triggers

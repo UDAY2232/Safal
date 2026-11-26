@@ -22,9 +22,11 @@ import { VendorsAdminPage } from './pages/VendorsAdminPage';
 import { CreatePOModal } from './components/CreatePOModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ServerMaintenanceScreen } from './components/ServerMaintenanceScreen';
+import { useLiveAppUpdate } from './hooks/useLiveAppUpdate';
 
 function MainApp() {
   const { user, token, isLoading, isMaintenance, maintenanceMessage, logout, checkMaintenance } = useAuth();
+  const { hasNewVersion, isUpdating, countdown, applyUpdate } = useLiveAppUpdate();
   const [activePage, setActivePage] = useState('Dashboard');
   const [pageHistory, setPageHistory] = useState<string[]>(['Dashboard']);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -210,7 +212,28 @@ function MainApp() {
   }
 
   if (!token || !user) {
-    return <LoginPage />;
+    return (
+      <>
+        {hasNewVersion && (
+          <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999999] bg-[#064D2B] text-white px-4 py-2 rounded-full shadow-2xl border-2 border-emerald-400 flex items-center gap-3 text-xs font-bold animate-bounce">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>
+              {isUpdating
+                ? 'Applying latest SAFAL updates...'
+                : `New SAFAL Update Available! Syncing in ${countdown ?? 3}s...`}
+            </span>
+            <button
+              onClick={applyUpdate}
+              disabled={isUpdating}
+              className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-gray-950 rounded-full font-black text-[11px] shadow-sm transition active:scale-95 cursor-pointer"
+            >
+              {isUpdating ? 'Updating...' : 'Update Now ↻'}
+            </button>
+          </div>
+        )}
+        <LoginPage />
+      </>
+    );
   }
 
   // Intercept suspended or maintenance-mode vendor accounts
@@ -384,6 +407,25 @@ function MainApp() {
         <div className="toast">
           <CheckCircle2 size={18} />
           {toast}
+        </div>
+      )}
+
+      {/* Live Auto-Update Notification Banner for All Devices */}
+      {hasNewVersion && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[9999999] bg-[#064D2B] text-white px-4 py-2 rounded-full shadow-2xl border-2 border-emerald-400 flex items-center gap-3 text-xs font-bold animate-bounce">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+          <span>
+            {isUpdating
+              ? 'Applying latest SAFAL updates...'
+              : `New SAFAL Update Available! Syncing in ${countdown ?? 3}s...`}
+          </span>
+          <button
+            onClick={applyUpdate}
+            disabled={isUpdating}
+            className="px-3 py-1 bg-amber-400 hover:bg-amber-300 text-gray-950 rounded-full font-black text-[11px] shadow-sm transition active:scale-95 cursor-pointer"
+          >
+            {isUpdating ? 'Updating...' : 'Update Now ↻'}
+          </button>
         </div>
       )}
     </div>
