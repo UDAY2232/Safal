@@ -1,3 +1,4 @@
+import { notifyLiveSync } from '../services/liveSyncService.js';
 import { Response } from 'express';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
@@ -691,6 +692,7 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'PO_CREATED', entityId: newPO.id, metadata: { poNumber: newPO.poNumber } });
     return res.status(201).json(newPO);
   } catch (error) {
     console.error('Error creating purchase order:', error);
@@ -756,6 +758,7 @@ export async function submitPurchaseOrder(req: AuthRequest, res: Response) {
     });
 
     clearDashboardCache();
+    notifyLiveSync({ type: 'PO_APPROVED', entityId: updated.id, metadata: { poNumber: updated.poNumber } });
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to submit purchase order' });
@@ -817,6 +820,7 @@ export async function approvePurchaseOrder(req: AuthRequest, res: Response) {
     });
 
     clearDashboardCache();
+    notifyLiveSync({ type: 'PO_APPROVED', entityId: updated.id, metadata: { poNumber: updated.poNumber } });
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to approve purchase order' });
@@ -893,6 +897,7 @@ export async function rejectPurchaseOrder(req: AuthRequest, res: Response) {
     });
 
     clearDashboardCache();
+    notifyLiveSync({ type: 'PO_REJECTED', entityId: updated.id, metadata: { poNumber: updated.poNumber } });
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to reject purchase order' });
@@ -1015,6 +1020,7 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
     });
 
     clearDashboardCache();
+    notifyLiveSync({ type: 'PO_CLOSED', entityId: updated.id, metadata: { poNumber: updated.poNumber } });
     return res.json(updated);
   } catch (error) {
     return res.status(500).json({ error: 'Failed to close purchase order' });
@@ -1332,6 +1338,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'PO_DUE_PAID', entityId: updated.id, metadata: { poNumber: updated.poNumber } });
     return res.json(updated);
   } catch (error) {
     console.error('Error recording due payment:', error);
@@ -1539,6 +1546,7 @@ export async function deletePurchaseOrder(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'PO_DELETED', metadata: { poNumber: po.poNumber } });
     return res.json({ message: `Purchase Order ${po.poNumber} deleted successfully` });
   } catch (error: any) {
     console.error('Error deleting purchase order:', error);
@@ -1668,6 +1676,7 @@ export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'PO_UPDATED', entityId: updated.id, metadata: { poNumber: updated.poNumber } });
     return res.json(updated);
   } catch (error: any) {
     console.error('Error updating purchase order:', error);

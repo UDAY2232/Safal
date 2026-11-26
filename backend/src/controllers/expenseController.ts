@@ -1,3 +1,4 @@
+import { notifyLiveSync } from '../services/liveSyncService.js';
 import { Response } from 'express';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';
@@ -244,6 +245,7 @@ export async function submitExpense(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'EXPENSE_SUBMITTED', entityId: claim.id, metadata: { claimNumber: claim.claimNumber } });
     return res.status(201).json(claim);
   } catch (error) {
     console.error('Error submitting expense:', error);
@@ -505,6 +507,7 @@ export async function recordExpensePayment(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'EXPENSE_PAID', entityId: updatedClaim.id, metadata: { claimNumber: updatedClaim.claimNumber } });
     return res.status(201).json({ payment, updatedClaim });
   } catch (error) {
     console.error('Error recording expense payment:', error);
@@ -667,6 +670,7 @@ export async function uploadExpenseReceipt(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'EXPENSE_RECEIPT_UPLOADED', entityId: updated.id, metadata: { claimNumber: updated.claimNumber } });
     return res.json({ success: true, claim: updated });
   } catch (error: any) {
     console.error('Error uploading receipt:', error);

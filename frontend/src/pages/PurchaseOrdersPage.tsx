@@ -79,9 +79,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const [proofViewerOrder, setProofViewerOrder] = useState<PurchaseOrder | null>(null);
   const [showAddDueModal, setShowAddDueModal] = useState(false);
 
-  const loadOrders = async () => {
+  const loadOrders = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       let query = '?';
       if (status !== 'All') query += `status=${status}&`;
       if (financialStatus !== 'All') query += `financialStatus=${financialStatus}&`;
@@ -100,11 +100,20 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       const scopedList = isEmployee ? list.filter((o: any) => o.createdById === user?.id) : list;
       setOrders(scopedList);
     } catch (err: any) {
-      onNotify(err.message || 'Failed to fetch records');
+      if (!silent) onNotify(err.message || 'Failed to fetch records');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Instant Realtime Live Sync Listener
+  useEffect(() => {
+    const handleLiveSync = () => {
+      loadOrders(true);
+    };
+    window.addEventListener('safal_live_sync', handleLiveSync);
+    return () => window.removeEventListener('safal_live_sync', handleLiveSync);
+  }, [status, financialStatus, search, fromDate, toDate]);
 
   useEffect(() => {
     loadOrders();

@@ -23,10 +23,12 @@ import { CreatePOModal } from './components/CreatePOModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ServerMaintenanceScreen } from './components/ServerMaintenanceScreen';
 import { useLiveAppUpdate } from './hooks/useLiveAppUpdate';
+import { useRealtimeSync } from './hooks/useRealtimeSync';
 
 function MainApp() {
   const { user, token, isLoading, isMaintenance, maintenanceMessage, logout, checkMaintenance } = useAuth();
   const { hasNewVersion, isUpdating, countdown, applyUpdate } = useLiveAppUpdate();
+  useRealtimeSync();
   const [activePage, setActivePage] = useState('Dashboard');
   const [pageHistory, setPageHistory] = useState<string[]>(['Dashboard']);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

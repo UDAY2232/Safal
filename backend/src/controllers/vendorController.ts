@@ -1,3 +1,4 @@
+import { notifyLiveSync } from '../services/liveSyncService.js';
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { prisma } from '../config/db.js';
@@ -597,6 +598,7 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
       });
     }
 
+    notifyLiveSync({ type: 'PO_DISPATCHED', entityId: po.id, role: 'VENDOR', metadata: { poNumber: po.poNumber } });
     return res.json({
       message: 'Dispatch details recorded successfully! Safal Admin has been notified.',
       purchaseOrder: updatedPO,
@@ -1290,6 +1292,7 @@ export async function submitHubQCInspection(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'QC_INSPECTED', entityId: po.id, metadata: { poNumber: po.poNumber } });
     return res.json({
       message: 'Weighbridge & QC Inspection recorded successfully',
       purchaseOrder: updated,
@@ -1603,6 +1606,7 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
       }),
     }).catch(() => null);
 
+    notifyLiveSync({ type: 'SUPPLY_PO_CREATED', entityId: newPO.id, role: 'VENDOR', metadata: { poNumber: newPO.poNumber, vendorName: profile.businessName } });
     return res.status(201).json({
       message: `Consignment Supply PO ${newPO.poNumber} created successfully!`,
       po: newPO,
@@ -1745,6 +1749,7 @@ export async function disburseVendorAdvance(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'ADVANCE_DISBURSED', entityId: po.id, role: 'ADMIN', metadata: { poNumber: po.poNumber } });
     return res.json({
       message: `Advance payment of ₹${advanceAmount.toLocaleString('en-IN')} successfully recorded for ${po.poNumber}!`,
       purchaseOrder: enrichPOWithSettlementDetails(updated),
@@ -1954,6 +1959,7 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'BALANCE_SETTLED', entityId: po.id, role: 'ADMIN', metadata: { poNumber: po.poNumber } });
     return res.json({
       message: isFullySettled
         ? `Consignment ${po.poNumber} settled and marked as CLEARED ✓! 5% Admin Share (₹${adminShareAmount.toLocaleString('en-IN')}) and 1% APMC Cess (₹${apmcShareAmount.toLocaleString('en-IN')}) realized.`
@@ -2074,6 +2080,7 @@ export async function allotVendorPOVehicle(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({ type: 'VEHICLE_ALLOTTED', entityId: po.id, role: 'ADMIN', metadata: { poNumber: po.poNumber, vehiclePlate } });
     return res.json({
       message: `Refrigerated Truck ${vehiclePlate} successfully allotted to PO ${po.poNumber}! Vendor has been notified to proceed with farm loading and dispatch signature.`,
       purchaseOrder: enrichPOWithSettlementDetails(updatedPO),

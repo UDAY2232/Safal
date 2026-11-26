@@ -16,6 +16,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import vendorRoutes from './routes/vendorRoutes.js';
+import liveRoutes from './routes/liveRoutes.js';
 
 export const app = express();
 
@@ -113,4 +114,5 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/vendor', vendorRoutes);
+app.use('/api/live', liveRoutes);
 

@@ -411,9 +411,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
 
   useEffect(() => {
     let isMounted = true;
-    async function loadData() {
+    async function loadData(silent = false) {
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const res = await api.getAdminDashboard();
         if (isMounted) {
           setData(res);
@@ -439,13 +439,23 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         console.error('Failed to load dashboard:', err);
         if (isMounted && !data) setData(DEFAULT_DASHBOARD_DATA);
       } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted && !silent) setLoading(false);
       }
     }
     loadData();
     loadVendors();
+
+    const handleLiveSync = () => {
+      if (isMounted) {
+        loadData(true);
+        loadVendors();
+      }
+    };
+    window.addEventListener('safal_live_sync', handleLiveSync);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('safal_live_sync', handleLiveSync);
     };
   }, [user]);
 

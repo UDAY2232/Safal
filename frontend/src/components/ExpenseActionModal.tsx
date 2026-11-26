@@ -44,6 +44,8 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentReceiptUrl, setCurrentReceiptUrl] = useState<string | null>(claim.receiptUrl || null);
   const [showAttachmentViewer, setShowAttachmentViewer] = useState(false);
+  const [thumbError, setThumbError] = useState(false);
+  const [viewerError, setViewerError] = useState(false);
   const [isSendingReminder, setIsSendingReminder] = useState(false);
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
@@ -243,11 +245,19 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
                   className="block max-w-xs group cursor-pointer"
                   title="Click image to inspect full proof"
                 >
-                  <img
-                    src={resolvePhotoUrl(currentReceiptUrl)}
-                    alt="Receipt Document"
-                    className="max-h-48 rounded-lg border border-emerald-300 shadow-2xs group-hover:opacity-90 transition object-contain bg-white"
-                  />
+                  {!thumbError ? (
+                    <img
+                      src={resolvePhotoUrl(currentReceiptUrl)}
+                      alt="Receipt Document"
+                      className="max-h-48 rounded-lg border border-emerald-300 shadow-2xs group-hover:opacity-90 transition object-contain bg-white"
+                      onError={() => setThumbError(true)}
+                    />
+                  ) : (
+                    <div className="p-3 bg-white rounded-lg border border-emerald-300 flex items-center gap-2 text-emerald-800 text-xs font-bold hover:bg-emerald-50 transition">
+                      <FileText size={18} className="text-emerald-600 flex-shrink-0" />
+                      <span>Inspect Attached Receipt Document ↗</span>
+                    </div>
+                  )}
                   <span className="text-[10px] text-emerald-700 font-semibold block mt-1 flex items-center gap-1">
                     <Eye size={11} /> Click image to inspect full-screen proof ↗
                   </span>
@@ -455,12 +465,33 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
                   title="Receipt PDF"
                   className="w-full h-[70vh] rounded-lg border-0 bg-white"
                 />
-              ) : (
+              ) : !viewerError ? (
                 <img
                   src={resolvePhotoUrl(currentReceiptUrl)}
                   alt={`Receipt for ${claim.claimNumber}`}
                   className="max-w-full max-h-[75vh] object-contain rounded-lg shadow-lg"
+                  onError={() => setViewerError(true)}
                 />
+              ) : (
+                <div className="p-8 text-center text-white flex flex-col items-center gap-3 max-w-sm">
+                  <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-300 grid place-items-center">
+                    <FileText size={24} />
+                  </div>
+                  <strong className="text-sm font-bold text-gray-200">
+                    Receipt Attachment File Available
+                  </strong>
+                  <p className="text-xs text-gray-400">
+                    The document file was uploaded with this reimbursement claim.
+                  </p>
+                  <a
+                    href={resolvePhotoUrl(currentReceiptUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 transition shadow-sm mt-1"
+                  >
+                    <ExternalLink size={14} /> Open Document In New Window
+                  </a>
+                </div>
               )}
             </div>
 

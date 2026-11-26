@@ -1,3 +1,4 @@
+import { notifyLiveSync } from '../services/liveSyncService.js';
 import { Response } from 'express';
 import { prisma } from '../config/db.js';
 import { AuthRequest } from '../middleware/auth.js';

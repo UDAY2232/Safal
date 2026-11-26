@@ -951,9 +951,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     }
   };
 
-  const loadData = async () => {
+  const loadData = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [statsRes, profileRes, poRes] = await Promise.all([
         api.getVendorDashboardStats().catch(() => null),
         api.getVendorProfile().catch(() => null),
@@ -983,11 +983,20 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       }
     } catch (err: any) {
       console.error('Vendor data load error:', err);
-      onNotify('Failed to load vendor portal records');
+      if (!silent) onNotify('Failed to load vendor portal records');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Instant Realtime Live Sync Listener
+  useEffect(() => {
+    const handleLiveSync = () => {
+      loadData(true);
+    };
+    window.addEventListener('safal_live_sync', handleLiveSync);
+    return () => window.removeEventListener('safal_live_sync', handleLiveSync);
+  }, []);
 
   useEffect(() => {
     loadData();

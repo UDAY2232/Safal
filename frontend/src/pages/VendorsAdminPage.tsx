@@ -208,9 +208,9 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
   const [isEditingSubmitting, setIsEditingSubmitting] = useState(false);
   const [editFormError, setEditFormError] = useState('');
 
-  const loadVendorsAndOperations = async () => {
+  const loadVendorsAndOperations = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [vData, opData, settingsData] = await Promise.allSettled([
         api.getAllVendors(),
         api.getVendorOperationsForAdmin(),
@@ -240,11 +240,20 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
       }
     } catch (err: any) {
       console.error('Failed to load vendors & operations:', err);
-      onNotify('Failed to fetch registered vendors');
+      if (!silent) onNotify('Failed to fetch registered vendors');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
+
+  // Instant Realtime Live Sync Listener
+  useEffect(() => {
+    const handleLiveSync = () => {
+      loadVendorsAndOperations(true);
+    };
+    window.addEventListener('safal_live_sync', handleLiveSync);
+    return () => window.removeEventListener('safal_live_sync', handleLiveSync);
+  }, []);
 
   useEffect(() => {
     loadVendorsAndOperations();
