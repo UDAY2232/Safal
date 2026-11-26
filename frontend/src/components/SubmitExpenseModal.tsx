@@ -13,6 +13,7 @@ import {
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Employee } from '../types';
+import { compressImageFile } from '../utils/imageUtils';
 
 interface SubmitExpenseModalProps {
   onClose: () => void;
@@ -51,16 +52,18 @@ export const SubmitExpenseModal: React.FC<SubmitExpenseModalProps> = ({ onClose,
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handleFileChange = (file: File | null) => {
+  const handleFileChange = async (rawFile: File | null) => {
+    if (!rawFile) {
+      setReceiptFile(null);
+      setReceiptPreview(null);
+      return;
+    }
+    const file = await compressImageFile(rawFile);
     setReceiptFile(file);
-    if (file) {
-      setError('');
-      if (file.type.startsWith('image/')) {
-        const url = URL.createObjectURL(file);
-        setReceiptPreview(url);
-      } else {
-        setReceiptPreview(null);
-      }
+    setError('');
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      setReceiptPreview(url);
     } else {
       setReceiptPreview(null);
     }

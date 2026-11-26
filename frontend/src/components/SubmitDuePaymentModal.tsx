@@ -22,6 +22,7 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { StatusBadge } from './StatusBadge';
 import { ProofViewerModal } from './ProofViewerModal';
+import { compressImageFile } from '../utils/imageUtils';
 
 interface SubmitDuePaymentModalProps {
   order: PurchaseOrder;
@@ -76,13 +77,10 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
     setError('');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      if (file.size > 10 * 1024 * 1024) {
-        setError('Selected file exceeds 10 MB limit.');
-        return;
-      }
+      const rawFile = e.target.files[0];
+      const file = await compressImageFile(rawFile);
       setProofFile(file);
       setError('');
       if (file.type.startsWith('image/')) {

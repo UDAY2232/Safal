@@ -53,7 +53,7 @@ import { CreatePOModal } from '../components/CreatePOModal';
 import { PODetailModal } from '../components/PODetailModal';
 import { StatusBadge } from '../components/StatusBadge';
 import { VendorPhotoCaptureModal } from '../components/VendorPhotoCaptureModal';
-import { resolvePhotoUrl } from '../utils/imageUtils';
+import { resolvePhotoUrl, compressImageFile } from '../utils/imageUtils';
 
 interface VendorsAdminPageProps {
   onNotify: (msg: string) => void;
@@ -4938,9 +4938,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                           type="file"
                           id="admin-bilty-file-input"
                           accept="image/*,.pdf"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
+                          onChange={async (e) => {
+                            const rawFile = e.target.files?.[0];
+                            if (rawFile) {
+                              const file = await compressImageFile(rawFile);
                               setAllotBiltyFile(file);
                               const reader = new FileReader();
                               reader.onload = (ev) => setAllotBiltyPreview(ev.target?.result as string);
@@ -5049,9 +5050,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
         type="file"
         accept="image/*,application/pdf"
         style={{ display: 'none' }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
+        onChange={async (e) => {
+          const rawFile = e.target.files?.[0];
+          if (rawFile) {
+            const file = await compressImageFile(rawFile);
             setAdvanceProofFile(file);
             setAdvanceProofPreview(URL.createObjectURL(file));
           }
@@ -5062,9 +5064,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
         type="file"
         accept="image/*,application/pdf"
         style={{ display: 'none' }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) {
+        onChange={async (e) => {
+          const rawFile = e.target.files?.[0];
+          if (rawFile) {
+            const file = await compressImageFile(rawFile);
             setSettlementProofFile(file);
             setSettlementProofPreview(URL.createObjectURL(file));
           }

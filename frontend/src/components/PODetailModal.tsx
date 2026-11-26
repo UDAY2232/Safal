@@ -28,7 +28,7 @@ import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { POFinancialsModal } from './POFinancialsModal';
 import { ProofViewerModal } from './ProofViewerModal';
-import { resolvePhotoUrl } from '../utils/imageUtils';
+import { resolvePhotoUrl, compressImageFile } from '../utils/imageUtils';
 
 interface PODetailModalProps {
   order: PurchaseOrder;
@@ -1425,7 +1425,11 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 <input
                   type="file"
                   accept="image/*,application/pdf"
-                  onChange={(e) => setQcSlipFile(e.target.files?.[0] || null)}
+                  onChange={async (e) => {
+                    const raw = e.target.files?.[0] || null;
+                    const compressed = raw ? await compressImageFile(raw) : null;
+                    setQcSlipFile(compressed);
+                  }}
                   className="w-full text-xs text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#064D2B] file:text-white hover:file:bg-[#087A3E] file:cursor-pointer"
                 />
               </div>

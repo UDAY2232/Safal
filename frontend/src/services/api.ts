@@ -1,3 +1,5 @@
+import { compressImageFile } from '../utils/imageUtils';
+
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '') + '/api';
 
 function getAuthHeader(): Record<string, string> {
@@ -6,6 +8,30 @@ function getAuthHeader(): Record<string, string> {
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  // Universal Image Auto-Compression Guard:
+  // If sending FormData with any image larger than 300KB, automatically compress it
+  // on the client before network transmission to permanently prevent HTTP 413 (Request Entity Too Large).
+  if (options.body instanceof FormData && typeof (options.body as any).entries === 'function') {
+    try {
+      const optimizedFormData = new FormData();
+      for (const [key, value] of (options.body as any).entries()) {
+        if (value instanceof File && value.type.startsWith('image/') && value.size > 300 * 1024) {
+          try {
+            const compressed = await compressImageFile(value);
+            optimizedFormData.append(key, compressed);
+          } catch {
+            optimizedFormData.append(key, value);
+          }
+        } else {
+          optimizedFormData.append(key, value);
+        }
+      }
+      options.body = optimizedFormData;
+    } catch {
+      // Fallback to original body if FormData iteration fails
+    }
+  }
+
   const headers = {
     ...getAuthHeader(),
     ...(options.headers || {}),
@@ -29,6 +55,9 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       errorMsg = data.error || data.message || errorMsg;
     } catch {
       errorMsg = response.statusText || errorMsg;
+    }
+    if (response.status === 413) {
+      errorMsg = 'File or image payload is too large. Image auto-compression has been enabled.';
     }
     const error: any = new Error(errorMsg);
     error.status = response.status;

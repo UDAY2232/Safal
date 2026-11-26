@@ -648,9 +648,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     setShowRecordQCModal(true);
   };
 
-  const handleQCSlipFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const handleQCSlipFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const rawFile = e.target.files?.[0];
+    if (rawFile) {
+      const file = await compressImageBlob(rawFile);
       setQcSlipFile(file);
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();

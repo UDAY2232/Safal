@@ -69,11 +69,12 @@ export async function downloadProofFile(url: string, defaultFilename = 'safal-pr
 }
 
 /**
- * Compresses/resizes an image file on the client before upload to prevent HTTP 413 (Request Entity Too Large).
- * Reduces 5MB-15MB phone camera photos to a crisp, high-quality ~200-400KB JPEG in milliseconds.
+ * Compresses/resizes any image file on the client before upload to prevent HTTP 413 (Request Entity Too Large).
+ * Reduces 5MB-15MB phone camera photos or desktop PNG screenshots to a crisp, high-quality ~150-350KB JPEG in milliseconds.
  */
-export async function compressImageFile(file: File, maxDimension = 1280, quality = 0.78): Promise<File> {
-  if (!file.type.startsWith('image/') || file.type.includes('svg') || file.type.includes('gif')) {
+export async function compressImageFile(file: File, maxDimension = 1440, quality = 0.80): Promise<File> {
+  // Pass through PDFs and non-images directly
+  if (!file || !file.type.startsWith('image/') || file.type.includes('svg') || file.type.includes('gif')) {
     return file;
   }
 
@@ -85,7 +86,7 @@ export async function compressImageFile(file: File, maxDimension = 1280, quality
       img.onload = () => {
         let { width, height } = img;
         if (width > maxDimension || height > maxDimension) {
-          if (width > height) {
+          if (width >= height) {
             height = Math.round((height * maxDimension) / width);
             width = maxDimension;
           } else {
@@ -110,19 +111,21 @@ export async function compressImageFile(file: File, maxDimension = 1280, quality
 
         canvas.toBlob(
           (blob) => {
-            if (!blob || blob.size >= file.size) {
+            if (!blob) {
               resolve(file);
-            } else {
-              const compressedFile = new File(
-                [blob],
-                file.name.replace(/\.[^.]+$/, '') + '.jpg',
-                {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                }
-              );
-              resolve(compressedFile);
+              return;
             }
+            const cleanName = file.name.replace(/\.[^/.]+$/, '');
+            const compressedFile = new File(
+              [blob],
+              `${cleanName}.jpg`,
+              {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              }
+            );
+            console.log(`[SAFAL Compressor] ${file.name}: ${(file.size / 1024).toFixed(1)} KB ➔ ${(blob.size / 1024).toFixed(1)} KB`);
+            resolve(compressedFile);
           },
           'image/jpeg',
           quality

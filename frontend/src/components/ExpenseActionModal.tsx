@@ -19,7 +19,7 @@ import { ExpenseClaim } from '../types';
 import { StatusBadge } from './StatusBadge';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { resolvePhotoUrl } from '../utils/imageUtils';
+import { resolvePhotoUrl, compressImageFile } from '../utils/imageUtils';
 
 interface ExpenseActionModalProps {
   claim: ExpenseClaim;
@@ -66,9 +66,10 @@ export const ExpenseActionModal: React.FC<ExpenseActionModalProps> = ({
     }
   };
 
-  const handleUploadReceiptFile = async (file: File) => {
+  const handleUploadReceiptFile = async (rawFile: File) => {
     try {
       setIsUploadingReceipt(true);
+      const file = await compressImageFile(rawFile);
       const fd = new FormData();
       fd.append('receipt', file);
       const res = await api.uploadExpenseReceipt(claim.id, fd);
