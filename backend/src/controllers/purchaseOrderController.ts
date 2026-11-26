@@ -223,8 +223,22 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
       let finStatus = fin?.financialStatus || 'PENDING_COST_DATA';
 
       const isRejected = p.status === 'REJECTED' || Boolean(p.rejectionReason && String(p.rejectionReason).trim() !== '');
+      const isWholesalePO = p.poNumber.startsWith('PO/SF/');
       const advance = Number(p.advanceAmount || 0);
-      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - advance));
+      const total = Number(p.grandTotal || 0);
+      const autoPending = isWholesalePO
+        ? Math.max(0, Math.round(total * 0.94) - advance)
+        : Math.max(0, total - advance);
+      const pending = isRejected ? 0 : (p.status === 'CLOSED' && Number(p.pendingAmount || 0) === 0 ? 0 : autoPending);
+
+      // Auto-heal stale pendingAmount in database if grandTotal or advance was changed
+      if (!isRejected && p.status !== 'CLOSED' && Math.abs(Number(p.pendingAmount || 0) - autoPending) > 5) {
+        prisma.purchaseOrder.update({
+          where: { id: p.id },
+          data: { pendingAmount: autoPending },
+        }).catch(() => {});
+      }
+
       // Strict Business Rule: If rejected, status is ALWAYS REJECTED. If due is pending (> 0), status can NEVER be CLOSED! It must be OPEN.
       const effectiveStatus = isRejected ? 'REJECTED' : (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status;
 
@@ -327,7 +341,19 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
     const isRejected = po.status === 'REJECTED' || Boolean(po.rejectionReason && String(po.rejectionReason).trim() !== '');
     const grand = Number(po.grandTotal);
     const advance = Number(po.advanceAmount || 0);
-    const pending = Number(po.pendingAmount ?? Math.max(0, grand - advance));
+    const isWholesalePO = po.poNumber.startsWith('PO/SF/');
+    const autoPending = isWholesalePO
+      ? Math.max(0, Math.round(grand * 0.94) - advance)
+      : Math.max(0, grand - advance);
+    const pending = isRejected ? 0 : (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : autoPending);
+
+    if (!isRejected && po.status !== 'CLOSED' && Math.abs(Number(po.pendingAmount || 0) - autoPending) > 5) {
+      prisma.purchaseOrder.update({
+        where: { id: po.id },
+        data: { pendingAmount: autoPending },
+      }).catch(() => {});
+    }
+
     if (isRejected) {
       po.status = 'REJECTED';
     } else if (pending > 0 && po.status === 'CLOSED') {

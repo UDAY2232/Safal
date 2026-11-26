@@ -953,6 +953,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       {isCD ? 'Buyer / Customer & Area' : 'Supplier & Area'}
                     </th>
                     <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                      Commodity & Volume
+                    </th>
+                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       {isCD ? 'Delivery Destination' : 'Destination Hub'}
                     </th>
                     <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
@@ -983,7 +986,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 <tbody className="divide-y divide-gray-200">
                   {displayedOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={isCD ? 11 : 10} className="text-center py-10 text-gray-400 text-xs">
+                      <td colSpan={isCD ? 12 : 11} className="text-center py-10 text-gray-400 text-xs">
                         {activeSection === 'amount_update_pending'
                           ? 'No CD amount updates awaiting verification. All submitted settlements are verified!'
                           : activeSection === 'pending_verification'
@@ -998,17 +1001,24 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       const isRejected = isOrderRejected(order);
                       const isPending = !isRejected && (order.status === 'PENDING_APPROVAL' || order.status === 'DRAFT');
                       const isCancelled = order.status === 'CANCELLED';
+                      const isWholesalePO = String(order.poNumber || '').startsWith('PO/');
+                      const settle = (order as any).settlementDetails;
+                      const total = Number(order.grandTotal || 0);
                       const adv = Number(order.advanceAmount || 0);
-                      const pendingDue = isRejected ? 0 : Number(order.pendingAmount ?? Math.max(0, Number(order.grandTotal) - adv));
-                      // Strict Business Rule: Closed ONLY when pendingDue <= 0. If even 1 rupee is pending, status MUST BE OPEN!
-                      const isClosed = !isPending && !isRejected && !isCancelled && pendingDue <= 0 && order.status === 'CLOSED';
+                      const deductions = settle?.totalMandiDeductions > 0 ? settle.totalMandiDeductions : Math.round(total * 0.06);
+                      const netPayable = Math.max(0, total - deductions);
+                      const potentialDue = (settle?.finalBalanceDue !== undefined && settle.finalBalanceDue > 0)
+                        ? Number(settle.finalBalanceDue)
+                        : (settle?.calculatedPotentialDue ?? (isWholesalePO ? Math.max(0, netPayable - adv) : Math.max(0, total - adv)));
+                      // Strict Business Rule: Closed ONLY when potentialDue <= 0. If even 1 rupee is pending, status MUST BE OPEN!
+                      const isClosed = !isPending && !isRejected && !isCancelled && potentialDue <= 0 && order.status === 'CLOSED';
+                      const pendingDue = isRejected ? 0 : isClosed ? 0 : potentialDue;
 
                       return (
                         <tr
                           key={order.id}
                           className="hover:bg-[#F4F9F5] transition cursor-pointer text-xs"
                           onClick={() => setSelectedPO(order)}
-                          title="Click to view full order dossier & line items"
                         >
                           <td className="text-center py-3 px-3 font-bold text-gray-700 border-r border-gray-200">
                             {index + 1}
@@ -1026,41 +1036,72 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           </td>
                           {/* Buyer / Customer & Area */}
                           <td className="text-center py-3 px-4 text-gray-800 border-r border-gray-200">
-                            <span className="font-bold text-gray-900 block truncate" title={order.supplierName}>
+                            <span className="font-bold text-gray-900 block truncate max-w-[170px] mx-auto" title={order.supplierName}>
                               {order.supplierName || (isCD ? 'Retail Customer' : 'Supplier')}
                             </span>
-                            <div className="flex items-center justify-center gap-1 mt-0.5 flex-wrap">
-                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                                📍 {order.orderPersonPlace || 'Warangal'}
-                              </span>
-                            </div>
-                            {/* Layer & Box Breakdown */}
-                            {order.items && order.items.length > 0 && (
-                              <div className="mt-1 flex flex-wrap items-center justify-center gap-1 max-w-[220px] mx-auto">
-                                {order.items.map((it: any, i: number) => {
-                                  const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
-                                    ? '4L'
-                                    : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
-                                    ? '5L'
-                                    : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
-                                    ? 'Roll'
-                                    : it.varietyGrade || it.fruitName;
-                                  return (
-                                    <span
-                                      key={i}
-                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7] shadow-2xs whitespace-nowrap"
-                                      title={`${it.varietyGrade || it.fruitName}: ${Number(it.quantity).toLocaleString('en-IN')} BOX`}
-                                    >
-                                      <span className="text-emerald-700 font-black">{label}:</span>
-                                      <span>{Number(it.quantity).toLocaleString('en-IN')}</span>
+                            <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-2xs">
+                              📍 {order.orderPersonPlace || 'Warangal'}
+                            </span>
+                          </td>
+                          {/* Commodity & Volume */}
+                          <td className="py-3 px-4 border-r border-gray-200">
+                            {(() => {
+                              const items = order.items || [];
+                              const totalQty = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0), 0);
+                              const firstFruit = items[0]?.fruitName || ((order as any).fruitName || 'Fresh Fruits');
+                              const cleanFruit = firstFruit.replace(/\s*(4L|5L|Roll|4-Layer|5-Layer|Roller|\(.*?\)).*/i, '').trim() || 'Kashmir Apples';
+                              const isRouteRequested = items.some((it: any) =>
+                                String(it.varietyGrade || '').includes('Route Allotment') ||
+                                String(it.fruitName || '').includes('Route Allotment')
+                              );
+
+                              if (items.length === 0 || (isRouteRequested && totalQty === 0)) {
+                                return (
+                                  <div className="space-y-1">
+                                    <strong className="font-extrabold text-gray-900 block text-xs truncate max-w-[160px]">
+                                      {cleanFruit}
+                                    </strong>
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                                      Route Allotment (0 BOX)
                                     </span>
-                                  );
-                                })}
-                                <span className="text-[10px] text-gray-500 font-bold font-mono">
-                                  ({order.items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0), 0).toLocaleString('en-IN')} BOXs)
-                                </span>
-                              </div>
-                            )}
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="space-y-1">
+                                  <strong className="font-extrabold text-gray-900 block text-xs truncate max-w-[170px]" title={cleanFruit}>
+                                    {cleanFruit}
+                                  </strong>
+                                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                    {items.map((it: any, i: number) => {
+                                      const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
+                                        ? '4L'
+                                        : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
+                                        ? '5L'
+                                        : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
+                                        ? 'Roll'
+                                        : it.varietyGrade || it.fruitName;
+                                      const qty = Number(it.quantity) || 0;
+                                      if (qty <= 0) return null;
+                                      return (
+                                        <span
+                                          key={i}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7] shadow-2xs whitespace-nowrap"
+                                          title={`${it.varietyGrade || it.fruitName}: ${qty.toLocaleString('en-IN')} BOX`}
+                                        >
+                                          <span className="text-emerald-700 font-black">{label}:</span>
+                                          <span>{qty.toLocaleString('en-IN')}</span>
+                                        </span>
+                                      );
+                                    })}
+                                    <span className="text-[10px] text-gray-500 font-bold font-mono whitespace-nowrap">
+                                      ({totalQty.toLocaleString('en-IN')} BOXs)
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                           {/* Delivery Destination / Destination Hub */}
                           <td className="text-center py-3 px-4 border-r border-gray-200 whitespace-nowrap">
