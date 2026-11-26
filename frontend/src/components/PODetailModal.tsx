@@ -29,6 +29,7 @@ import { useAuth } from '../context/AuthContext';
 import { POFinancialsModal } from './POFinancialsModal';
 import { ProofViewerModal } from './ProofViewerModal';
 import { resolvePhotoUrl, compressImageFile } from '../utils/imageUtils';
+import { getDestinationHub } from '../pages/VendorDashboardPage';
 
 interface PODetailModalProps {
   order: PurchaseOrder;
@@ -773,7 +774,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </div>
           )}
           {/* Metadata Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-2.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
             <div>
               <span className="text-gray-400 font-medium block">{isCD ? 'Buyer / Customer' : 'Supplier'}</span>
               <strong className="text-gray-800 text-xs block mt-0.5 truncate">{supplierDisplayName}</strong>
@@ -789,9 +790,15 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               <strong className="text-gray-800 text-xs block mt-0.5 truncate">{createdByDisplayName}</strong>
             </div>
             <div>
-              <span className="text-emerald-700 font-semibold block">Order Area</span>
+              <span className="text-emerald-700 font-semibold block">Origin Farm/Area</span>
               <strong className="text-emerald-800 text-xs block mt-0.5 font-bold truncate">
-                {order.orderPersonPlace || 'Hyderabad'}
+                {order.orderPersonPlace || 'Warangal'}
+              </strong>
+            </div>
+            <div>
+              <span className="text-blue-700 font-semibold block">Destination Hub</span>
+              <strong className="text-blue-900 text-xs block mt-0.5 font-black truncate">
+                {getDestinationHub(order, 'Warangal Regional Hub')}
               </strong>
             </div>
             <div>

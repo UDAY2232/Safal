@@ -33,6 +33,7 @@ import { CreatePOModal } from '../components/CreatePOModal';
 import { SubmitDuePaymentModal } from '../components/SubmitDuePaymentModal';
 import { AddDuePOModal } from '../components/AddDuePOModal';
 import { ProofViewerModal } from '../components/ProofViewerModal';
+import { getDestinationHub } from './VendorDashboardPage';
 
 interface PurchaseOrdersPageProps {
   onNotify: (msg: string) => void;
@@ -948,6 +949,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       {isCD ? 'Buyer / Customer & Area' : 'Supplier & Area'}
                     </th>
                     <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
+                      {isCD ? 'Delivery Destination' : 'Destination Hub'}
+                    </th>
+                    <th className="text-center py-3.5 px-4 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
                       {isCD ? 'Employee (Staff)' : 'Created By'}
                     </th>
                     <th className="text-center py-3.5 px-3 font-bold text-xs uppercase tracking-wider border-r border-[#085A33]">
@@ -975,7 +979,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                 <tbody className="divide-y divide-gray-200">
                   {displayedOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={isCD ? 10 : 9} className="text-center py-10 text-gray-400 text-xs">
+                      <td colSpan={isCD ? 11 : 10} className="text-center py-10 text-gray-400 text-xs">
                         {activeSection === 'amount_update_pending'
                           ? 'No CD amount updates awaiting verification. All submitted settlements are verified!'
                           : activeSection === 'pending_verification'
@@ -1023,6 +1027,13 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             </span>
                             <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                               📍 {order.orderPersonPlace || 'Warangal'}
+                            </span>
+                          </td>
+                          {/* Delivery Destination / Destination Hub */}
+                          <td className="text-center py-3 px-4 border-r border-gray-200 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-black bg-blue-50 text-blue-900 border border-blue-200 shadow-2xs">
+                              <MapPin size={12} className="text-blue-700" />
+                              <span>{getDestinationHub(order, 'Warangal Regional Hub')}</span>
                             </span>
                           </td>
                           {/* Employee (Staff) */}

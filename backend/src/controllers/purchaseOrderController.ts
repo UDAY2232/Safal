@@ -237,6 +237,8 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         expectedDeliveryDate: p.expectedDeliveryDate,
         deliveryAddress: p.deliveryAddress,
         orderPersonPlace: (p as any).orderPersonPlace || null,
+        destinationHub: (p as any).destinationHub || null,
+        notes: p.notes,
         paymentProofUrl: (p as any).paymentProofUrl || null,
         paymentProofNotes: (p as any).paymentProofNotes || null,
         createdById: p.createdById,

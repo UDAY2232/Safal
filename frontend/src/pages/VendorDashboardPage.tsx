@@ -54,23 +54,29 @@ import { stampImageFile, compressImageFile } from '../utils/watermark';
 import { resolvePhotoUrl, downloadProofFile, compressImageFile as compressImageBlob } from '../utils/imageUtils';
 import { getMobilePushStatus, requestMobileNotificationPermission, PushPermissionStatus } from '../utils/mobilePush';
 
-export function getDestinationHub(po: any, fallback: string = 'Warangal Hub'): string {
+export function getDestinationHub(po: any, fallback: string = 'Warangal Regional Hub'): string {
   if (!po) return fallback;
   if (po.destinationHub) {
     const dh = String(po.destinationHub).trim();
-    return dh.toLowerCase().includes('hub') ? dh : `${dh} Hub`;
+    return dh.toLowerCase().includes('hub') ? dh : `${dh} Regional Hub`;
   }
-  const addr = po.deliveryAddress || '';
+  const addr = String(po.deliveryAddress || '').trim();
   if (addr.includes('➔') || addr.includes('->')) {
     const parts = addr.split(/➔|->/);
-    const right = parts[parts.length - 1].replace(/Receiving Desk/i, '').replace(/Regional Hub/i, 'Hub').trim();
+    const right = parts[parts.length - 1].replace(/Receiving Desk/i, '').replace(/Receiving D.*/i, '').trim();
     if (right) {
-      return right.toLowerCase().includes('hub') ? right : `${right} Hub`;
+      return right.toLowerCase().includes('hub') ? right : `${right} Regional Hub`;
+    }
+  }
+  if (addr) {
+    const clean = addr.replace(/Receiving Desk/i, '').replace(/Receiving D.*/i, '').trim();
+    if (clean.toLowerCase().includes('hub')) {
+      return clean;
     }
   }
   if (po.notes) {
-    const m = po.notes.match(/(?:for|to)\s+([A-Za-z]+)\s+Hub/i);
-    if (m && m[1]) return `${m[1]} Hub`;
+    const m = String(po.notes).match(/(?:for|to)\s+([A-Za-z]+)\s+(?:Regional\s+)?Hub/i);
+    if (m && m[1]) return `${m[1]} Regional Hub`;
   }
   return fallback;
 }
