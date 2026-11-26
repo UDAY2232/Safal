@@ -1920,6 +1920,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 <tr>
                   <th>Order Number</th>
                   <th>Party / Supplier</th>
+                  <th>Commodity & Volume</th>
                   <th>Order Taken By (Staff / Admin)</th>
                   <th>Order Date</th>
                   <th>Total Amount</th>
@@ -1931,7 +1932,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               <tbody>
                 {recentPOs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-gray-400 text-xs">
+                    <td colSpan={9} className="text-center py-8 text-gray-400 text-xs">
                       No purchase orders recorded yet.
                     </td>
                   </tr>
@@ -1944,31 +1945,71 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       title="Click to view full purchase order dossier"
                     >
                       <td className="font-semibold text-emerald-800">{order.number}</td>
-                      <td className="font-medium text-gray-900">
-                        <div>{order.supplier}</div>
-                        {order.items && order.items.length > 0 && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1">
-                            {order.items.map((it: any, i: number) => {
-                              const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
-                                ? '4L'
-                                : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
-                                ? '5L'
-                                : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
-                                ? 'Roll'
-                                : it.varietyGrade || it.fruitName;
-                              return (
-                                <span
-                                  key={i}
-                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7]"
-                                  title={`${it.varietyGrade || it.fruitName}: ${Number(it.quantity).toLocaleString('en-IN')}`}
-                                >
-                                  <span className="text-emerald-700 font-black">{label}:</span>
-                                  <span>{Number(it.quantity).toLocaleString('en-IN')}</span>
+                      <td className="font-bold text-gray-900 whitespace-nowrap">
+                        {order.supplier}
+                      </td>
+                      <td className="text-xs">
+                        {(() => {
+                          const items = order.items || [];
+                          const totalQty = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0), 0);
+                          const firstFruit = items[0]?.fruitName || ((order as any).fruitName || 'Fresh Fruits');
+                          const cleanFruit = firstFruit.replace(/\s*(4L|5L|Roll|4-Layer|5-Layer|Roller|\(.*?\)).*/i, '').trim() || 'Kashmir Apples';
+                          const isRouteRequested = items.some((it: any) =>
+                            String(it.varietyGrade || '').includes('Route Allotment') ||
+                            String(it.fruitName || '').includes('Route Allotment')
+                          );
+
+                          if (items.length === 0 || (isRouteRequested && totalQty === 0)) {
+                            return (
+                              <div className="space-y-0.5">
+                                <span className="font-bold text-gray-900 block text-xs truncate max-w-[150px]">
+                                  {cleanFruit}
                                 </span>
-                              );
-                            })}
-                          </div>
-                        )}
+                                <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
+                                  Route Allotment (0 BOX)
+                                </span>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-gray-900 block text-xs truncate max-w-[160px]" title={cleanFruit}>
+                                {cleanFruit}
+                              </span>
+                              <div className="flex flex-wrap items-center gap-1">
+                                {items.map((it: any, i: number) => {
+                                  const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
+                                    ? '4L'
+                                    : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
+                                    ? '5L'
+                                    : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
+                                    ? 'Roll'
+                                    : it.varietyGrade?.includes('Standard') || it.fruitName?.includes('Standard')
+                                    ? 'Std'
+                                    : it.varietyGrade?.includes('Grade A') || it.fruitName?.includes('Grade A')
+                                    ? 'Grade A'
+                                    : it.varietyGrade || it.fruitName;
+                                  const qty = Number(it.quantity) || 0;
+                                  if (qty <= 0) return null;
+                                  return (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7] whitespace-nowrap"
+                                      title={`${it.varietyGrade || it.fruitName}: ${qty.toLocaleString('en-IN')}`}
+                                    >
+                                      <span className="text-emerald-700 font-black">{label}:</span>
+                                      <span>{qty.toLocaleString('en-IN')}</span>
+                                    </span>
+                                  );
+                                })}
+                                <span className="text-[10px] text-gray-500 font-bold font-mono whitespace-nowrap">
+                                  ({totalQty.toLocaleString('en-IN')} BOXs)
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="text-gray-700 text-xs font-semibold">{order.createdBy || '--'}</td>
                       <td className="text-gray-600 text-xs">
@@ -2021,6 +2062,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                 <tr>
                   <th>CD Number</th>
                   <th>Buyer / Customer</th>
+                  <th>Commodity & Volume</th>
                   <th>Order Taken By (Staff)</th>
                   <th>Order Date</th>
                   <th>Total Amount</th>
@@ -2032,7 +2074,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               <tbody>
                 {recentCDs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-gray-400 text-xs">
+                    <td colSpan={9} className="text-center py-8 text-gray-400 text-xs">
                       No customer dues recorded yet.
                     </td>
                   </tr>
@@ -2045,31 +2087,60 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       title="Click to view full customer due dossier"
                     >
                       <td className="font-semibold text-emerald-800">{order.number}</td>
-                      <td className="font-medium text-gray-900">
-                        <div>{order.supplier}</div>
-                        {order.items && order.items.length > 0 && (
-                          <div className="mt-1 flex flex-wrap items-center gap-1">
-                            {order.items.map((it: any, i: number) => {
-                              const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
-                                ? '4L'
-                                : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
-                                ? '5L'
-                                : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
-                                ? 'Roll'
-                                : it.varietyGrade || it.fruitName;
-                              return (
-                                <span
-                                  key={i}
-                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7]"
-                                  title={`${it.varietyGrade || it.fruitName}: ${Number(it.quantity).toLocaleString('en-IN')}`}
-                                >
-                                  <span className="text-emerald-700 font-black">{label}:</span>
-                                  <span>{Number(it.quantity).toLocaleString('en-IN')}</span>
+                      <td className="font-bold text-gray-900 whitespace-nowrap">
+                        {order.supplier}
+                      </td>
+                      <td className="text-xs">
+                        {(() => {
+                          const items = order.items || [];
+                          const totalQty = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0), 0);
+                          const firstFruit = items[0]?.fruitName || ((order as any).fruitName || 'Fresh Fruits');
+                          const cleanFruit = firstFruit.replace(/\s*(4L|5L|Roll|4-Layer|5-Layer|Roller|\(.*?\)).*/i, '').trim() || 'Retail Fruits';
+
+                          if (items.length === 0) {
+                            return (
+                              <span className="text-gray-400 text-xs font-medium">Standard Sale</span>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-gray-900 block text-xs truncate max-w-[160px]" title={cleanFruit}>
+                                {cleanFruit}
+                              </span>
+                              <div className="flex flex-wrap items-center gap-1">
+                                {items.map((it: any, i: number) => {
+                                  const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
+                                    ? '4L'
+                                    : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
+                                    ? '5L'
+                                    : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
+                                    ? 'Roll'
+                                    : it.varietyGrade?.includes('Standard') || it.fruitName?.includes('Standard')
+                                    ? 'Std'
+                                    : it.varietyGrade?.includes('Grade A') || it.fruitName?.includes('Grade A')
+                                    ? 'Grade A'
+                                    : it.varietyGrade || it.fruitName;
+                                  const qty = Number(it.quantity) || 0;
+                                  if (qty <= 0) return null;
+                                  return (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7] whitespace-nowrap"
+                                      title={`${it.varietyGrade || it.fruitName}: ${qty.toLocaleString('en-IN')}`}
+                                    >
+                                      <span className="text-emerald-700 font-black">{label}:</span>
+                                      <span>{qty.toLocaleString('en-IN')}</span>
+                                    </span>
+                                  );
+                                })}
+                                <span className="text-[10px] text-gray-500 font-bold font-mono whitespace-nowrap">
+                                  ({totalQty.toLocaleString('en-IN')} BOXs)
                                 </span>
-                              );
-                            })}
-                          </div>
-                        )}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="text-gray-700 text-xs font-semibold">{order.createdBy || '--'}</td>
                       <td className="text-gray-600 text-xs">
