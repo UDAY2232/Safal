@@ -1144,11 +1144,18 @@ export async function updateFinancialRecords(req: AuthRequest, res: Response) {
 
 export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
-    const po = await prisma.purchaseOrder.findUnique({
-      where: { id },
+    const rawId = req.params.id || (req.params as any)[0] || '';
+    const id = decodeURIComponent(rawId);
+    const po = await prisma.purchaseOrder.findFirst({
+      where: {
+        OR: [
+          { id },
+          { poNumber: id },
+        ],
+      },
       include: {
         supplier: true,
+        vendorProfile: true,
         createdBy: true,
         items: true,
       },
@@ -1162,6 +1169,13 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
       return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
     }
 
+    if (req.user?.role === 'VENDOR') {
+      const isVendorOwner = po.createdById === req.user.id || (po.vendorProfileId && po.vendorProfileId === req.user.vendorProfile?.id);
+      if (!isVendorOwner) {
+        return res.status(403).json({ error: 'Access denied: You can only view your own purchase orders' });
+      }
+    }
+
     const adv = Number(po.advanceAmount || 0);
     const pending = Number(po.pendingAmount ?? Math.max(0, Number(po.grandTotal) - adv));
     const effectiveStatus = (pending > 0 && po.status === 'CLOSED') ? 'OPEN' : po.status;
@@ -1173,7 +1187,7 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
         expectedDeliveryDate: po.expectedDeliveryDate
           ? new Date(po.expectedDeliveryDate).toLocaleDateString('en-GB')
           : null,
-        supplierName: po.supplier?.name || (po.poNumber.startsWith('CD/') ? 'Customer' : 'Supplier Record'),
+        supplierName: po.supplier?.name || po.vendorProfile?.businessName || (po.poNumber.startsWith('CD/') ? 'Customer' : 'Supplier Record'),
         supplierAddress: po.supplier?.address || null,
         supplierContact: po.supplier?.phone || po.supplier?.email || null,
         createdByName: po.createdBy?.name || 'Authorized Staff',

@@ -23,9 +23,10 @@ const router = Router();
 router.use(authenticateToken);
 
 router.get('/', getPurchaseOrders);
+router.get('/:id/pdf', downloadPurchaseOrderPDF);
+router.get('/:id(*)/pdf', downloadPurchaseOrderPDF);
 router.get('/:id(*)', getPurchaseOrderById);
 router.put('/:id(*)', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), updatePurchaseOrder);
-router.get('/:id(*)/pdf', downloadPurchaseOrderPDF);
 router.delete('/:id(*)', requireRole('ADMIN'), deletePurchaseOrder);
 
 // Creating & submitting POs (supports paymentProof upload for upfront CD payments)
