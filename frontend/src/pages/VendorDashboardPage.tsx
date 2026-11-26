@@ -457,15 +457,23 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     }, 0);
   }, [activeOrders]);
 
-  // Compute Bar Chart Data (Comparison of Consignments / Orders - Strictly Active Consignments)
+  // Compute Bar Chart Data (Comparison of Consignments / Orders - Strictly Active Consignments with Verified Disbursals)
   const barChartData = React.useMemo(() => {
     if (activeOrders.length === 0) {
       return [];
     }
     return activeOrders.slice(0, 3).map((po, idx) => {
       const total = Number(po.grandTotal || po.totalAmount || po.totalOrderValue || 0);
-      const adv = Number(po.advancePaymentAmount || po.advancePaid || po.advanceAmount || Math.round(total * 0.70));
-      const due = Number(po.pendingPaymentAmount || po.balanceDue || po.pendingAmount || Math.max(0, total - adv));
+      const settle = (po as any).settlementDetails;
+      const isAdvancePaid = Boolean(
+        settle?.advanceDisbursed ||
+        settle?.advanceProofUrl ||
+        po.advancePaymentReceiptUrl ||
+        po.paymentProofUrl
+      );
+      const adv = isAdvancePaid ? Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70)) : 0;
+      const hasSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
+      const due = hasSettlement ? Number(settle?.finalBalanceDue ?? 0) : 0;
       const shortCode = po.poNumber ? po.poNumber.split('/').pop() || `PO #${idx + 1}` : `PO #${idx + 1}`;
       return {
         label: shortCode,
@@ -2102,10 +2110,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                       <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400/90">
                         SAFAL REFRIGERATED HIGHWAY LOGISTICS
                       </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-gray-950 font-black text-[10px] uppercase tracking-wider shadow-sm">
+                        COMING SOON
+                      </span>
                     </div>
                     <h3 className="text-base sm:text-lg font-black text-white font-['Manrope'] mt-1 flex items-center gap-2">
                       <Truck className="text-emerald-400" size={20} />
                       Active Consignment Corridor: {activeOrigin} ➔ {activeDest} Hub
+                      <span className="px-2 py-0.5 rounded bg-amber-400/20 border border-amber-400/50 text-amber-300 font-extrabold text-[10px] uppercase tracking-wider ml-1">
+                        COMING SOON
+                      </span>
                     </h3>
                   </div>
 
@@ -2457,42 +2471,48 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     {barChartData.map((d, i) => {
                       const baseX = 85 + i * 145;
                       const maxVal = 1600000;
-                      const hTotal = Math.min(150, Math.max(12, (d.total / maxVal) * 150));
-                      const hAdv = Math.min(150, Math.max(12, (d.advance / maxVal) * 150));
-                      const hDue = Math.min(150, Math.max(12, (d.due / maxVal) * 150));
+                      const hTotal = d.total > 0 ? Math.min(150, Math.max(8, (d.total / maxVal) * 150)) : 0;
+                      const hAdv = d.advance > 0 ? Math.min(150, Math.max(8, (d.advance / maxVal) * 150)) : 0;
+                      const hDue = d.due > 0 ? Math.min(150, Math.max(8, (d.due / maxVal) * 150)) : 0;
 
                       return (
                         <g key={i}>
                           {/* Total Bar */}
-                          <rect
-                            x={baseX}
-                            y={170 - hTotal}
-                            width="26"
-                            height={hTotal}
-                            rx="4"
-                            fill="#087A3E"
-                            className="transition-all hover:opacity-90"
-                          />
-                          {/* Advance Bar */}
-                          <rect
-                            x={baseX + 30}
-                            y={170 - hAdv}
-                            width="26"
-                            height={hAdv}
-                            rx="4"
-                            fill="#14B8A6"
-                            className="transition-all hover:opacity-90"
-                          />
-                          {/* Due Bar */}
-                          <rect
-                            x={baseX + 60}
-                            y={170 - hDue}
-                            width="26"
-                            height={hDue}
-                            rx="4"
-                            fill="#F59E0B"
-                            className="transition-all hover:opacity-90"
-                          />
+                          {hTotal > 0 && (
+                            <rect
+                              x={baseX}
+                              y={170 - hTotal}
+                              width="26"
+                              height={hTotal}
+                              rx="4"
+                              fill="#087A3E"
+                              className="transition-all hover:opacity-90"
+                            />
+                          )}
+                          {/* Advance Bar (Only plotted when advance actually disbursed to vendor) */}
+                          {hAdv > 0 && (
+                            <rect
+                              x={baseX + 30}
+                              y={170 - hAdv}
+                              width="26"
+                              height={hAdv}
+                              rx="4"
+                              fill="#14B8A6"
+                              className="transition-all hover:opacity-90"
+                            />
+                          )}
+                          {/* Due Bar (Only plotted when net due realized post mandi sale) */}
+                          {hDue > 0 && (
+                            <rect
+                              x={baseX + 60}
+                              y={170 - hDue}
+                              width="26"
+                              height={hDue}
+                              rx="4"
+                              fill="#F59E0B"
+                              className="transition-all hover:opacity-90"
+                            />
+                          )}
                           {/* X-axis Label */}
                           <text
                             x={baseX + 43}
@@ -5243,15 +5263,15 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       {/* 9. Modal: Preview Media Photo / Bilty Document */}
       {previewMediaModal && (
         <div
-          className="modal-backdrop !z-[9999] fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
-          style={{ zIndex: 9999 }}
+          className="modal-backdrop fixed inset-0 flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          style={{ zIndex: 999999 }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setPreviewMediaModal(null);
           }}
         >
           <div
             className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl p-4 sm:p-5 my-auto max-h-[92vh] flex flex-col relative"
-            style={{ zIndex: 10000 }}
+            style={{ zIndex: 1000000 }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
@@ -6087,11 +6107,17 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           </tr>
                         ) : (
                           orders.map((po) => {
+                            const isRejected = isPORejected(po);
                             const total = Number(po.grandTotal || 0);
                             const settle = (po as any).settlementDetails;
-                            const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70));
-                            const proofUrl = settle?.advanceProofUrl || po.paymentProofUrl;
-                            const utr = settle?.advancePaymentUtr || po.paymentProofNotes || 'RTGS-MANDI-ADV';
+                            const isAdvancePaid = !isRejected && Boolean(
+                              settle?.advanceDisbursed ||
+                              settle?.advanceProofUrl ||
+                              po.paymentProofUrl
+                            );
+                            const adv = isAdvancePaid ? Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70)) : 0;
+                            const proofUrl = isRejected ? null : (settle?.advanceProofUrl || po.paymentProofUrl);
+                            const utr = isRejected ? '-' : (isAdvancePaid ? (settle?.advancePaymentUtr || po.paymentProofNotes || 'RTGS-MANDI-ADV') : '-');
 
                             return (
                               <tr key={po.id} className="hover:bg-emerald-50/20">
@@ -6105,10 +6131,18 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   {settle?.advancePayingHub || po.orderPersonPlace || 'Warangal Hub'}
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono font-bold text-gray-900">
-                                  ₹{total.toLocaleString('en-IN')}
+                                  {isRejected ? (
+                                    <span className="text-gray-400 line-through">₹{total.toLocaleString('en-IN')}</span>
+                                  ) : (
+                                    `₹${total.toLocaleString('en-IN')}`
+                                  )}
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-700">
-                                  ₹{adv.toLocaleString('en-IN')}
+                                  {isRejected ? (
+                                    <span className="text-gray-400">₹0</span>
+                                  ) : (
+                                    `₹${adv.toLocaleString('en-IN')}`
+                                  )}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
                                   <span className="text-[10px] font-mono font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
@@ -6116,7 +6150,11 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   </span>
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
-                                  {proofUrl ? (
+                                  {isRejected ? (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300">
+                                      Order Rejected
+                                    </span>
+                                  ) : proofUrl ? (
                                     <button
                                       type="button"
                                       onClick={() =>
@@ -6221,10 +6259,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {orders.map((po) => {
+                            const isRejected = isPORejected(po);
                             const total = Number(po.grandTotal || 0);
                             const settle = (po as any).settlementDetails;
-                            const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70));
-                            const hasSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
+                            const isAdvancePaid = !isRejected && Boolean(
+                              settle?.advanceDisbursed ||
+                              settle?.advanceProofUrl ||
+                              po.paymentProofUrl
+                            );
+                            const adv = isAdvancePaid ? Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70)) : 0;
+                            const hasSettlement = !isRejected && Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
                             const due = hasSettlement ? Number(settle?.finalBalanceDue ?? 0) : 0;
                             const isCleared = hasSettlement && due === 0 && (Boolean(settle?.settlementCompleted) || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
 
@@ -6240,16 +6284,34 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   {po.orderPersonPlace || 'Warangal'}
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono font-bold text-gray-900">
-                                  ₹{total.toLocaleString('en-IN')}
+                                  {isRejected ? (
+                                    <span className="text-gray-400 line-through">₹{total.toLocaleString('en-IN')}</span>
+                                  ) : (
+                                    `₹${total.toLocaleString('en-IN')}`
+                                  )}
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
-                                  ₹{adv.toLocaleString('en-IN')}
+                                  {isRejected ? (
+                                    <span className="text-gray-400">₹0</span>
+                                  ) : (
+                                    `₹${adv.toLocaleString('en-IN')}`
+                                  )}
                                 </td>
                                 <td className="py-2.5 px-3 text-right font-mono font-black text-amber-900">
-                                  {hasSettlement ? `₹${due.toLocaleString('en-IN')}` : '₹0.00'}
+                                  {isRejected ? (
+                                    <span className="text-gray-400">₹0</span>
+                                  ) : hasSettlement ? (
+                                    `₹${due.toLocaleString('en-IN')}`
+                                  ) : (
+                                    '₹0.00'
+                                  )}
                                 </td>
                                 <td className="py-2.5 px-3 text-center">
-                                  {isCleared ? (
+                                  {isRejected ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-800 border border-rose-300 inline-flex items-center gap-1">
+                                      Order Rejected
+                                    </span>
+                                  ) : isCleared ? (
                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1">
                                       <CheckCircle2 size={11} className="text-emerald-700" /> Cleared ✓
                                     </span>

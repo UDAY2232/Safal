@@ -16,6 +16,7 @@ import {
   SlidersHorizontal,
   CreditCard,
   AlertCircle,
+  XCircle,
   Clock,
   User,
   MapPin,
@@ -156,6 +157,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
   // Calculations for All POs (Strict Rule: If due is pending > 0, status is OPEN, unless explicitly REJECTED/CANCELLED!)
   const isOrderRejected = (o: any) => o.status === 'REJECTED' || Boolean(o.rejectionReason && String(o.rejectionReason).trim() !== '');
+  const rejectedCount = orders.filter((o) => isOrderRejected(o)).length;
   const nonRejectedOrders = orders.filter((o) => !isOrderRejected(o) && o.status !== 'CANCELLED');
   const totalAmount = nonRejectedOrders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
   const openCount = orders.filter((o) => {
@@ -268,7 +270,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           <button
             onClick={() => {
               setActiveSection('due');
-              if (dueOrders.length === 1) {
+              if (!isVendor && dueOrders.length === 1) {
                 setDuePaymentPO(dueOrders[0]);
               }
             }}
@@ -393,7 +395,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
               <span>
-                CD Amount Update Pending Verification: <strong>{amountUpdatePendingOrders.length} Records</strong> (Awaiting Admin review of submitted proof)
+                {isCD ? 'CD' : 'PO'} Amount Update Pending Verification: <strong>{amountUpdatePendingOrders.length} Records</strong> (Awaiting Admin review of submitted proof)
               </span>
             </div>
             <span className="text-[11px] text-emerald-700 font-semibold hidden sm:inline">
@@ -403,10 +405,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         )}
       </div>
 
-      {/* 2. Stat Cards Dynamic Based on Section - Side by Side (2-Columns on Mobile) */}
+      {/* 2. Stat Cards Dynamic Based on Section - Side by Side (5-Columns on Large Screens) */}
       {activeSection === 'all' ? (
         /* ALL POs STAT CARDS */
-        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 lg:gap-4">
           <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB]">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
               <FileText size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
@@ -445,6 +447,21 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
               </span>
               <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5">
                 {isCD ? dueOrders.length : closedCount}
+              </strong>
+            </div>
+          </div>
+
+          {/* Card 4: Rejected Orders KPI Card */}
+          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FFF1F2] border border-[#FECDD3]">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FFE4E6] flex items-center justify-center text-[#E11D48] flex-shrink-0">
+              <XCircle size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+                {isCD ? 'Rejected CD' : 'Rejected PO'}
+              </span>
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#BE123C] font-['Manrope'] block mt-0.5">
+                {rejectedCount}
               </strong>
             </div>
           </div>
@@ -871,14 +888,20 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                         </td>
                         <td className="text-center py-3.5 px-4 whitespace-nowrap">
                           <div className="flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setDuePaymentPO(order)}
-                              className="px-3 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-xs shadow-xs inline-flex items-center gap-1.5 transition cursor-pointer"
-                              title="Submit Due Payment for this PO"
-                            >
-                              <CreditCard size={13} /> Submit Due Payment
-                            </button>
+                            {!isVendor ? (
+                              <button
+                                type="button"
+                                onClick={() => setDuePaymentPO(order)}
+                                className="px-3 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-xs shadow-xs inline-flex items-center gap-1.5 transition cursor-pointer"
+                                title="Submit Due Payment for this PO"
+                              >
+                                <CreditCard size={13} /> Submit Due Payment
+                              </button>
+                            ) : (
+                              <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                Awaiting Mandi Payout
+                              </span>
+                            )}
                             <button
                               type="button"
                               onClick={() => setSelectedPO(order)}
@@ -1070,7 +1093,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             ) : order.paymentProofUrl ? (
                               <div className="inline-flex flex-col items-center">
                                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
-                                  CD Amount Update Pending Verification
+                                  {isCD ? 'CD' : 'PO'} Amount Update Pending Verification
                                 </span>
                                 <button
                                   type="button"

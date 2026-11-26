@@ -1149,6 +1149,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             )}
 
             {onOpenDuePayment &&
+              !isVendor &&
               !isRejected &&
               order.status !== 'CANCELLED' &&
               Number(

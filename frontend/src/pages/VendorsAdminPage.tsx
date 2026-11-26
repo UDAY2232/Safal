@@ -381,9 +381,22 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
     return !hasVehicle && isPending && !isClosed;
   });
 
+  // Consignments explicitly rejected
+  const rejectedConsignments = allConsignments.filter((op) => isPORejected(op));
+
   // Displayed consignments based on active section
   const displayedConsignments = activeSection === 'allotment'
     ? (pendingAllotmentPOs.length > 0 ? pendingAllotmentPOs : allConsignments).filter((op) => {
+        const q = search.trim().toLowerCase();
+        if (!q) return true;
+        const poNum = (op.poNumber || '').toLowerCase();
+        const vName = (op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || '').toLowerCase();
+        const vCode = (op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || '').toLowerCase();
+        const comm = (op.commodity || '').toLowerCase();
+        return poNum.includes(q) || vName.includes(q) || vCode.includes(q) || comm.includes(q);
+      })
+    : activeSection === 'rejected'
+    ? rejectedConsignments.filter((op) => {
         const q = search.trim().toLowerCase();
         if (!q) return true;
         const poNum = (op.poNumber || '').toLowerCase();
@@ -1000,7 +1013,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <ShoppingCart size={15} /> All Vendor Consignments ({allConsignments.length})
+            <ShoppingCart size={15} /> All Vendor Consignments ({activeConsignments.length})
           </button>
 
           {/* New Tab: Awaiting Vehicle Allotment */}
@@ -1039,6 +1052,21 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
           >
             <Scale size={15} /> Mandi Weighbridge &amp; QC Slips ({weighbridgeConsignments.length})
           </button>
+
+          {/* Tab: Safal Rejected Consignments */}
+          {rejectedConsignments.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveSection('rejected')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+                activeSection === 'rejected'
+                  ? 'bg-rose-700 text-white shadow-sm ring-2 ring-rose-400 font-extrabold'
+                  : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
+              }`}
+            >
+              <AlertTriangle size={15} /> Rejected ({rejectedConsignments.length})
+            </button>
+          )}
 
           {/* New Tab: Admin Fruit Procurement Rates Desk */}
           <button

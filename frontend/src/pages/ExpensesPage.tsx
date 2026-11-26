@@ -20,6 +20,7 @@ import { SubmitExpenseModal } from '../components/SubmitExpenseModal';
 import { ExpenseActionModal } from '../components/ExpenseActionModal';
 import { ClearancePaymentModal } from '../components/ClearancePaymentModal';
 import { useAuth } from '../context/AuthContext';
+import { resolvePhotoUrl } from '../utils/imageUtils';
 
 interface ExpensesPageProps {
   onNotify: (msg: string) => void;
@@ -264,7 +265,7 @@ export const ExpensesPage: React.FC<ExpensesPageProps> = ({
                     <td>
                       {claim.receiptUrl ? (
                         <a
-                          href={claim.receiptUrl}
+                          href={resolvePhotoUrl(claim.receiptUrl)}
                           target="_blank"
                           rel="noreferrer"
                           className="text-[#087A3E] font-bold hover:underline inline-flex items-center gap-1"

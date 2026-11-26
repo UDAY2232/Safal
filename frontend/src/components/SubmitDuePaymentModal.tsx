@@ -37,6 +37,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
   const { user } = useAuth();
   const isEmployee = user?.role === 'EMPLOYEE';
   const isAdmin = user?.role === 'ADMIN';
+  const isVendor = user?.role === 'VENDOR';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const grandTotal = Number(order.grandTotal);
@@ -205,8 +206,45 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 py-4 space-y-4 text-xs pr-1">
+        {isVendor ? (
+          <div className="py-8 px-4 text-center space-y-4 my-auto">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-800 grid place-items-center mx-auto shadow-inner">
+              <ShieldCheck size={36} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-gray-900">Direct Payout by Safal Accounts</h3>
+              <p className="text-xs text-gray-600 max-w-md mx-auto mt-2 leading-relaxed">
+                As an Authorized Wholesale Vendor Partner, you do not make payments to SAFAL for supply purchase orders.
+                Upon completion of Mandi sales realization, SAFAL Finance &amp; Accounts disburses the net balance directly to your registered bank account.
+              </p>
+            </div>
+            <div className="p-4 bg-emerald-50/80 rounded-2xl border border-emerald-200 max-w-sm mx-auto text-left text-xs space-y-2 shadow-xs">
+              <div className="flex justify-between text-gray-600">
+                <span>Consignment Commitment:</span>
+                <strong className="text-gray-900 font-mono">₹{grandTotal.toLocaleString('en-IN')}</strong>
+              </div>
+              <div className="flex justify-between text-emerald-800">
+                <span>Advance Disbursed:</span>
+                <strong className="font-mono">₹{currentAdvance.toLocaleString('en-IN')}</strong>
+              </div>
+              <div className="flex justify-between text-amber-900 pt-1.5 border-t border-emerald-200 font-bold">
+                <span>Awaiting Mandi Realization:</span>
+                <strong className="font-mono">₹{currentPending.toLocaleString('en-IN')}</strong>
+              </div>
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs shadow-md transition cursor-pointer"
+              >
+                Close Window
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Scrollable Form Body */
+          <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 py-4 space-y-4 text-xs pr-1">
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 flex items-center gap-2 text-xs">
               <AlertCircle size={16} className="flex-shrink-0 text-red-600" />
@@ -618,6 +656,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
             </div>
           </div>
         </form>
+        )}
       </div>
 
       {/* Proof Preview Lightbox */}
