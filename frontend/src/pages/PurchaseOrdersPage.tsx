@@ -276,28 +276,30 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </div>
 
         <div className={`grid ${isVendor ? 'grid-cols-1' : 'grid-cols-2'} gap-2 w-full sm:w-auto sm:flex sm:items-center sm:gap-2.5`}>
-          {/* Direct Settle Due POs / CDs Button */}
-          <button
-            onClick={() => {
-              setActiveSection('due');
-              if (!isVendor && dueOrders.length === 1) {
-                setDuePaymentPO(dueOrders[0]);
-              }
-            }}
-            className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition border ${
-              activeSection === 'due'
-                ? 'bg-rose-50 text-rose-800 border-rose-300 ring-2 ring-rose-200'
-                : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-            }`}
-          >
-            <CreditCard size={16} />
-            <span className="truncate">{isCD ? 'Due CD Tracker' : 'Due Tracker'}</span>
-            {dueOrders.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-xs bg-rose-600 text-white font-extrabold ml-0.5">
-                {dueOrders.length}
-              </span>
-            )}
-          </button>
+          {/* Direct Settle Due POs / CDs Button - ONLY for ADMIN / ACCOUNTANT / EMPLOYEE, NEVER FOR VENDORS */}
+          {!isVendor && (
+            <button
+              onClick={() => {
+                setActiveSection('due');
+                if (dueOrders.length === 1) {
+                  setDuePaymentPO(dueOrders[0]);
+                }
+              }}
+              className={`inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition border ${
+                activeSection === 'due'
+                  ? 'bg-rose-50 text-rose-800 border-rose-300 ring-2 ring-rose-200'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              <CreditCard size={16} />
+              <span className="truncate">{isCD ? 'Due CD Tracker' : 'Due Tracker'}</span>
+              {dueOrders.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-xs bg-rose-600 text-white font-extrabold ml-0.5">
+                  {dueOrders.length}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Create CD / PO Button (Hidden for Vendors - Vendors only create Supply PO from their dashboard) */}
           {!isVendor && (
@@ -373,19 +375,21 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </button>
           )}
 
-          {/* Tab 4: Due CDs Section */}
-          <button
-            type="button"
-            onClick={() => setActiveSection('due')}
-            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
-              activeSection === 'due'
-                ? 'bg-rose-700 text-white shadow-sm'
-                : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
-            }`}
-            title="Orders requiring due payment collection"
-          >
-            <CreditCard size={15} /> {isCD ? `Due CDs Section (${dueOrders.length})` : `Due POs Section (${dueOrders.length})`}
-          </button>
+          {/* Tab 4: Due CDs/POs Section (Hidden for Vendors) */}
+          {!isVendor && (
+            <button
+              type="button"
+              onClick={() => setActiveSection('due')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+                activeSection === 'due'
+                  ? 'bg-rose-700 text-white shadow-sm'
+                  : 'bg-rose-50 text-rose-800 hover:bg-rose-100 border border-rose-200'
+              }`}
+              title="Orders requiring due payment collection"
+            >
+              <CreditCard size={15} /> {isCD ? `Due CDs Section (${dueOrders.length})` : `Due POs Section (${dueOrders.length})`}
+            </button>
+          )}
         </div>
 
         {activeSection === 'due' && (
@@ -1025,9 +1029,38 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             <span className="font-bold text-gray-900 block truncate" title={order.supplierName}>
                               {order.supplierName || (isCD ? 'Retail Customer' : 'Supplier')}
                             </span>
-                            <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                              📍 {order.orderPersonPlace || 'Warangal'}
-                            </span>
+                            <div className="flex items-center justify-center gap-1 mt-0.5 flex-wrap">
+                              <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                📍 {order.orderPersonPlace || 'Warangal'}
+                              </span>
+                            </div>
+                            {/* Layer & Box Breakdown */}
+                            {order.items && order.items.length > 0 && (
+                              <div className="mt-1 flex flex-wrap items-center justify-center gap-1 max-w-[220px] mx-auto">
+                                {order.items.map((it: any, i: number) => {
+                                  const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
+                                    ? '4L'
+                                    : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
+                                    ? '5L'
+                                    : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
+                                    ? 'Roll'
+                                    : it.varietyGrade || it.fruitName;
+                                  return (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7] shadow-2xs whitespace-nowrap"
+                                      title={`${it.varietyGrade || it.fruitName}: ${Number(it.quantity).toLocaleString('en-IN')} BOX`}
+                                    >
+                                      <span className="text-emerald-700 font-black">{label}:</span>
+                                      <span>{Number(it.quantity).toLocaleString('en-IN')}</span>
+                                    </span>
+                                  );
+                                })}
+                                <span className="text-[10px] text-gray-500 font-bold font-mono">
+                                  ({order.items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0), 0).toLocaleString('en-IN')} BOXs)
+                                </span>
+                              </div>
+                            )}
                           </td>
                           {/* Delivery Destination / Destination Hub */}
                           <td className="text-center py-3 px-4 border-r border-gray-200 whitespace-nowrap">

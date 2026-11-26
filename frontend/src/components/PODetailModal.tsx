@@ -188,6 +188,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
       if (!isEmployee) {
         payload.grandTotal = Number(editGrandTotal);
         payload.advanceAmount = Number(editAdvanceAmount);
+        payload.pendingAmount = Math.max(0, Number(editGrandTotal) - Number(editAdvanceAmount));
       }
       await api.updatePurchaseOrder(order.id, payload);
       onNotify(`${isCD ? 'Customer Due' : 'Purchase Order'} ${order.poNumber} updated successfully!`);

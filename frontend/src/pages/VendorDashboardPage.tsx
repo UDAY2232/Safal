@@ -142,10 +142,13 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       const settle = (po as any).settlementDetails;
       const adv = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(gross * 0.70));
       const hasSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted || (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0));
-      const due = hasSettlement ? Number(settle?.finalBalanceDue ?? 0) : 0;
       const safal = Number(settle?.adminShareAmount ?? Math.round(gross * 0.05));
       const apmc = Number(settle?.apmcShareAmount ?? Math.round(gross * 0.01));
-      const net = hasSettlement ? Number(settle?.netVendorPayable ?? Math.max(0, gross - (safal + apmc))) : 0;
+      const netPayable = Math.max(0, gross - (safal + apmc));
+      const potentialDue = (settle?.finalBalanceDue && Number(settle.finalBalanceDue) > 0)
+        ? Number(settle.finalBalanceDue)
+        : (settle?.calculatedPotentialDue ?? Math.max(0, netPayable - adv));
+      const due = hasSettlement ? Number(settle?.finalBalanceDue ?? 0) : potentialDue;
 
       // STRICT RULE: Advance is ONLY considered DISBURSED/RECEIVED when Admin has uploaded official payment receipt slip!
       const isAdvancePaid = Boolean(
@@ -160,9 +163,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       } else {
         totalAdvancePending += adv;
       }
-      totalSafalShare += (hasSettlement ? safal : 0);
-      totalApmcShare += (hasSettlement ? apmc : 0);
-      totalNetPayable += net;
+      totalSafalShare += safal;
+      totalApmcShare += apmc;
+      totalNetPayable += (hasSettlement ? (Number(settle?.netVendorPayable) || netPayable) : netPayable);
       totalNetBalanceDue += due;
     }
 
@@ -3408,21 +3411,29 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                               {isAppleConsignment ? 'Kashmir Apples' : (po.fruitName || 'Fresh Fruits')}
                             </div>
                             {po.items && po.items.length > 0 ? (
-                              <div className="mt-0.5 text-[10px] text-gray-600 font-semibold flex flex-wrap gap-1">
-                                {isAppleConsignment ? (
-                                  <>
-                                    {po.items.map((it, i) => (
-                                      <span key={i} className="px-1.5 py-0.5 bg-gray-100 rounded border border-gray-200">
-                                        {it.varietyGrade?.includes('4-Layer') || it.fruitName.includes('4L') ? '4L' : it.varietyGrade?.includes('5-Layer') || it.fruitName.includes('5L') ? '5L' : it.varietyGrade?.includes('Roller') || it.fruitName.includes('Roll') ? 'Roll' : it.varietyGrade}: <strong>{it.quantity}</strong>
-                                      </span>
-                                    ))}
-                                    <span className="text-emerald-800 font-black">({totalBoxes} Boxes)</span>
-                                  </>
-                                ) : (
-                                  <span>
-                                    {totalBoxes} {po.items[0]?.unit || 'BOX'} ({po.items[0]?.varietyGrade || 'Grade A'})
-                                  </span>
-                                )}
+                              <div className="mt-1 flex flex-wrap items-center gap-1">
+                                {po.items.map((it: any, i: number) => {
+                                  const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
+                                    ? '4L'
+                                    : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
+                                    ? '5L'
+                                    : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
+                                    ? 'Roll'
+                                    : it.varietyGrade || it.fruitName;
+                                  return (
+                                    <span
+                                      key={i}
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7] shadow-2xs whitespace-nowrap"
+                                      title={`${it.varietyGrade || it.fruitName}: ${Number(it.quantity).toLocaleString('en-IN')} BOX`}
+                                    >
+                                      <span className="text-emerald-700 font-black">{label}:</span>
+                                      <span>{Number(it.quantity).toLocaleString('en-IN')}</span>
+                                    </span>
+                                  );
+                                })}
+                                <span className="text-[10px] text-gray-500 font-bold font-mono whitespace-nowrap">
+                                  ({totalBoxes.toLocaleString('en-IN')} Boxes)
+                                </span>
                               </div>
                             ) : (
                               <span className="text-[10px] text-gray-400">{po.fruitName || 'Standard Fruit Consignment'}</span>
@@ -3487,9 +3498,16 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                             )}
                           </td>
 
-                          {/* Charges (6% Mandi: 5% Safal + 1% APMC) - ₹0.00 until Safal settles consignment */}
+                          {/* Charges (6% Mandi: 5% Safal + 1% APMC) */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
-                            {isFullyCleared || hasSettlementEntry ? (
+                            {po.status === 'REJECTED' ? (
+                              <div>
+                                <strong className="text-gray-400 font-mono text-xs block">₹0.00</strong>
+                                <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200 inline-block mt-0.5">
+                                  Order Rejected
+                                </span>
+                              </div>
+                            ) : (
                               <div>
                                 <strong className="text-rose-600 font-black block font-mono text-xs">
                                   -₹{totalDeductions.toLocaleString('en-IN')}
@@ -3498,19 +3516,10 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                   5% Safal (-₹{adminShare.toLocaleString('en-IN')}) + 1% APMC (-₹{apmcShare.toLocaleString('en-IN')})
                                 </span>
                               </div>
-                            ) : (
-                              <div>
-                                <strong className="text-gray-900 font-black block font-mono text-xs">
-                                  ₹0.00
-                                </strong>
-                                <span className="text-[9px] font-bold text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 inline-block mt-0.5">
-                                  Pending Safal Settlement
-                                </span>
-                              </div>
                             )}
                           </td>
 
-                          {/* Net Balance Due (Cleared shows actual Net Balance paid by Safal; 0 if pending sales realization) */}
+                          {/* Net Balance Due */}
                           <td className="text-right py-3.5 px-3 border-r border-gray-100 whitespace-nowrap">
                             {po.status === 'REJECTED' ? (
                               <div>
@@ -3544,15 +3553,21 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                                 </span>
                               </div>
                             ) : (
-                              <div>
-                                <strong className="text-gray-900 font-black block font-mono text-xs">₹0.00</strong>
-                                <span
-                                  className="text-[9px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-300 inline-block mt-0.5"
-                                  title="Net balance due will appear once Safal accounts enters Mandi sales realization"
-                                >
-                                  Pending Safal Realization
-                                </span>
-                              </div>
+                              (() => {
+                                const potentialDue = settle.finalBalanceDue > 0
+                                  ? settle.finalBalanceDue
+                                  : (settle.calculatedPotentialDue || Math.max(0, netVendorPayable - advance));
+                                return (
+                                  <div>
+                                    <strong className="text-[#064D2B] font-black block font-mono text-xs">
+                                      ₹{potentialDue.toLocaleString('en-IN')}
+                                    </strong>
+                                    <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 inline-block mt-0.5">
+                                      Net Due (Less 5% Admin + 1% APMC)
+                                    </span>
+                                  </div>
+                                );
+                              })()
                             )}
                           </td>
 

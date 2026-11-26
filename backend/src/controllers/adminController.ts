@@ -145,7 +145,7 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         todayAttendances,
       ] = await Promise.all([
         prisma.purchaseOrder.findMany({
-          include: { supplier: true, createdBy: true },
+          include: { supplier: true, createdBy: true, items: true },
           orderBy: { createdAt: 'desc' },
         }),
         prisma.accountantProfile.findMany({
@@ -382,6 +382,12 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
           pendingAmount: pending,
           status: (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status,
           createdBy: staffMatch ? staffMatch[1].trim() : (p.createdBy?.name || 'User'),
+          items: (p.items || []).map((i: any) => ({
+            fruitName: i.fruitName,
+            varietyGrade: i.varietyGrade,
+            quantity: Number(i.quantity),
+            unit: i.unit,
+          })),
         };
       }),
       recentCDs: cdOrders.slice(0, 8).map((p) => {

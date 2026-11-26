@@ -1600,7 +1600,7 @@ export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
           { poNumber: id },
         ],
       },
-      include: { supplier: true, items: true, createdBy: true },
+      include: { supplier: true, items: true, createdBy: true, financialRecord: true },
     });
 
     if (!po) {
@@ -1706,26 +1706,55 @@ export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
           }
         });
 
-        if (grandTotal === undefined) {
-          updateData.grandTotal = computedGrandTotal;
-          updateData.subtotal = computedGrandTotal;
-          if (advanceAmount === undefined) {
-            const autoAdv = Math.round(computedGrandTotal * 0.70);
-            updateData.advanceAmount = autoAdv;
-            updateData.pendingAmount = Math.max(0, computedGrandTotal - autoAdv);
-          }
+        const targetGrand = grandTotal !== undefined ? Number(grandTotal) : computedGrandTotal;
+        updateData.grandTotal = targetGrand;
+        updateData.subtotal = targetGrand;
+        const autoAdv = Math.round(targetGrand * 0.70);
+        const targetAdv = advanceAmount !== undefined ? Number(advanceAmount) : autoAdv;
+        updateData.advanceAmount = targetAdv;
+        updateData.pendingAmount = pendingAmount !== undefined ? Number(pendingAmount) : Math.max(0, targetGrand - targetAdv);
+      } else {
+        if (grandTotal !== undefined) {
+          const targetGrand = Number(grandTotal);
+          updateData.grandTotal = targetGrand;
+          updateData.subtotal = targetGrand;
+          const autoAdv = Math.round(targetGrand * 0.70);
+          const targetAdv = advanceAmount !== undefined ? Number(advanceAmount) : autoAdv;
+          updateData.advanceAmount = targetAdv;
+          updateData.pendingAmount = pendingAmount !== undefined ? Number(pendingAmount) : Math.max(0, targetGrand - targetAdv);
+        } else if (advanceAmount !== undefined) {
+          updateData.advanceAmount = Number(advanceAmount);
+          updateData.pendingAmount = pendingAmount !== undefined ? Number(pendingAmount) : Math.max(0, Number(po.grandTotal) - Number(advanceAmount));
+        } else if (pendingAmount !== undefined) {
+          updateData.pendingAmount = Number(pendingAmount);
         }
       }
 
-      if (grandTotal !== undefined) updateData.grandTotal = Number(grandTotal);
-      if (advanceAmount !== undefined) updateData.advanceAmount = Number(advanceAmount);
-      if (pendingAmount !== undefined) updateData.pendingAmount = Number(pendingAmount);
+      // Sync financialRecord (costNotes & verifiedCost) so enrichment does not use stale advance/total
+      if (po.financialRecord) {
+        let existingCostNotes: any = {};
+        try {
+          if (typeof po.financialRecord.costNotes === 'string' && po.financialRecord.costNotes.startsWith('{')) {
+            existingCostNotes = JSON.parse(po.financialRecord.costNotes);
+          }
+        } catch {}
+        if (updateData.advanceAmount !== undefined) {
+          existingCostNotes.advanceAmount = updateData.advanceAmount;
+        }
+        await prisma.purchaseOrderFinancialRecord.update({
+          where: { id: po.financialRecord.id },
+          data: {
+            costNotes: JSON.stringify(existingCostNotes),
+            verifiedCost: updateData.grandTotal !== undefined ? updateData.grandTotal : po.financialRecord.verifiedCost,
+          },
+        });
+      }
     }
 
     const updated = await prisma.purchaseOrder.update({
       where: { id: po.id },
       data: updateData,
-      include: { supplier: true, items: true, createdBy: true },
+      include: { supplier: true, items: true, createdBy: true, financialRecord: true },
     });
 
     clearDashboardCache();
@@ -1742,7 +1771,7 @@ export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
     });
 
     notifyLiveSync({ type: 'PO_UPDATED', entityId: updated.id, metadata: { poNumber: updated.poNumber } });
-    return res.json(updated);
+    return res.json(enrichPOWithSettlementDetails(updated));
   } catch (error: any) {
     console.error('Error updating purchase order:', error);
     return res.status(500).json({ error: error.message || 'Failed to update order' });

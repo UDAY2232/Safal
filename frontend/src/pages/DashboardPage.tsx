@@ -1944,7 +1944,32 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       title="Click to view full purchase order dossier"
                     >
                       <td className="font-semibold text-emerald-800">{order.number}</td>
-                      <td className="font-medium text-gray-900">{order.supplier}</td>
+                      <td className="font-medium text-gray-900">
+                        <div>{order.supplier}</div>
+                        {order.items && order.items.length > 0 && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {order.items.map((it: any, i: number) => {
+                              const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
+                                ? '4L'
+                                : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
+                                ? '5L'
+                                : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
+                                ? 'Roll'
+                                : it.varietyGrade || it.fruitName;
+                              return (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7]"
+                                  title={`${it.varietyGrade || it.fruitName}: ${Number(it.quantity).toLocaleString('en-IN')}`}
+                                >
+                                  <span className="text-emerald-700 font-black">{label}:</span>
+                                  <span>{Number(it.quantity).toLocaleString('en-IN')}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
                       <td className="text-gray-700 text-xs font-semibold">{order.createdBy || '--'}</td>
                       <td className="text-gray-600 text-xs">
                         {order.date ? new Date(order.date).toLocaleDateString('en-GB') : '--'}
@@ -2020,7 +2045,32 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       title="Click to view full customer due dossier"
                     >
                       <td className="font-semibold text-emerald-800">{order.number}</td>
-                      <td className="font-medium text-gray-900">{order.supplier}</td>
+                      <td className="font-medium text-gray-900">
+                        <div>{order.supplier}</div>
+                        {order.items && order.items.length > 0 && (
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {order.items.map((it: any, i: number) => {
+                              const label = it.varietyGrade?.includes('4-Layer') || it.fruitName?.includes('4L')
+                                ? '4L'
+                                : it.varietyGrade?.includes('5-Layer') || it.fruitName?.includes('5L')
+                                ? '5L'
+                                : it.varietyGrade?.includes('Roller') || it.fruitName?.includes('Roll')
+                                ? 'Roll'
+                                : it.varietyGrade || it.fruitName;
+                              return (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7]"
+                                  title={`${it.varietyGrade || it.fruitName}: ${Number(it.quantity).toLocaleString('en-IN')}`}
+                                >
+                                  <span className="text-emerald-700 font-black">{label}:</span>
+                                  <span>{Number(it.quantity).toLocaleString('en-IN')}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </td>
                       <td className="text-gray-700 text-xs font-semibold">{order.createdBy || '--'}</td>
                       <td className="text-gray-600 text-xs">
                         {order.date ? new Date(order.date).toLocaleDateString('en-GB') : '--'}
