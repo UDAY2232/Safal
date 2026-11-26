@@ -1763,7 +1763,19 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                       const vehiclePhoto = op.vehiclePhotoUrl || op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
                       const bilty = op.transportBillUrl || op.dispatchTransportBillUrl || op.bilty;
                       const scaleSlip = op.weighbridgeSlipUrl || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl;
-                      const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Fresh Fruits';
+                      const gradeInfo = getCommodityGradeDetails(op, fruitRates);
+                      const distinctFruitNames = Array.from(
+                        new Set(
+                          (op.items?.map((it: any) => it.fruitName).filter(Boolean) || []).map((name: string) =>
+                            name.replace(/\s*(4L|5L|Roll|4-Layer|5-Layer|Roller|\(.*?\)).*/i, '').trim()
+                          )
+                        )
+                      );
+                      const cleanFruitTitle =
+                        distinctFruitNames.length > 0
+                          ? distinctFruitNames.join(', ')
+                          : (gradeInfo.fruitName || op.commodity || op.fruitName || 'Fresh Fruits');
+                      const commodity = cleanFruitTitle;
                       const status = op.status === 'CLOSED' ? 'CLOSED' : op.dispatchStatus || op.status || 'OPEN';
                       const isAwaitingAllotment = (!op.dispatchVehicleNumber || op.dispatchVehicleNumber === '-') &&
                         (op.status === 'PENDING_APPROVAL' || op.dispatchStatus === 'PENDING_DISPATCH' || !op.dispatchStatus);
@@ -1791,12 +1803,34 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                             </div>
                           </td>
                           <td className="py-3.5 px-4 border-r border-gray-100">
-                            <span className="font-bold text-gray-800 block truncate max-w-[150px]">
-                              {commodity.replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
-                            </span>
-                            <span className="text-[11px] text-gray-500 font-mono font-semibold">
-                              {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
-                            </span>
+                            <div className="space-y-1">
+                              <strong className="font-extrabold text-gray-900 block text-xs truncate max-w-[170px]" title={cleanFruitTitle}>
+                                {cleanFruitTitle.replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
+                              </strong>
+                              {gradeInfo.gradedItems.some((g) => g.quantity > 0) ? (
+                                <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                  {gradeInfo.gradedItems
+                                    .filter((g) => g.quantity > 0)
+                                    .map((g, i) => (
+                                      <span
+                                        key={i}
+                                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7] shadow-2xs whitespace-nowrap"
+                                        title={`${g.varietyGrade || g.shortGrade}: ${g.quantity.toLocaleString('en-IN')} ${g.unit || 'BOX'}s`}
+                                      >
+                                        <span className="text-emerald-700 font-black">{g.shortGrade}:</span>
+                                        <span>{g.quantity.toLocaleString('en-IN')}</span>
+                                      </span>
+                                    ))}
+                                  <span className="text-[10px] text-gray-500 font-bold font-mono whitespace-nowrap">
+                                    ({fin.totalQty.toLocaleString('en-IN')} {fin.unit}s)
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-gray-600 font-mono font-semibold block">
+                                  {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="text-center py-3.5 px-3 font-medium text-gray-700 border-r border-gray-100 whitespace-nowrap">
                             {new Date(op.poDate || Date.now()).toLocaleDateString('en-GB')}
@@ -2498,7 +2532,19 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                   const vehiclePhoto = op.vehiclePhotoUrl || op.dispatchVehiclePhotoUrl || op.vehiclePhoto;
                   const bilty = op.transportBillUrl || op.dispatchTransportBillUrl || op.bilty;
                   const scaleSlip = op.weighbridgeSlipUrl || op.weighbridgeScaleSlipUrl || op.scaleSlipUrl;
-                  const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Fresh Fruits';
+                  const gradeInfo = getCommodityGradeDetails(op, fruitRates);
+                  const distinctFruitNames = Array.from(
+                    new Set(
+                      (op.items?.map((it: any) => it.fruitName).filter(Boolean) || []).map((name: string) =>
+                        name.replace(/\s*(4L|5L|Roll|4-Layer|5-Layer|Roller|\(.*?\)).*/i, '').trim()
+                      )
+                    )
+                  );
+                  const cleanFruitTitle =
+                    distinctFruitNames.length > 0
+                      ? distinctFruitNames.join(', ')
+                      : (gradeInfo.fruitName || op.commodity || op.fruitName || 'Fresh Fruits');
+                  const commodity = cleanFruitTitle;
                   const advAmt = Math.round(fin.baseCost * 0.70);
 
                   return (
@@ -2514,10 +2560,34 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                         <span className="text-[10px] text-emerald-800 font-mono font-bold">{vCode}</span>
                       </td>
                       <td className="py-3.5 px-4 border-r border-gray-100">
-                        <span className="font-bold text-gray-800 block truncate max-w-[140px]">
-                          {commodity.replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
-                        </span>
-                        <span className="text-[10px] text-gray-500 font-mono">{fin.totalQty} {fin.unit}s</span>
+                        <div className="space-y-1">
+                          <strong className="font-extrabold text-gray-900 block text-xs truncate max-w-[140px]" title={cleanFruitTitle}>
+                            {cleanFruitTitle.replace(/[🍎🍇🍉🍌🍊]/g, '').trim()}
+                          </strong>
+                          {gradeInfo.gradedItems.some((g) => g.quantity > 0) ? (
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                              {gradeInfo.gradedItems
+                                .filter((g) => g.quantity > 0)
+                                .map((g, i) => (
+                                  <span
+                                    key={i}
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#EAF8EE] text-[#064D2B] border border-[#CEEED7] shadow-2xs whitespace-nowrap"
+                                    title={`${g.varietyGrade || g.shortGrade}: ${g.quantity.toLocaleString('en-IN')} ${g.unit || 'BOX'}s`}
+                                  >
+                                    <span className="text-emerald-700 font-black">{g.shortGrade}:</span>
+                                    <span>{g.quantity.toLocaleString('en-IN')}</span>
+                                  </span>
+                                ))}
+                              <span className="text-[10px] text-gray-500 font-bold font-mono whitespace-nowrap">
+                                ({fin.totalQty.toLocaleString('en-IN')} {fin.unit}s)
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-gray-500 font-mono block">
+                              {fin.totalQty.toLocaleString('en-IN')} {fin.unit}s
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="text-center py-3.5 px-4 border-r border-gray-100 whitespace-nowrap">
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-800 flex items-center justify-center gap-1">
@@ -4743,7 +4813,19 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
         const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || 'VND-001';
         const originFarm = op.orderPersonPlace || op.vendorProfile?.primaryLocation || 'Farm Origin';
         const destinationHub = op.deliveryAddress || op.hubName || 'Warangal Regional Hub';
-        const commodity = op.items?.map((it: any) => it.fruitName).filter(Boolean).join(', ') || op.commodity || op.fruitName || 'Kashmir Apples';
+        const gradeInfo = getCommodityGradeDetails(op, fruitRates);
+        const distinctFruitNames = Array.from(
+          new Set(
+            (op.items?.map((it: any) => it.fruitName).filter(Boolean) || []).map((name: string) =>
+              name.replace(/\s*(4L|5L|Roll|4-Layer|5-Layer|Roller|\(.*?\)).*/i, '').trim()
+            )
+          )
+        );
+        const cleanFruitTitle =
+          distinctFruitNames.length > 0
+            ? distinctFruitNames.join(', ')
+            : (gradeInfo.fruitName || op.commodity || op.fruitName || 'Kashmir Apples');
+        const commodity = cleanFruitTitle;
 
         return (
           <div
@@ -4809,7 +4891,12 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                     </div>
                     <div>
                       <span className="text-gray-500 block">Commodity &amp; Volume:</span>
-                      <strong className="text-emerald-900 block truncate">{commodity} · {fin.totalQty} {fin.unit}s</strong>
+                      <strong className="text-emerald-900 block truncate">
+                        {cleanFruitTitle} · {fin.totalQty} {fin.unit}s
+                        {gradeInfo?.gradedItems?.some((g: any) => g.quantity > 0)
+                          ? ` (${gradeInfo.gradedItems.filter((g: any) => g.quantity > 0).map((g: any) => `${g.shortGrade}: ${g.quantity}`).join(', ')})`
+                          : ''}
+                      </strong>
                     </div>
                     <div>
                       <span className="text-gray-500 block">Farm Origin (Starting Point):</span>

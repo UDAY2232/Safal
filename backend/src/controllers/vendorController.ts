@@ -11,6 +11,7 @@ import {
 import { generateNextPONumber } from './purchaseOrderController.js';
 import { enrichPOWithSettlementDetails } from '../utils/settlementHelper.js';
 export { enrichPOWithSettlementDetails } from '../utils/settlementHelper.js';
+import { notifyLiveSync } from '../services/liveSyncService.js';
 
 /**
  * Generates reverse sequential Vendor ID starting from VND-599 downwards:
@@ -121,6 +122,13 @@ export async function getVendorProfile(req: AuthRequest, res: Response) {
         isSuspended: true,
       });
     }
+
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
 
     return res.json({
       vendor: {
@@ -254,6 +262,13 @@ export async function updateVendorProfile(req: AuthRequest, res: Response) {
       entityId: profile.id,
       details: `Vendor ${profile.vendorId} updated profile details`,
       ipAddress: req.ip,
+    });
+
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
     });
 
     return res.json({
@@ -599,6 +614,20 @@ export async function submitPODispatch(req: AuthRequest, res: Response) {
     }
 
     notifyLiveSync({ type: 'PO_DISPATCHED', entityId: po.id, role: 'VENDOR', metadata: { poNumber: po.poNumber } });
+    notifyLiveSync({
+      type: 'PO_DISPATCHED',
+      entityId: po.id,
+      role: 'VENDOR',
+      metadata: { poNumber: po.poNumber },
+    });
+
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
+
     return res.json({
       message: 'Dispatch details recorded successfully! Safal Admin has been notified.',
       purchaseOrder: updatedPO,
@@ -687,6 +716,13 @@ export async function getVendorDashboardStats(req: AuthRequest, res: Response) {
     const totalApmcShare = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.apmcShareAmount || 0), 0);
     const totalNetPayable = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.netVendorPayable || 0), 0);
     const totalPendingBalance = enriched.reduce((sum, p) => sum + Number(p.settlementDetails?.finalBalanceDue || 0), 0);
+
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
 
     return res.json({
       vendorId: profile.vendorId,
@@ -1006,6 +1042,13 @@ export async function toggleVendorKycLock(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
+
     return res.json({
       message: `Vendor ${vendor.vendorId} KYC has been ${newLockState ? 'permanently locked' : 'unlocked for editing'}.`,
       vendor: updated,
@@ -1181,6 +1224,13 @@ export async function updateVendorByAdmin(req: AuthRequest, res: Response) {
       ipAddress: req.ip,
     });
 
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
+
     return res.json({
       message: `Vendor ${updated.vendorId} updated successfully`,
       vendor: updated,
@@ -1293,6 +1343,19 @@ export async function submitHubQCInspection(req: AuthRequest, res: Response) {
     });
 
     notifyLiveSync({ type: 'QC_INSPECTED', entityId: po.id, metadata: { poNumber: po.poNumber } });
+    notifyLiveSync({
+      type: 'QC_INSPECTED',
+      entityId: po.id,
+      metadata: { poNumber: po.poNumber },
+    });
+
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
+
     return res.json({
       message: 'Weighbridge & QC Inspection recorded successfully',
       purchaseOrder: updated,
@@ -1607,6 +1670,13 @@ export async function createVendorSupplyPO(req: AuthRequest, res: Response) {
     }).catch(() => null);
 
     notifyLiveSync({ type: 'SUPPLY_PO_CREATED', entityId: newPO.id, role: 'VENDOR', metadata: { poNumber: newPO.poNumber, vendorName: profile.businessName } });
+    notifyLiveSync({
+      type: 'SUPPLY_PO_CREATED',
+      entityId: newPO.id,
+      role: 'VENDOR',
+      metadata: { poNumber: newPO.poNumber, vendorName: profile.businessName },
+    });
+
     return res.status(201).json({
       message: `Consignment Supply PO ${newPO.poNumber} created successfully!`,
       po: newPO,
@@ -1750,6 +1820,20 @@ export async function disburseVendorAdvance(req: AuthRequest, res: Response) {
     });
 
     notifyLiveSync({ type: 'ADVANCE_DISBURSED', entityId: po.id, role: 'ADMIN', metadata: { poNumber: po.poNumber } });
+    notifyLiveSync({
+      type: 'ADVANCE_DISBURSED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
+
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
+
     return res.json({
       message: `Advance payment of ₹${advanceAmount.toLocaleString('en-IN')} successfully recorded for ${po.poNumber}!`,
       purchaseOrder: enrichPOWithSettlementDetails(updated),
@@ -1960,6 +2044,13 @@ export async function settleVendorBalance(req: AuthRequest, res: Response) {
     });
 
     notifyLiveSync({ type: 'BALANCE_SETTLED', entityId: po.id, role: 'ADMIN', metadata: { poNumber: po.poNumber } });
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
+
     return res.json({
       message: isFullySettled
         ? `Consignment ${po.poNumber} settled and marked as CLEARED ✓! 5% Admin Share (₹${adminShareAmount.toLocaleString('en-IN')}) and 1% APMC Cess (₹${apmcShareAmount.toLocaleString('en-IN')}) realized.`
@@ -2081,6 +2172,13 @@ export async function allotVendorPOVehicle(req: AuthRequest, res: Response) {
     });
 
     notifyLiveSync({ type: 'VEHICLE_ALLOTTED', entityId: po.id, role: 'ADMIN', metadata: { poNumber: po.poNumber, vehiclePlate } });
+    notifyLiveSync({
+      type: 'BALANCE_SETTLED',
+      entityId: po.id,
+      role: 'ADMIN',
+      metadata: { poNumber: po.poNumber },
+    });
+
     return res.json({
       message: `Refrigerated Truck ${vehiclePlate} successfully allotted to PO ${po.poNumber}! Vendor has been notified to proceed with farm loading and dispatch signature.`,
       purchaseOrder: enrichPOWithSettlementDetails(updatedPO),
