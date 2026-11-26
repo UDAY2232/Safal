@@ -1539,94 +1539,96 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
         <Truck className="absolute -right-6 -bottom-8 text-white/5 w-48 h-48 pointer-events-none" />
       </div>
 
-      {/* 2. Navigation Tab Buttons (Responsive 2-column mobile layout without side-scrolling) */}
-      <div className="bg-white p-2.5 rounded-2xl border border-[#D5E3D8] shadow-xs grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-center gap-2">
-        <button
-          onClick={() => handleTabClick('dashboard')}
-          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
-            activeTab === 'dashboard'
-              ? 'bg-[#064D2B] text-white shadow-xs'
-              : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
-          }`}
-        >
-          <BarChart3 size={15} className="flex-shrink-0" />
-          <span>Dashboard &amp; Analytics</span>
-        </button>
+      {/* 2. Navigation Tab Buttons (Only displayed on Dashboard per user request; removed in other sections) */}
+      {activeTab === 'dashboard' && (
+        <div className="bg-white p-2.5 rounded-2xl border border-[#D5E3D8] shadow-xs grid grid-cols-2 sm:grid-cols-3 lg:flex lg:items-center gap-2">
+          <button
+            onClick={() => handleTabClick('dashboard')}
+            className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
+              activeTab === 'dashboard'
+                ? 'bg-[#064D2B] text-white shadow-xs'
+                : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+            }`}
+          >
+            <BarChart3 size={15} className="flex-shrink-0" />
+            <span>Dashboard &amp; Analytics</span>
+          </button>
 
-        <button
-          onClick={() => handleTabClick('orders')}
-          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
-            activeTab === 'orders'
-              ? 'bg-[#064D2B] text-white shadow-xs'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-        >
-          <ShoppingCart size={15} className="flex-shrink-0" />
-          <span className="relative inline-flex items-center">
-            <span>Consignments</span>
-            {orders.length > 0 && (
-              <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-700 text-white shadow-2xs leading-none">
-                {orders.length}
-              </span>
-            )}
-          </span>
-        </button>
+          <button
+            onClick={() => handleTabClick('orders')}
+            className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
+              activeTab === 'orders'
+                ? 'bg-[#064D2B] text-white shadow-xs'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <ShoppingCart size={15} className="flex-shrink-0" />
+            <span className="relative inline-flex items-center">
+              <span>Consignments</span>
+              {orders.length > 0 && (
+                <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-emerald-700 text-white shadow-2xs leading-none">
+                  {orders.length}
+                </span>
+              )}
+            </span>
+          </button>
 
-        <button
-          onClick={() => handleTabClick('dispatch')}
-          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
-            activeTab === 'dispatch'
-              ? 'bg-amber-600 text-white shadow-xs'
-              : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
-          }`}
-        >
-          <Truck size={15} className="flex-shrink-0" />
-          <span className="relative inline-flex items-center">
-            <span>Dispatch &amp; Transit</span>
-            {inTransitOrders.length > 0 && (
-              <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-500 text-white shadow-2xs leading-none">
-                {inTransitOrders.length}
-              </span>
-            )}
-          </span>
-        </button>
+          <button
+            onClick={() => handleTabClick('dispatch')}
+            className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
+              activeTab === 'dispatch'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+            }`}
+          >
+            <Truck size={15} className="flex-shrink-0" />
+            <span className="relative inline-flex items-center">
+              <span>Dispatch &amp; Transit</span>
+              {inTransitOrders.length > 0 && (
+                <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-amber-500 text-white shadow-2xs leading-none">
+                  {inTransitOrders.length}
+                </span>
+              )}
+            </span>
+          </button>
 
-        <button
-          onClick={() => handleTabClick('qc')}
-          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
-            activeTab === 'qc'
-              ? 'bg-[#087A3E] text-white shadow-xs'
-              : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
-          }`}
-        >
-          <Scale size={15} className="flex-shrink-0" />
-          {(() => {
-            const qcCount = orders.filter((o) => o.weighbridgeNetKg || o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'DELIVERED_AT_HUB').length;
-            return (
-              <span className="relative inline-flex items-center">
-                <span>Weighbridge &amp; QC</span>
-                {qcCount > 0 && (
-                  <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#087A3E] text-white shadow-2xs leading-none">
-                    {qcCount}
-                  </span>
-                )}
-              </span>
-            );
-          })()}
-        </button>
+          <button
+            onClick={() => handleTabClick('qc')}
+            className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center ${
+              activeTab === 'qc'
+                ? 'bg-[#087A3E] text-white shadow-xs'
+                : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+            }`}
+          >
+            <Scale size={15} className="flex-shrink-0" />
+            {(() => {
+              const qcCount = orders.filter((o) => o.weighbridgeNetKg || o.dispatchStatus === 'IN_TRANSIT' || o.dispatchStatus === 'LOADED_AND_DISPATCHED' || o.dispatchStatus === 'DELIVERED_AT_HUB').length;
+              return (
+                <span className="relative inline-flex items-center">
+                  <span>Weighbridge &amp; QC</span>
+                  {qcCount > 0 && (
+                    <span className="ml-1 -top-1 px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#087A3E] text-white shadow-2xs leading-none">
+                      {qcCount}
+                    </span>
+                  )}
+                </span>
+              );
+            })()}
+          </button>
 
-        <button
-          onClick={() => handleTabClick('kyc')}
-          className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center col-span-2 sm:col-span-1 lg:col-span-auto ${
-            activeTab === 'kyc'
-              ? 'bg-[#064D2B] text-white shadow-xs'
-              : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
-          }`}
-        >
-          <User size={15} className="flex-shrink-0" />
-          <span>Vendor Profile &amp; KYC</span>
-        </button>
-      </div>
+          <button
+            onClick={() => handleTabClick('kyc')}
+            className={`w-full justify-center px-3 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer text-center col-span-2 sm:col-span-1 lg:col-span-auto ${
+              activeTab === 'kyc'
+                ? 'bg-[#064D2B] text-white shadow-xs'
+                : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-200'
+            }`}
+          >
+            <User size={15} className="flex-shrink-0" />
+            <span>Vendor Profile &amp; KYC</span>
+          </button>
+        </div>
+      )}
 
       {/* Compact Stat Cards (Strictly for Supply Consignments tab; hidden on dispatch, qc, kyc per user request) */}
       {activeTab === 'orders' && (
