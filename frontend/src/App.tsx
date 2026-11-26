@@ -25,6 +25,11 @@ import { ServerMaintenanceScreen } from './components/ServerMaintenanceScreen';
 import { useLiveAppUpdate } from './hooks/useLiveAppUpdate';
 import { useRealtimeSync } from './hooks/useRealtimeSync';
 
+// Direct safety redirect for /uploads/*: immediately rewrite to /api/uploads/* so Express returns the binary image file directly instead of rendering a blank SPA screen
+if (typeof window !== 'undefined' && window.location.pathname.startsWith('/uploads/')) {
+  window.location.replace('/api' + window.location.pathname + window.location.search);
+}
+
 function MainApp() {
   const { user, token, isLoading, isMaintenance, maintenanceMessage, logout, checkMaintenance } = useAuth();
   const { hasNewVersion, isUpdating, countdown, applyUpdate } = useLiveAppUpdate();

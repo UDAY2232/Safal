@@ -1332,15 +1332,15 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </div>
 
             <div className="py-4 flex-1 flex items-center justify-center overflow-auto bg-gray-50 rounded-2xl my-3">
-              {activeDocPreview.url.endsWith('.pdf') ? (
+              {activeDocPreview.url.toLowerCase().includes('.pdf') ? (
                 <iframe
-                  src={activeDocPreview.url}
+                  src={resolvePhotoUrl(activeDocPreview.url)}
                   title={activeDocPreview.title}
                   className="w-full h-96 rounded-xl border-0"
                 />
               ) : (
                 <img
-                  src={activeDocPreview.url}
+                  src={resolvePhotoUrl(activeDocPreview.url)}
                   alt={activeDocPreview.title}
                   className="max-h-[65vh] object-contain rounded-xl shadow-xs"
                 />
@@ -1351,7 +1351,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               <span className="text-gray-500 font-medium">Verified Mandi Commercial Payment Documentation</span>
               <div className="flex items-center gap-2">
                 <a
-                  href={activeDocPreview.url}
+                  href={resolvePhotoUrl(activeDocPreview.url)}
                   target="_blank"
                   rel="noreferrer"
                   className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
@@ -1574,73 +1574,6 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             }
           }}
         />
-      )}
-
-      {/* Fullscreen Document Preview Modal */}
-      {activeDocPreview && (
-        <div
-          className="modal-backdrop fixed inset-0 flex items-center justify-center p-3 sm:p-4 !z-[9999]"
-          style={{ zIndex: 9999 }}
-          onClick={() => setActiveDocPreview(null)}
-        >
-          <div
-            className="bg-white rounded-3xl max-w-3xl w-full border border-gray-200 shadow-2xl p-4 sm:p-6 my-auto max-h-[92vh] flex flex-col relative"
-            style={{ zIndex: 10000 }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 flex-shrink-0">
-              <h3 className="text-base font-black font-['Manrope'] text-gray-900 flex items-center gap-2">
-                <Eye size={18} className="text-[#087A3E]" />
-                {activeDocPreview.title}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setActiveDocPreview(null)}
-                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 hover:text-red-600 text-gray-600 flex items-center justify-center transition cursor-pointer"
-                title="Close"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="py-4 flex-1 flex items-center justify-center overflow-auto bg-gray-50 rounded-2xl my-3">
-              {activeDocPreview.url.endsWith('.pdf') ? (
-                <iframe
-                  src={activeDocPreview.url}
-                  title={activeDocPreview.title}
-                  className="w-full h-96 rounded-xl border-0"
-                />
-              ) : (
-                <img
-                  src={activeDocPreview.url}
-                  alt={activeDocPreview.title}
-                  className="max-h-[65vh] object-contain rounded-xl shadow-xs"
-                />
-              )}
-            </div>
-
-            <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
-              <span className="text-gray-500 font-medium">Verified Mandi Commercial Payment Documentation</span>
-              <div className="flex items-center gap-2">
-                <a
-                  href={activeDocPreview.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold inline-flex items-center gap-1"
-                >
-                  <Eye size={13} /> Open Original ↗
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setActiveDocPreview(null)}
-                  className="px-4 py-1.5 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold cursor-pointer"
-                >
-                  Close Preview
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
