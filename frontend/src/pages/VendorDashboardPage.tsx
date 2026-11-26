@@ -1019,6 +1019,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
     loadData();
     const interval = setInterval(async () => {
       try {
+        await loadData(true);
         const res = await api.getVendorProfile();
         if (res?.vendor?.status === 'SUSPENDED') {
           window.dispatchEvent(
@@ -2679,71 +2680,104 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
             </div>
 
             <div className="divide-y divide-gray-100">
-              {orders.slice(0, 3).map((po, idx) => (
-                <div key={po.id || idx} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50/60 transition">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <strong className="text-sm font-black text-[#087A3E] font-mono">{po.poNumber}</strong>
-                      <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
-                        <Package size={13} className="text-[#087A3E]" /> {po.fruitName || 'Kashmir Apples'}
-                      </span>
-                      <span className="text-xs text-gray-500 flex items-center gap-0.5">
-                        <MapPin size={11} className="text-gray-400" /> {po.orderPersonPlace || 'Warangal Hub'}
-                      </span>
-                      {po.dispatchVehicleNumber && (
-                        <span className="px-2 py-0.5 rounded bg-gray-100 font-mono text-[10px] font-bold text-gray-700 flex items-center gap-1">
-                          <Truck size={10} className="text-gray-500" /> {po.dispatchVehicleNumber}
-                        </span>
-                      )}
-                    </div>
-                    {(() => {
-                      const settle = (po as any).settlementDetails;
-                      const hasSafalSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted);
-                      const dueAmount = hasSafalSettlement ? Number(settle.finalBalanceDue ?? po.pendingAmount ?? 0) : 0;
-                      return (
+              {activeOrders.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 text-xs flex flex-col items-center justify-center gap-2">
+                  <Package size={28} className="text-gray-300" />
+                  <span className="font-bold text-gray-700">No active consignments currently in progress</span>
+                  <span className="text-[11px] text-gray-400">All current consignments have either been cleared or are awaiting new supply orders.</span>
+                </div>
+              ) : (
+                activeOrders.slice(0, 4).map((po, idx) => {
+                  const settle = (po as any).settlementDetails;
+                  const total = Number(po.grandTotal || po.totalAmount || 0);
+                  const isAdvDisbursed = Boolean(settle?.advanceDisbursed || po.paymentProofUrl);
+                  const advAmount = Number(settle?.advanceAmount ?? po.advanceAmount ?? Math.round(total * 0.70));
+                  const hasSafalSettlement = Boolean(settle?.hasSettlementEntry || settle?.settlementCompleted);
+                  const finalBalanceDue = Number(settle?.finalBalanceDue ?? 0);
+                  const remainingPending = Number(po.pendingAmount ?? Math.max(0, total - (isAdvDisbursed ? advAmount : 0)));
+
+                  return (
+                    <div key={po.id || idx} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-gray-50/60 transition">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <strong className="text-sm font-black text-[#087A3E] font-mono">{po.poNumber}</strong>
+                          <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
+                            <Package size={13} className="text-[#087A3E]" /> {po.fruitName || 'Kashmir Apples'}
+                          </span>
+                          <span className="text-xs text-gray-500 flex items-center gap-1">
+                            <MapPin size={11} className="text-gray-400" />
+                            <span>{po.orderPersonPlace || 'Origin Farm'}</span>
+                            <span className="text-gray-400">➔</span>
+                            <strong className="text-blue-800 font-bold">{getDestinationHub(po)}</strong>
+                          </span>
+                          {po.dispatchVehicleNumber && po.dispatchVehicleNumber !== '-' && (
+                            <span className="px-2 py-0.5 rounded bg-gray-100 font-mono text-[10px] font-bold text-gray-700 flex items-center gap-1 border border-gray-200">
+                              <Truck size={10} className="text-gray-500" /> {po.dispatchVehicleNumber}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-500 flex items-center gap-3 flex-wrap">
-                          <span>Total Value: <strong className="text-gray-900">₹{Number(po.grandTotal || po.totalAmount || 0).toLocaleString('en-IN')}</strong></span>
-                          <span>Advance: <strong className="text-emerald-700">₹{Number(po.advanceAmount || 0).toLocaleString('en-IN')}</strong></span>
+                          <span>Total Value: <strong className="text-gray-900">₹{total.toLocaleString('en-IN')}</strong></span>
                           <span>
-                            Balance Due: <strong className={dueAmount > 0 ? 'text-amber-700' : 'text-emerald-700'}>
-                              ₹{dueAmount.toLocaleString('en-IN')}
-                            </strong>
-                            {!hasSafalSettlement && (
-                              <span className="text-[10px] text-gray-400 ml-1 font-medium">(Settled by Safal)</span>
+                            Advance: {isAdvDisbursed ? (
+                              <strong className="text-emerald-700 font-bold">₹{advAmount.toLocaleString('en-IN')} (Disbursed)</strong>
+                            ) : (
+                              <strong className="text-gray-500 font-medium">₹0.00 (Pending Slip)</strong>
+                            )}
+                          </span>
+                          <span>
+                            Balance Due:{' '}
+                            {po.status === 'CLOSED' || (hasSafalSettlement && finalBalanceDue <= 0) ? (
+                              <strong className="text-emerald-700 font-bold">₹0 (Settled &amp; Cleared)</strong>
+                            ) : hasSafalSettlement ? (
+                              <strong className="text-amber-700 font-bold">₹{finalBalanceDue.toLocaleString('en-IN')}</strong>
+                            ) : (
+                              <>
+                                <strong className="text-gray-700 font-bold">₹{remainingPending.toLocaleString('en-IN')}</strong>
+                                <span className="text-[10px] text-gray-400 ml-1 font-medium">(Awaiting Mandi Realization)</span>
+                              </>
                             )}
                           </span>
                         </div>
-                      );
-                    })()}
-                  </div>
+                      </div>
 
-                  <div className="flex items-center gap-2 self-start sm:self-auto">
-                    {isBulkWeighmentFruit(po.fruitName) && (
-                      <button
-                        type="button"
-                        onClick={() => openRecordQCModal(po.id)}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
-                        title="Submit weighbridge gross & tare scale slip for bulk fruit"
-                      >
-                        <Scale size={13} /> Record Scale Slip
-                      </button>
-                    )}
-                    {(!po.dispatchVehicleNumber || po.dispatchVehicleNumber === '-') ? (
-                      <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs">
-                        <Clock size={13} className="text-amber-700 animate-spin" /> Awaiting Vehicle Allotment
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => openDispatchModal(po)}
-                        className="px-3 py-1.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
-                      >
-                        <Truck size={13} /> Load &amp; Sign Dispatch
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
+                      <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                        {isBulkWeighmentFruit(po.fruitName) && (
+                          <button
+                            type="button"
+                            onClick={() => openRecordQCModal(po.id)}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#087A3E] border border-emerald-300 text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                            title="Submit weighbridge gross & tare scale slip for bulk fruit"
+                          >
+                            <Scale size={13} /> Record Scale Slip
+                          </button>
+                        )}
+                        {po.dispatchStatus === 'DELIVERED_AT_HUB' ? (
+                          <span className="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-950 border border-emerald-300 text-xs font-bold inline-flex items-center gap-1">
+                            <CheckCircle2 size={13} className="text-emerald-700" /> Reached Hub · Ready for Sell
+                          </span>
+                        ) : po.dispatchStatus === 'LOADED_AND_DISPATCHED' || po.dispatchStatus === 'IN_TRANSIT' ? (
+                          <span className="px-3 py-1.5 rounded-xl bg-blue-100 text-blue-900 border border-blue-300 text-xs font-bold inline-flex items-center gap-1">
+                            <Truck size={13} className="text-blue-700" /> In Cold Reefer Transit
+                          </span>
+                        ) : po.dispatchVehicleNumber && po.dispatchVehicleNumber !== '-' ? (
+                          <button
+                            type="button"
+                            onClick={() => openDispatchModal(po)}
+                            className="px-3.5 py-1.5 rounded-xl bg-[#087A3E] hover:bg-[#064D2B] text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95"
+                          >
+                            <Truck size={13} /> Load &amp; Sign Dispatch
+                          </button>
+                        ) : (
+                          <span className="px-3 py-1.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 text-xs font-bold inline-flex items-center gap-1.5 shadow-2xs">
+                            <Clock size={13} className="text-amber-700 animate-spin" /> Awaiting Vehicle Allotment
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

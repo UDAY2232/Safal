@@ -293,11 +293,12 @@ export async function getVendorPOs(req: AuthRequest, res: Response) {
       });
     }
 
-    // Match either via vendorProfileId OR via supplierCode matching vendorId OR supplier name containing vendor business name
+    // Match either via vendorProfileId OR createdById OR via supplierCode matching vendorId OR supplier name containing vendor business name
     const pos = await prisma.purchaseOrder.findMany({
       where: {
         OR: [
           { vendorProfileId: profile.id },
+          { createdById: req.user.id },
           { supplier: { supplierCode: profile.vendorId } },
           { supplier: { name: { contains: profile.businessName, mode: 'insensitive' } } },
         ],
@@ -312,7 +313,7 @@ export async function getVendorPOs(req: AuthRequest, res: Response) {
           },
         },
       },
-      orderBy: { poDate: 'desc' },
+      orderBy: [{ poDate: 'desc' }, { createdAt: 'desc' }],
     });
 
     const sanitizedPOs = pos.map((p) => {

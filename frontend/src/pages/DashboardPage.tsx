@@ -465,8 +465,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
     };
     window.addEventListener('safal_live_sync', handleLiveSync);
 
+    const pollInterval = setInterval(() => {
+      if (isMounted) {
+        loadData(true);
+        loadVendors();
+      }
+    }, 4000);
+
     return () => {
       isMounted = false;
+      clearInterval(pollInterval);
       window.removeEventListener('safal_live_sync', handleLiveSync);
     };
   }, [user]);

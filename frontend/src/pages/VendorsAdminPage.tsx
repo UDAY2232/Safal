@@ -278,6 +278,10 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
 
   useEffect(() => {
     loadVendorsAndOperations();
+    const pollInterval = setInterval(() => {
+      loadVendorsAndOperations(true);
+    }, 4000);
+    return () => clearInterval(pollInterval);
   }, []);
 
   const handleSaveFruitRates = async () => {

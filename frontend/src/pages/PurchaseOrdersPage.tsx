@@ -120,7 +120,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     loadOrders();
     const interval = setInterval(() => {
       loadOrders();
-    }, 15000);
+    }, 4000);
     return () => clearInterval(interval);
   }, [status, financialStatus]);
 
