@@ -287,10 +287,16 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
 
 export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const rawId = req.params.id || (req.params as any)[0] || '';
+    const id = decodeURIComponent(rawId);
 
-    const po = await prisma.purchaseOrder.findUnique({
-      where: { id },
+    const po = await prisma.purchaseOrder.findFirst({
+      where: {
+        OR: [
+          { id },
+          { poNumber: id },
+        ],
+      },
       include: {
         supplier: true,
         vendorProfile: true,
@@ -1556,7 +1562,8 @@ export async function deletePurchaseOrder(req: AuthRequest, res: Response) {
 
 export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const rawId = req.params.id || (req.params as any)[0] || '';
+    const id = decodeURIComponent(rawId);
     const {
       buyerName,
       supplierName,
@@ -1567,10 +1574,16 @@ export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
       grandTotal,
       advanceAmount,
       pendingAmount,
+      items,
     } = req.body;
 
-    const po = await prisma.purchaseOrder.findUnique({
-      where: { id },
+    const po = await prisma.purchaseOrder.findFirst({
+      where: {
+        OR: [
+          { id },
+          { poNumber: id },
+        ],
+      },
       include: { supplier: true, items: true, createdBy: true },
     });
 
@@ -1593,6 +1606,8 @@ export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
       advanceAmount !== undefined && Number(advanceAmount) !== Number(po.advanceAmount || 0)
     ) || (
       pendingAmount !== undefined && Number(pendingAmount) !== Number(po.pendingAmount || 0)
+    ) || (
+      items !== undefined && Array.isArray(items)
     );
 
     if (isEmp && isAmountAttempt) {
@@ -1652,13 +1667,47 @@ export async function updatePurchaseOrder(req: AuthRequest, res: Response) {
     if (expectedDeliveryDate !== undefined) updateData.expectedDeliveryDate = expectedDeliveryDate ? new Date(expectedDeliveryDate) : null;
 
     if (isAdminOrAcc) {
+      if (Array.isArray(items) && items.length > 0) {
+        let computedGrandTotal = 0;
+        await prisma.$transaction(async (tx) => {
+          for (const it of items) {
+            const qty = Math.max(0, Number(it.quantity) || 0);
+            const rate = Number(it.ratePerUnit) || 0;
+            const lineTotal = Number(it.lineTotal) > 0 ? Number(it.lineTotal) : (qty * rate);
+            computedGrandTotal += lineTotal;
+
+            if (it.id && po.items.some((existing) => existing.id === it.id)) {
+              await tx.purchaseOrderItem.update({
+                where: { id: it.id },
+                data: {
+                  quantity: qty,
+                  ratePerUnit: rate,
+                  lineTotal: lineTotal,
+                  varietyGrade: it.varietyGrade || undefined,
+                },
+              });
+            }
+          }
+        });
+
+        if (grandTotal === undefined) {
+          updateData.grandTotal = computedGrandTotal;
+          updateData.subtotal = computedGrandTotal;
+          if (advanceAmount === undefined) {
+            const autoAdv = Math.round(computedGrandTotal * 0.70);
+            updateData.advanceAmount = autoAdv;
+            updateData.pendingAmount = Math.max(0, computedGrandTotal - autoAdv);
+          }
+        }
+      }
+
       if (grandTotal !== undefined) updateData.grandTotal = Number(grandTotal);
       if (advanceAmount !== undefined) updateData.advanceAmount = Number(advanceAmount);
       if (pendingAmount !== undefined) updateData.pendingAmount = Number(pendingAmount);
     }
 
     const updated = await prisma.purchaseOrder.update({
-      where: { id },
+      where: { id: po.id },
       data: updateData,
       include: { supplier: true, items: true, createdBy: true },
     });

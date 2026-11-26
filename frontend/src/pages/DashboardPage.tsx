@@ -210,23 +210,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
     const laborCost = Number(op.financialRecord?.allocatedLaborCost ?? 0);
     const totalLandedCost = baseCost + transportCost + laborCost;
 
-    const defaultClosingRate = op.unitPrice ? Math.round(Number(op.unitPrice) * 1.15) : Math.round(unitCost * 1.15);
-    const closingRate = op.financialRecord?.linkedRevenue
-      ? Math.round(Number(op.financialRecord.linkedRevenue) / totalQty)
-      : defaultClosingRate;
-    const totalRevenue = op.financialRecord?.linkedRevenue
-      ? Number(op.financialRecord.linkedRevenue)
-      : Math.round(closingRate * totalQty);
+    const hasMandiRealized = Boolean(
+      (op.financialRecord?.linkedRevenue && Number(op.financialRecord.linkedRevenue) > 0) ||
+      op.status === 'CLOSED' ||
+      (op.settlementDetails?.settlementCompleted && Number(op.settlementDetails?.finalRealizedTurnover || 0) > 0)
+    );
 
-    const netProfitLoss =
-      op.financialRecord?.realizedProfitLoss !== undefined && op.financialRecord?.realizedProfitLoss !== null
-        ? Number(op.financialRecord.realizedProfitLoss)
-        : totalRevenue - totalLandedCost;
+    const closingRate = hasMandiRealized
+      ? (op.financialRecord?.linkedRevenue
+          ? Math.round(Number(op.financialRecord.linkedRevenue) / Math.max(1, totalQty))
+          : (op.unitPrice ? Number(op.unitPrice) : unitCost))
+      : 0;
 
-    const profitMarginPercent = baseCost > 0 ? Number(((netProfitLoss / baseCost) * 100).toFixed(1)) : 0;
+    const totalRevenue = hasMandiRealized
+      ? (op.financialRecord?.linkedRevenue
+          ? Number(op.financialRecord.linkedRevenue)
+          : Math.round(closingRate * totalQty))
+      : 0;
+
+    const netProfitLoss = hasMandiRealized
+      ? (op.financialRecord?.realizedProfitLoss !== undefined && op.financialRecord?.realizedProfitLoss !== null
+          ? Number(op.financialRecord.realizedProfitLoss)
+          : totalRevenue - totalLandedCost)
+      : 0;
+
+    const profitMarginPercent = (hasMandiRealized && baseCost > 0) ? Number(((netProfitLoss / baseCost) * 100).toFixed(1)) : 0;
     const isProfit = netProfitLoss >= 0;
 
     return {
+      hasMandiRealized,
       totalQty,
       unit,
       baseCost,
@@ -1547,35 +1559,59 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                           )}
                         </td>
                         <td className="py-3 px-3 text-right bg-blue-50/30">
-                          <strong className="text-blue-900 text-xs block font-mono">
-                            ₹{fin.closingRate.toLocaleString('en-IN')} / {fin.unit}
-                          </strong>
-                          <span className="text-[10px] text-blue-700 font-bold block">
-                            Turnover: ₹{fin.totalRevenue.toLocaleString('en-IN')}
-                          </span>
-                          <span className="text-[9px] text-blue-600 block">
-                            {op.financialRecord?.linkedRevenue ? 'Mandi Realized' : 'Estimated Mandi Rate'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-center bg-gray-50/50">
-                          {fin.isProfit ? (
-                            <div className="inline-flex flex-col items-center">
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
-                                <TrendingUp size={12} className="text-emerald-700" />
-                                +₹{Math.abs(fin.netProfitLoss).toLocaleString('en-IN')}
+                          {fin.hasMandiRealized ? (
+                            <>
+                              <strong className="text-blue-900 text-xs block font-mono">
+                                ₹{fin.closingRate.toLocaleString('en-IN')} / {fin.unit}
+                              </strong>
+                              <span className="text-[10px] text-blue-700 font-bold block">
+                                Turnover: ₹{fin.totalRevenue.toLocaleString('en-IN')}
                               </span>
-                              <span className="text-[10px] font-black text-emerald-700 block mt-0.5">
-                                +{fin.profitMarginPercent}% Margin
+                              <span className="text-[9px] text-emerald-700 font-bold block">
+                                Mandi Realized
+                              </span>
+                            </>
+                          ) : (
+                            <div className="text-center">
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                                Awaiting Mandi Sale
+                              </span>
+                              <span className="text-[9px] text-gray-500 block mt-0.5">
+                                Pending Realization
                               </span>
                             </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center bg-gray-50/50">
+                          {fin.hasMandiRealized ? (
+                            fin.isProfit ? (
+                              <div className="inline-flex flex-col items-center">
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
+                                  <TrendingUp size={12} className="text-emerald-700" />
+                                  +₹{Math.abs(fin.netProfitLoss).toLocaleString('en-IN')}
+                                </span>
+                                <span className="text-[10px] font-black text-emerald-700 block mt-0.5">
+                                  +{fin.profitMarginPercent}% Margin
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="inline-flex flex-col items-center">
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1 shadow-2xs">
+                                  <TrendingDown size={12} className="text-rose-700" />
+                                  -₹{Math.abs(fin.netProfitLoss).toLocaleString('en-IN')}
+                                </span>
+                                <span className="text-[10px] font-black text-rose-700 block mt-0.5">
+                                  {fin.profitMarginPercent}% Loss
+                                </span>
+                              </div>
+                            )
                           ) : (
                             <div className="inline-flex flex-col items-center">
-                              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-rose-100 text-rose-900 border border-rose-300 inline-flex items-center gap-1 shadow-2xs">
-                                <TrendingDown size={12} className="text-rose-700" />
-                                -₹{Math.abs(fin.netProfitLoss).toLocaleString('en-IN')}
+                              <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 inline-block">
+                                Pending Settlement
                               </span>
-                              <span className="text-[10px] font-black text-rose-700 block mt-0.5">
-                                {fin.profitMarginPercent}% Loss
+                              <span className="text-[9px] text-gray-400 block mt-0.5">
+                                Recorded on Mandi Sale
                               </span>
                             </div>
                           )}

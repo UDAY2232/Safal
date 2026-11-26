@@ -119,7 +119,7 @@ export const api = {
 
   // Purchase Orders
   getPurchaseOrders: (params: string = '') => request<any[]>(`/purchase-orders${params}`),
-  getPurchaseOrderById: (id: string) => request<any>(`/purchase-orders/${id}`),
+  getPurchaseOrderById: (id: string) => request<any>(`/purchase-orders/${encodeURIComponent(id)}`),
   createPurchaseOrder: (data: any) => {
     const isForm = typeof FormData !== 'undefined' && data instanceof FormData;
     return request<any>('/purchase-orders', {
@@ -127,13 +127,13 @@ export const api = {
       body: isForm ? data : JSON.stringify(data),
     });
   },
-  submitPurchaseOrder: (id: string) => request<any>(`/purchase-orders/${id}/submit`, { method: 'POST' }),
-  approvePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${id}/approve`, { method: 'POST' }),
+  submitPurchaseOrder: (id: string) => request<any>(`/purchase-orders/${encodeURIComponent(id)}/submit`, { method: 'POST' }),
+  approvePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${encodeURIComponent(id)}/approve`, { method: 'POST' }),
   rejectPurchaseOrder: (id: string, reason: string) =>
-    request<any>(`/purchase-orders/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
-  closePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${id}/close`, { method: 'POST' }),
-  updatePurchaseOrder: (id: string, data: any) => request<any>(`/purchase-orders/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deletePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${id}`, { method: 'DELETE' }),
+    request<any>(`/purchase-orders/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  closePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${encodeURIComponent(id)}/close`, { method: 'POST' }),
+  updatePurchaseOrder: (id: string, data: any) => request<any>(`/purchase-orders/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   createDuePurchaseOrder: (data: any) => {
     const isForm = typeof FormData !== 'undefined' && data instanceof FormData;
     return request<any>('/purchase-orders/due-orders', {

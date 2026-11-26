@@ -65,6 +65,27 @@ interface VendorsAdminPageProps {
 
 const isPORejected = (op: any) => Boolean(op) && (op.status === 'REJECTED' || Boolean(op.rejectionReason && String(op.rejectionReason).trim() !== ''));
 
+const getDestinationHub = (po: any, fallback: string = 'Warangal Regional Hub'): string => {
+  if (!po) return fallback;
+  if (po.destinationHub) {
+    const dh = String(po.destinationHub).trim();
+    return dh.toLowerCase().includes('hub') ? dh : `${dh} Regional Hub`;
+  }
+  const addr = po.deliveryAddress || '';
+  if (addr.includes('➔') || addr.includes('->')) {
+    const parts = addr.split(/➔|->/);
+    const right = parts[parts.length - 1].replace(/Receiving Desk/i, '').trim();
+    if (right) {
+      return right.toLowerCase().includes('hub') ? right : `${right} Hub`;
+    }
+  }
+  if (po.notes) {
+    const m = po.notes.match(/(?:for|to)\s+([A-Za-z]+)\s+Hub/i);
+    if (m && m[1]) return `${m[1]} Regional Hub`;
+  }
+  return fallback;
+};
+
 export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
   onNotify,
   initialSearch,
@@ -299,23 +320,35 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
     const laborCost = Number(op.financialRecord?.allocatedLaborCost ?? 0);
     const totalLandedCost = baseCost + transportCost + laborCost;
 
-    const defaultClosingRate = op.unitPrice ? Math.round(Number(op.unitPrice) * 1.15) : Math.round(unitCost * 1.15);
-    const closingRate = op.financialRecord?.linkedRevenue
-      ? Math.round(Number(op.financialRecord.linkedRevenue) / Math.max(1, totalQty))
-      : defaultClosingRate;
-    const totalRevenue = op.financialRecord?.linkedRevenue
-      ? Number(op.financialRecord.linkedRevenue)
-      : Math.round(closingRate * totalQty);
+    const hasMandiRealized = Boolean(
+      (op.financialRecord?.linkedRevenue && Number(op.financialRecord.linkedRevenue) > 0) ||
+      op.status === 'CLOSED' ||
+      (op.settlementDetails?.settlementCompleted && Number(op.settlementDetails?.finalRealizedTurnover || 0) > 0)
+    );
 
-    const netProfitLoss =
-      op.financialRecord?.realizedProfitLoss !== undefined && op.financialRecord?.realizedProfitLoss !== null
-        ? Number(op.financialRecord.realizedProfitLoss)
-        : totalRevenue - totalLandedCost;
+    const closingRate = hasMandiRealized
+      ? (op.financialRecord?.linkedRevenue
+          ? Math.round(Number(op.financialRecord.linkedRevenue) / Math.max(1, totalQty))
+          : (op.unitPrice ? Number(op.unitPrice) : unitCost))
+      : 0;
 
-    const profitMarginPercent = baseCost > 0 ? Number(((netProfitLoss / Math.max(1, baseCost)) * 100).toFixed(1)) : 0;
+    const totalRevenue = hasMandiRealized
+      ? (op.financialRecord?.linkedRevenue
+          ? Number(op.financialRecord.linkedRevenue)
+          : Math.round(closingRate * totalQty))
+      : 0;
+
+    const netProfitLoss = hasMandiRealized
+      ? (op.financialRecord?.realizedProfitLoss !== undefined && op.financialRecord?.realizedProfitLoss !== null
+          ? Number(op.financialRecord.realizedProfitLoss)
+          : totalRevenue - totalLandedCost)
+      : 0;
+
+    const profitMarginPercent = (hasMandiRealized && baseCost > 0) ? Number(((netProfitLoss / Math.max(1, baseCost)) * 100).toFixed(1)) : 0;
     const isProfit = netProfitLoss >= 0;
 
     return {
+      hasMandiRealized,
       totalQty,
       unit,
       baseCost,
@@ -1789,7 +1822,22 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                             {index + 1}
                           </td>
                           <td className="text-center py-3.5 px-4 font-black text-[#087A3E] border-r border-gray-100 whitespace-nowrap">
-                            <span className="font-extrabold">{poCode}</span>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  const full = await api.getPurchaseOrderById(op.id || poCode);
+                                  setSelectedPODetail(full);
+                                } catch (e: any) {
+                                  console.error('Failed to load full PO dossier:', e);
+                                  setSelectedPODetail(op);
+                                }
+                              }}
+                              className="font-extrabold hover:underline text-[#087A3E] hover:text-emerald-900 cursor-pointer inline-flex items-center gap-1"
+                              title="Click to view & edit purchase order dossier"
+                            >
+                              {poCode}
+                            </button>
                           </td>
                           <td className="py-3.5 px-4 border-r border-gray-100">
                             <strong className="text-gray-900 block truncate max-w-[160px]">{vName}</strong>
@@ -2328,12 +2376,25 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                             )}
                           </td>
                           <td className="py-3.5 px-3 text-right bg-blue-50/30 border-r border-gray-100 whitespace-nowrap">
-                            <strong className="text-blue-900 text-xs block font-mono">
-                              ₹{fin.closingRate.toLocaleString('en-IN')} / {fin.unit}
-                            </strong>
-                            <span className="text-[10px] text-blue-700 font-bold block">
-                              Mandi Auction Rate
-                            </span>
+                            {fin.hasMandiRealized ? (
+                              <>
+                                <strong className="text-blue-900 text-xs block font-mono">
+                                  ₹{fin.closingRate.toLocaleString('en-IN')} / {fin.unit}
+                                </strong>
+                                <span className="text-[10px] text-blue-700 font-bold block">
+                                  Mandi Auction Rate
+                                </span>
+                              </>
+                            ) : (
+                              <div className="text-center">
+                                <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
+                                  Awaiting Mandi Sale
+                                </span>
+                                <span className="text-[9px] text-gray-500 block mt-0.5">
+                                  Pending Realization
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="py-3.5 px-3 text-right border-r border-gray-100 whitespace-nowrap">
                             {isReallySettled ? (
@@ -2361,18 +2422,36 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-right bg-blue-50/40 border-r border-gray-100 whitespace-nowrap">
-                            <strong className="text-blue-950 text-xs block font-mono font-black">
-                              ₹{fin.totalRevenue.toLocaleString('en-IN')}
-                            </strong>
-                            <span className="text-[9px] text-blue-700 font-semibold block">
-                              Gross Realization
-                            </span>
+                            {fin.hasMandiRealized ? (
+                              <>
+                                <strong className="text-blue-950 text-xs block font-mono font-black">
+                                  ₹{fin.totalRevenue.toLocaleString('en-IN')}
+                                </strong>
+                                <span className="text-[9px] text-blue-700 font-semibold block">
+                                  Gross Realization
+                                </span>
+                              </>
+                            ) : (
+                              <div className="text-center">
+                                <span className="text-xs font-mono font-bold text-gray-400">₹0.00</span>
+                                <span className="text-[9px] text-gray-400 block">Pending Realization</span>
+                              </div>
+                            )}
                           </td>
                           <td className="py-3.5 px-3 text-center bg-gray-50/50 border-r border-gray-100 whitespace-nowrap">
                             {isOrderRejected ? (
                               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
                                 Rejected (₹0)
                               </span>
+                            ) : !fin.hasMandiRealized ? (
+                              <div className="inline-flex flex-col items-center">
+                                <span className="text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded border border-gray-200 inline-block">
+                                  Pending Settlement
+                                </span>
+                                <span className="text-[9px] text-gray-400 block mt-0.5">
+                                  Recorded on Mandi Sale
+                                </span>
+                              </div>
                             ) : fin.isProfit ? (
                               <div className="inline-flex flex-col items-center">
                                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 inline-flex items-center gap-1 shadow-2xs">
@@ -2429,6 +2508,23 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
                               </div>
                             ) : (
                               <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const full = await api.getPurchaseOrderById(op.id || poCode);
+                                      setSelectedPODetail(full);
+                                    } catch (e: any) {
+                                      console.error('Failed to load full PO dossier:', e);
+                                      setSelectedPODetail(op);
+                                    }
+                                  }}
+                                  className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 shadow-2xs cursor-pointer"
+                                  title="View & Edit Purchase Order Dossier"
+                                >
+                                  <Eye size={11} className="text-emerald-800" />
+                                  <span>View</span>
+                                </button>
                                 {(!op.dispatchVehicleNumber || op.dispatchVehicleNumber === '-') && (
                                   <button
                                     type="button"
@@ -4812,7 +4908,7 @@ export const VendorsAdminPage: React.FC<VendorsAdminPageProps> = ({
         const vName = op.vendorProfile?.businessName || op.supplier?.name || op.vendorName || 'Wholesale Vendor';
         const vCode = op.vendorProfile?.vendorId || op.supplier?.supplierCode || op.vendorCode || 'VND-001';
         const originFarm = op.orderPersonPlace || op.vendorProfile?.primaryLocation || 'Farm Origin';
-        const destinationHub = op.deliveryAddress || op.hubName || 'Warangal Regional Hub';
+        const destinationHub = getDestinationHub(op);
         const gradeInfo = getCommodityGradeDetails(op, fruitRates);
         const distinctFruitNames = Array.from(
           new Set(

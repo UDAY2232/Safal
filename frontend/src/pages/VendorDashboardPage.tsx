@@ -54,6 +54,27 @@ import { stampImageFile, compressImageFile } from '../utils/watermark';
 import { resolvePhotoUrl, downloadProofFile, compressImageFile as compressImageBlob } from '../utils/imageUtils';
 import { getMobilePushStatus, requestMobileNotificationPermission, PushPermissionStatus } from '../utils/mobilePush';
 
+export function getDestinationHub(po: any, fallback: string = 'Warangal Hub'): string {
+  if (!po) return fallback;
+  if (po.destinationHub) {
+    const dh = String(po.destinationHub).trim();
+    return dh.toLowerCase().includes('hub') ? dh : `${dh} Hub`;
+  }
+  const addr = po.deliveryAddress || '';
+  if (addr.includes('➔') || addr.includes('->')) {
+    const parts = addr.split(/➔|->/);
+    const right = parts[parts.length - 1].replace(/Receiving Desk/i, '').replace(/Regional Hub/i, 'Hub').trim();
+    if (right) {
+      return right.toLowerCase().includes('hub') ? right : `${right} Hub`;
+    }
+  }
+  if (po.notes) {
+    const m = po.notes.match(/(?:for|to)\s+([A-Za-z]+)\s+Hub/i);
+    if (m && m[1]) return `${m[1]} Hub`;
+  }
+  return fallback;
+}
+
 interface VendorDashboardPageProps {
   onNotify: (msg: string) => void;
   onCreatePO?: () => void;
@@ -285,43 +306,43 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   });
 
   // 1. Kashmir Apples Layer Breakdown (4L, 5L, Roll, Total, Amount)
-  const [layer4LBoxes, setLayer4LBoxes] = useState<string>('200');
+  const [layer4LBoxes, setLayer4LBoxes] = useState<string>('');
   const [layer4LRate, setLayer4LRate] = useState<string>('1300');
-  const [layer5LBoxes, setLayer5LBoxes] = useState<string>('250');
+  const [layer5LBoxes, setLayer5LBoxes] = useState<string>('');
   const [layer5LRate, setLayer5LRate] = useState<string>('1400');
-  const [rollBoxes, setRollBoxes] = useState<string>('50');
+  const [rollBoxes, setRollBoxes] = useState<string>('');
   const [rollRate, setRollRate] = useState<string>('600');
 
   // 2. Pomegranate (No. Of boxes, Total amount)
-  const [pomegranateBoxes, setPomegranateBoxes] = useState<string>('300');
+  const [pomegranateBoxes, setPomegranateBoxes] = useState<string>('');
   const [pomegranateRate, setPomegranateRate] = useState<string>('950');
 
   // 3. Watermelon (Total weight in Ton/Kg, Total amount)
-  const [watermelonWeight, setWatermelonWeight] = useState<string>('15');
+  const [watermelonWeight, setWatermelonWeight] = useState<string>('');
   const [watermelonUnit, setWatermelonUnit] = useState<'TON' | 'KG'>('TON');
   const [watermelonRate, setWatermelonRate] = useState<string>('14000');
 
   // 4. Muskmelon (Total weight in Ton/Kg, Total amount)
-  const [muskmelonWeight, setMuskmelonWeight] = useState<string>('8');
+  const [muskmelonWeight, setMuskmelonWeight] = useState<string>('');
   const [muskmelonUnit, setMuskmelonUnit] = useState<'TON' | 'KG'>('TON');
   const [muskmelonRate, setMuskmelonRate] = useState<string>('18000');
 
   // 5. Banana (Total boxes, Total amount)
-  const [bananaBoxes, setBananaBoxes] = useState<string>('400');
+  const [bananaBoxes, setBananaBoxes] = useState<string>('');
   const [bananaRate, setBananaRate] = useState<string>('550');
 
   // 6. Orange (Total box, Counts 36/42/45/54/60/72/74/90/105, Total amount)
   const ORANGE_COUNTS = ['36', '42', '45', '54', '60', '72', '74', '90', '105'] as const;
   const [orangeCount, setOrangeCount] = useState<string>('54');
-  const [orangeBoxes, setOrangeBoxes] = useState<string>('350');
+  const [orangeBoxes, setOrangeBoxes] = useState<string>('');
   const [orangeRate, setOrangeRate] = useState<string>('780');
 
   // 7. Plum (Total box, Total amount)
-  const [plumBoxes, setPlumBoxes] = useState<string>('200');
+  const [plumBoxes, setPlumBoxes] = useState<string>('');
   const [plumRate, setPlumRate] = useState<string>('850');
 
   // Other Fruit Sizing Fallback
-  const [otherQuantity, setOtherQuantity] = useState<string>('500');
+  const [otherQuantity, setOtherQuantity] = useState<string>('');
   const [otherUnit, setOtherUnit] = useState<string>('BOX');
   const [otherRate, setOtherRate] = useState<string>('950');
   const [otherGrade, setOtherGrade] = useState<string>('Grade A Export Quality');
@@ -477,7 +498,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       const shortCode = po.poNumber ? po.poNumber.split('/').pop() || `PO #${idx + 1}` : `PO #${idx + 1}`;
       return {
         label: shortCode,
-        sublabel: po.orderPersonPlace ? `${po.orderPersonPlace} Hub` : 'Regional Hub',
+        sublabel: getDestinationHub(po),
         total,
         advance: adv,
         due,
@@ -809,33 +830,23 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const handleFruitSelect = (fruit: string) => {
     setSelectedFruit(fruit);
     if (fruit === 'Kashmir Apples' || fruit.toLowerCase().includes('apple')) {
-      if (!layer4LBoxes) setLayer4LBoxes('200');
       setLayer4LRate(String(adminFruitRates.apples.layer4L || 1300));
-      if (!layer5LBoxes) setLayer5LBoxes('250');
       setLayer5LRate(String(adminFruitRates.apples.layer5L || 1400));
-      if (!rollBoxes) setRollBoxes('50');
       setRollRate(String(adminFruitRates.apples.roll || 600));
     } else if (fruit === 'Pomegranate') {
-      if (!pomegranateBoxes) setPomegranateBoxes('300');
       setPomegranateRate(String(adminFruitRates.pomegranate || 950));
     } else if (fruit === 'Watermelon') {
-      if (!watermelonWeight) setWatermelonWeight('15');
       setWatermelonRate(String(adminFruitRates.watermelon || 14000));
     } else if (fruit === 'Muskmelon') {
-      if (!muskmelonWeight) setMuskmelonWeight('8');
       setMuskmelonRate(String(adminFruitRates.muskmelon || 18000));
     } else if (fruit === 'Banana') {
-      if (!bananaBoxes) setBananaBoxes('400');
       setBananaRate(String(adminFruitRates.banana || 550));
     } else if (fruit === 'Orange') {
-      if (!orangeBoxes) setOrangeBoxes('350');
       setOrangeRate(String(adminFruitRates.orange || 780));
       if (!orangeCount) setOrangeCount('54');
     } else if (fruit === 'Plum') {
-      if (!plumBoxes) setPlumBoxes('200');
       setPlumRate(String(adminFruitRates.plum || 850));
     } else {
-      if (!otherQuantity) setOtherQuantity('500');
       if (!otherRate) setOtherRate('950');
     }
   };
@@ -1334,36 +1345,40 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
       const it4L = po.items?.find((i: any) => i.varietyGrade?.includes('4L'));
       const it5L = po.items?.find((i: any) => i.varietyGrade?.includes('5L'));
       const itRoll = po.items?.find((i: any) => i.varietyGrade?.includes('Roll'));
-      setLayer4LBoxes(it4L && it4L.quantity ? String(it4L.quantity) : '200');
+      setLayer4LBoxes(it4L && it4L.quantity ? String(it4L.quantity) : '');
       setLayer4LRate(String(adminFruitRates.apples.layer4L || 1300));
-      setLayer5LBoxes(it5L && it5L.quantity ? String(it5L.quantity) : '250');
+      setLayer5LBoxes(it5L && it5L.quantity ? String(it5L.quantity) : '');
       setLayer5LRate(String(adminFruitRates.apples.layer5L || 1400));
-      setRollBoxes(itRoll && itRoll.quantity ? String(itRoll.quantity) : '50');
+      setRollBoxes(itRoll && itRoll.quantity ? String(itRoll.quantity) : '');
       setRollRate(String(adminFruitRates.apples.roll || 600));
     } else if (fruit === 'Pomegranate') {
       const pIt = po.items?.[0];
-      setPomegranateBoxes(pIt && pIt.quantity ? String(pIt.quantity) : '300');
+      setPomegranateBoxes(pIt && pIt.quantity ? String(pIt.quantity) : '');
       setPomegranateRate(String(adminFruitRates.pomegranate || 950));
     } else if (fruit === 'Watermelon') {
       const wIt = po.items?.[0];
-      setWatermelonWeight(wIt && wIt.quantity ? String(wIt.quantity) : '15');
+      setWatermelonWeight(wIt && wIt.quantity ? String(wIt.quantity) : '');
       setWatermelonRate(String(adminFruitRates.watermelon || 14000));
     } else if (fruit === 'Muskmelon') {
       const mIt = po.items?.[0];
-      setMuskmelonWeight(mIt && mIt.quantity ? String(mIt.quantity) : '8');
+      setMuskmelonWeight(mIt && mIt.quantity ? String(mIt.quantity) : '');
       setMuskmelonRate(String(adminFruitRates.muskmelon || 18000));
     } else if (fruit === 'Banana') {
       const bIt = po.items?.[0];
-      setBananaBoxes(bIt && bIt.quantity ? String(bIt.quantity) : '400');
+      setBananaBoxes(bIt && bIt.quantity ? String(bIt.quantity) : '');
       setBananaRate(String(adminFruitRates.banana || 550));
     } else if (fruit === 'Orange') {
       const oIt = po.items?.[0];
-      setOrangeBoxes(oIt && oIt.quantity ? String(oIt.quantity) : '350');
+      setOrangeBoxes(oIt && oIt.quantity ? String(oIt.quantity) : '');
       setOrangeRate(String(adminFruitRates.orange || 780));
     } else if (fruit === 'Plum') {
       const plIt = po.items?.[0];
-      setPlumBoxes(plIt && plIt.quantity ? String(plIt.quantity) : '200');
+      setPlumBoxes(plIt && plIt.quantity ? String(plIt.quantity) : '');
       setPlumRate(String(adminFruitRates.plum || 850));
+    } else {
+      const otIt = po.items?.[0];
+      setOtherQuantity(otIt && otIt.quantity ? String(otIt.quantity) : '');
+      setOtherRate(String(adminFruitRates.other || 950));
     }
   };
 
@@ -1461,6 +1476,9 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
   const completedOrders = clearedOrders;
 
   const filteredDispatchTabOrders = orders.filter((o) => {
+    // Strictly exclude rejected and cancelled orders from Ready for Dispatch tracking desk
+    if (isOrderRejected(o) || o.status === 'CANCELLED') return false;
+
     if (dispatchTabFilter === 'PENDING') {
       if (!pendingDispatchOrders.some((p) => p.id === o.id)) return false;
     } else if (dispatchTabFilter === 'IN_TRANSIT') {
@@ -2977,7 +2995,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                         <td className="text-center py-3.5 px-3 text-gray-800 border-r border-gray-100 whitespace-nowrap">
                           <span className="inline-flex items-center gap-1 font-bold text-gray-900">
                             <MapPin size={11} className="text-gray-400" />
-                            {po.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal Hub'}
+                            {getDestinationHub(po)}
                           </span>
                         </td>
 
@@ -3375,7 +3393,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                           <td className="text-center py-3.5 px-3 text-gray-800 border-r border-gray-100 whitespace-nowrap">
                             <span className="inline-flex items-center gap-1 font-bold text-gray-900">
                               <MapPin size={11} className="text-gray-400" />
-                              {po.orderPersonPlace || vendorProfile?.primaryLocation || 'Warangal Hub'}
+                              {getDestinationHub(po)}
                             </span>
                           </td>
 
@@ -4219,7 +4237,7 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                     Dispatch Order: {selectedPOForDispatch.poNumber}
                   </h2>
                   <p className="text-[11px] text-gray-500 font-medium">
-                    Route: <strong className="text-gray-800">{selectedPOForDispatch.orderPersonPlace || 'Farm Origin'}</strong> ➔ <strong className="text-emerald-800">{selectedPOForDispatch.deliveryAddress || 'Regional Hub'}</strong>
+                    Route: <strong className="text-gray-800">{selectedPOForDispatch.orderPersonPlace || 'Farm Origin'}</strong> ➔ <strong className="text-emerald-800">{getDestinationHub(selectedPOForDispatch)}</strong>
                   </p>
                 </div>
               </div>

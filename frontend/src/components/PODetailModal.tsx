@@ -65,6 +65,43 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
   const [editAdvanceAmount, setEditAdvanceAmount] = useState(String(order.advanceAmount || '0'));
   const [editError, setEditError] = useState('');
 
+  // Editable items state
+  const [editItems, setEditItems] = useState<any[]>(() => {
+    return (order.items || []).map((it: any) => ({
+      ...it,
+      quantity: Number(it.quantity) || 0,
+      ratePerUnit: Number(it.ratePerUnit) || 0,
+      lineTotal: Number(it.lineTotal) || ((Number(it.quantity) || 0) * (Number(it.ratePerUnit) || 0)),
+    }));
+  });
+
+  useEffect(() => {
+    if (order.items) {
+      setEditItems(
+        order.items.map((it: any) => ({
+          ...it,
+          quantity: Number(it.quantity) || 0,
+          ratePerUnit: Number(it.ratePerUnit) || 0,
+          lineTotal: Number(it.lineTotal) || ((Number(it.quantity) || 0) * (Number(it.ratePerUnit) || 0)),
+        }))
+      );
+    }
+  }, [order]);
+
+  const handleItemQtyChange = (index: number, newQtyVal: string) => {
+    const newQty = Math.max(0, Number(newQtyVal) || 0);
+    const updated = [...editItems];
+    const item = { ...updated[index] };
+    item.quantity = newQty;
+    item.lineTotal = newQty * Number(item.ratePerUnit || 0);
+    updated[index] = item;
+    setEditItems(updated);
+
+    const newGrand = updated.reduce((sum, it) => sum + (Number(it.lineTotal) || 0), 0);
+    setEditGrandTotal(String(newGrand));
+    setEditAdvanceAmount(String(Math.round(newGrand * 0.70)));
+  };
+
   // Hub Weighbridge & QC Modal State
   const [showQCModal, setShowQCModal] = useState(false);
   const [qcGrossKg, setQcGrossKg] = useState<string>(order.weighbridgeGrossKg ? String(order.weighbridgeGrossKg) : '');
@@ -145,6 +182,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
         orderPersonPlace: editOrderPlace,
         poDate: editPoDate,
         notes: editNotes,
+        items: editItems,
       };
       if (!isEmployee) {
         payload.grandTotal = Number(editGrandTotal);
@@ -831,8 +869,15 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
           {/* Line Items Table with Horizontal Scroll Support */}
           <div className="border border-emerald-700/20 rounded-xl overflow-hidden shadow-sm bg-white">
             <div className="bg-[#064D2B] text-white px-3.5 py-2.5 font-bold flex justify-between items-center text-xs">
-              <span>Procured Fruit Items ({order.items?.length || order.itemsCount})</span>
-              <span>Total: ₹{order.grandTotal.toLocaleString('en-IN')}</span>
+              <span>Procured Fruit Items ({isEditing ? editItems.length : (order.items?.length || order.itemsCount)})</span>
+              <span>
+                Total: ₹{(isEditing ? Number(editGrandTotal || 0) : order.grandTotal).toLocaleString('en-IN')}
+                {isEditing && (
+                  <span className="ml-2 text-emerald-200 text-[11px] font-normal">
+                    (70% Advance: ₹{Number(editAdvanceAmount || 0).toLocaleString('en-IN')})
+                  </span>
+                )}
+              </span>
             </div>
             <div className="table-scroll-wrap overflow-x-auto w-full">
               <table className="w-full text-left text-xs border-collapse min-w-[720px]">
@@ -847,7 +892,42 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {order.items && order.items.length > 0 ? (
+                  {isEditing ? (
+                    editItems.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-emerald-50/40 transition">
+                        <td className="p-2.5 font-semibold text-gray-800 whitespace-nowrap">{item.fruitName}</td>
+                        <td className="p-2.5 text-gray-600 whitespace-nowrap">
+                          {item.varietyGrade} ({item.category})
+                        </td>
+                        <td className="p-2.5 text-right whitespace-nowrap font-medium text-gray-700">
+                          <div className="flex items-center justify-end gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.quantity === 0 ? '' : item.quantity}
+                              onChange={(e) => handleItemQtyChange(idx, e.target.value)}
+                              placeholder="0"
+                              className="w-24 h-7 px-2 border-2 border-emerald-500 rounded-lg text-xs font-bold text-gray-900 bg-white text-right focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                            />
+                            <span className="text-[11px] font-bold text-gray-600">{item.unit || 'BOX'}</span>
+                          </div>
+                        </td>
+                        {!isVendor && (
+                          <td className="p-2.5 text-right whitespace-nowrap text-gray-700 font-mono font-bold">
+                            ₹{Number(item.ratePerUnit || 0).toLocaleString('en-IN')}
+                          </td>
+                        )}
+                        {!isVendor && (
+                          <td className="p-2.5 text-right text-gray-500 whitespace-nowrap">
+                            -{item.discountPercent || 0}% / +{item.taxPercent || 0}%
+                          </td>
+                        )}
+                        <td className="p-2.5 text-right font-bold text-emerald-900 whitespace-nowrap pr-4 font-mono">
+                          ₹{(Number(item.lineTotal) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                      </tr>
+                    ))
+                  ) : order.items && order.items.length > 0 ? (
                     order.items.map((item, idx) => (
                       <tr key={idx} className="hover:bg-emerald-50/40 transition">
                         <td className="p-2.5 font-semibold text-gray-800 whitespace-nowrap">{item.fruitName}</td>
