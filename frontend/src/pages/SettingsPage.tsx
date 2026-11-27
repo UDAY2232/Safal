@@ -12,8 +12,13 @@ import {
   Server,
   ExternalLink,
   RefreshCw,
+  KeyRound,
+  ShieldCheck,
+  User,
+  Lock,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { AdminPasswordResetModal } from '../components/AdminPasswordResetModal';
 
 interface SettingsPageProps {
   onNotify: (msg: string) => void;
@@ -33,6 +38,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNotify }) => {
   const [dbStatus, setDbStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -80,20 +86,30 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNotify }) => {
 
   return (
     <form onSubmit={handleSave} className="space-y-6">
-      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between">
+      <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-[#064D2B]">Workspace &amp; System Configuration</h2>
           <p className="text-xs text-gray-500 mt-0.5">
             Configure application branding, procurement guidelines, and financial defaults.
           </p>
         </div>
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="primary-button inline-flex items-center gap-1.5"
-        >
-          <Save size={15} /> Save Settings
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowPasswordModal(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
+            title="Reset Password for Admin or Staff"
+          >
+            <KeyRound size={15} className="text-amber-700" /> Reset Password
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="primary-button inline-flex items-center gap-1.5"
+          >
+            <Save size={15} /> Save Settings
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs">
@@ -222,6 +238,74 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNotify }) => {
           </div>
         </div>
 
+        {/* Password & Credential Management (Admin Only) */}
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4 md:col-span-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
+            <div>
+              <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                <KeyRound size={20} className="text-[#087A3E]" /> Password &amp; Credential Management
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Reset system passwords directly for Administrator or any staff member/employee across the platform.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPasswordModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-[#064D2B] hover:bg-emerald-900 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
+            >
+              <KeyRound size={14} className="text-amber-300" /> Open Password Reset Tool
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div
+              onClick={() => setShowPasswordModal(true)}
+              className="p-3.5 bg-gray-50 hover:bg-emerald-50/60 rounded-xl border border-gray-200/80 hover:border-emerald-300 cursor-pointer transition flex items-start gap-3"
+            >
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <User size={16} />
+              </div>
+              <div>
+                <strong className="text-gray-900 block font-bold">Admin Account Password</strong>
+                <span className="text-gray-500 text-[11px] block mt-0.5">
+                  Update master administrator login password securely without current password barrier.
+                </span>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setShowPasswordModal(true)}
+              className="p-3.5 bg-gray-50 hover:bg-blue-50/60 rounded-xl border border-gray-200/80 hover:border-blue-300 cursor-pointer transition flex items-start gap-3"
+            >
+              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <KeyRound size={16} />
+              </div>
+              <div>
+                <strong className="text-gray-900 block font-bold">Staff / Employee Passwords</strong>
+                <span className="text-gray-500 text-[11px] block mt-0.5">
+                  Select any employee or accountant to assign a new temporary or permanent password.
+                </span>
+              </div>
+            </div>
+
+            <div
+              onClick={() => setShowPasswordModal(true)}
+              className="p-3.5 bg-gray-50 hover:bg-amber-50/60 rounded-xl border border-gray-200/80 hover:border-amber-300 cursor-pointer transition flex items-start gap-3"
+            >
+              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                <ShieldCheck size={16} />
+              </div>
+              <div>
+                <strong className="text-gray-900 block font-bold">Auto-Generator &amp; Audit Logs</strong>
+                <span className="text-gray-500 text-[11px] block mt-0.5">
+                  Single-click strong password generator with instant copy and tamper-proof audit trails.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Database Connection & Architecture */}
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4 md:col-span-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-3">
@@ -278,6 +362,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNotify }) => {
           </div>
         </div>
       </div>
+
+      {/* Admin Password Reset Modal */}
+      <AdminPasswordResetModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onNotify={onNotify}
+      />
     </form>
   );
 };

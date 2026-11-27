@@ -39,7 +39,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Smartphone,
-  KeyRound,
 } from 'lucide-react';
 import { VENDOR_WHITELISTED_LOCATIONS, MySalaryData } from '../types';
 import { getMobilePushStatus, requestMobileNotificationPermission, PushPermissionStatus } from '../utils/mobilePush';
@@ -65,7 +64,6 @@ import { SubmitDuePaymentModal } from '../components/SubmitDuePaymentModal';
 import { ExpenseActionModal } from '../components/ExpenseActionModal';
 import { SubmitExpenseModal } from '../components/SubmitExpenseModal';
 import { MySalaryModal } from '../components/MySalaryModal';
-import { AdminPasswordResetModal } from '../components/AdminPasswordResetModal';
 
 interface DashboardPageProps {
   onNavigate: (page: string, params?: any) => void;
@@ -181,9 +179,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   // Personal Employee Salary State (Self-Only)
   const [showMySalaryModal, setShowMySalaryModal] = useState(false);
   const [mySalaryData, setMySalaryData] = useState<MySalaryData | null>(null);
-
-  // Admin Password Management Modal State (Strictly Admin Dashboard only)
-  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
 
   // Mobile Push Notification Prompt State
   const [pushStatus, setPushStatus] = useState<PushPermissionStatus>('default');
@@ -1139,13 +1134,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               <Clock size={14} /> Staff Attendance
             </button>
             <button
-              onClick={() => setShowPasswordResetModal(true)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 hover:text-white rounded-xl text-xs font-bold transition border border-amber-400/40 shadow-xs cursor-pointer"
-              title="Admin Password Management"
-            >
-              <KeyRound size={14} className="text-amber-300" /> Reset Password
-            </button>
-            <button
               onClick={() => onNavigate('Employee Expenses')}
               className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-800/80 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition border border-emerald-600/40"
             >
@@ -1180,13 +1168,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           </div>
         </div>
         <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setShowPasswordResetModal(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold text-xs rounded-xl shadow-2xs transition cursor-pointer"
-            title="Reset Password for Admin or Staff"
-          >
-            <KeyRound size={14} className="text-amber-700" /> Reset Password
-          </button>
           <button
             onClick={() => onNavigate('Attendance')}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#064D2B] hover:bg-emerald-900 text-white font-extrabold text-xs rounded-xl shadow-xs transition"
@@ -2921,13 +2902,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           onClose={() => setShowMySalaryModal(false)}
         />
       )}
-
-      {/* Admin Password Reset Modal (Admin Dashboard Only) */}
-      <AdminPasswordResetModal
-        isOpen={showPasswordResetModal}
-        onClose={() => setShowPasswordResetModal(false)}
-        onNotify={onNotify}
-      />
     </>
   );
 };
