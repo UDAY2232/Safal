@@ -333,28 +333,40 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
             </div>
           </div>
 
-          {/* Existing Attached Proof (if any) */}
-          {order.paymentProofUrl && (
-            <div className="p-3 bg-emerald-50/80 rounded-2xl border border-emerald-300/80 flex items-center justify-between">
+          {/* Existing Attached Proofs (if any) */}
+          {(order.paymentProofUrl || (order.paymentProofs && order.paymentProofs.length > 0)) && (
+            <div className="p-3 bg-emerald-50/80 rounded-2xl border border-emerald-300/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-200 text-emerald-900 grid place-items-center">
+                <div className="w-8 h-8 rounded-lg bg-emerald-200 text-emerald-900 grid place-items-center shrink-0">
                   <FileText size={18} />
                 </div>
                 <div>
                   <span className="text-[11px] font-bold text-emerald-900 block">
-                    Existing Payment Proof Attached
+                    {order.paymentProofs && order.paymentProofs.length > 1
+                      ? `${order.paymentProofs.length} Payment Proofs Attached (₹${currentAdvance.toLocaleString('en-IN')} Cleared)`
+                      : 'Existing Payment Proof Attached'}
                   </span>
-                  <span className="text-[10px] text-emerald-700">
-                    Uploaded by employee during settlement
-                  </span>
+                  <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                    {order.paymentProofs && order.paymentProofs.length > 1 ? (
+                      order.paymentProofs.map((p, idx) => (
+                        <span key={p.id || idx} className="text-[9px] font-black px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 border border-emerald-300">
+                          #{idx + 1}: ₹{Number(p.amount || 0).toLocaleString('en-IN')}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] text-emerald-700">
+                        Uploaded by employee during settlement
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowProofModal(true)}
-                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 transition shadow-xs cursor-pointer active:scale-95"
+                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 transition shadow-xs cursor-pointer active:scale-95 self-start sm:self-auto shrink-0"
               >
-                <ImageIcon size={13} /> View Proof
+                <ImageIcon size={13} /> {order.paymentProofs && order.paymentProofs.length > 1 ? `View All Proofs (${order.paymentProofs.length})` : 'View Proof'}
               </button>
             </div>
           )}
@@ -685,9 +697,10 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
       </div>
 
       {/* Proof Preview Lightbox */}
-      {showProofModal && (proofPreview || order.paymentProofUrl) && (
+      {showProofModal && (proofPreview || order.paymentProofUrl || (order.paymentProofs && order.paymentProofs.length > 0)) && (
         <ProofViewerModal
           proofUrl={proofPreview || order.paymentProofUrl || null}
+          proofs={order.paymentProofs}
           orderNumber={order.poNumber}
           supplierName={order.supplier?.name}
           amount={order.grandTotal}

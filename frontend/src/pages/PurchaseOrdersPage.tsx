@@ -1219,10 +1219,14 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                     setProofViewerOrder(order);
                                   }}
                                   className="inline-flex items-center gap-1.5 text-[10px] font-extrabold text-emerald-800 hover:text-emerald-950 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md border border-emerald-300 transition shadow-2xs cursor-pointer active:scale-95"
-                                  title="Tap to View Verified Payment Proof Image"
+                                  title="Tap to View Verified Payment Proof Images"
                                 >
                                   <ImageIcon size={12} className="text-emerald-700" />
-                                  <span>Proof Attached</span>
+                                  <span>
+                                    {order.paymentProofs && order.paymentProofs.length > 1
+                                      ? `${order.paymentProofs.length} Proofs Attached`
+                                      : 'Proof Attached'}
+                                  </span>
                                 </button>
                               </div>
                             )}
@@ -1683,9 +1687,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       )}
 
       {/* Payment Proof Image Viewer Modal */}
-      {proofViewerOrder && proofViewerOrder.paymentProofUrl && (
+      {proofViewerOrder && (proofViewerOrder.paymentProofUrl || (proofViewerOrder.paymentProofs && proofViewerOrder.paymentProofs.length > 0)) && (
         <ProofViewerModal
           proofUrl={proofViewerOrder.paymentProofUrl}
+          proofs={proofViewerOrder.paymentProofs}
           orderNumber={proofViewerOrder.poNumber}
           supplierName={proofViewerOrder.supplier?.name}
           amount={proofViewerOrder.grandTotal}

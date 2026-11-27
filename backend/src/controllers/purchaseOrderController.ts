@@ -99,6 +99,119 @@ async function generateNextCDNumber(tx: any): Promise<string> {
   }
 }
 
+export interface PaymentProofItem {
+  id: string;
+  url: string;
+  amount: number;
+  paymentMode?: string;
+  reference?: string;
+  notes?: string;
+  submittedBy?: string;
+  submittedAt?: string;
+  verified?: boolean;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  remainingDue?: number;
+}
+
+export function extractPaymentProofs(p: any): PaymentProofItem[] {
+  if (!p) return [];
+  const proofsMap = new Map<string, PaymentProofItem>();
+
+  // 1. First, check if paymentProofNotes contains a JSON with proofs array
+  if (p.paymentProofNotes) {
+    try {
+      const parsed = JSON.parse(p.paymentProofNotes);
+      if (parsed && Array.isArray(parsed.proofs)) {
+        for (const item of parsed.proofs) {
+          if (item && item.url) {
+            proofsMap.set(item.url, {
+              id: item.id || `prf_${proofsMap.size + 1}`,
+              url: item.url,
+              amount: Number(item.amount || 0),
+              paymentMode: item.paymentMode || 'PHONEPE_UPI',
+              reference: item.reference || '',
+              notes: item.notes || '',
+              submittedBy: item.submittedBy || p.createdByName || p.createdBy?.name || 'Staff',
+              submittedAt: item.submittedAt || (p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString()),
+              verified: item.verified ?? Boolean(parsed.adminVerified),
+              verifiedBy: item.verifiedBy || parsed.verifiedBy,
+              verifiedAt: item.verifiedAt || parsed.verifiedAt,
+              remainingDue: item.remainingDue !== undefined ? Number(item.remainingDue) : undefined,
+            });
+          }
+        }
+      }
+    } catch {
+      // Not JSON, plain text note - ignore
+    }
+  }
+
+  // 2. Parse from statusHistory (find all comments with [Proof Attached: ...])
+  if (Array.isArray(p.statusHistory)) {
+    const sortedHistory = [...p.statusHistory].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+
+    for (const h of sortedHistory) {
+      const comment = h.comment || '';
+      const proofMatch = comment.match(/\[Proof Attached:\s*([^\]]+)\]/i);
+      if (proofMatch && proofMatch[1]) {
+        const url = proofMatch[1].trim();
+        if (!proofsMap.has(url)) {
+          const amtMatch = comment.match(/Due Payment of\s*₹([\d,]+)/i);
+          const amt = amtMatch ? Number(amtMatch[1].replace(/,/g, '')) : 0;
+
+          const modeMatch = comment.match(/received via\s*([^.]+)\./i);
+          const mode = modeMatch ? modeMatch[1].trim() : 'PHONEPE_UPI';
+
+          const refMatch = comment.match(/Ref:\s*([^.]+)\./i);
+          const ref = refMatch ? refMatch[1].trim() : '';
+
+          const remMatch = comment.match(/Remaining Due:\s*₹([\d,]+)/i);
+          const rem = remMatch ? Number(remMatch[1].replace(/,/g, '')) : undefined;
+
+          const noteMatch = comment.match(/Note:\s*([^\[]+)/i);
+          const notes = noteMatch ? noteMatch[1].trim() : '';
+
+          proofsMap.set(url, {
+            id: `prf_hist_${h.id || proofsMap.size + 1}`,
+            url,
+            amount: amt,
+            paymentMode: mode,
+            reference: ref,
+            notes,
+            submittedBy: p.createdByName || p.createdBy?.name || 'Staff',
+            submittedAt: new Date(h.createdAt).toISOString(),
+            verified: p.paymentProofNotes?.includes('[ADMIN_VERIFIED]') || false,
+            remainingDue: rem,
+          });
+        }
+      }
+    }
+  }
+
+  // 3. Fallback: If p.paymentProofUrl exists and is not yet in map
+  if (p.paymentProofUrl && !proofsMap.has(p.paymentProofUrl)) {
+    proofsMap.set(p.paymentProofUrl, {
+      id: `prf_main_${p.id || 'single'}`,
+      url: p.paymentProofUrl,
+      amount: Number(p.advanceAmount || p.grandTotal || 0),
+      paymentMode: 'PHONEPE_UPI',
+      reference: '',
+      notes: typeof p.paymentProofNotes === 'string' && !p.paymentProofNotes.startsWith('{') ? p.paymentProofNotes : '',
+      submittedBy: p.createdByName || p.createdBy?.name || 'Staff',
+      submittedAt: p.createdAt ? new Date(p.createdAt).toISOString() : new Date().toISOString(),
+      verified: p.paymentProofNotes?.includes('[ADMIN_VERIFIED]') || false,
+      remainingDue: Number(p.pendingAmount || 0),
+    });
+  }
+
+  return Array.from(proofsMap.values()).sort(
+    (a, b) => new Date(a.submittedAt || 0).getTime() - new Date(b.submittedAt || 0).getTime()
+  );
+}
+
 export async function getPurchaseOrders(req: AuthRequest, res: Response) {
   try {
     const { search, status, financialStatus, supplierId, fromDate, toDate, type } = req.query;
@@ -186,6 +299,9 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         },
         items: true,
         financialRecord: true,
+        statusHistory: {
+          orderBy: { createdAt: 'desc' },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -255,6 +371,7 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         notes: p.notes,
         paymentProofUrl: (p as any).paymentProofUrl || null,
         paymentProofNotes: (p as any).paymentProofNotes || null,
+        paymentProofs: extractPaymentProofs(p),
         createdById: p.createdById,
         createdByName: (() => {
           const match = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
@@ -366,6 +483,7 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
       supplierName: po.supplier?.name || 'Party / Supplier',
       supplierCategory: po.supplier?.category || (po.poNumber?.startsWith('CD/') ? 'Customer Due' : 'Wholesale Fruits'),
       createdByName: staffMatch ? staffMatch[1].trim() : (po.createdBy?.name || 'Staff'),
+      paymentProofs: extractPaymentProofs(po),
       financial: {
         financialStatus: po.financialRecord?.financialStatus || 'NOT_RECORDED',
         realizedProfitLoss: po.financialRecord?.realizedProfitLoss !== undefined && po.financialRecord?.realizedProfitLoss !== null
@@ -559,11 +677,28 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
       ? String(req.body.paymentProofUrl).trim()
       : null;
 
-    const paymentProofNotes = req.body.paymentProofNotes
+    const baseProofNotes = req.body.paymentProofNotes
       ? String(req.body.paymentProofNotes).trim()
       : paymentProofUrl
       ? `${req.body.paymentMode || 'Payment'} proof attached at CD creation`
       : null;
+
+    const initialProofs = paymentProofUrl ? [{
+      id: `prf_init_${Date.now()}`,
+      url: paymentProofUrl,
+      amount: advance > 0 ? advance : grandTotal,
+      paymentMode: req.body.paymentMode || 'PHONEPE_UPI',
+      reference: (req.body.reference || req.body.paymentReference || '').trim(),
+      notes: baseProofNotes || 'Upfront payment proof attached at CD creation',
+      submittedBy: req.user?.name || 'Staff',
+      submittedAt: new Date().toISOString(),
+      verified: false,
+      remainingDue: pending,
+    }] : [];
+
+    const paymentProofNotes = initialProofs.length > 0
+      ? JSON.stringify({ adminVerified: false, proofs: initialProofs })
+      : baseProofNotes || null;
 
     // Strict Enforcement: Payment proof image is strictly mandatory for Customer Due creation
     if (isCD && !paymentProofUrl && (isEmployee || advance > 0)) {
@@ -669,7 +804,7 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
                   status: initialStatus,
                   changedById: req.user!.id,
                   comment: shouldSubmit
-                    ? `Created and submitted for approval${paymentProofUrl ? ' [Upfront Payment Proof Attached]' : ''}`
+                    ? `Created and submitted for approval${paymentProofUrl ? ` [Proof Attached: ${paymentProofUrl}]` : ''}`
                     : 'Saved as draft',
                 },
               },
@@ -1094,9 +1229,25 @@ export async function verifyDuePaymentProof(req: AuthRequest, res: Response) {
     const isFullyPaid = pending <= 0;
     const newStatus = isFullyPaid ? 'CLOSED' : 'OPEN';
 
+    const existingProofs = extractPaymentProofs(po);
+    const updatedProofs = existingProofs.map((prf) => ({
+      ...prf,
+      verified: true,
+      verifiedBy: req.user?.name || 'Admin',
+      verifiedAt: new Date().toISOString(),
+    }));
+
     const adminStamp = `[ADMIN_VERIFIED by ${req.user.name || 'Admin'} on ${new Date().toLocaleDateString('en-GB')}]`;
     const cleanNotes = (po.paymentProofNotes || '').replace(/\[ADMIN_VERIFIED[^\]]*\]/g, '').trim();
-    const updatedNotes = `${adminStamp} ${notes ? String(notes).trim() : cleanNotes}`.trim();
+    const updatedNotesPayload = {
+      adminVerified: true,
+      stamp: adminStamp,
+      verifiedBy: req.user.name || 'Admin',
+      verifiedAt: new Date().toISOString(),
+      notes: notes ? String(notes).trim() : cleanNotes,
+      proofs: updatedProofs,
+    };
+    const updatedNotes = JSON.stringify(updatedNotesPayload);
 
     const auditComment = isFullyPaid
       ? `Payment proof verified by Admin (${req.user.name || 'Admin'}). Remaining Due is ₹0. Order formally marked CLOSED.`
@@ -1160,7 +1311,7 @@ export async function verifyDuePaymentProof(req: AuthRequest, res: Response) {
     });
 
     notifyLiveSync({ type: 'PO_STATUS_CHANGED', entityId: updated.id, metadata: { poNumber: updated.poNumber, status: newStatus } });
-    return res.json(updated);
+    return res.json({ ...updated, paymentProofs: updatedProofs });
   } catch (error) {
     console.error('Error verifying payment proof:', error);
     return res.status(500).json({ error: 'Failed to verify payment proof' });
@@ -1425,9 +1576,32 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
     const isCDOrder = po.poNumber.startsWith('CD/');
     const paymentProofUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
     const incomingNotes = (req.body.proofNotes || notes || '').trim();
-    // Strip old [ADMIN_VERIFIED] marker so fresh payment proof requires Admin verification
-    const cleanNotes = (incomingNotes || (po as any).paymentProofNotes || '').replace(/\[ADMIN_VERIFIED[^\]]*\]/g, '').trim();
-    const paymentProofNotes = cleanNotes || undefined;
+
+    // 1. Recover / extract existing proofs list
+    const existingProofs = extractPaymentProofs(po);
+
+    // 2. If a new proof file was uploaded, append it
+    if (paymentProofUrl) {
+      existingProofs.push({
+        id: `prf_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        url: paymentProofUrl,
+        amount: paymentAmount,
+        paymentMode: paymentMode || 'PHONEPE_UPI',
+        reference: reference ? reference.trim() : undefined,
+        notes: incomingNotes || undefined,
+        submittedBy: req.user?.name || 'Staff',
+        submittedAt: new Date().toISOString(),
+        verified: false,
+        remainingDue: finalPending,
+      });
+    }
+
+    // 3. Serialize back into paymentProofNotes as JSON
+    const paymentProofNotes = JSON.stringify({
+      adminVerified: false,
+      notes: incomingNotes || undefined,
+      proofs: existingProofs,
+    });
 
     // Strict Mandatory Proof: CD settlements submitted by employee or on any CD record REQUIRE payment proof image
     if ((isCDOrder || req.user?.role === 'EMPLOYEE') && !paymentProofUrl && !po.paymentProofUrl) {
@@ -1448,7 +1622,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
         pendingAmount: finalPending,
         status: newStatus,
         ...(paymentProofUrl ? { paymentProofUrl } : {}),
-        ...(paymentProofNotes !== undefined ? { paymentProofNotes } : {}),
+        paymentProofNotes,
         statusHistory: {
           create: {
             status: newStatus,
@@ -1507,7 +1681,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
     });
 
     notifyLiveSync({ type: 'PO_DUE_PAID', entityId: updated.id, metadata: { poNumber: updated.poNumber } });
-    return res.json(updated);
+    return res.json({ ...updated, paymentProofs: existingProofs });
   } catch (error) {
     console.error('Error recording due payment:', error);
     return res.status(500).json({ error: 'Failed to record due payment' });
@@ -1601,11 +1775,28 @@ export async function createDuePurchaseOrder(req: AuthRequest, res: Response) {
         ? String(req.body.paymentProofUrl).trim()
         : null;
 
-      const duePaymentProofNotes = req.body.paymentProofNotes
+      const baseProofNotes = req.body.paymentProofNotes
         ? String(req.body.paymentProofNotes).trim()
         : duePaymentProofUrl
         ? `Upfront payment proof: ${req.body.paymentMode || 'Payment'}`
         : null;
+
+      const initialProofs = duePaymentProofUrl ? [{
+        id: `prf_init_${Date.now()}`,
+        url: duePaymentProofUrl,
+        amount: advance > 0 ? advance : total,
+        paymentMode: req.body.paymentMode || 'PHONEPE_UPI',
+        reference: (req.body.reference || req.body.paymentReference || '').trim(),
+        notes: baseProofNotes || 'Upfront payment proof',
+        submittedBy: req.user?.name || 'Staff',
+        submittedAt: new Date().toISOString(),
+        verified: false,
+        remainingDue: pending,
+      }] : [];
+
+      const duePaymentProofNotes = initialProofs.length > 0
+        ? JSON.stringify({ adminVerified: false, proofs: initialProofs })
+        : baseProofNotes || null;
 
       // 3. Create PO
       const po = await tx.purchaseOrder.create({

@@ -344,18 +344,38 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                 </div>
                 <div>
                   <span className="font-extrabold text-emerald-950 text-xs block group-hover:text-emerald-700 transition">
-                    Verified Payment Proof / Receipt Attached
+                    {order.paymentProofs && order.paymentProofs.length > 1
+                      ? `${order.paymentProofs.length} Payment Proofs / Installments Attached`
+                      : 'Verified Payment Proof / Receipt Attached'}
                   </span>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowProofViewer(true);
-                    }}
-                    className="text-emerald-700 hover:text-emerald-900 underline text-[11px] font-bold inline-flex items-center gap-1 mt-0.5 cursor-pointer"
-                  >
-                    <Eye size={12} /> Tap to Open &amp; Inspect Proof Image
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                    {order.paymentProofs && order.paymentProofs.length > 1 ? (
+                      order.paymentProofs.map((prf, pidx) => (
+                        <button
+                          key={prf.id || pidx}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowProofViewer(true);
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-extrabold text-[10px] border border-emerald-300 transition cursor-pointer"
+                        >
+                          #{pidx + 1}: ₹{Number(prf.amount || 0).toLocaleString('en-IN')}
+                        </button>
+                      ))
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowProofViewer(true);
+                        }}
+                        className="text-emerald-700 hover:text-emerald-900 underline text-[11px] font-bold inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye size={12} /> Tap to Open &amp; Inspect Proof Image
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -1563,9 +1583,10 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
       )}
 
       {/* Payment Proof Viewer Modal */}
-      {showProofViewer && order.paymentProofUrl && (
+      {showProofViewer && (order.paymentProofUrl || (order.paymentProofs && order.paymentProofs.length > 0)) && (
         <ProofViewerModal
           proofUrl={order.paymentProofUrl}
+          proofs={order.paymentProofs}
           orderNumber={order.poNumber}
           supplierName={order.supplierName || order.supplier?.name}
           amount={order.grandTotal}

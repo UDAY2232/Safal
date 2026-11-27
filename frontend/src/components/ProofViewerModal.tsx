@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   Download,
@@ -14,8 +14,13 @@ import {
   Calendar,
   AlertCircle,
   Eye,
+  ChevronLeft,
+  ChevronRight,
+  Receipt,
+  Clock,
 } from 'lucide-react';
 import { resolvePhotoUrl } from '../utils/imageUtils';
+import { PaymentProofItem } from '../types';
 
 interface ProofViewerModalProps {
   proofUrl: string | null;
@@ -30,6 +35,7 @@ interface ProofViewerModalProps {
   onApprove?: () => void;
   isApproving?: boolean;
   approveLabel?: string;
+  proofs?: PaymentProofItem[];
 }
 
 export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
@@ -45,11 +51,40 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
   onApprove,
   isApproving = false,
   approveLabel,
+  proofs,
 }) => {
   const [zoom, setZoom] = useState(1);
   const [loadError, setLoadError] = useState(false);
 
-  if (!proofUrl) return null;
+  // Normalize all available proofs for this order
+  const allProofs: PaymentProofItem[] = useMemo(() => {
+    if (proofs && proofs.length > 0) return proofs;
+    if (proofUrl) {
+      return [{
+        id: 'prf_single',
+        url: proofUrl,
+        amount: amount !== undefined && pendingAmount !== undefined ? Math.max(0, Number(amount) - Number(pendingAmount)) : undefined,
+        paymentMode: paymentMode || 'PHONEPE_UPI',
+        notes: notes,
+      }];
+    }
+    return [];
+  }, [proofs, proofUrl, amount, pendingAmount, paymentMode, notes]);
+
+  // Default active proof to the latest submitted installment
+  const [activeIndex, setActiveIndex] = useState<number>(() => {
+    if (!allProofs.length) return 0;
+    if (proofUrl) {
+      const idx = allProofs.findIndex(p => p.url === proofUrl);
+      return idx >= 0 ? idx : allProofs.length - 1;
+    }
+    return allProofs.length - 1;
+  });
+
+  const activeProof = allProofs[activeIndex] || allProofs[0];
+  const activeUrl = activeProof?.url || proofUrl;
+
+  if (!activeUrl) return null;
 
   const isFullyPaid = pendingAmount !== undefined ? Number(pendingAmount) <= 0 : false;
   const numAmount = amount !== undefined ? Number(amount) : undefined;
@@ -57,15 +92,29 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
   const numCleared = numAmount !== undefined && numPending !== undefined ? Math.max(0, numAmount - numPending) : undefined;
   const defaultLabel = isFullyPaid ? 'Verify & Close CD' : 'Approve Payment Proof (Keep Open)';
 
-  const resolvedUrl = resolvePhotoUrl(proofUrl);
+  const resolvedUrl = resolvePhotoUrl(activeUrl);
   const isPdf =
-    proofUrl.toLowerCase().endsWith('.pdf') ||
-    proofUrl.toLowerCase().includes('.pdf?') ||
-    proofUrl.startsWith('data:application/pdf');
+    activeUrl.toLowerCase().endsWith('.pdf') ||
+    activeUrl.toLowerCase().includes('.pdf?') ||
+    activeUrl.startsWith('data:application/pdf');
 
   const handleZoomIn = () => setZoom((z) => Math.min(3, z + 0.25));
   const handleZoomOut = () => setZoom((z) => Math.max(0.75, z - 0.25));
   const handleResetZoom = () => setZoom(1);
+
+  const handleSelectProof = (idx: number) => {
+    setActiveIndex(idx);
+    setZoom(1);
+    setLoadError(false);
+  };
+
+  const handlePrevProof = () => {
+    if (activeIndex > 0) handleSelectProof(activeIndex - 1);
+  };
+
+  const handleNextProof = () => {
+    if (activeIndex < allProofs.length - 1) handleSelectProof(activeIndex + 1);
+  };
 
   return (
     <div
@@ -130,6 +179,67 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
           </div>
         </div>
 
+        {/* Multi-Proof Installments Tab Bar (If multiple partial payments exist) */}
+        {allProofs.length > 1 && (
+          <div className="px-4 py-2.5 bg-gradient-to-r from-[#04331C] to-[#064D2B] border-b border-emerald-800/80 flex items-center justify-between gap-2 overflow-x-auto flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto py-0.5">
+              <span className="text-[11px] font-black uppercase tracking-wider text-emerald-300 mr-1.5 flex items-center gap-1 shrink-0">
+                <Receipt size={13} /> Installments ({allProofs.length}):
+              </span>
+              {allProofs.map((p, idx) => {
+                const isSelected = idx === activeIndex;
+                const pAmt = Number(p.amount || 0);
+                return (
+                  <button
+                    key={p.id || idx}
+                    type="button"
+                    onClick={() => handleSelectProof(idx)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-500 text-white shadow-md ring-2 ring-emerald-300'
+                        : 'bg-emerald-900/80 hover:bg-emerald-800 text-emerald-100 border border-emerald-700/60'
+                    }`}
+                  >
+                    <span className="text-[10px] font-black opacity-90">#{idx + 1}</span>
+                    <span className="font-extrabold font-mono">₹{pAmt.toLocaleString('en-IN')}</span>
+                    {p.submittedAt && (
+                      <span className="text-[10px] opacity-80 font-normal">
+                        ({new Date(p.submittedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })})
+                      </span>
+                    )}
+                    {p.verified && (
+                      <CheckCircle2 size={12} className="text-emerald-200" title="Admin Verified" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-1 shrink-0 text-emerald-100 text-xs font-semibold pl-2 border-l border-emerald-700/60">
+              <button
+                type="button"
+                disabled={activeIndex === 0}
+                onClick={handlePrevProof}
+                className="p-1 rounded bg-emerald-800/80 hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed text-white transition cursor-pointer"
+                title="Previous Proof"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="text-[11px] font-mono px-1">
+                {activeIndex + 1} / {allProofs.length}
+              </span>
+              <button
+                type="button"
+                disabled={activeIndex === allProofs.length - 1}
+                onClick={handleNextProof}
+                className="p-1 rounded bg-emerald-800/80 hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed text-white transition cursor-pointer"
+                title="Next Proof"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Info Meta Strip */}
         <div className="px-4 py-2 bg-emerald-50/90 border-b border-emerald-100 flex flex-wrap items-center justify-between gap-2 text-xs flex-shrink-0">
           <div className="flex flex-wrap items-center gap-3 text-gray-700">
@@ -162,9 +272,24 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
                 </strong>
               </span>
             )}
-            {paymentMode && (
+            {activeProof.amount !== undefined && activeProof.amount > 0 && allProofs.length > 1 && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-100 border border-emerald-300 font-black text-emerald-900 shadow-2xs">
+                Installment #{activeIndex + 1}: ₹{Number(activeProof.amount).toLocaleString('en-IN')}
+              </span>
+            )}
+            {(activeProof.paymentMode || paymentMode) && (
               <span className="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 font-semibold text-gray-600">
-                Mode: {paymentMode.replace(/_/g, ' ')}
+                Mode: {(activeProof.paymentMode || paymentMode || '').replace(/_/g, ' ')}
+              </span>
+            )}
+            {activeProof.reference && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 font-semibold text-gray-600">
+                Ref: {activeProof.reference}
+              </span>
+            )}
+            {activeProof.submittedBy && (
+              <span className="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 font-semibold text-gray-600 inline-flex items-center gap-1">
+                <User size={11} className="text-gray-400" /> By: {activeProof.submittedBy}
               </span>
             )}
           </div>
@@ -206,7 +331,30 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 bg-gray-950 overflow-auto flex items-center justify-center p-2 sm:p-4 min-h-[320px] max-h-[65vh]">
+        <div className="relative flex-1 bg-gray-950 overflow-auto flex items-center justify-center p-2 sm:p-4 min-h-[320px] max-h-[65vh]">
+          {allProofs.length > 1 && (
+            <>
+              <button
+                type="button"
+                disabled={activeIndex === 0}
+                onClick={handlePrevProof}
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/70 hover:bg-black/95 text-white disabled:opacity-0 disabled:pointer-events-none transition shadow-2xl grid place-items-center cursor-pointer z-20 border border-white/20 active:scale-95"
+                title="View Previous Installment Proof"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                type="button"
+                disabled={activeIndex === allProofs.length - 1}
+                onClick={handleNextProof}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/70 hover:bg-black/95 text-white disabled:opacity-0 disabled:pointer-events-none transition shadow-2xl grid place-items-center cursor-pointer z-20 border border-white/20 active:scale-95"
+                title="View Next Installment Proof"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </>
+          )}
+
           {isPdf ? (
             <div className="w-full h-full flex flex-col items-center justify-center p-4">
               <iframe
@@ -229,7 +377,7 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
             <div className="w-full h-full flex items-center justify-center overflow-auto">
               <img
                 src={resolvedUrl}
-                alt={`Proof for ${orderNumber}`}
+                alt={`Proof for ${orderNumber} - Installment ${activeIndex + 1}`}
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
                 className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-2xl transition-transform duration-150 select-none"
                 onError={() => setLoadError(true)}
@@ -260,10 +408,12 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
         </div>
 
         {/* Notes if present */}
-        {notes && (
+        {(activeProof.notes || notes) && (
           <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-600 flex items-center gap-2">
-            <span className="font-bold text-gray-700 shrink-0">Notes:</span>
-            <span className="truncate">{notes}</span>
+            <span className="font-bold text-gray-700 shrink-0">
+              {allProofs.length > 1 ? `Installment #${activeIndex + 1} Remarks:` : 'Notes:'}
+            </span>
+            <span className="truncate">{activeProof.notes || notes}</span>
           </div>
         )}
 

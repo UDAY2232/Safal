@@ -105,6 +105,21 @@ export interface POItem {
   lineTotal: number;
 }
 
+export interface PaymentProofItem {
+  id?: string;
+  url: string;
+  amount?: number;
+  paymentMode?: string;
+  reference?: string;
+  notes?: string;
+  submittedBy?: string;
+  submittedAt?: string;
+  verified?: boolean;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  remainingDue?: number;
+}
+
 export interface PurchaseOrder {
   id: string;
   poNumber: string;
@@ -131,6 +146,7 @@ export interface PurchaseOrder {
   rejectionReason?: string | null;
   paymentProofUrl?: string | null;
   paymentProofNotes?: string | null;
+  paymentProofs?: PaymentProofItem[];
   vendorProfileId?: string | null;
   vendorProfile?: VendorProfile | null;
   dispatchVehicleNumber?: string | null;
