@@ -16,6 +16,7 @@ import {
   Image as ImageIcon,
   Trash2,
   ShieldCheck,
+  Eye,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { api } from '../services/api';

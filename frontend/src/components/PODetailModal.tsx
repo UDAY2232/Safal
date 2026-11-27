@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   Calculator,
   CheckCircle2,
+  MapPin,
 } from 'lucide-react';
 import { PurchaseOrder } from '../types';
 import { StatusBadge } from './StatusBadge';

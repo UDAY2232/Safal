@@ -755,7 +755,7 @@ export async function submitPurchaseOrder(req: AuthRequest, res: Response) {
     }
 
     const updated = await prisma.purchaseOrder.update({
-      where: { id },
+      where: { id: po.id },
       data: {
         status: 'PENDING_APPROVAL',
         rejectionReason: null,
@@ -817,7 +817,7 @@ export async function approvePurchaseOrder(req: AuthRequest, res: Response) {
     }
 
     const updated = await prisma.purchaseOrder.update({
-      where: { id },
+      where: { id: po.id },
       data: {
         status: 'OPEN',
         approvedById: req.user!.id,
@@ -880,7 +880,7 @@ export async function rejectPurchaseOrder(req: AuthRequest, res: Response) {
     }
 
     const updated = await prisma.purchaseOrder.update({
-      where: { id },
+      where: { id: po.id },
       data: {
         status: 'REJECTED',
         rejectionReason: reason,
@@ -1001,7 +1001,7 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
         : 'Consignment delivery, vehicle evidence, and weighbridge slip verified and cleared by Admin');
 
     const updated = await prisma.purchaseOrder.update({
-      where: { id },
+      where: { id: po.id },
       data: {
         status: finalStatus,
         dispatchStatus: 'DELIVERED_AT_HUB',
@@ -1255,7 +1255,9 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
 
 export async function recordDuePayment(req: AuthRequest, res: Response) {
   try {
-    const { id } = req.params;
+    const rawId = req.params.id || '';
+    const cleanId = decodeURIComponent(rawId).trim();
+
     const {
       amount,
       paymentMode = 'BANK_TRANSFER',
@@ -1266,8 +1268,13 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       newPendingAmount,
     } = req.body;
 
-    const po = await prisma.purchaseOrder.findUnique({
-      where: { id },
+    const po = await prisma.purchaseOrder.findFirst({
+      where: {
+        OR: [
+          { id: cleanId },
+          { poNumber: cleanId },
+        ],
+      },
       include: { supplier: true, createdBy: true },
     });
 
@@ -1326,7 +1333,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
     }
 
     const updated = await prisma.purchaseOrder.update({
-      where: { id },
+      where: { id: po.id },
       data: {
         advanceAmount: finalAdvance,
         pendingAmount: finalPending,
@@ -1385,7 +1392,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
       userRole: req.user?.role || 'UNKNOWN',
       action: 'PO_DUE_PAYMENT',
       entityType: 'PURCHASE_ORDER',
-      entityId: id,
+      entityId: po.id,
       details: `Recorded ₹${paymentAmount.toLocaleString('en-IN')} due payment on ${po.poNumber}. Completed: ₹${finalAdvance.toLocaleString('en-IN')}, Remaining Due: ₹${finalPending.toLocaleString('en-IN')}`,
       ipAddress: req.ip,
     });
