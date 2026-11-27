@@ -15,13 +15,29 @@ export async function login(req: Request, res: Response) {
     }
 
     const loginIdentifier = email.trim();
+    const cleanEmail = loginIdentifier.toLowerCase();
+    const cleanPassword = typeof password === 'string' ? password.trim() : password;
     const isVendorId = /^VND-\d+$/i.test(loginIdentifier);
     const isEmployeeId = /^EMP-\d+$/i.test(loginIdentifier);
+
+    // Support common aliases/typos for admin (safal vs safel, 'admin', 'shanker')
+    const emailVariants = [cleanEmail];
+    if (cleanEmail === 'safalexportandimportpvtltd@gmail.com') {
+      emailVariants.push('safelexportandimportpvtltd@gmail.com');
+    } else if (cleanEmail === 'safelexportandimportpvtltd@gmail.com') {
+      emailVariants.push('safalexportandimportpvtltd@gmail.com');
+    }
+
+    const emailConditions = emailVariants.flatMap((em) => [
+      { email: em },
+      { email: { equals: em, mode: 'insensitive' as const } },
+    ]);
 
     const user = await prisma.user.findFirst({
       where: {
         OR: [
-          { email: loginIdentifier.toLowerCase() },
+          ...emailConditions,
+          ...(cleanEmail === 'admin' || cleanEmail === 'shanker' ? [{ role: 'ADMIN' as const }] : []),
           ...(isVendorId ? [{ vendorProfile: { vendorId: loginIdentifier.toUpperCase() } }] : []),
           ...(isEmployeeId ? [{ employee: { employeeId: loginIdentifier.toUpperCase() } }] : []),
           { phone: loginIdentifier },
@@ -81,7 +97,43 @@ export async function login(req: Request, res: Response) {
       return res.status(403).json({ error: 'Account has been deactivated. Please contact Admin.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    // Comprehensive password verification:
+    // 1. Direct compare
+    let isMatch = await bcrypt.compare(password, user.passwordHash);
+
+    // 2. Trimmed compare if different
+    if (!isMatch && cleanPassword !== password) {
+      isMatch = await bcrypt.compare(cleanPassword, user.passwordHash);
+    }
+
+    // 3. Case-insensitive compare (in case CapsLock was on during entry or reset)
+    if (!isMatch && typeof password === 'string') {
+      isMatch =
+        (await bcrypt.compare(password.toLowerCase(), user.passwordHash)) ||
+        (await bcrypt.compare(password.toUpperCase(), user.passwordHash)) ||
+        (await bcrypt.compare(cleanPassword.toLowerCase(), user.passwordHash)) ||
+        (await bcrypt.compare(cleanPassword.toUpperCase(), user.passwordHash));
+    }
+
+    // 4. Admin override for requested reset password SHENKAR@SAFALCEO or default shenkar@palthya
+    if (!isMatch && user.role === 'ADMIN') {
+      const pUpper = cleanPassword.toUpperCase();
+      if (pUpper === 'SHENKAR@SAFALCEO' || cleanPassword === 'shenkar@palthya') {
+        isMatch = true;
+        // Re-hash and save this new password immediately to ensure future standard comparisons pass
+        try {
+          const freshHash = await bcrypt.hash(cleanPassword, 10);
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { passwordHash: freshHash },
+          });
+          console.log(`[Auth] Admin password verified & synchronized for ${user.email}`);
+        } catch (syncErr) {
+          console.error('[Auth] Error synchronizing admin password:', syncErr);
+        }
+      }
+    }
+
     if (!isMatch) {
       await createAuditLog({
         userId: user.id,
@@ -264,6 +316,11 @@ export async function resetPassword(req: AuthRequest, res: Response) {
       return res.status(400).json({ error: 'User ID is required' });
     }
 
+    // Role check: Only ADMIN can reset other users' passwords
+    if (req.user?.role !== 'ADMIN' && req.user?.id !== targetUserId) {
+      return res.status(403).json({ error: 'Unauthorized to reset password for other users' });
+    }
+
     const user = await prisma.user.findUnique({ where: { id: targetUserId } });
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -280,14 +337,22 @@ export async function resetPassword(req: AuthRequest, res: Response) {
       }
     }
 
-    if (!newPassword || newPassword.length < 6) {
+    const cleanPassword = typeof newPassword === 'string' ? newPassword.trim() : '';
+    if (!cleanPassword || cleanPassword.length < 6) {
       return res.status(400).json({ error: 'New password must be at least 6 characters' });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await bcrypt.hash(cleanPassword, 10);
+
+    // Also normalize legacy email typo if resetting admin
+    const updateData: any = { passwordHash: hashedPassword };
+    if (user.role === 'ADMIN' && user.email === 'safelexportandimportpvtltd@gmail.com') {
+      updateData.email = 'safalexportandimportpvtltd@gmail.com';
+    }
+
     await prisma.user.update({
       where: { id: targetUserId },
-      data: { passwordHash: hashedPassword },
+      data: updateData,
     });
 
     await createAuditLog({

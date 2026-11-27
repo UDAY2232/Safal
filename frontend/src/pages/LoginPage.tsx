@@ -30,7 +30,7 @@ export const LoginPage: React.FC = () => {
     try {
       setIsSubmitting(true);
       setError('');
-      await login(email, password);
+      await login(email.trim(), password);
     } catch (err: any) {
       setError(err.message || 'Login failed. Please check your credentials.');
     } finally {
@@ -208,11 +208,12 @@ export const LoginPage: React.FC = () => {
                     <Mail size={16} />
                   </div>
                   <input
-                    type="email"
+                    type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="block w-full pl-9 pr-3 py-2.5 text-xs border border-gray-300 rounded-xl focus:border-[#087A3E] focus:outline-none focus:ring-1 focus:ring-[#087A3E]"
-                    placeholder="name@company.com"
+                    placeholder="name@company.com or admin"
+                    autoComplete="username"
                     required
                   />
                 </div>
