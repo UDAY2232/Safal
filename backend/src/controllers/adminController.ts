@@ -857,3 +857,42 @@ export async function getActivityLogs(req: AuthRequest, res: Response) {
   }
 }
 
+export async function getAllUsers(req: AuthRequest, res: Response) {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        department: true,
+        designation: true,
+        phone: true,
+        isActive: true,
+        createdAt: true,
+        employee: {
+          select: {
+            employeeId: true,
+            fullName: true,
+            designation: true,
+            department: true,
+          },
+        },
+        accountantProfile: {
+          select: {
+            accountantId: true,
+          },
+        },
+      },
+      orderBy: [
+        { role: 'asc' },
+        { name: 'asc' },
+      ],
+    });
+    return res.json(users);
+  } catch (error) {
+    console.error('Failed to get all users:', error);
+    return res.status(500).json({ error: 'Failed to fetch users' });
+  }
+}
+

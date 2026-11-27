@@ -7,6 +7,7 @@ import {
   toggleAccountantStatus,
   getAccountantPerformance,
   getActivityLogs,
+  getAllUsers,
 } from '../controllers/adminController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { requireRole } from '../middleware/rbac.js';
@@ -21,6 +22,7 @@ router.get('/dashboard', getAdminDashboard);
 // Master Admin restricted management routes
 router.use(requireRole('ADMIN'));
 
+router.get('/users', getAllUsers);
 router.get('/accountants', getAccountants);
 router.post('/accountants', createAccountant);
 router.put('/accountants/:id', updateAccountant);

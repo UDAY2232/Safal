@@ -103,6 +103,7 @@ export const api = {
 
   // Admin
   getAdminDashboard: () => request<any>('/admin/dashboard'),
+  getAdminUsers: () => request<any[]>('/admin/users'),
   getAccountants: () => request<any[]>('/admin/accountants'),
   createAccountant: (data: any) => request<any>('/admin/accountants', { method: 'POST', body: JSON.stringify(data) }),
   updateAccountant: (id: string, data: any) => request<any>(`/admin/accountants/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
