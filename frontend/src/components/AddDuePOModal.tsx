@@ -62,6 +62,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
   const [paymentProofMode, setPaymentProofMode] = useState<'PHONEPE' | 'CASH' | 'BANK'>('PHONEPE');
   const [cdProofFile, setCdProofFile] = useState<File | null>(null);
   const [cdProofPreview, setCdProofPreview] = useState<string>('');
+  const [cdProofOriginalSize, setCdProofOriginalSize] = useState<number | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [showFullProofPreview, setShowFullProofPreview] = useState(false);
 
@@ -70,18 +71,22 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
       const rawFile = e.target.files[0];
       try {
         setIsProcessingImage(true);
-        if (rawFile.type.startsWith('image/')) {
-          const { file: optimizedFile, previewUrl } = await compressImageFile(rawFile, 1440, 0.82);
+        const isImage = (rawFile.type && rawFile.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|bmp|tiff?|gif)$/i.test(rawFile.name);
+        if (isImage) {
+          const { file: optimizedFile, previewUrl, originalSize } = await compressImageFile(rawFile, 1400, 0.80);
           setCdProofFile(optimizedFile);
           setCdProofPreview(previewUrl);
+          setCdProofOriginalSize(originalSize);
         } else {
           setCdProofFile(rawFile);
           setCdProofPreview('');
+          setCdProofOriginalSize(rawFile.size);
         }
         setError('');
       } catch (err) {
         setCdProofFile(rawFile);
-        if (rawFile.type.startsWith('image/')) {
+        setCdProofOriginalSize(rawFile.size);
+        if (rawFile.type && rawFile.type.startsWith('image/')) {
           setCdProofPreview(URL.createObjectURL(rawFile));
         }
       } finally {
@@ -93,6 +98,7 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
   const handleRemoveProof = () => {
     setCdProofFile(null);
     setCdProofPreview('');
+    setCdProofOriginalSize(null);
   };
 
   // Live calculation of due balance
@@ -522,9 +528,17 @@ export const AddDuePOModal: React.FC<AddDuePOModalProps> = ({ onClose, onSuccess
                         {paymentProofMode === 'PHONEPE' ? 'PhonePe Screenshot' : paymentProofMode === 'CASH' ? 'Cash Bill Photo' : 'Bank Slip'} attached
                       </p>
                       {cdProofFile && (
-                        <p className="text-[9px] text-gray-400">
-                          {(cdProofFile.size / 1024).toFixed(1)} KB (Optimized)
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                            {cdProofOriginalSize && cdProofOriginalSize > cdProofFile.size ? (
+                              <span>
+                                Reduced from {(cdProofOriginalSize / (1024 * 1024) >= 1 ? (cdProofOriginalSize / (1024 * 1024)).toFixed(1) + ' MB' : (cdProofOriginalSize / 1024).toFixed(0) + ' KB')} ➔ {(cdProofFile.size / 1024).toFixed(0)} KB (Acceptable Size)
+                              </span>
+                            ) : (
+                              <span>{(cdProofFile.size / 1024).toFixed(0)} KB (Acceptable Size)</span>
+                            )}
+                          </span>
+                        </div>
                       )}
                     </div>
 

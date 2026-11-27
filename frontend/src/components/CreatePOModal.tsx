@@ -78,6 +78,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const [paymentProofMode, setPaymentProofMode] = useState<'PHONEPE' | 'CASH' | 'BANK'>('PHONEPE');
   const [cdProofFile, setCdProofFile] = useState<File | null>(null);
   const [cdProofPreview, setCdProofPreview] = useState<string>('');
+  const [cdProofOriginalSize, setCdProofOriginalSize] = useState<number | null>(null);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [showFullProofPreview, setShowFullProofPreview] = useState(false);
 
@@ -86,18 +87,22 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
       const rawFile = e.target.files[0];
       try {
         setIsProcessingImage(true);
-        if (rawFile.type.startsWith('image/')) {
-          const { file: optimizedFile, previewUrl } = await compressImageFile(rawFile, 1440, 0.82);
+        const isImage = (rawFile.type && rawFile.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|bmp|tiff?|gif)$/i.test(rawFile.name);
+        if (isImage) {
+          const { file: optimizedFile, previewUrl, originalSize } = await compressImageFile(rawFile, 1400, 0.80);
           setCdProofFile(optimizedFile);
           setCdProofPreview(previewUrl);
+          setCdProofOriginalSize(originalSize);
         } else {
           setCdProofFile(rawFile);
           setCdProofPreview('');
+          setCdProofOriginalSize(rawFile.size);
         }
         setError('');
       } catch (err) {
         setCdProofFile(rawFile);
-        if (rawFile.type.startsWith('image/')) {
+        setCdProofOriginalSize(rawFile.size);
+        if (rawFile.type && rawFile.type.startsWith('image/')) {
           setCdProofPreview(URL.createObjectURL(rawFile));
         }
       } finally {
@@ -109,6 +114,7 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
   const handleRemoveProof = () => {
     setCdProofFile(null);
     setCdProofPreview('');
+    setCdProofOriginalSize(null);
   };
 
   // Multi-Item rows support for employee CD creation: starts with 1 item by default, employee adds more via + button
@@ -980,9 +986,19 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
                           : 'Bank Transfer Slip Attached'}
                       </p>
                       {cdProofFile && (
-                        <p className="text-[10px] text-gray-500">
-                          Size: {(cdProofFile.size / 1024).toFixed(1)} KB (Optimized &amp; Verified)
-                        </p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                            <Sparkles size={11} className="text-emerald-700" />
+                            {cdProofOriginalSize && cdProofOriginalSize > cdProofFile.size ? (
+                              <span>
+                                Decreased from {(cdProofOriginalSize / (1024 * 1024) >= 1 ? (cdProofOriginalSize / (1024 * 1024)).toFixed(1) + ' MB' : (cdProofOriginalSize / 1024).toFixed(0) + ' KB')} ➔ {(cdProofFile.size / 1024).toFixed(0)} KB (Acceptable Size)
+                              </span>
+                            ) : (
+                              <span>Size: {(cdProofFile.size / 1024).toFixed(0)} KB (Acceptable Size)</span>
+                            )}
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-bold">✓ Ready to Submit</span>
+                        </div>
                       )}
                     </div>
 

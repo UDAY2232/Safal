@@ -22,13 +22,13 @@ export const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB limit per file
   fileFilter: (_req, file, cb) => {
-    const allowed = /pdf|jpg|jpeg|png/;
+    const allowed = /pdf|jpg|jpeg|png|webp|heic|heif|bmp|gif|tif|tiff/i;
     const ext = path.extname(file.originalname).toLowerCase();
     const mime = file.mimetype;
-    if (allowed.test(ext) || allowed.test(mime)) {
+    if (allowed.test(ext) || allowed.test(mime) || mime.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF, JPG, and PNG files are allowed'));
+      cb(new Error('Only image and PDF files are allowed'));
     }
   },
 });
