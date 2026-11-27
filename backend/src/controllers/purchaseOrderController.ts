@@ -1061,6 +1061,112 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
   }
 }
 
+export async function verifyDuePaymentProof(req: AuthRequest, res: Response) {
+  try {
+    const { id } = req.params;
+    const { notes } = req.body;
+
+    if (req.user?.role !== 'ADMIN' && req.user?.role !== 'ACCOUNTANT') {
+      return res.status(403).json({ error: 'Access denied: Admin or Accountant approval is required to verify payment proofs' });
+    }
+
+    const po = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: {
+        supplier: true,
+        createdBy: true,
+        vendorProfile: {
+          include: {
+            user: true,
+          },
+        },
+      },
+    });
+
+    if (!po) {
+      return res.status(404).json({ error: 'Purchase Order / Customer Due not found' });
+    }
+
+    const grandTotal = Number(po.grandTotal);
+    const advance = Number(po.advanceAmount || 0);
+    const pending = Number(po.pendingAmount ?? Math.max(0, grandTotal - advance));
+
+    const isFullyPaid = pending <= 0;
+    const newStatus = isFullyPaid ? 'CLOSED' : 'OPEN';
+
+    const adminStamp = `[ADMIN_VERIFIED by ${req.user.name || 'Admin'} on ${new Date().toLocaleDateString('en-GB')}]`;
+    const cleanNotes = (po.paymentProofNotes || '').replace(/\[ADMIN_VERIFIED[^\]]*\]/g, '').trim();
+    const updatedNotes = `${adminStamp} ${notes ? String(notes).trim() : cleanNotes}`.trim();
+
+    const auditComment = isFullyPaid
+      ? `Payment proof verified by Admin (${req.user.name || 'Admin'}). Remaining Due is ₹0. Order formally marked CLOSED.`
+      : `Payment installment verified and approved by Admin (${req.user.name || 'Admin'}). Cleared: ₹${advance.toLocaleString('en-IN')}, Remaining Due: ₹${pending.toLocaleString('en-IN')}. Status remains OPEN.`;
+
+    const updated = await prisma.purchaseOrder.update({
+      where: { id: po.id },
+      data: {
+        status: newStatus,
+        paymentProofNotes: updatedNotes,
+        statusHistory: {
+          create: {
+            status: newStatus,
+            changedById: req.user.id,
+            comment: auditComment,
+          },
+        },
+      },
+      include: {
+        supplier: true,
+        createdBy: true,
+        items: true,
+        financialRecord: true,
+        statusHistory: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+
+    clearDashboardCache();
+
+    // Notify employee / creator
+    if (po.createdById && req.user.id !== po.createdById) {
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: po.createdById,
+            title: isFullyPaid
+              ? `Customer Due Settled & Closed: ${po.poNumber}`
+              : `Payment Approved by Admin: ${po.poNumber}`,
+            message: isFullyPaid
+              ? `Your payment on ${po.poNumber} has been verified and the Customer Due is now formally CLOSED!`
+              : `Admin verified your payment on ${po.poNumber}. Cleared: ₹${advance.toLocaleString('en-IN')}, Remaining Due: ₹${pending.toLocaleString('en-IN')}.`,
+            linkUrl: `/purchase-orders/${po.id}?type=${po.poNumber.startsWith('CD/') ? 'CD' : 'PO'}`,
+          },
+        });
+      } catch (e) {
+        console.warn('Could not dispatch notification:', e);
+      }
+    }
+
+    await createAuditLog({
+      userId: req.user.id,
+      userName: req.user.name || 'Admin',
+      userRole: req.user.role || 'ADMIN',
+      action: isFullyPaid ? 'PO_CLOSED' : 'PO_PAYMENT_VERIFIED',
+      entityType: 'PURCHASE_ORDER',
+      entityId: po.id,
+      details: auditComment,
+      ipAddress: req.ip,
+    });
+
+    notifyLiveSync({ type: 'PO_STATUS_CHANGED', entityId: updated.id, metadata: { poNumber: updated.poNumber, status: newStatus } });
+    return res.json(updated);
+  } catch (error) {
+    console.error('Error verifying payment proof:', error);
+    return res.status(500).json({ error: 'Failed to verify payment proof' });
+  }
+}
+
 export async function updateFinancialRecords(req: AuthRequest, res: Response) {
   try {
     const { id } = req.params;
@@ -1318,7 +1424,10 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
 
     const isCDOrder = po.poNumber.startsWith('CD/');
     const paymentProofUrl = req.file ? `/uploads/${req.file.filename}` : undefined;
-    const paymentProofNotes = (req.body.proofNotes || notes || '').trim() || undefined;
+    const incomingNotes = (req.body.proofNotes || notes || '').trim();
+    // Strip old [ADMIN_VERIFIED] marker so fresh payment proof requires Admin verification
+    const cleanNotes = (incomingNotes || (po as any).paymentProofNotes || '').replace(/\[ADMIN_VERIFIED[^\]]*\]/g, '').trim();
+    const paymentProofNotes = cleanNotes || undefined;
 
     // Strict Mandatory Proof: CD settlements submitted by employee or on any CD record REQUIRE payment proof image
     if ((isCDOrder || req.user?.role === 'EMPLOYEE') && !paymentProofUrl && !po.paymentProofUrl) {
@@ -1339,7 +1448,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
         pendingAmount: finalPending,
         status: newStatus,
         ...(paymentProofUrl ? { paymentProofUrl } : {}),
-        ...(paymentProofNotes ? { paymentProofNotes } : {}),
+        ...(paymentProofNotes !== undefined ? { paymentProofNotes } : {}),
         statusHistory: {
           create: {
             status: newStatus,

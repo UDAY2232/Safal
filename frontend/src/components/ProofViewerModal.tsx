@@ -29,6 +29,7 @@ interface ProofViewerModalProps {
   canApprove?: boolean;
   onApprove?: () => void;
   isApproving?: boolean;
+  approveLabel?: string;
 }
 
 export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
@@ -43,11 +44,18 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
   canApprove = false,
   onApprove,
   isApproving = false,
+  approveLabel,
 }) => {
   const [zoom, setZoom] = useState(1);
   const [loadError, setLoadError] = useState(false);
 
   if (!proofUrl) return null;
+
+  const isFullyPaid = pendingAmount !== undefined ? Number(pendingAmount) <= 0 : false;
+  const numAmount = amount !== undefined ? Number(amount) : undefined;
+  const numPending = pendingAmount !== undefined ? Number(pendingAmount) : undefined;
+  const numCleared = numAmount !== undefined && numPending !== undefined ? Math.max(0, numAmount - numPending) : undefined;
+  const defaultLabel = isFullyPaid ? 'Verify & Close CD' : 'Approve Payment Proof (Keep Open)';
 
   const resolvedUrl = resolvePhotoUrl(proofUrl);
   const isPdf =
@@ -125,24 +133,32 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
         {/* Info Meta Strip */}
         <div className="px-4 py-2 bg-emerald-50/90 border-b border-emerald-100 flex flex-wrap items-center justify-between gap-2 text-xs flex-shrink-0">
           <div className="flex flex-wrap items-center gap-3 text-gray-700">
-            {amount !== undefined && (
+            {numAmount !== undefined && (
               <span className="inline-flex items-center gap-1">
                 <CreditCard size={13} className="text-emerald-700" />
-                <span className="font-semibold text-gray-500">Order Total:</span>
+                <span className="font-semibold text-gray-500">Total CD Amount:</span>
                 <strong className="text-gray-900 font-extrabold">
-                  ₹{Number(amount).toLocaleString('en-IN')}
+                  ₹{numAmount.toLocaleString('en-IN')}
                 </strong>
               </span>
             )}
-            {pendingAmount !== undefined && (
+            {numCleared !== undefined && numCleared > 0 && (
               <span className="inline-flex items-center gap-1">
-                <span className="font-semibold text-gray-500">Remaining Due:</span>
+                <span className="font-semibold text-gray-500">Cleared / Paid:</span>
+                <strong className="text-emerald-700 font-extrabold">
+                  ₹{numCleared.toLocaleString('en-IN')}
+                </strong>
+              </span>
+            )}
+            {numPending !== undefined && (
+              <span className="inline-flex items-center gap-1">
+                <span className="font-semibold text-gray-500">Remaining Balance:</span>
                 <strong
                   className={`font-extrabold ${
-                    Number(pendingAmount) <= 0 ? 'text-emerald-700' : 'text-rose-600'
+                    numPending <= 0 ? 'text-emerald-700' : 'text-rose-600'
                   }`}
                 >
-                  ₹{Number(pendingAmount).toLocaleString('en-IN')}
+                  ₹{numPending.toLocaleString('en-IN')}
                 </strong>
               </span>
             )}
@@ -274,7 +290,7 @@ export const ProofViewerModal: React.FC<ProofViewerModalProps> = ({
                 className="px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-md transition disabled:opacity-50 cursor-pointer"
               >
                 <CheckCircle2 size={16} />
-                {isApproving ? 'Approving...' : 'Approve Proof & Close CD'}
+                {isApproving ? 'Approving...' : (approveLabel || defaultLabel)}
               </button>
             )}
             <button

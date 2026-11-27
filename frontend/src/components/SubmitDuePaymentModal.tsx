@@ -614,13 +614,39 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
 
           {/* Modal Action Buttons */}
           <div className="modal-actions pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2.5 flex-shrink-0">
-            {/* Direct Admin Close Button (when pending is 0 and status is OPEN) */}
-            {isAdmin && currentPending === 0 && order.status === 'OPEN' ? (
+            {/* Direct Admin Action: Approve proof & close if due is 0, or verify partial proof */}
+            {isAdmin && order.paymentProofUrl && !order.paymentProofNotes?.includes('[ADMIN_VERIFIED]') && order.status !== 'CLOSED' ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    setIsClosingDirectly(true);
+                    if (currentPending <= 0) {
+                      await api.closePurchaseOrder(order.id);
+                      onSuccess(`Customer Due ${order.poNumber} verified and formally CLOSED!`);
+                    } else {
+                      await api.verifyDuePaymentProof(order.id);
+                      onSuccess(`Payment proof on ${order.poNumber} verified & approved! Remaining Due: ₹${currentPending.toLocaleString('en-IN')}`);
+                    }
+                    onClose();
+                  } catch (err: any) {
+                    setError(err.message || 'Failed to verify payment proof');
+                  } finally {
+                    setIsClosingDirectly(false);
+                  }
+                }}
+                disabled={isClosingDirectly}
+                className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-xs shadow-xs inline-flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
+              >
+                <ShieldCheck size={16} />
+                {isClosingDirectly ? 'Verifying...' : currentPending <= 0 ? 'Approve & Close CD' : 'Approve Payment Proof'}
+              </button>
+            ) : isAdmin && currentPending === 0 && order.status === 'OPEN' ? (
               <button
                 type="button"
                 onClick={handleAdminApproveAndClose}
                 disabled={isClosingDirectly}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs inline-flex items-center gap-1.5 transition disabled:opacity-50"
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs inline-flex items-center gap-1.5 transition disabled:opacity-50 cursor-pointer"
               >
                 <ShieldCheck size={16} />
                 {isClosingDirectly ? 'Closing CD...' : 'Approve Proof & Close CD'}

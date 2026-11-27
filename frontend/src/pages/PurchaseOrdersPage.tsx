@@ -213,7 +213,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
   // Amount Update Pending Verification: CDs where payment settlement proof was uploaded and awaiting Admin verification & closure
   const amountUpdatePendingOrders = orders.filter((o) => {
-    return !isOrderRejected(o) && Boolean(o.paymentProofUrl) && o.status !== 'CLOSED';
+    return !isOrderRejected(o) && Boolean(o.paymentProofUrl) && o.status !== 'CLOSED' && !o.paymentProofNotes?.includes('[ADMIN_VERIFIED]');
   });
 
   // New Orders awaiting initial approval (created but not yet approved)
@@ -1164,7 +1164,12 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             {new Date(order.poDate).toLocaleDateString('en-GB')}
                           </td>
                           <td className="text-center py-3 px-4 font-extrabold text-gray-900 border-r border-gray-200 whitespace-nowrap">
-                            <div>₹{order.grandTotal.toLocaleString('en-IN')}</div>
+                            <div className="font-black text-sm">₹{order.grandTotal.toLocaleString('en-IN')}</div>
+                            {isCD && adv > 0 && pendingDue > 0 && (
+                              <div className="text-[10px] font-bold text-emerald-700 mt-0.5">
+                                Paid: ₹{adv.toLocaleString('en-IN')}
+                              </div>
+                            )}
                           </td>
                           <td className="text-center py-3 px-4 border-r border-gray-200 whitespace-nowrap">
                             {isRejected ? (
@@ -1176,17 +1181,34 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 ₹0 (Cancelled)
                               </span>
                             ) : pendingDue > 0 ? (
-                              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 shadow-xs">
-                                ₹{pendingDue.toLocaleString('en-IN')}
-                              </span>
+                              <div className="inline-flex flex-col items-center gap-1">
+                                <span className="inline-block px-2.5 py-0.5 rounded-lg text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 shadow-xs">
+                                  Due: ₹{pendingDue.toLocaleString('en-IN')}
+                                </span>
+                                {adv > 0 && (
+                                  <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200" title={`Paid so far: ₹${adv.toLocaleString('en-IN')}`}>
+                                    Cleared: ₹{adv.toLocaleString('en-IN')}
+                                  </span>
+                                )}
+                              </div>
                             ) : isClosed ? (
-                              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                ₹0 (Cleared)
-                              </span>
+                              <div className="inline-flex flex-col items-center gap-0.5">
+                                <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  ₹0 (Cleared ✓)
+                                </span>
+                                <span className="text-[10px] text-gray-500 font-semibold">
+                                  Full ₹{Number(order.grandTotal).toLocaleString('en-IN')} Settled
+                                </span>
+                              </div>
                             ) : (
-                              <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300">
-                                ₹0 (Awaiting Closure)
-                              </span>
+                              <div className="inline-flex flex-col items-center gap-0.5">
+                                <span className="inline-block px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                                  ₹0 (Awaiting Closure)
+                                </span>
+                                <span className="text-[10px] text-emerald-700 font-bold">
+                                  Cleared: ₹{Number(order.grandTotal).toLocaleString('en-IN')}
+                                </span>
+                              </div>
                             )}
                             {order.paymentProofUrl && (
                               <div className="mt-1 flex items-center justify-center">
@@ -1227,9 +1249,15 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                               </span>
                             ) : order.paymentProofUrl ? (
                               <div className="inline-flex flex-col items-center">
-                                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
-                                  {isCD ? 'CD' : 'PO'} Amount Update Pending Verification
-                                </span>
+                                {isCD && order.paymentProofNotes?.includes('[ADMIN_VERIFIED]') ? (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs">
+                                    Payment Verified (Open)
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                    {isCD ? 'CD' : 'PO'} Amount Update Pending Verification
+                                  </span>
+                                )}
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -1262,7 +1290,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                 <span className="inline-block px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   Cleared ✓
                                 </span>
-                              ) : order.paymentProofUrl || pendingDue <= 0 ? (
+                              ) : !order.paymentProofNotes?.includes('[ADMIN_VERIFIED]') && (order.paymentProofUrl || pendingDue <= 0) ? (
                                 <div className="inline-flex flex-col items-center">
                                   <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
                                     Awaiting Admin Closure
@@ -1309,24 +1337,45 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                                   Order Rejected
                                 </span>
                               ) : isCD && ((order.status === 'PENDING_APPROVAL' || order.paymentProofUrl) && !isClosed && (isAdmin || isAccountant)) ? (
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      onNotify(`Approving proof & closing ${order.poNumber}...`);
-                                      await api.closePurchaseOrder(order.id);
-                                      onNotify(`Customer Due ${order.poNumber} verified and formally CLOSED!`);
-                                      loadOrders();
-                                    } catch (err: any) {
-                                      alert(err.message || 'Failed to approve CD');
-                                    }
-                                  }}
-                                  className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
-                                  title="Approve proof and close CD"
-                                >
-                                  <CheckCircle2 size={12} /> Approve Close
-                                </button>
+                                pendingDue > 0 ? (
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        onNotify(`Verifying payment for ${order.poNumber}...`);
+                                        await api.verifyDuePaymentProof(order.id);
+                                        onNotify(`Payment for ${order.poNumber} verified & approved! Remaining Due: ₹${pendingDue.toLocaleString('en-IN')}`);
+                                        loadOrders();
+                                      } catch (err: any) {
+                                        alert(err.message || 'Failed to verify payment');
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
+                                    title="Verify & approve this installment payment (status remains Open)"
+                                  >
+                                    <CheckCircle2 size={12} /> Approve Payment
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      try {
+                                        onNotify(`Approving proof & closing ${order.poNumber}...`);
+                                        await api.closePurchaseOrder(order.id);
+                                        onNotify(`Customer Due ${order.poNumber} verified and formally CLOSED!`);
+                                        loadOrders();
+                                      } catch (err: any) {
+                                        alert(err.message || 'Failed to close CD');
+                                      }
+                                    }}
+                                    className="px-2.5 py-1 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-lg font-bold text-[11px] inline-flex items-center gap-1 transition shadow-xs cursor-pointer"
+                                    title="Approve proof and close CD (due is ₹0)"
+                                  >
+                                    <CheckCircle2 size={12} /> Verify &amp; Close CD
+                                  </button>
+                                )
                               ) : isCD && pendingDue === 0 && !isClosed && isAdmin ? (
                                 <button
                                   type="button"
@@ -1646,8 +1695,16 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           onClose={() => setProofViewerOrder(null)}
           onApprove={async () => {
             try {
-              await api.closePurchaseOrder(proofViewerOrder.id);
-              onNotify(`Customer Due ${proofViewerOrder.poNumber} verified and formally CLOSED!`);
+              const total = Number(proofViewerOrder.grandTotal || 0);
+              const adv = Number(proofViewerOrder.advanceAmount || 0);
+              const pend = Number(proofViewerOrder.pendingAmount ?? Math.max(0, total - adv));
+              if (pend > 0) {
+                await api.verifyDuePaymentProof(proofViewerOrder.id);
+                onNotify(`Payment proof on ${proofViewerOrder.poNumber} verified & approved! Remaining Due: ₹${pend.toLocaleString('en-IN')}`);
+              } else {
+                await api.closePurchaseOrder(proofViewerOrder.id);
+                onNotify(`Customer Due ${proofViewerOrder.poNumber} verified and formally CLOSED!`);
+              }
               setProofViewerOrder(null);
               loadOrders();
             } catch (err: any) {

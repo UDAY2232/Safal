@@ -372,8 +372,13 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                     onClick={async () => {
                       try {
                         setIsProcessing(true);
-                        await api.closePurchaseOrder(order.id);
-                        onNotify(`${isCD ? 'Customer Due' : 'Order'} ${order.poNumber} verified and CLOSED!`);
+                        if (pendingDue > 0) {
+                          await api.verifyDuePaymentProof(order.id);
+                          onNotify(`Payment proof on ${order.poNumber} verified & approved! Remaining Due: ₹${pendingDue.toLocaleString('en-IN')}`);
+                        } else {
+                          await api.closePurchaseOrder(order.id);
+                          onNotify(`${isCD ? 'Customer Due' : 'Order'} ${order.poNumber} verified and CLOSED!`);
+                        }
                         onRefresh();
                         onClose();
                       } catch (err: any) {
@@ -385,7 +390,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
                     disabled={isProcessing}
                     className="px-4 py-2 bg-[#064D2B] hover:bg-[#087A3E] text-white rounded-xl font-bold text-xs inline-flex items-center gap-1.5 shadow-xs transition cursor-pointer"
                   >
-                    <CheckCircle size={15} /> Approve Proof &amp; Close CD
+                    <CheckCircle size={15} /> {pendingDue > 0 ? 'Approve Payment Proof (Keep Open)' : 'Approve Proof & Close CD'}
                   </button>
                 )}
               </div>
@@ -1571,8 +1576,13 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
           onApprove={async () => {
             try {
               setIsProcessing(true);
-              await api.closePurchaseOrder(order.id);
-              onNotify(`${isCD ? 'Customer Due' : 'Order'} ${order.poNumber} verified and CLOSED!`);
+              if (pendingDue > 0) {
+                await api.verifyDuePaymentProof(order.id);
+                onNotify(`Payment proof on ${order.poNumber} verified & approved! Remaining Due: ₹${pendingDue.toLocaleString('en-IN')}`);
+              } else {
+                await api.closePurchaseOrder(order.id);
+                onNotify(`${isCD ? 'Customer Due' : 'Order'} ${order.poNumber} verified and CLOSED!`);
+              }
               setShowProofViewer(false);
               onRefresh();
               onClose();

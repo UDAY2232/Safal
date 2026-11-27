@@ -132,6 +132,11 @@ export const api = {
   rejectPurchaseOrder: (id: string, reason: string) =>
     request<any>(`/purchase-orders/${encodeURIComponent(id)}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
   closePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${encodeURIComponent(id)}/close`, { method: 'POST' }),
+  verifyDuePaymentProof: (id: string, notes?: string) =>
+    request<any>(`/purchase-orders/${encodeURIComponent(id)}/verify-proof`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
   updatePurchaseOrder: (id: string, data: any) => request<any>(`/purchase-orders/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) }),
   deletePurchaseOrder: (id: string) => request<any>(`/purchase-orders/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   createDuePurchaseOrder: (data: any) => {

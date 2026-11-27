@@ -7,6 +7,7 @@ import {
   approvePurchaseOrder,
   rejectPurchaseOrder,
   closePurchaseOrder,
+  verifyDuePaymentProof,
   updateFinancialRecords,
   downloadPurchaseOrderPDF,
   recordDuePayment,
@@ -39,6 +40,7 @@ router.post('/:id/submit', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), submi
 router.post('/:id/approve', requireRole('ADMIN'), approvePurchaseOrder);
 router.post('/:id/reject', requireRole('ADMIN'), rejectPurchaseOrder);
 router.post('/:id/close', requireRole('ADMIN'), closePurchaseOrder);
+router.post('/:id/verify-proof', requireRole('ADMIN', 'ACCOUNTANT'), verifyDuePaymentProof);
 
 // Due Settlement & Payment Recording (with optional payment proof upload)
 router.post('/:id/payments', requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'), upload.single('proof'), recordDuePayment);

@@ -756,9 +756,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                           <td className="font-bold">{formatCurrency(cd.amount)}</td>
                           <td>
                             {Number(cd.pendingAmount || 0) > 0 ? (
-                              <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                                {formatCurrency(cd.pendingAmount)}
-                              </span>
+                              <div className="flex flex-col items-start gap-0.5">
+                                <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                  Due: {formatCurrency(cd.pendingAmount)}
+                                </span>
+                                {Math.max(0, Number(cd.amount || 0) - Number(cd.pendingAmount || 0)) > 0 && (
+                                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                    Cleared: {formatCurrency(Math.max(0, Number(cd.amount || 0) - Number(cd.pendingAmount || 0)))}
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
                             )}
@@ -893,9 +900,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                             <td className="font-bold">{formatCurrency(cd.amount)}</td>
                             <td>
                               {Number(cd.pendingAmount || 0) > 0 ? (
-                                <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                                  {formatCurrency(cd.pendingAmount)}
-                                </span>
+                                <div className="flex flex-col items-start gap-0.5">
+                                  <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                    Due: {formatCurrency(cd.pendingAmount)}
+                                  </span>
+                                  {Math.max(0, Number(cd.amount || 0) - Number(cd.pendingAmount || 0)) > 0 && (
+                                    <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                      Cleared: {formatCurrency(Math.max(0, Number(cd.amount || 0) - Number(cd.pendingAmount || 0)))}
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
                               )}
@@ -2041,9 +2055,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       <td className="font-bold">{formatCurrency(order.amount)}</td>
                       <td>
                         {Number(order.pendingAmount || 0) > 0 ? (
-                          <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                            {formatCurrency(order.pendingAmount)}
-                          </span>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                              Due: {formatCurrency(order.pendingAmount)}
+                            </span>
+                            {Math.max(0, Number(order.amount || 0) - Number(order.pendingAmount || 0)) > 0 && (
+                              <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                Cleared: {formatCurrency(Math.max(0, Number(order.amount || 0) - Number(order.pendingAmount || 0)))}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
                         )}
@@ -2172,9 +2193,16 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
                       <td className="font-bold">{formatCurrency(order.amount)}</td>
                       <td>
                         {Number(order.pendingAmount || 0) > 0 ? (
-                          <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                            {formatCurrency(order.pendingAmount)}
-                          </span>
+                          <div className="flex flex-col items-start gap-0.5">
+                            <span className="font-black text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                              Due: {formatCurrency(order.pendingAmount)}
+                            </span>
+                            {Math.max(0, Number(order.amount || 0) - Number(order.pendingAmount || 0)) > 0 && (
+                              <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                Cleared: {formatCurrency(Math.max(0, Number(order.amount || 0) - Number(order.pendingAmount || 0)))}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-emerald-700 font-bold">₹0 (Cleared)</span>
                         )}
