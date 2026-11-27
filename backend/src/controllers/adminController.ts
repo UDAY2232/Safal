@@ -235,7 +235,9 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
     const totalCDAmount = cdOrders.filter((p) => !isOrderRejected(p)).reduce((sum, p) => sum + Number(p.grandTotal), 0);
     const totalCDDue = cdOrders.filter((p) => !isOrderRejected(p)).reduce((sum, p) => {
       const adv = Number(p.advanceAmount || 0);
-      return sum + Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+      const grand = Number(p.grandTotal || 0);
+      const pending = p.status === 'CLOSED' && Number(p.pendingAmount || 0) === 0 ? 0 : Math.max(0, grand - adv);
+      return sum + pending;
     }, 0);
 
     // Accountant Calculations
@@ -370,14 +372,15 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       },
       recentPOs: poOrders.slice(0, 8).map((p) => {
         const adv = Number(p.advanceAmount || 0);
-        const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+        const grand = Number(p.grandTotal || 0);
+        const pending = (p.status === 'CLOSED' && Number(p.pendingAmount || 0) === 0) ? 0 : Math.max(0, grand - adv);
         const staffMatch = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
         return {
           id: p.id,
           number: p.poNumber,
           supplier: p.supplier?.name || 'Party / Supplier',
           date: p.poDate,
-          amount: Number(p.grandTotal),
+          amount: grand,
           advanceAmount: adv,
           pendingAmount: pending,
           status: (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status,
@@ -392,14 +395,15 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
       }),
       recentCDs: cdOrders.slice(0, 8).map((p) => {
         const adv = Number(p.advanceAmount || 0);
-        const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+        const grand = Number(p.grandTotal || 0);
+        const pending = (p.status === 'CLOSED' && Number(p.pendingAmount || 0) === 0) ? 0 : Math.max(0, grand - adv);
         const staffMatch = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
         return {
           id: p.id,
           number: p.poNumber,
           supplier: p.supplier?.name || 'Customer / Buyer',
           date: p.poDate,
-          amount: Number(p.grandTotal),
+          amount: grand,
           advanceAmount: adv,
           pendingAmount: pending,
           status: (pending > 0 && p.status === 'CLOSED') ? 'OPEN' : p.status,
@@ -411,14 +415,15 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         .slice(0, 10)
         .map((p) => {
           const adv = Number(p.advanceAmount || 0);
-          const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+          const grand = Number(p.grandTotal || 0);
+          const pending = Math.max(0, grand - adv);
           const staffMatch = p.notes?.match(/Order Taken By:\s*([^|\n]+)/);
           return {
             id: p.id,
             number: p.poNumber,
             supplier: p.supplier?.name || (isCD(p) ? 'Buyer / Customer' : 'Supplier'),
             date: p.poDate,
-            amount: Number(p.grandTotal),
+            amount: grand,
             advanceAmount: adv,
             pendingAmount: pending,
             isCD: isCD(p),

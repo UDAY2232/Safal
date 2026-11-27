@@ -164,7 +164,7 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
 
   const grandTotal = Number(order.grandTotal || 0);
   const adv = Number(order.advanceAmount || 0);
-  const pendingDue = Number(order.pendingAmount ?? Math.max(0, grandTotal - adv));
+  const pendingDue = order.status === 'CLOSED' ? 0 : Math.max(0, grandTotal - adv);
 
   const supplierDisplayName = order.supplierName || (order as any).supplier?.name || (isCD ? 'Retail Customer' : 'Party / Supplier');
   const createdByDisplayName = order.createdByName || (order as any).createdBy?.name || 'Staff';
@@ -1266,10 +1266,8 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               !isVendor &&
               !isRejected &&
               order.status !== 'CANCELLED' &&
-              Number(
-                order.pendingAmount ??
-                  Math.max(0, order.grandTotal - (order.advanceAmount || 0))
-              ) > 0 && (
+              order.status !== 'CLOSED' &&
+              Math.max(0, order.grandTotal - (order.advanceAmount || 0)) > 0 && (
                 <button
                   type="button"
                   onClick={() => {

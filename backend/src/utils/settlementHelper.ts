@@ -52,12 +52,13 @@ export interface ConsignmentSettlementDetails {
 export function enrichPOWithSettlementDetails(po: any): any {
   if (!po) return po;
 
+  const isCD = String(po.poNumber || '').startsWith('CD/');
   const grandTotal = Number(po.grandTotal || 0);
   const autoAdvance = Math.round(grandTotal * 0.70); // 70% advance policy
-  const adminShareAmount = Math.round(grandTotal * 0.05);
-  const apmcShareAmount = Math.round(grandTotal * 0.01);
+  const adminShareAmount = isCD ? 0 : Math.round(grandTotal * 0.05);
+  const apmcShareAmount = isCD ? 0 : Math.round(grandTotal * 0.01);
   const totalDeductions = adminShareAmount + apmcShareAmount;
-  const netVendorPayable = Math.max(0, grandTotal - totalDeductions);
+  const netVendorPayable = isCD ? grandTotal : Math.max(0, grandTotal - totalDeductions);
 
   let storedAdvance: any = null;
   let storedSettlement: any = null;
@@ -93,8 +94,8 @@ export function enrichPOWithSettlementDetails(po: any): any {
     hasAdvanceSlip && (storedAdvance?.advanceDisbursed || po.paymentProofUrl || po.advancePaymentUtr)
   );
 
-  // Theoretical balance due before final settlement payment:
-  const calculatedPotentialDue = Math.max(0, netVendorPayable - advanceAmount);
+  // Theoretical balance due: Total minus Paid
+  const calculatedPotentialDue = Math.max(0, grandTotal - advanceAmount);
 
   // Check if Safal Admin has explicitly recorded Mandi Sales Realization settlement
   const hasSettlementEntry = Boolean(

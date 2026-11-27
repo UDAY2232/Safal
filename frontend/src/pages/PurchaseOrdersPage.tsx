@@ -172,14 +172,12 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const totalAmount = nonRejectedOrders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
   const openCount = orders.filter((o) => {
     if (isOrderRejected(o) || o.status === 'CANCELLED' || o.status === 'CLOSED') return false;
-    const adv = Number(o.advanceAmount || 0);
-    const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    const pend = Math.max(0, Number(o.grandTotal || 0) - Number(o.advanceAmount || 0));
     return pend > 0 || o.status === 'OPEN';
   }).length;
   const closedCount = orders.filter((o) => {
     if (isOrderRejected(o)) return false;
-    const adv = Number(o.advanceAmount || 0);
-    const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    const pend = Math.max(0, Number(o.grandTotal || 0) - Number(o.advanceAmount || 0));
     return pend <= 0 && o.status === 'CLOSED';
   }).length;
 
@@ -189,8 +187,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
 
   const dueOrders = orders.filter((o) => {
     if (isOrderRejected(o) || o.status === 'CANCELLED' || o.status === 'CLOSED') return false;
-    const adv = Number(o.advanceAmount || 0);
-    const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    const pend = Math.max(0, Number(o.grandTotal || 0) - Number(o.advanceAmount || 0));
     if (pend <= 0) return false;
 
     if (isCD) {
@@ -204,8 +201,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   // Active CDs still within the 1-day grace period
   const activeGraceCDs = isCD ? orders.filter((o) => {
     if (isOrderRejected(o)) return false;
-    const adv = Number(o.advanceAmount || 0);
-    const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    const pend = Math.max(0, Number(o.grandTotal || 0) - Number(o.advanceAmount || 0));
     if (pend <= 0) return false;
     const orderTime = new Date(o.poDate || o.createdAt).getTime();
     return (Date.now() - orderTime) < ONE_DAY_MS;
@@ -236,26 +232,22 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       : orders;
 
   const totalDueAmount = dueOrders.reduce((sum, o) => {
-    const adv = Number(o.advanceAmount || 0);
-    const pend = Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
-    return sum + pend;
+    return sum + Math.max(0, Number(o.grandTotal || 0) - Number(o.advanceAmount || 0));
   }, 0);
 
   const totalCompletedAmount = dueOrders.reduce((sum, o) => sum + Number(o.advanceAmount || 0), 0);
-  const totalDueCommitment = dueOrders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
+  const totalDueCommitment = dueOrders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
 
   const pendingVerificationTotalValue = pendingVerificationOrders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
   const pendingVerificationDueBalance = pendingVerificationOrders.reduce((sum, o) => {
-    const adv = Number(o.advanceAmount || 0);
-    return sum + Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    return sum + Math.max(0, Number(o.grandTotal || 0) - Number(o.advanceAmount || 0));
   }, 0);
   const pendingVerificationWithProof = pendingVerificationOrders.filter((o) => Boolean(o.paymentProofUrl)).length;
 
   const amountUpdateTotalValue = amountUpdatePendingOrders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
   const amountUpdatePaidAmount = amountUpdatePendingOrders.reduce((sum, o) => sum + Number(o.advanceAmount || 0), 0);
   const amountUpdateDueBalance = amountUpdatePendingOrders.reduce((sum, o) => {
-    const adv = Number(o.advanceAmount || 0);
-    return sum + Number(o.pendingAmount ?? Math.max(0, Number(o.grandTotal) - adv));
+    return sum + Math.max(0, Number(o.grandTotal || 0) - Number(o.advanceAmount || 0));
   }, 0);
 
   return (
@@ -884,7 +876,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                   dueOrders.map((order, index) => {
                     const grand = Number(order.grandTotal);
                     const adv = Number(order.advanceAmount || 0);
-                    const pending = Number(order.pendingAmount ?? Math.max(0, grand - adv));
+                    const pending = order.status === 'CLOSED' ? 0 : Math.max(0, grand - adv);
                     const pct = grand > 0 ? Math.min(100, Math.round((adv / grand) * 100)) : 100;
 
                     return (
@@ -1043,14 +1035,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                       const isPending = !isRejected && (order.status === 'PENDING_APPROVAL' || order.status === 'DRAFT');
                       const isCancelled = order.status === 'CANCELLED';
                       const isWholesalePO = String(order.poNumber || '').startsWith('PO/');
-                      const settle = (order as any).settlementDetails;
                       const total = Number(order.grandTotal || 0);
                       const adv = Number(order.advanceAmount || 0);
-                      const deductions = settle?.totalMandiDeductions > 0 ? settle.totalMandiDeductions : Math.round(total * 0.06);
-                      const netPayable = Math.max(0, total - deductions);
-                      const potentialDue = (settle?.finalBalanceDue !== undefined && settle.finalBalanceDue > 0)
-                        ? Number(settle.finalBalanceDue)
-                        : (settle?.calculatedPotentialDue ?? (isWholesalePO ? Math.max(0, netPayable - adv) : Math.max(0, total - adv)));
+                      // Universal Due Calculation: Balance Due is strictly Total minus Paid (Advance) across entire platform
+                      const potentialDue = Math.max(0, total - adv);
                       // Strict Business Rule: Closed ONLY when potentialDue <= 0. If even 1 rupee is pending, status MUST BE OPEN!
                       const isClosed = !isPending && !isRejected && !isCancelled && potentialDue <= 0 && order.status === 'CLOSED';
                       const pendingDue = isRejected ? 0 : isClosed ? 0 : potentialDue;
@@ -1488,7 +1476,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                     orders.map((order, index) => {
                       const profitLoss = order.financial.realizedProfitLoss;
                       const adv = Number(order.advanceAmount || 0);
-                      const pendingDue = Number(order.pendingAmount ?? Math.max(0, Number(order.grandTotal) - adv));
+                      const pendingDue = order.status === 'CLOSED' ? 0 : Math.max(0, Number(order.grandTotal) - adv);
 
                       return (
                         <tr key={order.id} className="hover:bg-emerald-50/20 text-xs">

@@ -339,16 +339,14 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
       let finStatus = fin?.financialStatus || 'PENDING_COST_DATA';
 
       const isRejected = p.status === 'REJECTED' || Boolean(p.rejectionReason && String(p.rejectionReason).trim() !== '');
-      const isWholesalePO = p.poNumber.startsWith('PO/SF/');
       const advance = Number(p.advanceAmount || 0);
       const total = Number(p.grandTotal || 0);
-      const autoPending = isWholesalePO
-        ? Math.max(0, Math.round(total * 0.94) - advance)
-        : Math.max(0, total - advance);
+      // Universal Due Calculation: Balance Due is strictly Total minus Paid (Advance) across all POs and CDs
+      const autoPending = Math.max(0, total - advance);
       const pending = isRejected ? 0 : (p.status === 'CLOSED' && Number(p.pendingAmount || 0) === 0 ? 0 : autoPending);
 
       // Auto-heal stale pendingAmount in database if grandTotal or advance was changed
-      if (!isRejected && p.status !== 'CLOSED' && Math.abs(Number(p.pendingAmount || 0) - autoPending) > 5) {
+      if (!isRejected && p.status !== 'CLOSED' && Math.abs(Number(p.pendingAmount || 0) - autoPending) > 0.01) {
         prisma.purchaseOrder.update({
           where: { id: p.id },
           data: { pendingAmount: autoPending },
@@ -458,13 +456,11 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
     const isRejected = po.status === 'REJECTED' || Boolean(po.rejectionReason && String(po.rejectionReason).trim() !== '');
     const grand = Number(po.grandTotal);
     const advance = Number(po.advanceAmount || 0);
-    const isWholesalePO = po.poNumber.startsWith('PO/SF/');
-    const autoPending = isWholesalePO
-      ? Math.max(0, Math.round(grand * 0.94) - advance)
-      : Math.max(0, grand - advance);
+    // Universal Due Calculation: Balance Due is strictly Total minus Paid (Advance)
+    const autoPending = Math.max(0, grand - advance);
     const pending = isRejected ? 0 : (po.status === 'CLOSED' && Number(po.pendingAmount || 0) === 0 ? 0 : autoPending);
 
-    if (!isRejected && po.status !== 'CLOSED' && Math.abs(Number(po.pendingAmount || 0) - autoPending) > 5) {
+    if (!isRejected && po.status !== 'CLOSED' && Math.abs(Number(po.pendingAmount || 0) - autoPending) > 0.01) {
       prisma.purchaseOrder.update({
         where: { id: po.id },
         data: { pendingAmount: autoPending },
@@ -1099,7 +1095,7 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
 
     const grandTotal = Number(po.grandTotal);
     const advance = Number(po.advanceAmount || 0);
-    const pending = Number(po.pendingAmount ?? Math.max(0, grandTotal - advance));
+    const pending = Math.max(0, grandTotal - advance);
 
     // Strict Rule: For Customer Due (CD/...) records, it can only be CLOSED if due is ₹0
     if (po.poNumber.startsWith('CD/') && pending > 0) {
@@ -1139,6 +1135,7 @@ export async function closePurchaseOrder(req: AuthRequest, res: Response) {
       where: { id: po.id },
       data: {
         status: finalStatus,
+        pendingAmount: finalStatus === 'CLOSED' ? 0 : pending,
         dispatchStatus: 'DELIVERED_AT_HUB',
         statusHistory: {
           create: {
@@ -1224,7 +1221,7 @@ export async function verifyDuePaymentProof(req: AuthRequest, res: Response) {
 
     const grandTotal = Number(po.grandTotal);
     const advance = Number(po.advanceAmount || 0);
-    const pending = Number(po.pendingAmount ?? Math.max(0, grandTotal - advance));
+    const pending = Math.max(0, grandTotal - advance);
 
     const isFullyPaid = pending <= 0;
     const newStatus = isFullyPaid ? 'CLOSED' : 'OPEN';
@@ -1466,7 +1463,8 @@ export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) 
     }
 
     const adv = Number(po.advanceAmount || 0);
-    const pending = Number(po.pendingAmount ?? Math.max(0, Number(po.grandTotal) - adv));
+    const grand = Number(po.grandTotal);
+    const pending = po.status === 'CLOSED' ? 0 : Math.max(0, grand - adv);
     const effectiveStatus = (pending > 0 && po.status === 'CLOSED') ? 'OPEN' : po.status;
 
     generatePurchaseOrderPDF(
@@ -1545,7 +1543,7 @@ export async function recordDuePayment(req: AuthRequest, res: Response) {
 
     const grandTotal = Number(po.grandTotal);
     const currentAdvance = Number(po.advanceAmount || 0);
-    const currentPending = Number(po.pendingAmount ?? Math.max(0, grandTotal - currentAdvance));
+    const currentPending = Math.max(0, grandTotal - currentAdvance);
 
     let finalAdvance = currentAdvance;
     let finalPending = currentPending;

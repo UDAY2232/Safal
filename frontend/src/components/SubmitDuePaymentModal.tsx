@@ -45,7 +45,7 @@ export const SubmitDuePaymentModal: React.FC<SubmitDuePaymentModalProps> = ({
   const grandTotal = Number(order.grandTotal);
   const currentAdvance = Number(order.advanceAmount || 0);
   const currentPending = Number(
-    order.pendingAmount ?? Math.max(0, grandTotal - currentAdvance)
+    order.status === 'CLOSED' ? 0 : Math.max(0, grandTotal - currentAdvance)
   );
 
   const [paymentAmount, setPaymentAmount] = useState<string>('');

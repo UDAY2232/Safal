@@ -3,7 +3,7 @@ dotenv.config();
 
 import { app } from './app.js';
 import { ensureAccountantSeed } from './utils/initAccountant.js';
-import { ensureAdminUser } from './utils/ensureAdminUser.js';
+import { ensureAdminUser, healAllPendingDues } from './utils/ensureAdminUser.js';
 import { cleanupDummyOrders } from './utils/cleanupDummy.js';
 import { ensureDefaultVendor } from './utils/ensureVendorSeed.js';
 
@@ -14,6 +14,7 @@ app.listen(PORT, '0.0.0.0', async () => {
   console.log(`🌐 API ready at http://0.0.0.0:${PORT}/api`);
   try {
     await ensureAdminUser();
+    await healAllPendingDues();
     await ensureAccountantSeed();
     await cleanupDummyOrders();
     if (process.env.SEED_DEFAULT_VENDOR === 'true') {
