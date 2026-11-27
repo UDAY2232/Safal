@@ -1173,12 +1173,16 @@ export async function updateFinancialRecords(req: AuthRequest, res: Response) {
 export async function downloadPurchaseOrderPDF(req: AuthRequest, res: Response) {
   try {
     const rawId = req.params.id || (req.params as any)[0] || '';
-    const id = decodeURIComponent(rawId);
+    let id = decodeURIComponent(rawId).trim();
+    if (id.endsWith('/pdf')) {
+      id = id.slice(0, -4).trim();
+    }
     const po = await prisma.purchaseOrder.findFirst({
       where: {
         OR: [
           { id },
           { poNumber: id },
+          { poNumber: { equals: id, mode: 'insensitive' } },
         ],
       },
       include: {

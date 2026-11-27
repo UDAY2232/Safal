@@ -1135,9 +1135,32 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
         </div>
       </div>
 
-      {/* Biometric Office Shift Attendance Tracker */}
-      <div className="mb-6">
-        <AttendancePunchWidget onViewLogs={() => onNavigate('Attendance')} />
+      {/* Staff Daily Attendance Quick Monitor (Admin View: No Personal Punch In / Out) */}
+      <div className="mb-5 bg-white border border-gray-200/90 rounded-2xl p-3.5 sm:p-4 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center justify-center flex-shrink-0">
+            <Clock size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-sm text-gray-900 tracking-tight">Staff Attendance & Roster</h3>
+              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                Staff Overview
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Admin is exempt from personal punch-in. Monitor all staff biometric arrivals, GPS verified logs & shift hours.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => onNavigate('Attendance')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#064D2B] hover:bg-emerald-900 text-white font-extrabold text-xs rounded-xl shadow-xs transition"
+          >
+            <Users size={14} /> View Employee Attendance <ArrowRight size={13} />
+          </button>
+        </div>
       </div>
 
       {/* 14 Core KPI Stat Cards in Clean Grids */}

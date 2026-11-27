@@ -423,72 +423,89 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       {activeSection === 'all' ? (
         /* ALL POs STAT CARDS */
         <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 lg:gap-4">
-          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
-              <FileText size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+          <div className="stat-card blue flex flex-col justify-between p-3.5 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] truncate">
                 {isCD ? (isEmployee ? 'My Total CDs' : 'Total Customer Dues') : 'Total PO'}
               </span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block mt-0.5">
+              <div className="w-8 h-8 rounded-lg bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
+                <FileText size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block leading-none">
                 {orders.length}
               </strong>
             </div>
           </div>
 
-          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
-              <Hourglass size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+          <div className="stat-card green flex flex-col justify-between p-3.5 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] truncate">
                 {isCD ? (isEmployee ? 'Within 1-Day Window' : 'Due Today (<1 Day)') : 'Open PO'}
               </span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
+              <div className="w-8 h-8 rounded-lg bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+                <Hourglass size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block leading-none">
                 {isCD ? activeGraceCDs.length : openCount}
               </strong>
             </div>
           </div>
 
-          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEEFEF] border border-[#FCD8D8]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FFDADA] flex items-center justify-center text-[#D32F2F] flex-shrink-0">
-              <CreditCard size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+          <div className="stat-card rose flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEEFEF] border border-[#FCD8D8] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] truncate">
                 {isCD ? (isEmployee ? 'Due CD (>1 Day)' : 'Due Tracker (>1 Day)') : 'Closed PO'}
               </span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block mt-0.5">
+              <div className="w-8 h-8 rounded-lg bg-[#FFDADA] flex items-center justify-center text-[#D32F2F] flex-shrink-0">
+                <CreditCard size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#991B1B] font-['Manrope'] block leading-none">
                 {isCD ? dueOrders.length : closedCount}
               </strong>
             </div>
           </div>
 
           {/* Card 4: Rejected Orders KPI Card */}
-          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FFF1F2] border border-[#FECDD3]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FFE4E6] flex items-center justify-center text-[#E11D48] flex-shrink-0">
-              <XCircle size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+          <div className="stat-card rose flex flex-col justify-between p-3.5 rounded-2xl bg-[#FFF1F2] border border-[#FECDD3] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] truncate">
                 {isCD ? 'Rejected CD' : 'Rejected PO'}
               </span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#BE123C] font-['Manrope'] block mt-0.5">
+              <div className="w-8 h-8 rounded-lg bg-[#FFE4E6] flex items-center justify-center text-[#E11D48] flex-shrink-0">
+                <XCircle size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#BE123C] font-['Manrope'] block leading-none">
                 {rejectedCount}
               </strong>
             </div>
           </div>
 
-          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
-              <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] block truncate">
+          {/* Card 5: Total Amount KPI Card - Beautifully formatted, never truncated */}
+          <div className="stat-card gold flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5] shadow-2xs min-w-0 col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between gap-1.5">
+              <span
+                className="text-[11px] sm:text-xs font-bold text-[#1E293B] truncate"
+                title={isCD ? (isEmployee ? 'My Total CD Amount' : 'Total CD Amount') : 'Total PO Amount'}
+              >
                 {isCD ? (isEmployee ? 'My Total CD Amount' : 'Total CD Amount') : 'Total PO Amount'}
               </span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl xl:text-3xl font-black text-[#1F2937] font-['Manrope'] block mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+              <div className="w-8 h-8 rounded-lg bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+                <Coins size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong
+                className="text-base sm:text-lg lg:text-xl xl:text-2xl font-black text-[#1F2937] font-['Manrope'] tracking-tight block whitespace-nowrap"
+                title={`₹ ${totalAmount.toLocaleString('en-IN')}`}
+              >
                 ₹ {totalAmount.toLocaleString('en-IN')}
               </strong>
             </div>
@@ -497,110 +514,126 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       ) : activeSection === 'amount_update_pending' ? (
         /* CD AMOUNT UPDATE PENDING VERIFICATION DEDICATED STAT CARDS */
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
-          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-emerald-50 border border-emerald-300">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800 flex-shrink-0">
-              <CreditCard size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card blue flex flex-col justify-between p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-950 truncate">Amount Updates Pending</span>
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800 flex-shrink-0">
+                <CreditCard size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-emerald-950 block truncate">Amount Updates Pending</span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-emerald-900 font-['Manrope'] block mt-0.5">
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-emerald-900 font-['Manrope'] block leading-none">
                 {amountUpdatePendingOrders.length}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Awaiting Admin Closure</small>
+              <small className="text-[10px] text-emerald-700 block mt-1 truncate">Awaiting Admin Closure</small>
             </div>
           </div>
 
-          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
-              <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card gold flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-800 truncate">Total Settlement Paid</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+                <Coins size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[11px] sm:text-xs font-bold text-gray-800 block truncate">Total Settlement Paid</span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-emerald-800 font-['Manrope'] block mt-0.5 truncate">
-                ₹{amountUpdatePaidAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl xl:text-2xl font-black text-emerald-800 font-['Manrope'] tracking-tight block whitespace-nowrap" title={`₹ ${amountUpdatePaidAmount.toLocaleString('en-IN')}`}>
+                ₹ {amountUpdatePaidAmount.toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Recorded by staff</small>
+              <small className="text-[10px] text-gray-500 block mt-1 truncate">Recorded by staff</small>
             </div>
           </div>
 
-          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
-              <AlertCircle size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card rose flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-red-900 truncate">Remaining Due Balance</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
+                <AlertCircle size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[11px] sm:text-xs font-bold text-red-900 block truncate">Remaining Due Balance</span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-red-700 font-['Manrope'] block mt-0.5 truncate">
-                ₹{amountUpdateDueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl xl:text-2xl font-black text-red-700 font-['Manrope'] tracking-tight block whitespace-nowrap" title={`₹ ${amountUpdateDueBalance.toLocaleString('en-IN')}`}>
+                ₹ {amountUpdateDueBalance.toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-red-600 hidden sm:block truncate">Pending settlement</small>
+              <small className="text-[10px] text-red-600 block mt-1 truncate">Pending settlement</small>
             </div>
           </div>
 
-          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
-              <CheckCircle2 size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card green flex flex-col justify-between p-3.5 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 truncate">Proofs Attached</span>
+              <div className="w-8 h-8 rounded-lg bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+                <CheckCircle2 size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 block truncate">Proofs Attached</span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block leading-none">
                 {amountUpdatePendingOrders.length}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Ready to verify</small>
+              <small className="text-[10px] text-emerald-700 block mt-1 truncate">Ready to verify</small>
             </div>
           </div>
         </section>
       ) : activeSection === 'pending_verification' ? (
         /* PENDING VERIFICATION DEDICATED STAT CARDS (Count, Total Value, Due Balance, Proof Attached) */
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
-          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FFFBEB] border border-[#FDE68A]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEF3C7] flex items-center justify-center text-amber-700 flex-shrink-0">
-              <Clock size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card blue flex flex-col justify-between p-3.5 rounded-2xl bg-[#FFFBEB] border border-[#FDE68A] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-amber-900 truncate">Pending Review</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] flex items-center justify-center text-amber-700 flex-shrink-0">
+                <Clock size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-amber-900 block truncate">Pending Review</span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-900 font-['Manrope'] block mt-0.5">
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-amber-900 font-['Manrope'] block leading-none">
                 {pendingVerificationOrders.length}
               </strong>
-              <small className="text-[10px] text-amber-700 hidden sm:block truncate">Requires Decision</small>
+              <small className="text-[10px] text-amber-700 block mt-1 truncate">Requires Decision</small>
             </div>
           </div>
 
-          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
-              <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card gold flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-800 truncate">Total Pending Value</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+                <Coins size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[11px] sm:text-xs font-bold text-gray-800 block truncate">Total Pending Value</span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
-                ₹{pendingVerificationTotalValue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl xl:text-2xl font-black text-gray-900 font-['Manrope'] tracking-tight block whitespace-nowrap" title={`₹ ${pendingVerificationTotalValue.toLocaleString('en-IN')}`}>
+                ₹ {pendingVerificationTotalValue.toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross commitment</small>
+              <small className="text-[10px] text-gray-500 block mt-1 truncate">Gross commitment</small>
             </div>
           </div>
 
-          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
-              <AlertCircle size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card rose flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-red-900 truncate">Pending Due Balance</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
+                <AlertCircle size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[11px] sm:text-xs font-bold text-red-900 block truncate">Pending Due Balance</span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-red-700 font-['Manrope'] block mt-0.5 truncate">
-                ₹{pendingVerificationDueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl xl:text-2xl font-black text-red-700 font-['Manrope'] tracking-tight block whitespace-nowrap" title={`₹ ${pendingVerificationDueBalance.toLocaleString('en-IN')}`}>
+                ₹ {pendingVerificationDueBalance.toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-red-600 hidden sm:block truncate">Awaiting collection</small>
+              <small className="text-[10px] text-red-600 block mt-1 truncate">Awaiting collection</small>
             </div>
           </div>
 
-          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
-              <CheckCircle2 size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card green flex flex-col justify-between p-3.5 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 truncate">Proofs Attached</span>
+              <div className="w-8 h-8 rounded-lg bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+                <CheckCircle2 size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 block truncate">Proofs Attached</span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5">
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#064D2B] font-['Manrope'] block leading-none">
                 {pendingVerificationWithProof}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Receipts uploaded</small>
+              <small className="text-[10px] text-emerald-700 block mt-1 truncate">Receipts uploaded</small>
             </div>
           </div>
         </section>
@@ -608,60 +641,68 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         /* DUE POs DEDICATED STAT CARDS (Avaru thiskunaru, Due antha undhi, Antha complete chesaru) */
         <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 lg:gap-4">
           {/* Card 1: Due POs Count */}
-          <div className="stat-card blue flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FFF5F5] border border-[#FED7D7]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-rose-700 flex-shrink-0">
-              <CreditCard size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card blue flex flex-col justify-between p-3.5 rounded-2xl bg-[#FFF5F5] border border-[#FED7D7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-700 truncate">Pending Due Orders</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center text-rose-700 flex-shrink-0">
+                <CreditCard size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0">
-              <span className="text-[11px] sm:text-xs font-bold text-gray-700 block truncate">Pending Due Orders</span>
-              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-rose-800 font-['Manrope'] block mt-0.5">
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-rose-800 font-['Manrope'] block leading-none">
                 {dueOrders.length}
               </strong>
-              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Orders requiring settlement</small>
+              <small className="text-[10px] text-gray-500 block mt-1 truncate">Orders requiring settlement</small>
             </div>
           </div>
 
           {/* Card 2: Total Due Balance */}
-          <div className="stat-card rose flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
-              <AlertCircle size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card rose flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF2F2] border border-[#FCA5A5] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-red-900 truncate">Pending Due Balance</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEE2E2] flex items-center justify-center text-red-600 flex-shrink-0">
+                <AlertCircle size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[11px] sm:text-xs font-bold text-red-900 block truncate">Pending Due Balance</span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-red-700 font-['Manrope'] block mt-0.5 truncate">
-                ₹{totalDueAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl xl:text-2xl font-black text-red-700 font-['Manrope'] tracking-tight block whitespace-nowrap" title={`₹ ${totalDueAmount.toLocaleString('en-IN')}`}>
+                ₹ {totalDueAmount.toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-red-600 hidden sm:block truncate">Total outstanding due</small>
+              <small className="text-[10px] text-red-600 block mt-1 truncate">Total outstanding due</small>
             </div>
           </div>
 
           {/* Card 3: Advance Paid */}
-          <div className="stat-card green flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
-              <CheckCircle2 size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
+          <div className="stat-card green flex flex-col justify-between p-3.5 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 truncate">Advance Paid / Cleared</span>
+              <div className="w-8 h-8 rounded-lg bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+                <CheckCircle2 size={17} strokeWidth={2.2} />
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 block truncate">Advance Paid / Cleared</span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-[#064D2B] font-['Manrope'] block mt-0.5 truncate">
-                ₹{totalCompletedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl xl:text-2xl font-black text-[#064D2B] font-['Manrope'] tracking-tight block whitespace-nowrap" title={`₹ ${totalCompletedAmount.toLocaleString('en-IN')}`}>
+                ₹ {totalCompletedAmount.toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-emerald-700 hidden sm:block truncate">Cleared / Paid upfront</small>
+              <small className="text-[10px] text-emerald-700 block mt-1 truncate">Cleared / Paid upfront</small>
             </div>
           </div>
 
           {/* Card 4: Total Commitment */}
-          <div className="stat-card gold flex items-center gap-2.5 sm:gap-3.5 p-3 sm:p-4 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5]">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
-              <Coins size={20} strokeWidth={2.2} className="sm:w-6 sm:h-6" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <span className="text-[11px] sm:text-xs font-bold text-gray-800 block truncate">
+          <div className="stat-card gold flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-800 truncate">
                 {isCD ? 'Total Due CD Value' : 'Total Due PO Value'}
               </span>
-              <strong className="text-sm sm:text-base md:text-xl lg:text-2xl font-black text-gray-900 font-['Manrope'] block mt-0.5 truncate">
-                ₹{totalDueCommitment.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              <div className="w-8 h-8 rounded-lg bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+                <Coins size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl xl:text-2xl font-black text-gray-900 font-['Manrope'] tracking-tight block whitespace-nowrap" title={`₹ ${totalDueCommitment.toLocaleString('en-IN')}`}>
+                ₹ {totalDueCommitment.toLocaleString('en-IN')}
               </strong>
-              <small className="text-[10px] text-gray-500 hidden sm:block truncate">Gross total commitment</small>
+              <small className="text-[10px] text-gray-500 block mt-1 truncate">Gross total commitment</small>
             </div>
           </div>
         </section>
