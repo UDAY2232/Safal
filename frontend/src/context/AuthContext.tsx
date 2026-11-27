@@ -11,6 +11,7 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>;
   logout: () => void;
   checkMaintenance: () => Promise<void>;
+  updateToken: (newToken: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -125,11 +126,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setMaintenanceMessage(e.detail.message);
       }
     };
+    const handleLiveSync = (e: any) => {
+      const data = e?.detail;
+      if (data?.type === 'AUTH_FORCE_LOGOUT') {
+        const storedUser = localStorage.getItem('safal_user');
+        const currentToken = localStorage.getItem('safal_token');
+        if (storedUser) {
+          try {
+            const u = JSON.parse(storedUser);
+            if (!data.entityId || data.entityId === u.id) {
+              // If this client already received the new token with the new password signature, keep it active
+              if (currentToken && data.metadata?.newPwdSig) {
+                try {
+                  const payload = JSON.parse(atob(currentToken.split('.')[1]));
+                  if (payload?.pwdSig === data.metadata.newPwdSig) {
+                    return; // Session updated with new credentials
+                  }
+                } catch {}
+              }
+              console.log('[Auth] Force logout: terminating session with old password for:', u.email);
+              handleAuthExpired();
+            }
+          } catch {}
+        }
+      }
+    };
     window.addEventListener('safal_auth_expired', handleAuthExpired);
     window.addEventListener('safal_server_maintenance', handleMaintenance);
+    window.addEventListener('safal_live_sync', handleLiveSync);
     return () => {
       window.removeEventListener('safal_auth_expired', handleAuthExpired);
       window.removeEventListener('safal_server_maintenance', handleMaintenance);
+      window.removeEventListener('safal_live_sync', handleLiveSync);
     };
   }, []);
 
@@ -149,6 +177,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const updateToken = (newToken: string) => {
+    localStorage.setItem('safal_token', newToken);
+    setToken(newToken);
+  };
+
   const logout = () => {
     api.logout().catch(() => {});
     localStorage.removeItem('safal_token');
@@ -160,7 +193,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, isMaintenance, maintenanceMessage, login, logout, checkMaintenance }}>
+    <AuthContext.Provider value={{ user, token, isLoading, isMaintenance, maintenanceMessage, login, logout, checkMaintenance, updateToken }}>
       {children}
     </AuthContext.Provider>
   );

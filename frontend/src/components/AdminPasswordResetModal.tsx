@@ -14,6 +14,7 @@ import {
   Lock,
   AlertCircle,
   Sparkles,
+  LogOut,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -49,7 +50,7 @@ export const AdminPasswordResetModal: React.FC<AdminPasswordResetModalProps> = (
   onClose,
   onNotify,
 }) => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, logout, updateToken } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'SELF' | 'STAFF'>('SELF');
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -236,6 +237,10 @@ export const AdminPasswordResetModal: React.FC<AdminPasswordResetModalProps> = (
         newPassword: newPassword.trim(),
       });
 
+      if (res?.token && targetId === currentUser?.id) {
+        updateToken(res.token);
+      }
+
       const doneName = targetUser?.name || 'User';
       const doneEmail = targetUser?.email || '';
       const doneRole = targetUser?.role || 'STAFF';
@@ -356,6 +361,23 @@ export const AdminPasswordResetModal: React.FC<AdminPasswordResetModalProps> = (
                     {copied ? 'Copied' : 'Copy'}
                   </button>
                 </div>
+                <div className="mt-2 text-[11px] text-emerald-900 bg-emerald-100/70 p-2 rounded-lg border border-emerald-200">
+                  🔒 <strong>Session Security:</strong> All other active logins and devices using the old password have been automatically terminated.
+                </div>
+                {selectedUserId === currentUser?.id || activeTab === 'SELF' ? (
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout();
+                        window.location.href = '/login';
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+                    >
+                      <LogOut size={13} /> Log Out Now & Sign In with New Password
+                    </button>
+                  </div>
+                ) : null}
               </div>
             </div>
           )}

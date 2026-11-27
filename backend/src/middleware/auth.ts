@@ -56,7 +56,11 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      userId: string;
+      role?: string;
+      pwdSig?: string;
+    };
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       include: {
@@ -68,6 +72,17 @@ export async function authenticateToken(req: AuthRequest, res: Response, next: N
 
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Strict Password Signature Validation:
+    // Ensure token matches the user's CURRENT password hash.
+    // When password is changed/reset, all tokens created with the old password are revoked immediately.
+    const currentPwdSig = user.passwordHash ? user.passwordHash.slice(-10) : '';
+    if (!decoded.pwdSig || decoded.pwdSig !== currentPwdSig) {
+      return res.status(401).json({
+        error: 'SESSION_REVOKED',
+        message: 'Your session has been terminated because the password was changed. Please log in again with your new password.',
+      });
     }
 
     if (!user.isActive || (user.role === 'VENDOR' && user.vendorProfile?.status === 'SUSPENDED')) {

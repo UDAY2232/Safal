@@ -5,6 +5,7 @@ import { prisma } from '../config/db.js';
 import { JWT_SECRET, JWT_EXPIRES_IN } from '../config/jwt.js';
 import { createAuditLog } from '../services/auditService.js';
 import { AuthRequest } from '../middleware/auth.js';
+import { notifyLiveSync } from '../services/liveSyncService.js';
 
 export async function login(req: Request, res: Response) {
   try {
@@ -153,7 +154,9 @@ export async function login(req: Request, res: Response) {
       data: { lastLoginAt: new Date() },
     });
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, {
+    // Include password hash signature in token to invalidate all old sessions when password changes
+    const pwdSig = user.passwordHash.slice(-10);
+    const token = jwt.sign({ userId: user.id, role: user.role, pwdSig }, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN as any,
     });
 
@@ -355,6 +358,32 @@ export async function resetPassword(req: AuthRequest, res: Response) {
       data: updateData,
     });
 
+    // Generate fresh token with the new password signature for the acting user if changing own password
+    const newPwdSig = hashedPassword.slice(-10);
+    let newToken: string | undefined = undefined;
+    if (req.user?.id === targetUserId) {
+      newToken = jwt.sign(
+        { userId: targetUserId, role: user.role, pwdSig: newPwdSig },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN as any }
+      );
+    }
+
+    // Force real-time logout across all open browser sessions connected via SSE
+    try {
+      notifyLiveSync({
+        type: 'AUTH_FORCE_LOGOUT',
+        entityId: targetUserId,
+        metadata: {
+          targetUserId,
+          newPwdSig,
+          message: 'Password has been changed. All sessions using the old password have been logged out.',
+        },
+      });
+    } catch (err) {
+      console.warn('[LiveSync] Failed to broadcast AUTH_FORCE_LOGOUT:', err);
+    }
+
     await createAuditLog({
       userId: req.user?.id,
       userName: req.user?.name || 'System',
@@ -362,11 +391,14 @@ export async function resetPassword(req: AuthRequest, res: Response) {
       action: 'PASSWORD_RESET',
       entityType: 'USER',
       entityId: targetUserId,
-      details: `Password reset for user ${user.email}`,
+      details: `Password reset for user ${user.email}. All sessions with old password terminated.`,
       ipAddress: req.ip,
     });
 
-    return res.json({ message: 'Password updated successfully' });
+    return res.json({
+      message: 'Password updated successfully. All sessions with the old password have been terminated.',
+      token: newToken,
+    });
   } catch (error) {
     return res.status(500).json({ error: 'Failed to reset password' });
   }
