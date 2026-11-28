@@ -1474,9 +1474,19 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                     </tr>
                   ) : (
                     orders.map((order, index) => {
-                      const profitLoss = order.financial.realizedProfitLoss;
+                      const isRejected = isOrderRejected(order);
+                      const isCancelled = order.status === 'CANCELLED';
+                      const fin = order.financial || (order as any).financialRecord || {
+                        financialStatus: 'NOT_RECORDED',
+                        realizedProfitLoss: null,
+                        verifiedCost: null,
+                        linkedRevenue: null,
+                      };
+                      const profitLoss = fin.realizedProfitLoss;
                       const adv = Number(order.advanceAmount || 0);
-                      const pendingDue = order.status === 'CLOSED' ? 0 : Math.max(0, Number(order.grandTotal) - adv);
+                      const potentialDue = Math.max(0, Number(order.grandTotal || 0) - adv);
+                      const isClosed = !isRejected && !isCancelled && potentialDue <= 0 && order.status === 'CLOSED';
+                      const pendingDue = isRejected ? 0 : isClosed ? 0 : potentialDue;
 
                       return (
                         <tr key={order.id} className="hover:bg-emerald-50/20 text-xs">
@@ -1495,7 +1505,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                           </td>
                           <td className="py-3 px-3 text-gray-600">{order.createdByName}</td>
                           <td className="py-3 px-3">
-                            <div className="font-bold text-gray-900">₹{order.grandTotal.toLocaleString('en-IN')}</div>
+                            <div className="font-bold text-gray-900">₹{Number(order.grandTotal || 0).toLocaleString('en-IN')}</div>
                             <div className="text-[10px] text-gray-500 font-normal mt-0.5">
                               <span className="text-emerald-700 font-semibold">Adv: ₹{adv.toLocaleString('en-IN')}</span>
                               {' • '}
@@ -1503,29 +1513,29 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                             </div>
                           </td>
                           <td className="py-3 px-3 text-gray-700">
-                            {order.financial.verifiedCost !== null
-                              ? `₹${order.financial.verifiedCost.toLocaleString('en-IN')}`
+                            {fin.verifiedCost !== null && fin.verifiedCost !== undefined
+                              ? `₹${Number(fin.verifiedCost).toLocaleString('en-IN')}`
                               : 'Pending'}
                           </td>
                           <td className="py-3 px-3 text-gray-700">
-                            {order.financial.linkedRevenue !== null
-                              ? `₹${order.financial.linkedRevenue.toLocaleString('en-IN')}`
+                            {fin.linkedRevenue !== null && fin.linkedRevenue !== undefined
+                              ? `₹${Number(fin.linkedRevenue).toLocaleString('en-IN')}`
                               : 'Pending'}
                           </td>
                           <td className="py-3 px-3">
-                            {profitLoss !== null ? (
+                            {profitLoss !== null && profitLoss !== undefined ? (
                               <strong className={profitLoss >= 0 ? 'text-green-700 font-bold' : 'text-red-700 font-bold'}>
-                                {profitLoss >= 0 ? '+' : ''}₹{profitLoss.toLocaleString('en-IN')}
+                                {profitLoss >= 0 ? '+' : ''}₹{Number(profitLoss).toLocaleString('en-IN')}
                               </strong>
                             ) : (
                               <span className="text-gray-400">—</span>
                             )}
                           </td>
                           <td className="py-3 px-3">
-                            <StatusBadge status={order.financial.financialStatus} />
+                            <StatusBadge status={fin.financialStatus} />
                           </td>
                           <td className="py-3 px-3">
-                            <StatusBadge status={pendingDue > 0 ? 'OPEN' : order.status} />
+                            <StatusBadge status={isRejected ? 'REJECTED' : isCancelled ? 'CANCELLED' : pendingDue > 0 ? 'OPEN' : order.status} />
                           </td>
                           <td className="py-3 px-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
