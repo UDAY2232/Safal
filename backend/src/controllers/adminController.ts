@@ -237,48 +237,52 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
 
     // Strict Separation: Separate Purchase Orders (PO) from Customer Dues (CD)
     const isCD = (p: any) => p.poNumber?.startsWith('CD/') || p.supplier?.category === 'Customer Due';
-    const isOrderRejected = (p: any) => p.status === 'REJECTED' || Boolean(p.rejectionReason && String(p.rejectionReason).trim() !== '');
+    const isOrderRejected = (p: any) =>
+      p.status === 'REJECTED' ||
+      p.status === 'CANCELLED' ||
+      Boolean(p.rejectionReason && String(p.rejectionReason).trim() !== '');
     const poOrders = displayPOs.filter((p) => !isCD(p));
     const cdOrders = displayPOs.filter((p) => isCD(p));
 
-    // PO Calculations (Strictly POs only, excluding rejected orders from open counts and commitment sums)
+    // PO Calculations (Strictly POs only, excluding rejected/cancelled orders)
+    const validPOs = poOrders.filter((p) => !isOrderRejected(p));
     const totalPOs = poOrders.length;
-    const openPOs = poOrders.filter((p) => {
-      if (isOrderRejected(p)) return false;
+    const openPOs = validPOs.filter((p) => {
+      if (p.status === 'CLOSED') return false;
       const adv = Number(p.advanceAmount || 0);
-      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
-      return p.status === 'OPEN' || (pending > 0 && p.status === 'CLOSED');
+      const pending = Math.max(0, Number(p.grandTotal || 0) - adv);
+      return pending > 0 || p.status === 'OPEN';
     }).length;
-    const closedPOs = poOrders.filter((p) => {
-      if (isOrderRejected(p)) return false;
+    const closedPOs = validPOs.filter((p) => {
       const adv = Number(p.advanceAmount || 0);
-      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+      const pending = Math.max(0, Number(p.grandTotal || 0) - adv);
       return p.status === 'CLOSED' && pending <= 0;
     }).length;
     const pendingApprovalPOs = poOrders.filter((p) => !isOrderRejected(p) && p.status === 'PENDING_APPROVAL').length;
     const pendingApprovalCDs = cdOrders.filter((p) => !isOrderRejected(p) && p.status === 'PENDING_APPROVAL').length;
     const totalPendingApprovals = pendingApprovalPOs + pendingApprovalCDs;
-    const totalPOAmount = poOrders.filter((p) => !isOrderRejected(p)).reduce((sum, p) => sum + Number(p.grandTotal), 0);
+    const totalPOAmount = validPOs.reduce((sum, p) => sum + Number(p.grandTotal || 0), 0);
 
-    // Customer Due (CD) Calculations (Strictly CDs only)
+    // Customer Due (CD) Calculations (Strictly CDs only, excluding rejected/cancelled orders)
+    const validCDs = cdOrders.filter((p) => !isOrderRejected(p));
     const totalCDs = cdOrders.length;
-    const openCDs = cdOrders.filter((p) => {
-      if (isOrderRejected(p)) return false;
+    const openCDs = validCDs.filter((p) => {
+      if (p.status === 'CLOSED') return false;
       const adv = Number(p.advanceAmount || 0);
-      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
-      return p.status === 'OPEN' || (pending > 0 && p.status === 'CLOSED');
+      const pending = Math.max(0, Number(p.grandTotal || 0) - adv);
+      return pending > 0 || p.status === 'OPEN';
     }).length;
-    const closedCDs = cdOrders.filter((p) => {
-      if (isOrderRejected(p)) return false;
+    const closedCDs = validCDs.filter((p) => {
       const adv = Number(p.advanceAmount || 0);
-      const pending = Number(p.pendingAmount ?? Math.max(0, Number(p.grandTotal) - adv));
+      const pending = Math.max(0, Number(p.grandTotal || 0) - adv);
       return p.status === 'CLOSED' && pending <= 0;
     }).length;
-    const totalCDAmount = cdOrders.filter((p) => !isOrderRejected(p)).reduce((sum, p) => sum + Number(p.grandTotal), 0);
-    const totalCDDue = cdOrders.filter((p) => !isOrderRejected(p)).reduce((sum, p) => {
+    const totalCDAmount = validCDs.reduce((sum, p) => sum + Number(p.grandTotal || 0), 0);
+    const totalCDDue = validCDs.reduce((sum, p) => {
+      if (p.status === 'CLOSED') return sum;
       const adv = Number(p.advanceAmount || 0);
       const grand = Number(p.grandTotal || 0);
-      const pending = p.status === 'CLOSED' && Number(p.pendingAmount || 0) === 0 ? 0 : Math.max(0, grand - adv);
+      const pending = Math.max(0, grand - adv);
       return sum + pending;
     }, 0);
 

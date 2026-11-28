@@ -659,7 +659,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               value={formatCurrency(summary.totalCDAmount || 0)}
               icon={<CreditCard />}
               tone="gold"
-              detail={`${summary.totalCDs || 0} Total Customer Dues`}
+              detail={`${summary.totalCDs || 0} Total CDs · Due: ${formatCurrency(summary.totalCDDue || 0)}`}
               onClick={() => onNavigate('Customer Due (CD)')}
             />
           )}
@@ -1114,7 +1114,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
               </span>
               <span className="inline-flex items-center gap-1.5 bg-black/15 px-3 py-1 rounded-full text-emerald-100 border border-emerald-500/20">
                 <span className="font-semibold text-white">Active CDs:</span>{' '}
-                {summary.totalCDs || 0} {(summary.totalCDs || 0) === 1 ? 'Customer Due' : 'Customer Dues'} ({formatCurrency(summary.totalCDAmount || 0)})
+                {summary.totalCDs || 0} {(summary.totalCDs || 0) === 1 ? 'Customer Due' : 'Customer Dues'} ({formatCurrency(summary.totalCDAmount || 0)} · Due: {formatCurrency(summary.totalCDDue || 0)})
               </span>
             </div>
           </div>
@@ -1197,7 +1197,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
           value={formatCurrency(summary.totalCDAmount || 0)}
           icon={<CreditCard />}
           tone="gold"
-          detail={`${summary.totalCDs || 0} Total Customer Dues`}
+          detail={`${summary.totalCDs || 0} Total CDs · Due: ${formatCurrency(summary.totalCDDue || 0)}`}
           onClick={() => onNavigate('Customer Due (CD)')}
         />
         <StatCard
