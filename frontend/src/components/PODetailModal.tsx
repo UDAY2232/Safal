@@ -175,6 +175,14 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
     realizedProfitLoss: null,
   };
 
+  const isVendorPO =
+    order.creatorRole === 'VENDOR' ||
+    Boolean(order.vendorProfileId) ||
+    Boolean((order as any).isVendor) ||
+    Boolean(order.supplierName?.toLowerCase().includes('vendor')) ||
+    (order.notes && order.notes.includes('Vendor Consignment'));
+  const vendorIdDisplay = (order as any).vendorProfile?.vendorId || (order as any).supplier?.supplierCode || (isVendorPO ? 'VND-REGISTERED' : '-');
+
   const handleSaveEdit = async () => {
     try {
       setIsProcessing(true);
@@ -803,18 +811,28 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
           {/* Metadata Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2.5 bg-gray-50 p-3 rounded-xl border border-gray-100">
             <div>
-              <span className="text-gray-400 font-medium block">{isCD ? 'Buyer / Customer' : 'Supplier'}</span>
+              <span className="text-gray-400 font-medium block">{isCD ? 'Buyer / Customer' : isVendorPO ? 'Vendor Name' : 'Supplier'}</span>
               <strong className="text-gray-800 text-xs block mt-0.5 truncate">{supplierDisplayName}</strong>
+              {!isCD && isVendorPO && (
+                <span className="text-[10px] text-emerald-700 font-mono font-bold block">{vendorIdDisplay}</span>
+              )}
             </div>
             <div>
-              <span className="text-gray-400 font-medium block">Initiate / Order Date</span>
+              <span className="text-gray-400 font-medium block">Order Date</span>
               <strong className="text-gray-800 text-xs block mt-0.5">
                 {order.poDate ? new Date(order.poDate).toLocaleDateString('en-GB') : (order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-GB') : '-')}
               </strong>
             </div>
             <div>
-              <span className="text-gray-400 font-medium block">Order Person</span>
-              <strong className="text-gray-800 text-xs block mt-0.5 truncate">{createdByDisplayName}</strong>
+              <span className="text-gray-400 font-medium block">Created By</span>
+              <strong className="text-gray-800 text-xs block mt-0.5 truncate">
+                {isVendorPO ? 'Vendor' : createdByDisplayName}
+              </strong>
+              {!isCD && (
+                <span className="text-[10px] text-gray-500 font-medium block">
+                  {isVendorPO ? 'Vendor Portal' : 'Admin / Staff'}
+                </span>
+              )}
             </div>
             <div>
               <span className="text-emerald-700 font-semibold block">Origin Farm/Area</span>
@@ -829,58 +847,23 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               </strong>
             </div>
             <div>
-              <span className="text-gray-400 font-medium block">Grand Total</span>
+              <span className="text-gray-400 font-medium block">PO Base Amount</span>
               <strong className="text-[#087A3E] text-xs block mt-0.5 font-bold">
                 ₹{order.grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </strong>
             </div>
             <div>
-              <span className="text-emerald-700 font-medium block">Advance Paid</span>
-              <strong className="text-emerald-800 text-xs block mt-0.5 font-bold">
-                {(() => {
-                  const settle = (order as any).settlementDetails;
-                  const hasSlip = Boolean(settle?.advanceProofUrl || order.paymentProofUrl);
-                  if (!hasSlip) {
-                    return '₹0.00 (Pending Slip)';
-                  }
-                  return `₹${Number(order.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-                })()}
+              <span className="text-purple-700 font-medium block">Commission Rate</span>
+              <strong className="text-purple-900 text-xs block mt-0.5 font-bold">
+                {isVendorPO ? '6% (5% + 1%)' : '0% (Exempt)'}
               </strong>
-              {(() => {
-                const settle = (order as any).settlementDetails;
-                const slip = settle?.advanceProofUrl || order.paymentProofUrl;
-                if (!slip) return null;
-                return (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setActiveDocPreview({
-                        url: resolvePhotoUrl(slip),
-                        title: `${order.poNumber} - Advance Payment Receipt`,
-                      })
-                    }
-                    className="mt-1 px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded text-[9px] font-bold inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <Eye size={9} /> View Slip ↗
-                  </button>
-                );
-              })()}
             </div>
             <div>
-              <span className="text-amber-700 font-medium block">Pending Balance</span>
-              <strong className="text-amber-800 text-xs block mt-0.5 font-bold">
-                {(() => {
-                  if (isRejected) {
-                    return '₹0.00 (Order Rejected)';
-                  }
-                  const settle = (order as any).settlementDetails;
-                  const isSettled = Boolean(settle?.settlementCompleted || settle?.hasSettlementEntry || order.status === 'CLOSED');
-                  if (!isSettled) {
-                    return '₹0.00 (Awaiting Settlement)';
-                  }
-                  const finalDue = Number(settle?.finalBalanceDue ?? order.pendingAmount ?? 0);
-                  return `₹${finalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-                })()}
+              <span className="text-teal-700 font-medium block">Net Settlement</span>
+              <strong className="text-teal-900 text-xs block mt-0.5 font-bold">
+                {isVendorPO
+                  ? `₹${(order.netPayableAmount !== undefined && order.netPayableAmount !== null ? Number(order.netPayableAmount) : Math.round(Number(order.grandTotal || 0) * 0.94)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                  : `₹${Number(order.grandTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
               </strong>
             </div>
           </div>
