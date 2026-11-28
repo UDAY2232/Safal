@@ -160,6 +160,9 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     loadOrders();
   };
 
+  const isOrderRejected = (o: any) =>
+    o.status === 'REJECTED' || Boolean(o.rejectionReason && String(o.rejectionReason).trim() !== '');
+
   const isVendorOrder = (o: any) =>
     o.creatorRole === 'VENDOR' ||
     Boolean(o.vendorProfileId) ||
@@ -262,7 +265,6 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   };
 
   // Calculations for All POs (Strict Rule: If due is pending > 0, status is OPEN, unless explicitly REJECTED/CANCELLED!)
-  const isOrderRejected = (o: any) => o.status === 'REJECTED' || Boolean(o.rejectionReason && String(o.rejectionReason).trim() !== '');
   const rejectedCount = orders.filter((o) => isOrderRejected(o)).length;
   const nonRejectedOrders = orders.filter((o) => !isOrderRejected(o) && o.status !== 'CANCELLED');
   const totalAmount = nonRejectedOrders.reduce((sum, o) => sum + Number(o.grandTotal), 0);
