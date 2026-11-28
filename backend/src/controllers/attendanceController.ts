@@ -1196,14 +1196,28 @@ export async function getAllAttendanceRecords(req: AuthRequest, res: Response) {
     const { date, department } = req.query;
     const targetDate = getTodayDate(date as string);
 
-    const employees = await prisma.employee.findMany({
-      where: {
-        ...(department && department !== 'All' ? { department: department as string } : {}),
-      },
-      include: {
-        user: true,
-      },
-    });
+    let employees: any[] = [];
+    try {
+      employees = await prisma.employee.findMany({
+        where: {
+          ...(department && department !== 'All' ? { department: department as string } : {}),
+        },
+        include: {
+          user: true,
+        },
+      });
+    } catch (empErr) {
+      console.warn('Could not load employees with user relation in getAllAttendanceRecords:', empErr);
+      try {
+        employees = await prisma.employee.findMany({
+          where: {
+            ...(department && department !== 'All' ? { department: department as string } : {}),
+          },
+        });
+      } catch (e2) {
+        employees = [];
+      }
+    }
 
     let records: any[] = [];
     try {
