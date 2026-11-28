@@ -48,16 +48,25 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
           include: { supplier: true, createdBy: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying POs for employee:', err?.message);
+          return [];
         }),
         prisma.expenseClaim.findMany({
           where: { employee: { userId: req.user!.id } },
           include: { employee: true },
           orderBy: { createdAt: 'desc' },
           take: 50,
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying expenses for employee:', err?.message);
+          return [];
         }),
         prisma.attendanceRecord.findMany({
           where: { date: today, userId: req.user!.id },
           include: { user: true },
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying attendance for employee:', err?.message);
+          return [];
         }),
         prisma.employee.findFirst({
           where: {
@@ -77,6 +86,9 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
               },
             },
           },
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying employee profile:', err?.message);
+          return null;
         }),
       ]);
 
@@ -147,28 +159,58 @@ export async function getAdminDashboard(req: AuthRequest, res: Response) {
         prisma.purchaseOrder.findMany({
           include: { supplier: true, createdBy: true, items: true },
           orderBy: { createdAt: 'desc' },
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying POs:', err?.message);
+          return [];
         }),
         prisma.accountantProfile.findMany({
           include: { user: true },
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying accountants:', err?.message);
+          return [];
         }),
         prisma.employee.findMany({
           include: { user: true },
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying employees:', err?.message);
+          return [];
         }),
-        prisma.employeeWageRecord.findMany(),
+        prisma.employeeWageRecord.findMany().catch((err) => {
+          console.warn('[Dashboard] Error querying wages:', err?.message);
+          return [];
+        }),
         prisma.expenseClaim.findMany({
           include: { employee: true },
           orderBy: { createdAt: 'desc' },
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying expenses:', err?.message);
+          return [];
         }),
-        prisma.wagePayment.findMany(),
-        prisma.expensePayment.findMany(),
-        prisma.purchaseOrderFinancialRecord.findMany(),
+        prisma.wagePayment.findMany().catch((err) => {
+          console.warn('[Dashboard] Error querying wage payments:', err?.message);
+          return [];
+        }),
+        prisma.expensePayment.findMany().catch((err) => {
+          console.warn('[Dashboard] Error querying expense payments:', err?.message);
+          return [];
+        }),
+        prisma.purchaseOrderFinancialRecord.findMany().catch((err) => {
+          console.warn('[Dashboard] Error querying financial records:', err?.message);
+          return [];
+        }),
         prisma.auditLog.findMany({
           take: 10,
           orderBy: { createdAt: 'desc' },
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying audit logs:', err?.message);
+          return [];
         }),
         prisma.attendanceRecord.findMany({
           where: { date: today },
           include: { user: true },
+        }).catch((err) => {
+          console.warn('[Dashboard] Error querying attendance records:', err?.message);
+          return [];
         }),
       ]);
     }

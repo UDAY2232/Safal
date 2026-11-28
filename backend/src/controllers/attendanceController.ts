@@ -1219,13 +1219,17 @@ export async function getAllAttendanceRecords(req: AuthRequest, res: Response) {
       });
     } catch (recErr) {
       console.warn('Could not load detailed attendance relations, falling back to base records:', recErr);
-      records = await prisma.attendanceRecord.findMany({
-        where: { date: targetDate },
-        include: {
-          user: true,
-          employee: true,
-        },
-      });
+      try {
+        records = await prisma.attendanceRecord.findMany({
+          where: { date: targetDate },
+          include: {
+            user: true,
+            employee: true,
+          },
+        });
+      } catch (e2) {
+        records = [];
+      }
     }
 
     const roster = employees.map((emp) => {
