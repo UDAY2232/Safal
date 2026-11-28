@@ -18,9 +18,10 @@ sudo rm -rf /var/www/safal/assets
 sudo cp -rf /opt/safal/frontend/dist/* /var/www/safal/
 sudo chmod -R 755 /var/www/safal
 
-echo "=== [4/5] BUILDING BACKEND & RESTARTING PM2 ==="
+echo "=== [4/5] BUILDING BACKEND, SYNCING DB & RESTARTING PM2 ==="
 cd /opt/safal/backend
 npm install
+npx prisma db push --accept-data-loss
 npm run build
 pm2 restart all || sudo pm2 restart all || true
 
