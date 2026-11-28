@@ -308,8 +308,10 @@ function MainApp() {
             activePage !== 'Dashboard' &&
             activePage !== 'Attendance' &&
             activePage !== 'Field Work' &&
+            activePage !== 'Buyer Business Tracking' &&
             activePage !== 'Seller Business Tracking' &&
             activePage !== 'Field Work Management' &&
+            activePage !== 'Field Sales & Buyer Business' &&
             activePage !== 'Field Sales & Seller Business' && (
             <PageHeading
               page={activePage}
@@ -390,13 +392,13 @@ function MainApp() {
           {activePage === 'Activity Logs' && <ActivityLogsPage />}
           {activePage === 'Settings' && <SettingsPage onNotify={notify} />}
           {activePage === 'Field Work' && user?.role === 'EMPLOYEE' && <FieldWorkEmployeePage onNotify={notify} />}
-          {activePage === 'Seller Business Tracking' && user?.role === 'EMPLOYEE' && (
+          {(activePage === 'Buyer Business Tracking' || activePage === 'Seller Business Tracking') && user?.role === 'EMPLOYEE' && (
             <FieldWorkEmployeePage onNotify={notify} initialTab="business" />
           )}
           {activePage === 'Field Work Management' && (user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
             <FieldWorkAdminPage onNotify={notify} />
           )}
-          {activePage === 'Field Sales & Seller Business' && (user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
+          {(activePage === 'Field Sales & Buyer Business' || activePage === 'Field Sales & Seller Business') && (user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
             <FieldWorkAdminPage onNotify={notify} initialTab="business" />
           )}
         </main>

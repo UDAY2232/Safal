@@ -411,7 +411,7 @@ export const FieldWorkEmployeePage: React.FC<FieldWorkEmployeePageProps> = ({ on
               </span>
             </div>
             <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              Field Work & Seller Acquisition
+              Field Work & Buyer Acquisition
             </h1>
             <p className="text-emerald-100 text-sm mt-1 max-w-2xl">
               Connecting local fruit wholesalers, retailers, and distributors to SAFAL wholesale procurement and cold storage.
@@ -425,7 +425,7 @@ export const FieldWorkEmployeePage: React.FC<FieldWorkEmployeePageProps> = ({ on
               }}
               className="px-4 py-2.5 bg-white text-[#064D2B] rounded-xl font-bold text-sm shadow hover:bg-emerald-50 active:scale-95 transition flex items-center gap-2"
             >
-              <Plus size={18} /> Add New Seller
+              <Plus size={18} /> Add New Buyer
             </button>
             <button
               onClick={() => {
@@ -468,7 +468,7 @@ export const FieldWorkEmployeePage: React.FC<FieldWorkEmployeePageProps> = ({ on
               : 'text-[#064D2B] bg-emerald-50 hover:bg-emerald-100 font-extrabold'
           }`}
         >
-          <TrendingUp size={16} /> Seller Business Tracking 💰
+          <TrendingUp size={16} /> Buyer Business Tracking 💰
         </button>
         <button
           onClick={() => setActiveTab('areas')}
@@ -488,7 +488,7 @@ export const FieldWorkEmployeePage: React.FC<FieldWorkEmployeePageProps> = ({ on
               : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
           }`}
         >
-          <Store size={16} /> Local Sellers ({sellers.length})
+          <Store size={16} /> Local Buyers ({sellers.length})
         </button>
         <button
           onClick={() => setActiveTab('visits')}

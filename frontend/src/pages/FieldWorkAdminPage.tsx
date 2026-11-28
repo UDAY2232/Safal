@@ -385,7 +385,7 @@ export const FieldWorkAdminPage: React.FC<FieldWorkAdminPageProps> = ({ onNotify
               : 'text-[#064D2B] bg-emerald-50 hover:bg-emerald-100 font-extrabold'
           }`}
         >
-          <TrendingUp size={16} /> Field Sales & Seller Business Analytics 💰
+          <TrendingUp size={16} /> Field Sales & Buyer Business Analytics 💰
         </button>
         <button
           onClick={() => setActiveTab('employees')}
@@ -415,7 +415,7 @@ export const FieldWorkAdminPage: React.FC<FieldWorkAdminPageProps> = ({ onNotify
               : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
           }`}
         >
-          <Store size={16} /> Seller Directory ({sellers.length})
+          <Store size={16} /> Buyer Directory ({sellers.length})
         </button>
         <button
           onClick={() => setActiveTab('reports')}
