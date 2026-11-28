@@ -21,6 +21,10 @@ import {
   User,
   MapPin,
   Image as ImageIcon,
+  Building2,
+  ShieldCheck,
+  Percent,
+  Layers,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -72,7 +76,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
   const [financialStatus, setFinancialStatus] = useState('All');
   const [viewMode, setViewMode] = useState<'reference' | 'financial'>('reference');
   const [activeSection, setActiveSection] = useState<
-    'all' | 'pending_verification' | 'amount_update_pending' | 'due'
+    'all' | 'vendor' | 'admin' | 'pending_verification' | 'amount_update_pending' | 'due'
   >('all');
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
   const [financialPO, setFinancialPO] = useState<PurchaseOrder | null>(null);
@@ -156,8 +160,100 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
     loadOrders();
   };
 
+  const isVendorOrder = (o: any) =>
+    o.creatorRole === 'VENDOR' ||
+    Boolean(o.vendorProfileId) ||
+    Boolean(o.isVendor) ||
+    (o.supplier?.supplierCode && o.supplier.supplierCode.startsWith('VND-')) ||
+    (o.notes && o.notes.includes('Vendor Consignment'));
+
+  const vendorOrders = orders.filter((o) => isVendorOrder(o));
+  const adminOrders = orders.filter((o) => !isVendorOrder(o));
+
+  // Vendor PO Aggregations (SAFAL 5%, APMC 1%, Total 6%, Net 94%)
+  const nonRejectedVendorOrders = vendorOrders.filter((o) => !isOrderRejected(o) && o.status !== 'CANCELLED');
+  const vendorTotalAmount = nonRejectedVendorOrders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
+  const vendorTotalSafalComm = nonRejectedVendorOrders.reduce((sum, o) => {
+    return sum + (o.safalCommissionAmount !== undefined && o.safalCommissionAmount !== null ? Number(o.safalCommissionAmount) : Math.round(Number(o.grandTotal || 0) * 0.05));
+  }, 0);
+  const vendorTotalApmcComm = nonRejectedVendorOrders.reduce((sum, o) => {
+    return sum + (o.apmcCommissionAmount !== undefined && o.apmcCommissionAmount !== null ? Number(o.apmcCommissionAmount) : Math.round(Number(o.grandTotal || 0) * 0.01));
+  }, 0);
+  const vendorTotalCommission = vendorTotalSafalComm + vendorTotalApmcComm;
+  const vendorNetPayable = Math.max(0, vendorTotalAmount - vendorTotalCommission);
+
+  // Admin PO Aggregations (SAFAL 0%, APMC 0%, Total 0%, Net = PO Amount)
+  const nonRejectedAdminOrders = adminOrders.filter((o) => !isOrderRejected(o) && o.status !== 'CANCELLED');
+  const adminTotalAmount = nonRejectedAdminOrders.reduce((sum, o) => sum + Number(o.grandTotal || 0), 0);
+
   const handleExportCSV = async () => {
     try {
+      if (activeSection === 'vendor') {
+        const headers = ['S.No', 'PO Number', 'Vendor', 'Area', 'Commodity', 'PO Amount (₹)', 'SAFAL 5% (₹)', 'APMC 1% (₹)', 'Total Commission (₹)', 'Net Amount (₹)', 'Date', 'Status'];
+        const rows = vendorOrders.map((o, idx) => {
+          const grand = Number(o.grandTotal || 0);
+          const safal = o.safalCommissionAmount ? Number(o.safalCommissionAmount) : Math.round(grand * 0.05);
+          const apmc = o.apmcCommissionAmount ? Number(o.apmcCommissionAmount) : Math.round(grand * 0.01);
+          const comm = safal + apmc;
+          const net = Math.max(0, grand - comm);
+          const itemsDesc = o.items && o.items.length > 0 ? o.items.map((i: any) => `${i.fruitName} (${i.quantity} ${i.unit})`).join('; ') : 'Wholesale Fruits';
+          return [
+            idx + 1,
+            `"${o.poNumber}"`,
+            `"${(o.supplierName || 'Vendor').replace(/"/g, '""')}"`,
+            `"${(o.orderPersonPlace || 'Warangal').replace(/"/g, '""')}"`,
+            `"${itemsDesc.replace(/"/g, '""')}"`,
+            grand,
+            safal,
+            apmc,
+            comm,
+            net,
+            o.poDate ? new Date(o.poDate).toISOString().split('T')[0] : '',
+            o.status,
+          ].join(',');
+        });
+        const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent([headers.join(','), ...rows].join('\n'));
+        const link = document.createElement('a');
+        link.setAttribute('href', csvContent);
+        link.setAttribute('download', `vendor_created_pos_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        onNotify('Vendor-created POs exported to CSV');
+        return;
+      }
+
+      if (activeSection === 'admin') {
+        const headers = ['S.No', 'PO Number', 'Supplier', 'Area', 'Commodity', 'PO Amount (₹)', 'SAFAL Commission (₹)', 'APMC Commission (₹)', 'Net Amount (₹)', 'Created By', 'Date', 'Status'];
+        const rows = adminOrders.map((o, idx) => {
+          const grand = Number(o.grandTotal || 0);
+          const itemsDesc = o.items && o.items.length > 0 ? o.items.map((i: any) => `${i.fruitName} (${i.quantity} ${i.unit})`).join('; ') : 'Direct Procurement';
+          return [
+            idx + 1,
+            `"${o.poNumber}"`,
+            `"${(o.supplierName || 'Supplier').replace(/"/g, '""')}"`,
+            `"${(o.orderPersonPlace || 'Warangal').replace(/"/g, '""')}"`,
+            `"${itemsDesc.replace(/"/g, '""')}"`,
+            grand,
+            0,
+            0,
+            grand,
+            `"${(o.createdByName || 'Admin').replace(/"/g, '""')}"`,
+            o.poDate ? new Date(o.poDate).toISOString().split('T')[0] : '',
+            o.status,
+          ].join(',');
+        });
+        const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent([headers.join(','), ...rows].join('\n'));
+        const link = document.createElement('a');
+        link.setAttribute('href', csvContent);
+        link.setAttribute('download', `admin_created_pos_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        onNotify('Admin-created POs exported to CSV');
+        return;
+      }
+
       await api.downloadReportCSV('purchase-orders');
       onNotify('Purchase orders report downloaded as CSV');
     } catch {
@@ -229,6 +325,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       ? (isCD ? newApprovalOrders : pendingVerificationOrders)
       : activeSection === 'due'
       ? dueOrders
+      : activeSection === 'vendor'
+      ? vendorOrders
+      : activeSection === 'admin'
+      ? adminOrders
       : orders;
 
   const totalDueAmount = dueOrders.reduce((sum, o) => {
@@ -305,9 +405,10 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
         </div>
       </div>
 
-      {/* Primary Section Switcher Tabs: All POs / CDs vs Pending Verification vs Due Tracker */}
+      {/* Primary Section Switcher Tabs: All POs / CDs vs Vendor-Created POs vs Admin-Created POs vs Due Tracker */}
       <div className="bg-white p-2 rounded-2xl border border-[#D5E3D8] shadow-xs overflow-x-auto no-scrollbar">
         <div className="flex items-center gap-2 min-w-max">
+          {/* Tab 1: All Purchase Orders */}
           <button
             type="button"
             onClick={() => setActiveSection('all')}
@@ -320,7 +421,43 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             <ShoppingCart size={15} /> {isCD ? `All Customer Dues (${orders.length})` : `All Purchase Orders (${orders.length})`}
           </button>
 
-          {/* Tab 2: Pending Approval */}
+          {/* Tab 2: Vendor-Created POs Section */}
+          {!isCD && (
+            <button
+              type="button"
+              onClick={() => setActiveSection('vendor')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+                activeSection === 'vendor'
+                  ? 'bg-emerald-800 text-white shadow-md ring-2 ring-emerald-500'
+                  : 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-300'
+              }`}
+            >
+              <Building2 size={15} /> Vendor-Created POs ({vendorOrders.length})
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-gray-950">
+                5% SAFAL + 1% APMC
+              </span>
+            </button>
+          )}
+
+          {/* Tab 3: Admin-Created POs Section */}
+          {!isCD && (
+            <button
+              type="button"
+              onClick={() => setActiveSection('admin')}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 whitespace-nowrap ${
+                activeSection === 'admin'
+                  ? 'bg-[#064D2B] text-white shadow-md ring-2 ring-emerald-600'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'
+              }`}
+            >
+              <ShieldCheck size={15} /> Admin-Created POs ({adminOrders.length})
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                0% Comm (₹0)
+              </span>
+            </button>
+          )}
+
+          {/* Tab 4: Pending Approval */}
           {(isCD ? newApprovalOrders.length > 0 : pendingVerificationOrders.length > 0) && (
             <button
               type="button"
@@ -341,7 +478,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </button>
           )}
 
-          {/* Tab 3: Dedicated CD Amount Update Pending Verification Button */}
+          {/* Tab 5: Dedicated CD Amount Update Pending Verification Button */}
           {isCD && (
             <button
               type="button"
@@ -367,7 +504,7 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
             </button>
           )}
 
-          {/* Tab 4: Due CDs/POs Section (Hidden for Vendors) */}
+          {/* Tab 6: Due CDs/POs Section (Hidden for Vendors) */}
           {!isVendor && (
             <button
               type="button"
@@ -384,6 +521,32 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
           )}
         </div>
 
+        {activeSection === 'vendor' && (
+          <div className="text-xs text-emerald-900 font-bold px-3 py-1.5 bg-emerald-50/80 rounded-xl border border-emerald-300 flex items-center justify-between gap-2 whitespace-nowrap mt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
+              <span>
+                Vendor-Created Purchase Orders: <strong>{vendorOrders.length} Records</strong> (Auto 5% SAFAL &amp; 1% APMC Commission Deductions Applied)
+              </span>
+            </div>
+            <span className="text-[11px] text-emerald-700 font-semibold hidden sm:inline">
+              Net Vendor Settlement = 94% of Gross Consignment Value
+            </span>
+          </div>
+        )}
+        {activeSection === 'admin' && (
+          <div className="text-xs text-gray-800 font-bold px-3 py-1.5 bg-gray-50 rounded-xl border border-gray-300 flex items-center justify-between gap-2 whitespace-nowrap mt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-gray-600" />
+              <span>
+                Admin-Created Purchase Orders: <strong>{adminOrders.length} Records</strong> (Direct company procurement; SAFAL 0% &amp; APMC 0% Exempt)
+              </span>
+            </div>
+            <span className="text-[11px] text-gray-600 font-semibold hidden sm:inline">
+              Net Payable = Full PO Amount (₹0 Commission)
+            </span>
+          </div>
+        )}
         {activeSection === 'due' && (
           <div className="text-xs text-rose-800 font-bold px-2 flex items-center gap-1.5 whitespace-nowrap mt-1">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
@@ -412,7 +575,163 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
       </div>
 
       {/* 2. Stat Cards Dynamic Based on Section - Side by Side (5-Columns on Large Screens) */}
-      {activeSection === 'all' ? (
+      {activeSection === 'vendor' ? (
+        /* VENDOR POs DEDICATED STAT CARDS */
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 lg:gap-4">
+          <div className="stat-card blue flex flex-col justify-between p-3.5 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] truncate">Vendor Orders</span>
+              <div className="w-8 h-8 rounded-lg bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
+                <Building2 size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block leading-none">
+                {vendorOrders.length}
+              </strong>
+              <small className="text-[10px] text-gray-500 block mt-1 truncate">Vendor-Created POs</small>
+            </div>
+          </div>
+
+          <div className="stat-card gold flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-800 truncate">Total Vendor PO Value</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+                <Coins size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl font-black text-gray-900 font-['Manrope'] tracking-tight block whitespace-nowrap">
+                ₹{vendorTotalAmount.toLocaleString('en-IN')}
+              </strong>
+              <small className="text-[10px] text-gray-500 block mt-1 truncate">Gross Consignment Total</small>
+            </div>
+          </div>
+
+          <div className="stat-card amber flex flex-col justify-between p-3.5 rounded-2xl bg-[#FFFBEB] border border-[#FDE68A] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-amber-900 truncate">SAFAL 5% Commission</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEF3C7] flex items-center justify-center text-amber-700 flex-shrink-0">
+                <Percent size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl font-black text-amber-800 font-['Manrope'] tracking-tight block whitespace-nowrap">
+                ₹{vendorTotalSafalComm.toLocaleString('en-IN')}
+              </strong>
+              <small className="text-[10px] text-amber-700 block mt-1 truncate">SAFAL Platform Share</small>
+            </div>
+          </div>
+
+          <div className="stat-card blue flex flex-col justify-between p-3.5 rounded-2xl bg-[#EFF6FF] border border-[#BFDBFE] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-blue-900 truncate">APMC 1% Mandi Cess</span>
+              <div className="w-8 h-8 rounded-lg bg-[#DBEAFE] flex items-center justify-center text-blue-700 flex-shrink-0">
+                <Coins size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl font-black text-blue-800 font-['Manrope'] tracking-tight block whitespace-nowrap">
+                ₹{vendorTotalApmcComm.toLocaleString('en-IN')}
+              </strong>
+              <small className="text-[10px] text-blue-700 block mt-1 truncate">Mandi Market Cess</small>
+            </div>
+          </div>
+
+          <div className="stat-card green flex flex-col justify-between p-3.5 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 truncate">Net Vendor Payable (94%)</span>
+              <div className="w-8 h-8 rounded-lg bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+                <CheckCircle2 size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl font-black text-[#064D2B] font-['Manrope'] tracking-tight block whitespace-nowrap">
+                ₹{vendorNetPayable.toLocaleString('en-IN')}
+              </strong>
+              <small className="text-[10px] text-emerald-700 block mt-1 truncate">Net Settlement Payable</small>
+            </div>
+          </div>
+        </section>
+      ) : activeSection === 'admin' ? (
+        /* ADMIN POs DEDICATED STAT CARDS */
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 lg:gap-4">
+          <div className="stat-card blue flex flex-col justify-between p-3.5 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-[#1E293B] truncate">Admin Orders</span>
+              <div className="w-8 h-8 rounded-lg bg-[#DCEBFF] flex items-center justify-center text-[#1564B7] flex-shrink-0">
+                <ShieldCheck size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-xl sm:text-2xl lg:text-3xl font-black text-[#0F172A] font-['Manrope'] block leading-none">
+                {adminOrders.length}
+              </strong>
+              <small className="text-[10px] text-gray-500 block mt-1 truncate">Direct Company Procurement</small>
+            </div>
+          </div>
+
+          <div className="stat-card gold flex flex-col justify-between p-3.5 rounded-2xl bg-[#FEF9E6] border border-[#FCEBB5] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-gray-800 truncate">Total Admin PO Value</span>
+              <div className="w-8 h-8 rounded-lg bg-[#FEEBB0] flex items-center justify-center text-[#B68100] flex-shrink-0">
+                <Coins size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl font-black text-gray-900 font-['Manrope'] tracking-tight block whitespace-nowrap">
+                ₹{adminTotalAmount.toLocaleString('en-IN')}
+              </strong>
+              <small className="text-[10px] text-gray-500 block mt-1 truncate">Gross Direct PO Total</small>
+            </div>
+          </div>
+
+          <div className="stat-card green flex flex-col justify-between p-3.5 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 truncate">SAFAL Commission</span>
+              <div className="w-8 h-8 rounded-lg bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+                <Percent size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl font-black text-[#064D2B] font-['Manrope'] tracking-tight block whitespace-nowrap">
+                ₹0
+              </strong>
+              <small className="text-[10px] text-emerald-700 block mt-1 truncate">0% Applied (Exempt)</small>
+            </div>
+          </div>
+
+          <div className="stat-card green flex flex-col justify-between p-3.5 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 truncate">APMC Commission</span>
+              <div className="w-8 h-8 rounded-lg bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+                <Coins size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl font-black text-[#064D2B] font-['Manrope'] tracking-tight block whitespace-nowrap">
+                ₹0
+              </strong>
+              <small className="text-[10px] text-emerald-700 block mt-1 truncate">0% Applied (Exempt)</small>
+            </div>
+          </div>
+
+          <div className="stat-card emerald flex flex-col justify-between p-3.5 rounded-2xl bg-[#EAF8EE] border border-[#CEEED7] shadow-2xs min-w-0">
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[11px] sm:text-xs font-bold text-emerald-900 truncate">Net PO Amount</span>
+              <div className="w-8 h-8 rounded-lg bg-[#CEF2D8] flex items-center justify-center text-[#15813E] flex-shrink-0">
+                <CheckCircle2 size={17} strokeWidth={2.2} />
+              </div>
+            </div>
+            <div className="mt-2.5 min-w-0">
+              <strong className="text-base sm:text-lg lg:text-xl font-black text-[#064D2B] font-['Manrope'] tracking-tight block whitespace-nowrap">
+                ₹{adminTotalAmount.toLocaleString('en-IN')}
+              </strong>
+              <small className="text-[10px] text-emerald-700 block mt-1 truncate">Full Base Commitment</small>
+            </div>
+          </div>
+        </section>
+      ) : activeSection === 'all' ? (
         /* ALL POs STAT CARDS */
         <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3.5 lg:gap-4">
           <div className="stat-card blue flex flex-col justify-between p-3.5 rounded-2xl bg-[#EEF5FF] border border-[#D4E5FB] shadow-2xs min-w-0">
@@ -956,6 +1275,301 @@ export const PurchaseOrdersPage: React.FC<PurchaseOrdersPageProps> = ({
                               title="View Details"
                             >
                               <FileText size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : activeSection === 'vendor' ? (
+        /* VENDOR-CREATED PO TABLE (SAFAL 5%, APMC 1%, Total 6%, Net Amount) */
+        <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
+          <div className="p-4 bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white border-b border-[#D5E3D8] flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold flex-shrink-0">
+                <Building2 size={18} />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-[#064D2B] font-['Manrope']">
+                  Vendor-Created Purchase Orders
+                </h3>
+                <p className="text-[11px] text-gray-500">
+                  Fruit supply consignment orders submitted by registered vendors. Automatically applied with 5% SAFAL &amp; 1% APMC mandi deductions.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-xs font-bold">
+                {displayedOrders.length} Orders
+              </span>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-emerald-50 text-[#087A3E] border border-emerald-300 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                <ArrowDownToLine size={13} /> Export Vendor CSV
+              </button>
+            </div>
+          </div>
+
+          <div className="table-scroll-wrap overflow-x-auto w-full">
+            <table className="w-full border-collapse min-w-[1100px]">
+              <thead>
+                <tr className="bg-[#064D2B] text-white">
+                  <th className="py-3 px-3 text-center text-xs font-bold w-12 border-r border-[#085A33]">S.No</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">PO Number</th>
+                  <th className="py-3 px-4 text-left text-xs font-bold border-r border-[#085A33]">Vendor</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">Area</th>
+                  <th className="py-3 px-4 text-left text-xs font-bold border-r border-[#085A33]">Commodity</th>
+                  <th className="py-3 px-3 text-right text-xs font-bold border-r border-[#085A33]">PO Amount</th>
+                  <th className="py-3 px-3 text-right text-xs font-bold border-r border-[#085A33] bg-[#075932]">SAFAL 5%</th>
+                  <th className="py-3 px-3 text-right text-xs font-bold border-r border-[#085A33] bg-[#075932]">APMC 1%</th>
+                  <th className="py-3 px-3 text-right text-xs font-bold border-r border-[#085A33] bg-[#086337]">Total Commission</th>
+                  <th className="py-3 px-3 text-right text-xs font-bold border-r border-[#085A33] bg-[#096d3d]">Net Amount</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">Date</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">Status</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 text-xs">
+                {displayedOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className="text-center py-10 text-gray-400 text-xs">
+                      No vendor-created purchase orders found matching your search and filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  displayedOrders.map((order, idx) => {
+                    const grand = Number(order.grandTotal || 0);
+                    const safal = order.safalCommissionAmount ? Number(order.safalCommissionAmount) : Math.round(grand * 0.05);
+                    const apmc = order.apmcCommissionAmount ? Number(order.apmcCommissionAmount) : Math.round(grand * 0.01);
+                    const totalComm = order.totalCommissionAmount ? Number(order.totalCommissionAmount) : (safal + apmc);
+                    const net = order.netPayableAmount ? Number(order.netPayableAmount) : Math.max(0, grand - totalComm);
+                    const commodityDesc = order.items && order.items.length > 0
+                      ? order.items.map((it: any) => `${it.fruitName} (${Number(it.quantity || 1).toLocaleString('en-IN')} ${it.unit})`).join(', ')
+                      : 'Wholesale Fruits';
+
+                    return (
+                      <tr key={order.id} className="hover:bg-emerald-50/40 transition">
+                        <td className="py-3 px-3 text-center text-gray-600 font-semibold">{idx + 1}</td>
+                        <td className="py-3 px-3 text-center font-mono font-bold">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPO(order)}
+                            className="text-[#087A3E] hover:underline font-bold"
+                          >
+                            {order.poNumber}
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-left">
+                          <div className="font-bold text-gray-900">{order.supplierName || 'Registered Vendor'}</div>
+                          {order.vendorProfile?.vendorId && (
+                            <span className="text-[10px] text-gray-500 font-mono">{order.vendorProfile.vendorId}</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-center text-gray-700 font-medium">
+                          {order.orderPersonPlace || 'Warangal'}
+                        </td>
+                        <td className="py-3 px-4 text-left text-gray-800 truncate max-w-[200px]" title={commodityDesc}>
+                          {commodityDesc}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-gray-900">
+                          ₹{grand.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-semibold text-amber-700 bg-amber-50/40">
+                          -₹{safal.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-semibold text-blue-700 bg-blue-50/40">
+                          -₹{apmc.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-rose-700 bg-rose-50/40">
+                          -₹{totalComm.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-black text-emerald-800 bg-emerald-50/60 text-sm">
+                          ₹{net.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 text-center text-gray-600">
+                          {order.poDate ? new Date(order.poDate).toLocaleDateString('en-GB') : '-'}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <StatusBadge status={order.status} />
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPO(order)}
+                              className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded font-bold text-xs transition cursor-pointer"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  onNotify(`Downloading ${order.poNumber} PDF...`);
+                                  await api.downloadPurchaseOrderPDF(order.id, order.poNumber);
+                                  onNotify(`Order ${order.poNumber} PDF downloaded!`);
+                                } catch {
+                                  window.open(api.downloadPOPDFUrl(order.id), '_blank');
+                                }
+                              }}
+                              className="px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200 text-xs transition cursor-pointer"
+                              title="Download PDF"
+                            >
+                              <Download size={12} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : activeSection === 'admin' ? (
+        /* ADMIN-CREATED PO TABLE (SAFAL Commission ₹0, APMC Commission ₹0, Net Amount = Base) */
+        <section className="bg-white rounded-2xl border border-[#D5E3D8] shadow-sm overflow-hidden">
+          <div className="p-4 bg-gradient-to-r from-gray-50 via-emerald-50/20 to-white border-b border-[#D5E3D8] flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-gray-100 text-gray-800 flex items-center justify-center font-bold flex-shrink-0">
+                <ShieldCheck size={18} />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-[#064D2B] font-['Manrope']">
+                  Admin-Created Purchase Orders
+                </h3>
+                <p className="text-[11px] text-gray-500">
+                  Direct procurement orders created by Administrators &amp; Accounts. Commission rates are 0% (SAFAL ₹0, APMC ₹0).
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-800 border border-gray-300 text-xs font-bold">
+                {displayedOrders.length} Orders
+              </span>
+              <button
+                type="button"
+                onClick={handleExportCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-gray-100 text-gray-800 border border-gray-300 rounded-lg text-xs font-bold transition shadow-xs cursor-pointer"
+              >
+                <ArrowDownToLine size={13} /> Export Admin CSV
+              </button>
+            </div>
+          </div>
+
+          <div className="table-scroll-wrap overflow-x-auto w-full">
+            <table className="w-full border-collapse min-w-[1100px]">
+              <thead>
+                <tr className="bg-[#064D2B] text-white">
+                  <th className="py-3 px-3 text-center text-xs font-bold w-12 border-r border-[#085A33]">S.No</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">PO Number</th>
+                  <th className="py-3 px-4 text-left text-xs font-bold border-r border-[#085A33]">Supplier</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">Area</th>
+                  <th className="py-3 px-4 text-left text-xs font-bold border-r border-[#085A33]">Commodity</th>
+                  <th className="py-3 px-3 text-right text-xs font-bold border-r border-[#085A33]">PO Amount</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">SAFAL Commission</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">APMC Commission</th>
+                  <th className="py-3 px-3 text-right text-xs font-bold border-r border-[#085A33] bg-[#096d3d]">Net Amount</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">Created By</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">Date</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold border-r border-[#085A33]">Status</th>
+                  <th className="py-3 px-3 text-center text-xs font-bold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 text-xs">
+                {displayedOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={13} className="text-center py-10 text-gray-400 text-xs">
+                      No admin-created purchase orders found matching your search and filter criteria.
+                    </td>
+                  </tr>
+                ) : (
+                  displayedOrders.map((order, idx) => {
+                    const grand = Number(order.grandTotal || 0);
+                    const commodityDesc = order.items && order.items.length > 0
+                      ? order.items.map((it: any) => `${it.fruitName} (${Number(it.quantity || 1).toLocaleString('en-IN')} ${it.unit})`).join(', ')
+                      : 'Direct Wholesale Procurement';
+
+                    return (
+                      <tr key={order.id} className="hover:bg-gray-50 transition">
+                        <td className="py-3 px-3 text-center text-gray-600 font-semibold">{idx + 1}</td>
+                        <td className="py-3 px-3 text-center font-mono font-bold">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedPO(order)}
+                            className="text-[#087A3E] hover:underline font-bold"
+                          >
+                            {order.poNumber}
+                          </button>
+                        </td>
+                        <td className="py-3 px-4 text-left font-bold text-gray-900">
+                          {order.supplierName || 'Wholesale Supplier'}
+                        </td>
+                        <td className="py-3 px-3 text-center text-gray-700 font-medium">
+                          {order.orderPersonPlace || 'Warangal'}
+                        </td>
+                        <td className="py-3 px-4 text-left text-gray-800 truncate max-w-[200px]" title={commodityDesc}>
+                          {commodityDesc}
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-gray-900">
+                          ₹{grand.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                            ₹0 (0%)
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center font-mono">
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                            ₹0 (0%)
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right font-mono font-black text-emerald-800 bg-emerald-50/60 text-sm">
+                          ₹{grand.toLocaleString('en-IN')}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-800 text-[11px] font-semibold">
+                            {order.createdByName || 'Admin'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center text-gray-600">
+                          {order.poDate ? new Date(order.poDate).toLocaleDateString('en-GB') : '-'}
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <StatusBadge status={order.status} />
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPO(order)}
+                              className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded font-bold text-xs transition cursor-pointer"
+                            >
+                              View
+                            </button>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  onNotify(`Downloading ${order.poNumber} PDF...`);
+                                  await api.downloadPurchaseOrderPDF(order.id, order.poNumber);
+                                  onNotify(`Order ${order.poNumber} PDF downloaded!`);
+                                } catch {
+                                  window.open(api.downloadPOPDFUrl(order.id), '_blank');
+                                }
+                              }}
+                              className="px-2 py-1 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded border border-gray-200 text-xs transition cursor-pointer"
+                              title="Download PDF"
+                            >
+                              <Download size={12} />
                             </button>
                           </div>
                         </td>

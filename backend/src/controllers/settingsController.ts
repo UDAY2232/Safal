@@ -39,6 +39,24 @@ const defaultSettings: Record<string, any> = {
     orange: 780,
     plum: 850,
   },
+  vendorCommissionRates: {
+    safalPercent: 5,
+    apmcPercent: 1,
+    totalPercent: 6,
+    settlementRule: 'DEDUCTION_FROM_PAYABLE',
+    calculationBasis: 'GROSS_PO_AMOUNT',
+    effectiveDate: '2026-04-01',
+    applicableTypes: ['VENDOR_CONSIGNMENT', 'VENDOR_PORTAL'],
+  },
+  adminCommissionRates: {
+    safalPercent: 0,
+    apmcPercent: 0,
+    totalPercent: 0,
+    settlementRule: 'NO_COMMISSION',
+    calculationBasis: 'GROSS_PO_AMOUNT',
+    effectiveDate: '2026-04-01',
+    applicableTypes: ['ADMIN_DIRECT_PROCUREMENT'],
+  },
 };
 
 export async function getSettings(_req: AuthRequest, res: Response) {

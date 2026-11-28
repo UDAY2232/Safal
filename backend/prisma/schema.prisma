@@ -243,6 +243,14 @@ model PurchaseOrder {
   grandTotal           Decimal                       @default(0) @db.Decimal(14, 2)
   advanceAmount        Decimal                       @default(0) @db.Decimal(14, 2)
   pendingAmount        Decimal                       @default(0) @db.Decimal(14, 2)
+  creatorRole          String                        @default("ADMIN") // 'ADMIN', 'VENDOR', 'ACCOUNTANT', 'EMPLOYEE'
+  safalCommissionRate  Decimal                       @default(0) @db.Decimal(5, 2) // 5.00 for Vendor PO, 0.00 for Admin PO
+  safalCommissionAmount Decimal                      @default(0) @db.Decimal(14, 2)
+  apmcCommissionRate   Decimal                       @default(0) @db.Decimal(5, 2) // 1.00 for Vendor PO, 0.00 for Admin PO
+  apmcCommissionAmount Decimal                       @default(0) @db.Decimal(14, 2)
+  totalCommissionAmount Decimal                      @default(0) @db.Decimal(14, 2)
+  netPayableAmount     Decimal                       @default(0) @db.Decimal(14, 2) // PO Amount - Total Commission (or configured settlement)
+  commissionSettlementRule String                    @default("DEDUCTION_FROM_PAYABLE") // 'DEDUCTION_FROM_PAYABLE' | 'ADDITIONAL_SURCHARGE'
   status               POStatus                      @default(DRAFT)
   rejectionReason      String?
   items                PurchaseOrderItem[]

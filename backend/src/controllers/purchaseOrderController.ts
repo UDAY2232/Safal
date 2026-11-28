@@ -5,7 +5,7 @@ import { AuthRequest } from '../middleware/auth.js';
 import { createAuditLog } from '../services/auditService.js';
 import { generatePurchaseOrderPDF } from '../services/pdfService.js';
 import { clearDashboardCache } from './adminController.js';
-import { enrichPOWithSettlementDetails } from '../utils/settlementHelper.js';
+import { enrichPOWithSettlementDetails, calculatePOCommission } from '../utils/settlementHelper.js';
 
 /**
  * Generates a clean, monotonically increasing, collision-safe PO Number:
@@ -214,7 +214,7 @@ export function extractPaymentProofs(p: any): PaymentProofItem[] {
 
 export async function getPurchaseOrders(req: AuthRequest, res: Response) {
   try {
-    const { search, status, financialStatus, supplierId, fromDate, toDate, type } = req.query;
+    const { search, status, financialStatus, supplierId, fromDate, toDate, type, creatorType } = req.query;
 
     const andConditions: any[] = [];
 
@@ -249,6 +249,20 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
       andConditions.push({ poNumber: { startsWith: 'CD/' } });
     } else if (type === 'PO') {
       andConditions.push({ poNumber: { startsWith: 'PO/' } });
+    }
+
+    if (creatorType === 'VENDOR') {
+      andConditions.push({
+        OR: [
+          { creatorRole: 'VENDOR' },
+          { vendorProfileId: { not: null } },
+        ],
+      });
+    } else if (creatorType === 'ADMIN') {
+      andConditions.push({
+        creatorRole: { in: ['ADMIN', 'ACCOUNTANT'] },
+        vendorProfileId: null,
+      });
     }
 
     if (status && status !== 'All') {
@@ -385,6 +399,14 @@ export async function getPurchaseOrders(req: AuthRequest, res: Response) {
         pendingAmount: pending,
         status: effectiveStatus,
         rejectionReason: p.rejectionReason,
+        creatorRole: p.creatorRole || (p.vendorProfileId ? 'VENDOR' : 'ADMIN'),
+        safalCommissionRate: Number(p.safalCommissionRate || 0),
+        safalCommissionAmount: Number(p.safalCommissionAmount || 0),
+        apmcCommissionRate: Number(p.apmcCommissionRate || 0),
+        apmcCommissionAmount: Number(p.apmcCommissionAmount || 0),
+        totalCommissionAmount: Number(p.totalCommissionAmount || 0),
+        netPayableAmount: Number(p.netPayableAmount || p.grandTotal),
+        commissionSettlementRule: p.commissionSettlementRule || 'DEDUCTION_FROM_PAYABLE',
         itemsCount: p.items.length,
         items: p.items.map((i) => ({
           id: i.id,
@@ -476,6 +498,14 @@ export async function getPurchaseOrderById(req: AuthRequest, res: Response) {
     const staffMatch = po.notes?.match(/Order Taken By:\s*([^|\n]+)/);
     const formatted = {
       ...po,
+      creatorRole: po.creatorRole || (po.vendorProfileId ? 'VENDOR' : 'ADMIN'),
+      safalCommissionRate: Number(po.safalCommissionRate || 0),
+      safalCommissionAmount: Number(po.safalCommissionAmount || 0),
+      apmcCommissionRate: Number(po.apmcCommissionRate || 0),
+      apmcCommissionAmount: Number(po.apmcCommissionAmount || 0),
+      totalCommissionAmount: Number(po.totalCommissionAmount || 0),
+      netPayableAmount: Number(po.netPayableAmount || po.grandTotal),
+      commissionSettlementRule: po.commissionSettlementRule || 'DEDUCTION_FROM_PAYABLE',
       supplierName: po.supplier?.name || 'Party / Supplier',
       supplierCategory: po.supplier?.category || (po.poNumber?.startsWith('CD/') ? 'Customer Due' : 'Wholesale Fruits'),
       createdByName: staffMatch ? staffMatch[1].trim() : (po.createdBy?.name || 'Staff'),
@@ -753,6 +783,10 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
 
     const effectiveSubtotal = subtotal > 0 ? subtotal : grandTotal;
 
+    const isVendorPO = isVendorUser || Boolean(linkedVendorProfileId) || req.body.isVendor === true;
+    const poCreatorRole = isVendorPO ? 'VENDOR' : (req.user?.role === 'ADMIN' ? 'ADMIN' : req.user?.role || 'ADMIN');
+    const commDetails = calculatePOCommission(grandTotal, poCreatorRole);
+
     // Concurrency-safe atomic transaction with unique constraint collision retry loop
     let newPO: any = null;
     let attempts = 0;
@@ -775,6 +809,14 @@ export async function createPurchaseOrder(req: AuthRequest, res: Response) {
               vendorProfileId: linkedVendorProfileId,
               autoAdvanceCalculated,
               createdById: req.user!.id,
+              creatorRole: commDetails.creatorRole,
+              safalCommissionRate: commDetails.safalCommissionRate,
+              safalCommissionAmount: commDetails.safalCommissionAmount,
+              apmcCommissionRate: commDetails.apmcCommissionRate,
+              apmcCommissionAmount: commDetails.apmcCommissionAmount,
+              totalCommissionAmount: commDetails.totalCommissionAmount,
+              netPayableAmount: commDetails.netPayableAmount,
+              commissionSettlementRule: commDetails.commissionSettlementRule,
               deliveryAddress,
               orderPersonPlace: personPlace || null,
               paymentTerms,

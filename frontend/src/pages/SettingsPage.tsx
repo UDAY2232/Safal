@@ -16,6 +16,8 @@ import {
   ShieldCheck,
   User,
   Lock,
+  Building2,
+  Percent,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { AdminPasswordResetModal } from '../components/AdminPasswordResetModal';
@@ -190,6 +192,192 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onNotify }) => {
             <p className="text-[11px] text-gray-500 mt-1 pl-6">
               When checked, accountant-submitted POs must be authorized by Admin before suppliers are issued orders.
             </p>
+          </div>
+        </div>
+
+        {/* Purchase Order Commission & Mandi Settlement Settings (Admin Control) */}
+        <div className="bg-white p-5 rounded-2xl border-2 border-emerald-300 shadow-sm space-y-4 md:col-span-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-100 pb-3">
+            <div>
+              <div className="flex items-center gap-2 text-[#064D2B] font-bold text-sm">
+                <Percent size={18} className="text-[#087A3E]" /> Purchase Order Commission &amp; Mandi Settlement Policies
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Configure role-based commission rates, calculation basis, and settlement rules for vendor and admin purchase orders.
+              </p>
+            </div>
+            <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+              Historical Rates Preserved Permanently
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Vendor PO Configuration */}
+            <div className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-3">
+              <div className="flex items-center justify-between border-b border-emerald-200 pb-2">
+                <span className="font-bold text-xs text-emerald-950 flex items-center gap-1.5">
+                  <Building2 size={14} className="text-emerald-700" /> Vendor-Created POs (Mandi Consignment)
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                  Total: {Number(settings.vendorCommissionRates?.safalPercent ?? 5) + Number(settings.vendorCommissionRates?.apmcPercent ?? 1)}%
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">SAFAL Commission (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={settings.vendorCommissionRates?.safalPercent ?? 5}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      const cur = settings.vendorCommissionRates || {};
+                      setSettings({
+                        ...settings,
+                        vendorCommissionRates: {
+                          ...cur,
+                          safalPercent: val,
+                          totalPercent: val + Number(cur.apmcPercent ?? 1),
+                        },
+                      });
+                    }}
+                    className="w-full h-9 px-2.5 border border-emerald-300 rounded-lg text-xs font-bold bg-white"
+                  />
+                  <span className="text-[10px] text-gray-500 mt-0.5 block">Default: 5%</span>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">APMC Mandi Cess (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={settings.vendorCommissionRates?.apmcPercent ?? 1}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      const cur = settings.vendorCommissionRates || {};
+                      setSettings({
+                        ...settings,
+                        vendorCommissionRates: {
+                          ...cur,
+                          apmcPercent: val,
+                          totalPercent: Number(cur.safalPercent ?? 5) + val,
+                        },
+                      });
+                    }}
+                    className="w-full h-9 px-2.5 border border-emerald-300 rounded-lg text-xs font-bold bg-white"
+                  />
+                  <span className="text-[10px] text-gray-500 mt-0.5 block">Default: 1%</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Calculation Basis</label>
+                  <select
+                    value={settings.vendorCommissionRates?.calculationBasis || 'GROSS_PO_AMOUNT'}
+                    onChange={(e) => {
+                      setSettings({
+                        ...settings,
+                        vendorCommissionRates: {
+                          ...(settings.vendorCommissionRates || {}),
+                          calculationBasis: e.target.value,
+                        },
+                      });
+                    }}
+                    className="w-full h-9 px-2.5 border border-emerald-300 rounded-lg text-xs font-medium bg-white"
+                  >
+                    <option value="GROSS_PO_AMOUNT">Eligible Gross PO Base Amount</option>
+                    <option value="NET_AFTER_DISCOUNT">Net Base After Trade Discount</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Accounting Settlement Treatment</label>
+                  <select
+                    value={settings.vendorCommissionRates?.settlementRule || 'DEDUCTION_FROM_PAYABLE'}
+                    onChange={(e) => {
+                      setSettings({
+                        ...settings,
+                        vendorCommissionRates: {
+                          ...(settings.vendorCommissionRates || {}),
+                          settlementRule: e.target.value,
+                        },
+                      });
+                    }}
+                    className="w-full h-9 px-2.5 border border-emerald-300 rounded-lg text-xs font-medium bg-white"
+                  >
+                    <option value="DEDUCTION_FROM_PAYABLE">Deduction from Vendor Payable (Net = 94%)</option>
+                    <option value="ADDITIONAL_SURCHARGE">Additional Platform Surcharge</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">Effective Date</label>
+                <input
+                  type="date"
+                  value={settings.vendorCommissionRates?.effectiveDate || '2026-04-01'}
+                  onChange={(e) => {
+                    setSettings({
+                      ...settings,
+                      vendorCommissionRates: {
+                        ...(settings.vendorCommissionRates || {}),
+                        effectiveDate: e.target.value,
+                      },
+                    });
+                  }}
+                  className="w-full h-9 px-2.5 border border-emerald-300 rounded-lg text-xs bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Admin PO Configuration */}
+            <div className="p-4 rounded-xl border border-gray-200 bg-gray-50/70 space-y-3">
+              <div className="flex items-center justify-between border-b border-gray-200 pb-2">
+                <span className="font-bold text-xs text-gray-900 flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-[#064D2B]" /> Admin-Created POs (Direct Procurement)
+                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  Commission: 0% (Exempt)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">SAFAL Commission (%)</label>
+                  <input
+                    type="number"
+                    disabled
+                    value={0}
+                    className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-bold bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                  <span className="text-[10px] text-gray-500 mt-0.5 block">Locked: 0%</span>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-gray-700 mb-1">APMC Commission (%)</label>
+                  <input
+                    type="number"
+                    disabled
+                    value={0}
+                    className="w-full h-9 px-2.5 border border-gray-300 rounded-lg text-xs font-bold bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                  <span className="text-[10px] text-gray-500 mt-0.5 block">Locked: 0%</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-white rounded-xl border border-gray-200 text-gray-600 text-[11px] leading-relaxed">
+                <strong>Accounting Rule:</strong> Admin-created POs are company-direct wholesale fruit procurement orders. No mandi commission deductions apply. Net payable equals the full base commitment.
+              </div>
+
+              <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px]">
+                🛡️ <strong>Historical Rates Integrity:</strong> Modifying future commission settings applies only to newly issued POs. Previously finalized POs retain their historical commission rates in the database.
+              </div>
+            </div>
           </div>
         </div>
 

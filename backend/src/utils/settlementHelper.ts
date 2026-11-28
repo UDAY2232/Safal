@@ -49,16 +49,55 @@ export interface ConsignmentSettlementDetails {
   mandiCessPaid: number;
 }
 
+export function calculatePOCommission(grandTotal: number, creatorRole: string = 'ADMIN') {
+  const isVendor = creatorRole === 'VENDOR';
+  const safalRate = isVendor ? 5 : 0;
+  const apmcRate = isVendor ? 1 : 0;
+  const safalAmount = isVendor ? Math.round((grandTotal * 0.05) * 100) / 100 : 0;
+  const apmcAmount = isVendor ? Math.round((grandTotal * 0.01) * 100) / 100 : 0;
+  const totalCommission = Math.round((safalAmount + apmcAmount) * 100) / 100;
+  const netPayable = isVendor ? Math.max(0, grandTotal - totalCommission) : grandTotal;
+
+  return {
+    creatorRole: isVendor ? 'VENDOR' : 'ADMIN',
+    safalCommissionRate: safalRate,
+    safalCommissionAmount: safalAmount,
+    apmcCommissionRate: apmcRate,
+    apmcCommissionAmount: apmcAmount,
+    totalCommissionAmount: totalCommission,
+    netPayableAmount: netPayable,
+    commissionSettlementRule: 'DEDUCTION_FROM_PAYABLE',
+  };
+}
+
 export function enrichPOWithSettlementDetails(po: any): any {
   if (!po) return po;
 
   const isCD = String(po.poNumber || '').startsWith('CD/');
   const grandTotal = Number(po.grandTotal || 0);
   const autoAdvance = Math.round(grandTotal * 0.70); // 70% advance policy
-  const adminShareAmount = isCD ? 0 : Math.round(grandTotal * 0.05);
-  const apmcShareAmount = isCD ? 0 : Math.round(grandTotal * 0.01);
+
+  // Identify Creator Role & Vendor Status
+  const creatorRole = po.creatorRole || (po.vendorProfileId || po.isVendor ? 'VENDOR' : 'ADMIN');
+  const isVendorPO = !isCD && creatorRole === 'VENDOR';
+
+  // Role-based Commission Rule:
+  // Vendor-created PO: SAFAL 5%, APMC 1% (deducted from vendor payable)
+  // Admin-created PO: SAFAL 0%, APMC 0%
+  const adminSharePercent = isVendorPO ? Number(po.safalCommissionRate ?? 5) : 0;
+  const apmcSharePercent = isVendorPO ? Number(po.apmcCommissionRate ?? 1) : 0;
+  const adminShareAmount = isVendorPO
+    ? (po.safalCommissionAmount !== undefined && po.safalCommissionAmount !== null
+        ? Number(po.safalCommissionAmount)
+        : Math.round(grandTotal * (adminSharePercent / 100) * 100) / 100)
+    : 0;
+  const apmcShareAmount = isVendorPO
+    ? (po.apmcCommissionAmount !== undefined && po.apmcCommissionAmount !== null
+        ? Number(po.apmcCommissionAmount)
+        : Math.round(grandTotal * (apmcSharePercent / 100) * 100) / 100)
+    : 0;
   const totalDeductions = adminShareAmount + apmcShareAmount;
-  const netVendorPayable = isCD ? grandTotal : Math.max(0, grandTotal - totalDeductions);
+  const netVendorPayable = isVendorPO ? Math.max(0, grandTotal - totalDeductions) : grandTotal;
 
   let storedAdvance: any = null;
   let storedSettlement: any = null;
@@ -147,9 +186,9 @@ export function enrichPOWithSettlementDetails(po: any): any {
     hasSettlementEntry,
     settlementCompleted,
     grossConsignmentTotal: grandTotal,
-    adminSharePercent: 5,
+    adminSharePercent,
     adminShareAmount,
-    apmcSharePercent: 1,
+    apmcSharePercent,
     apmcShareAmount,
     totalMandiDeductions: totalDeductions,
     netVendorPayable,

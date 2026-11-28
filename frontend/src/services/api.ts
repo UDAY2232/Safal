@@ -240,6 +240,10 @@ export const api = {
   clearBillPayment: (data: any) => request<any>('/clearance/record-payment', { method: 'POST', body: JSON.stringify(data) }),
 
   // Reports
+  getVendorCommissionReport: (params?: Record<string, string>) =>
+    request<any>(`/reports/vendor-commissions${params ? '?' + new URLSearchParams(params).toString() : ''}`),
+  getAdminPOReport: (params?: Record<string, string>) =>
+    request<any>(`/reports/admin-purchase-orders${params ? '?' + new URLSearchParams(params).toString() : ''}`),
   downloadReportCSV: async (type: string): Promise<void> => {
     const token = localStorage.getItem('safal_token');
     const res = await fetch(`${API_BASE}/reports/${type}?format=csv`, {

@@ -5228,6 +5228,40 @@ export const VendorDashboardPage: React.FC<VendorDashboardPageProps> = ({
                 />
               </div>
 
+              {/* Vendor Commission Breakdown Preview */}
+              <div className="p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50/50 to-white border-2 border-emerald-300 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between pb-1.5 border-b border-emerald-200 flex-wrap gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <Building2 size={15} className="text-[#087A3E]" />
+                    <strong className="text-xs font-black uppercase tracking-wider text-emerald-950 font-['Manrope']">
+                      Wholesale Mandi Commission Structure (Vendor PO)
+                    </strong>
+                  </div>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                    Total Deductions: 6%
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="p-2 rounded-xl bg-white border border-gray-200">
+                    <span className="text-[10px] text-gray-500 font-bold block">SAFAL Platform Share</span>
+                    <strong className="text-xs font-black text-amber-900 block mt-0.5">5.00% (Fixed)</strong>
+                  </div>
+                  <div className="p-2 rounded-xl bg-white border border-gray-200">
+                    <span className="text-[10px] text-gray-500 font-bold block">APMC Mandi Cess</span>
+                    <strong className="text-xs font-black text-blue-900 block mt-0.5">1.00% (Fixed)</strong>
+                  </div>
+                  <div className="p-2 rounded-xl bg-emerald-100/70 border border-emerald-300">
+                    <span className="text-[10px] text-emerald-900 font-bold block">Net Vendor Payable</span>
+                    <strong className="text-xs font-black text-[#064D2B] block mt-0.5">94.00% of Consignment</strong>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-gray-600 leading-tight">
+                  📌 <strong>How it works:</strong> In accordance with APMC wholesale mandi trading regulations, SAFAL applies 5% administrative brokerage and 1% market fee on the realized sale proceeds. 70% advance is disbursed upon truck departure and verified bilty, and the net remaining 24% is settled upon mandi auction realization. Commission rates cannot be manually modified.
+                </p>
+              </div>
+
               {/* Modal Footer */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-100 flex-shrink-0">
                 <button

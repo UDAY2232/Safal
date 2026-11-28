@@ -287,3 +287,185 @@ export async function getProfitLossReport(req: AuthRequest, res: Response) {
   }
 }
 
+export async function getVendorCommissionReports(req: AuthRequest, res: Response) {
+  try {
+    const { format, fromDate, toDate, vendorId, status } = req.query;
+
+    const andConditions: any[] = [
+      {
+        OR: [
+          { creatorRole: 'VENDOR' },
+          { vendorProfileId: { not: null } },
+        ],
+      },
+    ];
+
+    if (status && status !== 'All') {
+      andConditions.push({ status: status as any });
+    }
+    if (vendorId) {
+      andConditions.push({
+        OR: [
+          { vendorProfileId: vendorId as string },
+          { supplierId: vendorId as string },
+        ],
+      });
+    }
+    if (fromDate || toDate) {
+      const dateFilter: any = {};
+      if (fromDate) dateFilter.gte = new Date(fromDate as string);
+      if (toDate) dateFilter.lte = new Date(toDate as string);
+      andConditions.push({ poDate: dateFilter });
+    }
+
+    const pos = await prisma.purchaseOrder.findMany({
+      where: { AND: andConditions },
+      include: {
+        supplier: true,
+        vendorProfile: true,
+        createdBy: true,
+        items: true,
+      },
+      orderBy: { poDate: 'desc' },
+    });
+
+    if (format === 'csv') {
+      const headers = [
+        'S.No',
+        'PO Number',
+        'Vendor Name',
+        'Vendor ID',
+        'Area / Hub',
+        'Commodity',
+        'PO Amount (INR)',
+        'SAFAL 5% Commission (INR)',
+        'APMC 1% Mandi Cess (INR)',
+        'Total Commission (INR)',
+        'Net Realized Payable (INR)',
+        'Advance Disbursed (INR)',
+        'Balance Due (INR)',
+        'PO Date',
+        'Status',
+      ];
+
+      const rows = pos.map((p, idx) => {
+        const grand = Number(p.grandTotal || 0);
+        const safal = p.safalCommissionAmount !== null && p.safalCommissionAmount !== undefined ? Number(p.safalCommissionAmount) : Math.round(grand * 0.05);
+        const apmc = p.apmcCommissionAmount !== null && p.apmcCommissionAmount !== undefined ? Number(p.apmcCommissionAmount) : Math.round(grand * 0.01);
+        const totalComm = p.totalCommissionAmount !== null && p.totalCommissionAmount !== undefined ? Number(p.totalCommissionAmount) : (safal + apmc);
+        const net = p.netPayableAmount !== null && p.netPayableAmount !== undefined ? Number(p.netPayableAmount) : Math.max(0, grand - totalComm);
+        const adv = Number(p.advanceAmount || 0);
+        const due = Number(p.pendingAmount ?? Math.max(0, net - adv));
+        const commDesc = p.items && p.items.length > 0 ? p.items.map((i: any) => `${i.fruitName} (${i.quantity} ${i.unit})`).join('; ') : 'Wholesale Fruits';
+
+        return [
+          idx + 1,
+          p.poNumber,
+          p.supplier.name,
+          p.vendorProfile?.vendorId || p.supplier.supplierCode || 'VND',
+          p.orderPersonPlace || 'Warangal Hub',
+          commDesc,
+          grand,
+          safal,
+          apmc,
+          totalComm,
+          net,
+          adv,
+          due,
+          new Date(p.poDate).toLocaleDateString('en-GB'),
+          p.status,
+        ];
+      });
+
+      const csvData = formatCSV(headers, rows);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="VendorCommission_Report.csv"');
+      return res.send(csvData);
+    }
+
+    return res.json(pos);
+  } catch (error) {
+    console.error('Error generating vendor commission report:', error);
+    return res.status(500).json({ error: 'Failed to generate vendor commission report' });
+  }
+}
+
+export async function getAdminPOReports(req: AuthRequest, res: Response) {
+  try {
+    const { format, fromDate, toDate, status } = req.query;
+
+    const andConditions: any[] = [
+      { creatorRole: { in: ['ADMIN', 'ACCOUNTANT'] } },
+      { vendorProfileId: null },
+      { poNumber: { startsWith: 'PO/' } },
+    ];
+
+    if (status && status !== 'All') {
+      andConditions.push({ status: status as any });
+    }
+    if (fromDate || toDate) {
+      const dateFilter: any = {};
+      if (fromDate) dateFilter.gte = new Date(fromDate as string);
+      if (toDate) dateFilter.lte = new Date(toDate as string);
+      andConditions.push({ poDate: dateFilter });
+    }
+
+    const pos = await prisma.purchaseOrder.findMany({
+      where: { AND: andConditions },
+      include: {
+        supplier: true,
+        createdBy: true,
+        items: true,
+      },
+      orderBy: { poDate: 'desc' },
+    });
+
+    if (format === 'csv') {
+      const headers = [
+        'S.No',
+        'PO Number',
+        'Supplier Name',
+        'Area',
+        'Commodity',
+        'PO Amount (INR)',
+        'SAFAL Commission (INR)',
+        'APMC Commission (INR)',
+        'Net Amount (INR)',
+        'Created By',
+        'PO Date',
+        'Status',
+      ];
+
+      const rows = pos.map((p, idx) => {
+        const grand = Number(p.grandTotal || 0);
+        const commDesc = p.items && p.items.length > 0 ? p.items.map((i: any) => `${i.fruitName} (${i.quantity} ${i.unit})`).join('; ') : 'Direct Procurement';
+
+        return [
+          idx + 1,
+          p.poNumber,
+          p.supplier.name,
+          p.orderPersonPlace || 'Warangal',
+          commDesc,
+          grand,
+          0,
+          0,
+          grand,
+          p.createdBy.name,
+          new Date(p.poDate).toLocaleDateString('en-GB'),
+          p.status,
+        ];
+      });
+
+      const csvData = formatCSV(headers, rows);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="AdminPO_Report.csv"');
+      return res.send(csvData);
+    }
+
+    return res.json(pos);
+  } catch (error) {
+    console.error('Error generating admin PO report:', error);
+    return res.status(500).json({ error: 'Failed to generate admin PO report' });
+  }
+}
+

@@ -14,6 +14,9 @@ import {
   PieChart as PieIcon,
   ShieldCheck,
   CreditCard,
+  Percent,
+  Building2,
+  Layers,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -81,19 +84,22 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [systemStatus, setSystemStatus] = useState<any>(null);
+  const [vendorCommData, setVendorCommData] = useState<any[]>([]);
 
   useEffect(() => {
     let isMounted = true;
     async function loadReportsData() {
       try {
         setLoading(true);
-        const [dashboardRes, statusRes] = await Promise.all([
+        const [dashboardRes, statusRes, vendorCommRes] = await Promise.all([
           api.getAdminDashboard().catch(() => DEFAULT_METRICS),
           api.getSystemStatus().catch(() => null),
+          api.getVendorCommissionReport().catch(() => []),
         ]);
         if (isMounted) {
           setData(dashboardRes || DEFAULT_METRICS);
           setSystemStatus(statusRes);
+          setVendorCommData(Array.isArray(vendorCommRes) ? vendorCommRes : []);
         }
       } catch (err) {
         console.error('Failed to load reports data:', err);
@@ -123,6 +129,23 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
 
   const formatCurrency = (val: number) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
+  // Vendor Commission Aggregations (5% SAFAL, 1% APMC, 6% Total, 94% Net)
+  const vendorGross = vendorCommData.reduce((sum, p) => sum + Number(p.grandTotal || 0), 0);
+  const vendorSafal = vendorCommData.reduce((sum, p) => {
+    return sum + (p.safalCommissionAmount !== undefined && p.safalCommissionAmount !== null ? Number(p.safalCommissionAmount) : Math.round(Number(p.grandTotal || 0) * 0.05));
+  }, 0);
+  const vendorApmc = vendorCommData.reduce((sum, p) => {
+    return sum + (p.apmcCommissionAmount !== undefined && p.apmcCommissionAmount !== null ? Number(p.apmcCommissionAmount) : Math.round(Number(p.grandTotal || 0) * 0.01));
+  }, 0);
+  const vendorTotalComm = vendorSafal + vendorApmc;
+  const vendorNetPayable = Math.max(0, vendorGross - vendorTotalComm);
+  const vendorAdvancePaid = vendorCommData.reduce((sum, p) => sum + Number(p.advanceAmount || 0), 0);
+  const vendorPendingDue = vendorCommData.reduce((sum, p) => {
+    const net = p.netPayableAmount !== null && p.netPayableAmount !== undefined ? Number(p.netPayableAmount) : Math.max(0, Number(p.grandTotal || 0) * 0.94);
+    const adv = Number(p.advanceAmount || 0);
+    return sum + Number(p.pendingAmount ?? Math.max(0, net - adv));
+  }, 0);
+
   const donutData = Object.entries(charts.statusCounts || {}).map(([key, value]) => ({
     name: key.replace(/([A-Z])/g, ' $1').trim(),
     value: Number(value),
@@ -130,7 +153,23 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
 
   const reportItems = [
     {
-      title: 'Purchase Orders Report (PO)',
+      title: 'Vendor Commission & Mandi Settlement Report',
+      type: 'vendor-commissions',
+      desc: 'Itemized vendor consignment orders: 5% SAFAL platform commission, 1% APMC cess, total 6% commission deductions, and 94% net settlement payables.',
+      icon: <Percent size={22} />,
+      metric: `${vendorCommData.length} Vendor Orders · Comm: ${formatCurrency(vendorTotalComm)} · Net: ${formatCurrency(vendorNetPayable)}`,
+      updated: '5% SAFAL + 1% APMC Rule Synced',
+    },
+    {
+      title: 'Admin Purchase Orders Report (0% Commission)',
+      type: 'admin-purchase-orders',
+      desc: 'Direct fruit procurement purchase orders created by Head Office / Full Administrators with 0% commission applied.',
+      icon: <Building2 size={22} />,
+      metric: 'Exempt from Mandi Commission · 0% Deductions',
+      updated: 'Corporate Direct Procurement',
+    },
+    {
+      title: 'Purchase Orders Report (PO - Master)',
       type: 'purchase-orders',
       desc: 'Complete fruit procurement orders, suppliers, quantities, advance, pending due, and GST totals.',
       icon: <ShoppingCart size={22} />,
@@ -255,6 +294,87 @@ export const ReportsPage: React.FC<ReportsPageProps> = ({ onNotify }) => {
           tone="rose"
           detail={`${summary.totalBillsCleared} Total Bills Cleared to Date`}
         />
+      </section>
+
+      {/* Vendor Mandi Commission & Settlement Intelligence */}
+      <section className="bg-gradient-to-br from-emerald-50/80 via-white to-green-50/60 p-5 rounded-2xl border border-emerald-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs">
+              <Percent size={18} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-gray-900">
+                Vendor Consignment Commission &amp; Mandi Settlement Intelligence
+              </h2>
+              <p className="text-xs text-gray-500">
+                Automated role-based commission accounting: SAFAL Platform (5%) + APMC Mandi Cess (1%) = 6% Total Deductions from Vendor POs
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => downloadReport('vendor-commissions', 'Vendor Commission Report')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition shadow-xs cursor-pointer"
+            >
+              <ArrowDownToLine size={13} />
+              <span>Vendor Commission CSV</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => downloadReport('admin-purchase-orders', 'Admin PO Report')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-bold text-xs border border-gray-200 transition cursor-pointer"
+            >
+              <ArrowDownToLine size={13} />
+              <span>Admin PO (0%) CSV</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-xs">
+            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Vendor Orders</div>
+            <div className="text-lg font-black text-gray-900 mt-1">{vendorCommData.length}</div>
+            <div className="text-[10px] text-emerald-700 font-medium mt-0.5">Consignments</div>
+          </div>
+          <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-xs">
+            <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">Gross Amount</div>
+            <div className="text-lg font-black text-gray-900 mt-1">{formatCurrency(vendorGross)}</div>
+            <div className="text-[10px] text-gray-500 font-medium mt-0.5">Pre-commission value</div>
+          </div>
+          <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-xs">
+            <div className="text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">SAFAL 5% Share</div>
+            <div className="text-lg font-black text-emerald-800 mt-1">{formatCurrency(vendorSafal)}</div>
+            <div className="text-[10px] text-emerald-600 font-medium mt-0.5">Platform commission</div>
+          </div>
+          <div className="bg-white p-3.5 rounded-xl border border-amber-100 shadow-xs">
+            <div className="text-[11px] font-semibold text-amber-700 uppercase tracking-wide">APMC 1% Cess</div>
+            <div className="text-lg font-black text-amber-800 mt-1">{formatCurrency(vendorApmc)}</div>
+            <div className="text-[10px] text-amber-600 font-medium mt-0.5">Market committee levy</div>
+          </div>
+          <div className="bg-white p-3.5 rounded-xl border border-purple-100 shadow-xs">
+            <div className="text-[11px] font-semibold text-purple-700 uppercase tracking-wide">Total 6% Comm</div>
+            <div className="text-lg font-black text-purple-900 mt-1">{formatCurrency(vendorTotalComm)}</div>
+            <div className="text-[10px] text-purple-600 font-medium mt-0.5">Total deductions</div>
+          </div>
+          <div className="bg-white p-3.5 rounded-xl border border-teal-100 shadow-xs">
+            <div className="text-[11px] font-semibold text-teal-700 uppercase tracking-wide">Net Vendor Payable</div>
+            <div className="text-lg font-black text-teal-900 mt-1">{formatCurrency(vendorNetPayable)}</div>
+            <div className="text-[10px] text-teal-600 font-medium mt-0.5">94% Eligible settlement</div>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between text-xs text-gray-600 bg-white/70 p-2.5 rounded-xl border border-emerald-100/60 gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span><b>Admin Direct Procurement:</b> ₹0 commission (0% applied). Full gross payable to direct suppliers.</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <span>Disbursed Advance: <b className="text-gray-900">{formatCurrency(vendorAdvancePaid)}</b></span>
+            <span>Pending Balance Due: <b className="text-amber-700">{formatCurrency(vendorPendingDue)}</b></span>
+          </div>
+        </div>
       </section>
 
       {/* 2 Data Visualizations: Monthly Activity & PO Distribution */}

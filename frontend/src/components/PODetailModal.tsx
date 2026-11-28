@@ -1034,8 +1034,15 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
             </div>
           )}
 
-          {/* Vendor Mandi Commercial Settlement & Realization Statement (Visible strictly after Admin records settlement) */}
+          {/* Vendor vs Admin Purchase Order Commission & Settlement Statement */}
           {!isCD && (() => {
+            const isVendorPO =
+              order.creatorRole === 'VENDOR' ||
+              Boolean(order.vendorProfileId) ||
+              Boolean((order as any).isVendor) ||
+              Boolean(order.supplierName?.toLowerCase().includes('vendor')) ||
+              (order.notes && order.notes.includes('Vendor Consignment'));
+
             const settle = (order as any).settlementDetails;
             const hasSettlement = Boolean(
               settle?.hasSettlementEntry ||
@@ -1043,155 +1050,249 @@ export const PODetailModal: React.FC<PODetailModalProps> = ({
               (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0)
             );
 
-            if (!hasSettlement) {
+            if (isVendorPO) {
+              const safalComm = order.safalCommissionAmount !== undefined && order.safalCommissionAmount !== null
+                ? Number(order.safalCommissionAmount)
+                : Math.round(grandTotal * 0.05);
+              const apmcComm = order.apmcCommissionAmount !== undefined && order.apmcCommissionAmount !== null
+                ? Number(order.apmcCommissionAmount)
+                : Math.round(grandTotal * 0.01);
+              const totalComm = order.totalCommissionAmount !== undefined && order.totalCommissionAmount !== null
+                ? Number(order.totalCommissionAmount)
+                : (safalComm + apmcComm);
+              const netPayable = order.netPayableAmount !== undefined && order.netPayableAmount !== null
+                ? Number(order.netPayableAmount)
+                : Math.max(0, grandTotal - totalComm);
+
               return (
-                <div className="rounded-2xl border border-gray-200 bg-gray-50/80 p-4 text-center space-y-1.5 shadow-2xs">
-                  <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
-                    <Clock size={16} />
+                <div className="rounded-2xl border-2 border-emerald-300 bg-gradient-to-b from-emerald-50/50 to-white overflow-hidden shadow-xs space-y-3 p-4">
+                  <div className="flex items-center justify-between pb-2 border-b border-emerald-200 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Calculator size={16} className="text-[#087A3E]" />
+                      <strong className="text-xs font-black uppercase tracking-wider text-emerald-950 font-['Manrope']">
+                        Commercial Mandi Commission &amp; Settlement Statement (Vendor PO)
+                      </strong>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                        Created By: Vendor ({order.vendorProfile?.vendorId || 'Registered Vendor'})
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                        ((order as any).settlementDetails?.settlementCompleted && Number((order as any).settlementDetails?.finalBalanceDue || 0) === 0) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0)
+                          ? 'text-emerald-800 bg-emerald-100 border-emerald-300'
+                          : (order as any).settlementDetails?.hasSettlementEntry
+                          ? 'text-amber-800 bg-amber-100 border-amber-300'
+                          : 'text-gray-700 bg-gray-100 border-gray-300'
+                      }`}>
+                        {(((order as any).settlementDetails?.settlementCompleted && Number((order as any).settlementDetails?.finalBalanceDue || 0) === 0) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0))
+                          ? 'Cleared ✓'
+                          : (order as any).settlementDetails?.hasSettlementEntry
+                          ? 'OPEN - Due Pending'
+                          : 'Awaiting Mandi Realization'}
+                      </span>
+                    </div>
                   </div>
-                  <strong className="text-xs font-bold text-gray-800 block font-['Manrope']">
-                    Commercial Mandi Settlement &amp; Realization Statement Pending
-                  </strong>
-                  <p className="text-[11px] text-gray-500 max-w-md mx-auto">
-                    Safal operates on a wholesale Mandi sales consignment model. Once this fruit consignment arrives at the regional hub, Safal Accounts will record finalized mandi sale proceeds, 5% admin commission, and 1% APMC cess deductions. The verified settlement statement will appear here upon completion.
-                  </p>
+
+                  <div className="space-y-2 text-xs">
+                    {/* 1. PO Base Amount */}
+                    <div className="flex items-center justify-between py-1 border-b border-gray-100">
+                      <div>
+                        <span className="text-gray-700 font-bold block">1. PO Base Amount (Gross Consignment Value)</span>
+                        <span className="text-[10px] text-gray-500">Eligible procurement base value before commission</span>
+                      </div>
+                      <strong className="font-mono text-gray-900 text-sm font-black">
+                        ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+
+                    {/* 2. Less 5% SAFAL Platform Commission */}
+                    <div className="flex items-center justify-between py-1 text-amber-900">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+                        <span>Less SAFAL Commission (5%)</span>
+                      </div>
+                      <strong className="font-mono font-bold text-amber-800">
+                        -₹{safalComm.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+
+                    {/* 3. Less 1% APMC Mandi Market Cess */}
+                    <div className="flex items-center justify-between py-1 text-blue-900 border-b border-gray-100">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
+                        <span>Less APMC Market Cess Fee (1%)</span>
+                      </div>
+                      <strong className="font-mono font-bold text-blue-800">
+                        -₹{apmcComm.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+
+                    {/* Total Commission */}
+                    <div className="flex items-center justify-between py-1.5 bg-rose-50/70 px-2.5 rounded-lg text-rose-950 font-bold border border-rose-200">
+                      <span>Total Mandi Commission Deductions (6%)</span>
+                      <span className="font-mono font-black text-rose-800">
+                        -₹{totalComm.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* Net Vendor Payable */}
+                    <div className="flex items-center justify-between py-1.5 bg-emerald-50 px-2.5 rounded-lg text-emerald-950 font-black border border-emerald-300">
+                      <div>
+                        <span className="block">Settlement / Net Payable to Vendor (94%)</span>
+                        <span className="text-[10px] text-emerald-700 font-medium">PO Base Amount minus 6% total commission</span>
+                      </div>
+                      <span className="font-mono text-base font-black text-[#064D2B]">
+                        ₹{netPayable.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    {/* Advance Disbursed */}
+                    <div className="flex items-center justify-between py-1 text-gray-700">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span>Advance Disbursed ({order.orderPersonPlace || 'Warangal Hub'})</span>
+                        {((order as any).settlementDetails?.advanceProofUrl || order.paymentProofUrl) && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveDocPreview({
+                                url: resolvePhotoUrl((order as any).settlementDetails?.advanceProofUrl || order.paymentProofUrl),
+                                title: `${order.poNumber} - Advance Bank Transfer Slip`,
+                              })
+                            }
+                            className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Eye size={10} /> View Advance Slip ↗
+                          </button>
+                        )}
+                      </div>
+                      <strong className="font-mono text-emerald-800 font-bold">
+                        ₹{Number(order.advanceAmount || Math.round(grandTotal * 0.70)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </strong>
+                    </div>
+
+                    {/* Final Balance Status */}
+                    {(() => {
+                      const remainingDue = Number(settle?.finalBalanceDue ?? (order.status === 'CLOSED' ? 0 : order.pendingAmount ?? 0));
+                      const isFullyCleared = remainingDue === 0 && (Boolean(settle?.settlementCompleted) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0));
+
+                      return (
+                        <div className={`flex items-center justify-between py-2 px-3 rounded-xl border flex-wrap gap-2 ${
+                          isFullyCleared ? 'bg-emerald-50 border-emerald-300' : hasSettlement ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-gray-200'
+                        }`}>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <strong className={isFullyCleared ? 'text-emerald-950 font-black' : hasSettlement ? 'text-amber-950 font-black' : 'text-gray-800 font-bold'}>
+                              {isFullyCleared ? 'Final Balance Settled & Realized' : hasSettlement ? 'Final Balance Due Pending' : 'Net Balance Due (Awaiting Mandi Realization)'}
+                            </strong>
+                            {(settle?.finalSettlementProofUrl || (isFullyCleared && order.paymentProofUrl)) && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setActiveDocPreview({
+                                    url: resolvePhotoUrl(settle?.finalSettlementProofUrl || order.paymentProofUrl),
+                                    title: `${order.poNumber} - Final Mandi Settlement Slip`,
+                                  })
+                                }
+                                className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <Eye size={10} /> View Settlement Slip ↗
+                              </button>
+                            )}
+                          </div>
+                          <strong className={`font-mono font-black text-sm ${isFullyCleared ? 'text-emerald-800' : hasSettlement ? 'text-[#C2410C]' : 'text-gray-900'}`}>
+                            {isFullyCleared
+                              ? `₹0.00 (CLEARED ✓)`
+                              : hasSettlement
+                              ? `₹${remainingDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (OPEN - Due Pending)`
+                              : `₹0.00 (Pending Safal Entry)`}
+                          </strong>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               );
             }
 
+            // ADMIN-CREATED PO BREAKDOWN (SAFAL Commission: ₹0, APMC Commission: ₹0)
             return (
-              <div className="rounded-2xl border-2 border-emerald-300 bg-gradient-to-b from-emerald-50/50 to-white overflow-hidden shadow-xs space-y-3 p-4">
-                <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
+              <div className="rounded-2xl border-2 border-gray-300 bg-gradient-to-b from-gray-50/70 to-white overflow-hidden shadow-xs space-y-3 p-4">
+                <div className="flex items-center justify-between pb-2 border-b border-gray-200 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <Calculator size={16} className="text-[#087A3E]" />
-                    <strong className="text-xs font-black uppercase tracking-wider text-emerald-950 font-['Manrope']">
-                      Commercial Mandi Settlement &amp; Realization Statement
+                    <ShieldCheck size={16} className="text-[#064D2B]" />
+                    <strong className="text-xs font-black uppercase tracking-wider text-gray-900 font-['Manrope']">
+                      Direct Procurement Statement (Admin-Created PO)
                     </strong>
                   </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    ((order as any).settlementDetails?.settlementCompleted && Number((order as any).settlementDetails?.finalBalanceDue || 0) === 0) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0)
-                      ? 'text-emerald-800 bg-emerald-100 border-emerald-300'
-                      : (order as any).settlementDetails?.hasSettlementEntry
-                      ? 'text-amber-800 bg-amber-100 border-amber-300'
-                      : 'text-gray-700 bg-gray-100 border-gray-300'
-                  }`}>
-                    {(((order as any).settlementDetails?.settlementCompleted && Number((order as any).settlementDetails?.finalBalanceDue || 0) === 0) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0))
-                      ? 'Cleared ✓'
-                      : (order as any).settlementDetails?.hasSettlementEntry
-                      ? 'OPEN - Due Pending'
-                      : 'Awaiting Mandi Realization'}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      Created By: Full Administrator / Accounts ({order.createdByName || 'Admin'})
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800 border border-gray-300">
+                      0% Commission Applied
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-2 text-xs">
-                  {/* 1. Gross PO Total */}
+                  {/* 1. PO Base Amount */}
                   <div className="flex items-center justify-between py-1 border-b border-gray-100">
-                    <span className="text-gray-700 font-bold">1. Gross Consignment PO Value</span>
+                    <div>
+                      <span className="text-gray-700 font-bold block">1. PO Base Amount</span>
+                      <span className="text-[10px] text-gray-500">Gross direct company procurement order commitment</span>
+                    </div>
                     <strong className="font-mono text-gray-900 text-sm font-black">
                       ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </strong>
                   </div>
 
-                  {/* 2. Less 5% Safal Platform Admin Share */}
-                  <div className="flex items-center justify-between py-1 text-rose-800">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
-                      <span>Less 5% Safal Platform Admin Share / Commission</span>
-                    </div>
-                    <strong className="font-mono font-bold">
-                      -₹{Math.round(grandTotal * 0.05).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </strong>
-                  </div>
-
-                  {/* 3. Less 1% APMC Market Cess Fee */}
-                  <div className="flex items-center justify-between py-1 text-rose-800 border-b border-gray-100">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
-                      <span>Less 1% APMC Mandi Market Cess Fee</span>
-                    </div>
-                    <strong className="font-mono font-bold">
-                      -₹{Math.round(grandTotal * 0.01).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </strong>
-                  </div>
-
-                  {/* Total Mandi Deductions */}
-                  <div className="flex items-center justify-between py-1 bg-rose-50/50 px-2.5 rounded-lg text-rose-900 font-bold">
-                    <span>Total Mandi Deductions (6%)</span>
-                    <span className="font-mono font-black">
-                      -₹{(Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  {/* Net Vendor Payable */}
-                  <div className="flex items-center justify-between py-1.5 bg-emerald-50 px-2.5 rounded-lg text-emerald-950 font-black border border-emerald-200">
-                    <span>Net Realized Payable to Vendor</span>
-                    <span className="font-mono text-sm">
-                      ₹{(grandTotal - (Math.round(grandTotal * 0.05) + Math.round(grandTotal * 0.01))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-
-                  {/* Advance Disbursed */}
+                  {/* 2. SAFAL Commission (0%) */}
                   <div className="flex items-center justify-between py-1 text-gray-700">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span>Advance Disbursed ({order.orderPersonPlace || 'Warangal Hub'})</span>
-                      {((order as any).settlementDetails?.advanceProofUrl || order.paymentProofUrl) && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setActiveDocPreview({
-                              url: resolvePhotoUrl((order as any).settlementDetails?.advanceProofUrl || order.paymentProofUrl),
-                              title: `${order.poNumber} - Advance Bank Transfer Slip`,
-                            })
-                          }
-                          className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
-                        >
-                          <Eye size={10} /> View Advance Slip ↗
-                        </button>
-                      )}
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                      <span>SAFAL Commission (0% Exempt)</span>
                     </div>
                     <strong className="font-mono text-emerald-800 font-bold">
-                      ₹{Number(order.advanceAmount || Math.round(grandTotal * 0.70)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹0.00
                     </strong>
                   </div>
 
-                  {/* Final Balance Status */}
-                  {(() => {
-                    const remainingDue = Number(settle?.finalBalanceDue ?? (order.status === 'CLOSED' ? 0 : order.pendingAmount ?? 0));
-                    const isFullyCleared = remainingDue === 0 && (Boolean(settle?.settlementCompleted) || (order.status === 'CLOSED' && Number(order.pendingAmount || 0) === 0));
+                  {/* 3. APMC Commission (0%) */}
+                  <div className="flex items-center justify-between py-1 text-gray-700 border-b border-gray-100">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                      <span>APMC Commission (0% Exempt)</span>
+                    </div>
+                    <strong className="font-mono text-emerald-800 font-bold">
+                      ₹0.00
+                    </strong>
+                  </div>
 
-                    return (
-                      <div className={`flex items-center justify-between py-2 px-3 rounded-xl border flex-wrap gap-2 ${
-                        isFullyCleared ? 'bg-emerald-50 border-emerald-300' : hasSettlement ? 'bg-amber-50 border-amber-300' : 'bg-gray-50 border-gray-200'
-                      }`}>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <strong className={isFullyCleared ? 'text-emerald-950 font-black' : hasSettlement ? 'text-amber-950 font-black' : 'text-gray-800 font-bold'}>
-                            {isFullyCleared ? 'Final Balance Settled & Realized' : hasSettlement ? 'Final Balance Due Pending' : 'Net Balance Due (Awaiting Mandi Realization)'}
-                          </strong>
-                          {(settle?.finalSettlementProofUrl || (isFullyCleared && order.paymentProofUrl)) && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setActiveDocPreview({
-                                  url: resolvePhotoUrl(settle?.finalSettlementProofUrl || order.paymentProofUrl),
-                                  title: `${order.poNumber} - Final Mandi Settlement Slip`,
-                                })
-                              }
-                              className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-900 rounded font-bold text-[10px] inline-flex items-center gap-1 cursor-pointer"
-                            >
-                              <Eye size={10} /> View Settlement Slip ↗
-                            </button>
-                          )}
-                        </div>
-                        <strong className={`font-mono font-black text-sm ${isFullyCleared ? 'text-emerald-800' : hasSettlement ? 'text-[#C2410C]' : 'text-gray-900'}`}>
-                          {isFullyCleared
-                            ? `₹0.00 (CLEARED ✓)`
-                            : hasSettlement
-                            ? `₹${remainingDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })} (OPEN - Due Pending)`
-                            : `₹0.00 (Pending Safal Entry)`}
-                        </strong>
-                      </div>
-                    );
-                  })()}
+                  {/* Net Amount */}
+                  <div className="flex items-center justify-between py-1.5 bg-emerald-50 px-2.5 rounded-lg text-emerald-950 font-black border border-emerald-300">
+                    <div>
+                      <span className="block">Net Payable Amount (Full Base Amount)</span>
+                      <span className="text-[10px] text-emerald-700 font-medium">No mandi commission deductions applied</span>
+                    </div>
+                    <span className="font-mono text-base font-black text-[#064D2B]">
+                      ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </span>
+                  </div>
+
+                  {/* Advance Disbursed / Paid */}
+                  <div className="flex items-center justify-between py-1 text-gray-700">
+                    <span className="font-medium">Advance Amount Paid Upfront</span>
+                    <strong className="font-mono text-emerald-800 font-bold">
+                      ₹{Number(order.advanceAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+
+                  {/* Remaining Due Balance */}
+                  <div className="flex items-center justify-between py-1.5 px-2.5 rounded-lg bg-gray-50 border border-gray-200">
+                    <span className="font-bold text-gray-800">Remaining Balance Due</span>
+                    <strong className="font-mono text-gray-900 font-bold">
+                      ₹{Math.max(0, grandTotal - Number(order.advanceAmount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </strong>
+                  </div>
                 </div>
               </div>
             );

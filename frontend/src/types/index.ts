@@ -144,6 +144,15 @@ export interface PurchaseOrder {
   pendingAmount?: number;
   status: POStatus;
   rejectionReason?: string | null;
+  creatorRole?: string;
+  safalCommissionRate?: number;
+  safalCommissionAmount?: number;
+  apmcCommissionRate?: number;
+  apmcCommissionAmount?: number;
+  totalCommissionAmount?: number;
+  netPayableAmount?: number;
+  commissionSettlementRule?: string;
+  settlementDetails?: any;
   paymentProofUrl?: string | null;
   paymentProofNotes?: string | null;
   paymentProofs?: PaymentProofItem[];

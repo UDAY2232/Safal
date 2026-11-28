@@ -856,6 +856,69 @@ export const CreatePOModal: React.FC<CreatePOModalProps> = ({ onClose, onSuccess
               </div>
             </div>
 
+            {/* Live Commission Breakdown for Vendor-Created POs */}
+            {!isCD && (user?.role === 'VENDOR' || Boolean(selectedVendorId)) ? (
+              <div className="mt-3.5 p-4 rounded-2xl border-2 border-emerald-300 bg-gradient-to-r from-emerald-50 via-teal-50/40 to-white shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between border-b border-emerald-200 pb-2 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 size={16} className="text-[#087A3E]" />
+                    <strong className="text-xs font-black uppercase tracking-wider text-emerald-950 font-['Manrope']">
+                      Vendor Mandi Commission Breakdown (5% SAFAL + 1% APMC)
+                    </strong>
+                  </div>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                    6% Total Mandi Commission
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white border border-gray-200">
+                    <span className="text-[10px] text-gray-500 font-bold block">PO Base Amount</span>
+                    <strong className="text-sm font-black text-gray-900 font-mono block mt-0.5">
+                      ₹{currentTotal.toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                    <span className="text-[10px] text-amber-800 font-bold block">SAFAL 5% Share</span>
+                    <strong className="text-sm font-black text-amber-900 font-mono block mt-0.5">
+                      -₹{Math.round(currentTotal * 0.05).toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-blue-50 border border-blue-200">
+                    <span className="text-[10px] text-blue-800 font-bold block">APMC 1% Mandi Cess</span>
+                    <strong className="text-sm font-black text-blue-900 font-mono block mt-0.5">
+                      -₹{Math.round(currentTotal * 0.01).toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-emerald-100/70 border border-emerald-300">
+                    <span className="text-[10px] text-emerald-900 font-bold block">Net Vendor Payable (94%)</span>
+                    <strong className="text-sm font-black text-[#064D2B] font-mono block mt-0.5">
+                      ₹{Math.max(0, currentTotal - Math.round(currentTotal * 0.06)).toLocaleString('en-IN')}
+                    </strong>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-gray-600 leading-relaxed bg-white/70 p-2 rounded-xl border border-gray-200">
+                  ℹ️ <strong>Mandi Commission Policy:</strong> 5% SAFAL platform commission and 1% APMC mandi market cess (Total 6%) are automatically calculated and deducted from the gross consignment value upon final sales realization. Commission percentages are fixed by Safal Administration and cannot be edited.
+                </p>
+              </div>
+            ) : !isCD && (
+              <div className="mt-3.5 p-3 rounded-2xl border border-gray-200 bg-gray-50 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-emerald-700" />
+                  <span className="text-gray-700 font-medium">
+                    Admin Direct Procurement: <strong>0% Commission Applied</strong> (SAFAL ₹0, APMC ₹0). Net payable equals full base amount.
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  Admin Exempt
+                </span>
+              </div>
+            )}
+
             {/* Customer Due Payment Proof (Strictly Mandatory for CD) */}
             {isCD && (
               <div className="mt-4 pt-3.5 border-t border-emerald-200">

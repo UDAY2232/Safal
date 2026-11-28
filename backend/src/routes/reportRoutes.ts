@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import {
   getPOReports,
+  getVendorCommissionReports,
+  getAdminPOReports,
   getWageReports,
   getExpenseReports,
   getProfitLossReport,
@@ -14,6 +16,8 @@ router.use(authenticateToken);
 router.use(requireRole('ADMIN', 'ACCOUNTANT', 'EMPLOYEE'));
 
 router.get('/purchase-orders', getPOReports);
+router.get('/vendor-commissions', getVendorCommissionReports);
+router.get('/admin-purchase-orders', getAdminPOReports);
 router.get('/customer-dues', (req, res) => {
   req.query.type = 'CD';
   req.query.format = req.query.format || 'csv';
