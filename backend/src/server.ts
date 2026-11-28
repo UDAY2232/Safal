@@ -6,6 +6,8 @@ import { ensureAccountantSeed } from './utils/initAccountant.js';
 import { ensureAdminUser, healAllPendingDues } from './utils/ensureAdminUser.js';
 import { cleanupDummyOrders } from './utils/cleanupDummy.js';
 import { ensureDefaultVendor } from './utils/ensureVendorSeed.js';
+import { ensureFieldDataSeed } from './utils/initFieldData.js';
+import { ensureAttendancePolicyAndWorkplaces } from './utils/initAttendanceConfig.js';
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5000;
 
@@ -16,6 +18,8 @@ app.listen(PORT, '0.0.0.0', async () => {
     await ensureAdminUser();
     await healAllPendingDues();
     await ensureAccountantSeed();
+    await ensureFieldDataSeed();
+    await ensureAttendancePolicyAndWorkplaces();
     await cleanupDummyOrders();
     if (process.env.SEED_DEFAULT_VENDOR === 'true') {
       await ensureDefaultVendor();

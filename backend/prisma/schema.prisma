@@ -132,6 +132,19 @@ model Employee {
   wageRecords  EmployeeWageRecord[]
   expenseClaims ExpenseClaim[]
   attendanceRecords AttendanceRecord[]
+  fieldAreaAssignments FieldAreaAssignment[]
+  registeredSellers     FieldSeller[]                  @relation("RegisteredSellers")
+  assignedSellers       FieldSeller[]                  @relation("AssignedSellers")
+  sellerOrders          FieldSellerOrder[]
+  sellerTransfersFrom   FieldSellerAssignmentHistory[] @relation("TransferredFromSellers")
+  sellerTransfersTo     FieldSellerAssignmentHistory[] @relation("TransferredToSellers")
+  fieldVisits           FieldVisit[]
+  sellerFeedbacks       FieldSellerFeedback[]
+  dailyFieldReports     DailyFieldReport[]
+  performancePoints     FieldPerformancePoint[]
+  monthlyTargets        EmployeeMonthlyTarget[]
+  salaryDeductions      AttendanceSalaryDeduction[]
+  attendanceCorrections AttendanceCorrectionRequest[]
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
 
@@ -488,29 +501,399 @@ model InvoiceItem {
 }
 
 model AttendanceRecord {
-  id           String           @id @default(cuid())
-  userId       String
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  employeeId   String?
-  employee     Employee?        @relation(fields: [employeeId], references: [id], onDelete: SetNull)
-  date         DateTime         @db.Date
-  clockInTime      DateTime         @default(now())
-  clockOutTime     DateTime?
-  totalMinutes     Int?             @default(0)
-  status           AttendanceStatus @default(PRESENT)
-  photoUrl         String?
-  clockOutPhotoUrl String?
-  location         String?          @default("3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011")
-  clockInIp        String?
-  notes            String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id                   String                        @id @default(cuid())
+  userId               String
+  user                 User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId           String?
+  employee             Employee?                     @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  date                 DateTime                      @db.Date
+  clockInTime          DateTime                      @default(now())
+  clockOutTime         DateTime?
+  totalMinutes         Int?                          @default(0)
+  status               AttendanceStatus              @default(PRESENT)
+  photoUrl             String?
+  clockOutPhotoUrl     String?
+  location             String?                       @default("3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011")
+  clockInIp            String?
+  notes                String?
+
+  // GPS & Geofence Verification Fields
+  latitude             Decimal?                      @db.Decimal(10, 7)
+  longitude            Decimal?                      @db.Decimal(10, 7)
+  gpsAccuracyMeters    Decimal?                      @db.Decimal(8, 2)
+  workplaceLocationId  String?
+  workplaceLocation    WorkplaceLocation?            @relation(fields: [workplaceLocationId], references: [id], onDelete: SetNull)
+  workplaceName        String?
+  distanceMeters       Int?
+  locationStatus       String                        @default("VERIFIED") // VERIFIED, OUT_OF_BOUNDS, GPS_ACCURACY_LOW, MANUAL_EXCEPTION
+
+  // Shift & Late Arrival Penalty Fields
+  assignedShiftName    String?
+  shiftStartTime       String?                       // e.g. "05:30 AM"
+  shiftEndTime         String?                       // e.g. "02:00 PM"
+  lateMinutes          Int                           @default(0)
+  penaltyAmount        Decimal                       @default(0) @db.Decimal(10, 2)
+  penaltyWaived        Boolean                       @default(false)
+  waiverReason         String?
+
+  // Relations to Payroll Deduction & Correction Requests
+  payrollDeduction     AttendanceSalaryDeduction?
+  correctionRequests   AttendanceCorrectionRequest[]
+
+  createdAt            DateTime                      @default(now())
+  updatedAt            DateTime                      @updatedAt
 
   @@unique([userId, date])
   @@index([date])
   @@index([userId])
+  @@index([employeeId])
   @@index([status])
   @@map("attendance_records")
+}
+
+model WorkplaceLocation {
+  id                  String             @id @default(cuid())
+  name                String             @unique // e.g. "SAFAL Central Hub & Cold Storage"
+  address             String
+  latitude            Decimal            @db.Decimal(10, 7)
+  longitude           Decimal            @db.Decimal(10, 7)
+  allowedRadiusMeters Int                @default(100)
+  isActive            Boolean            @default(true)
+  attendanceRecords   AttendanceRecord[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@map("workplace_locations")
+}
+
+model AttendancePolicyConfig {
+  id                      String    @id @default(cuid())
+  gracePeriodMinutes      Int       @default(59) // Under 1 hour (<=59 min) is ₹0 penalty
+  penaltyPerHourAmount    Decimal   @default(100) @db.Decimal(10, 2) // ₹100 per completed hour
+  maxDailyPenalty         Decimal?  @db.Decimal(10, 2)
+  requireGps              Boolean   @default(true)
+  maxAllowedAccuracyMeters Int      @default(150)
+  updatedById             String?
+  updatedAt               DateTime  @updatedAt
+
+  @@map("attendance_policy_configs")
+}
+
+model AttendanceSalaryDeduction {
+  id                  String           @id @default(cuid())
+  attendanceRecordId  String           @unique
+  attendanceRecord    AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+  employeeId          String
+  employee            Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date                DateTime         @db.Date
+  lateDurationMinutes Int
+  penaltyAmount       Decimal          @db.Decimal(10, 2)
+  status              String           @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, WAIVED, APPLIED_TO_PAYROLL
+  payPeriodMonthYear  String           // e.g. "2026-11"
+  wageRecordId        String?
+  notes               String?
+  approvedById        String?
+  approvedAt          DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([employeeId])
+  @@index([payPeriodMonthYear])
+  @@index([status])
+  @@map("attendance_salary_deductions")
+}
+
+model AttendanceCorrectionRequest {
+  id                  String           @id @default(cuid())
+  attendanceRecordId  String
+  attendanceRecord    AttendanceRecord @relation(fields: [attendanceRecordId], references: [id], onDelete: Cascade)
+  employeeId          String
+  employee            Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  requestedTime       DateTime?
+  reason              String
+  status              String           @default("PENDING") // PENDING, APPROVED, REJECTED
+  adminComments       String?
+  reviewedById        String?
+  reviewedAt          DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([attendanceRecordId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("attendance_correction_requests")
+}
+
+// ==========================================
+// SAFAL ERP – FIELD WORK & SELLER MANAGEMENT
+// ==========================================
+
+model FieldArea {
+  id          String                 @id @default(cuid())
+  name        String                 @unique
+  district    String?
+  state       String                 @default("Telangana")
+  isActive    Boolean                @default(true)
+  assignments FieldAreaAssignment[]
+  sellers     FieldSeller[]
+  sellerOrders FieldSellerOrder[]
+  visits      FieldVisit[]
+  dailyReports DailyFieldReport[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+
+  @@map("field_areas")
+}
+
+model FieldAreaAssignment {
+  id           String    @id @default(cuid())
+  employeeId   String
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  areaId       String
+  area         FieldArea @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  assignedById String?
+  assignedAt   DateTime  @default(now())
+  isActive     Boolean   @default(true)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([employeeId, areaId])
+  @@map("field_area_assignments")
+}
+
+model FieldSeller {
+  id                   String                         @id @default(cuid())
+  sellerCode           String                         @unique // e.g. FSL-001
+  shopName             String
+  ownerName            String
+  mobile               String
+  whatsapp             String?
+  address              String
+  areaId               String
+  area                 FieldArea                      @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  businessType         String                         @default("RETAILER") // RETAILER, WHOLESALER, DISTRIBUTOR, OTHER
+  fruitsInterested     String                         @default("[]") // JSON string of fruit names
+  estMonthlyQtyKg      Decimal?                       @db.Decimal(12, 2)
+  estMonthlyValue      Decimal?                       @db.Decimal(12, 2)
+  firstContactDate     DateTime                       @default(now())
+  interestLevel        String                         @default("WARM") // HOT, WARM, COLD
+  stage                String                         @default("LEAD_IDENTIFIED") // LEAD_IDENTIFIED, FIRST_CONTACT, INTERESTED, FOLLOW_UP, REGISTERED, FIRST_PURCHASE, REPEAT_CUSTOMER
+  registeredEmployeeId String
+  registeredEmployee   Employee                       @relation("RegisteredSellers", fields: [registeredEmployeeId], references: [id], onDelete: Restrict)
+  assignedEmployeeId   String?
+  assignedEmployee     Employee?                      @relation("AssignedSellers", fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  isVerified           Boolean                        @default(false)
+  verifiedById         String?
+  verifiedAt           DateTime?
+  notes                String?
+  totalPurchaseValue   Decimal                        @default(0) @db.Decimal(12, 2)
+  purchaseCount        Int                            @default(0)
+  firstPurchaseDate    DateTime?
+  lastPurchaseDate     DateTime?
+  firstPurchaseAmount  Decimal?                       @db.Decimal(12, 2)
+  visits               FieldVisit[]
+  feedbacks            FieldSellerFeedback[]
+  orders               FieldSellerOrder[]
+  assignmentHistory    FieldSellerAssignmentHistory[]
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+
+  @@index([mobile])
+  @@index([areaId])
+  @@index([registeredEmployeeId])
+  @@index([assignedEmployeeId])
+  @@index([stage])
+  @@map("field_sellers")
+}
+
+model FieldSellerOrder {
+  id               String                 @id @default(cuid())
+  orderNumber      String                 @unique // e.g. ORD/SF/2026/001
+  sellerId         String
+  seller           FieldSeller            @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  employeeId       String                 // Employee attribution
+  employee         Employee               @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  areaId           String
+  area             FieldArea              @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  orderDate        DateTime               @default(now())
+  fruitNames       String                 // e.g. "Kashmir Apples (Grade A), Shimla Royal"
+  totalQuantityKg  Decimal                @default(0) @db.Decimal(12, 2)
+  orderValue       Decimal                @default(0) @db.Decimal(14, 2)
+  paidAmount       Decimal                @default(0) @db.Decimal(14, 2)
+  dueAmount        Decimal                @default(0) @db.Decimal(14, 2)
+  paymentStatus    String                 @default("PAID") // PAID, PARTIAL, PENDING
+  orderStatus      String                 @default("COMPLETED") // COMPLETED, DELIVERED, CANCELLED
+  linkedPoId       String?                // Reference to PurchaseOrder if linked
+  linkedInvoiceId  String?                // Reference to Invoice if linked
+  isVerified       Boolean                @default(true)
+  verifiedById     String?
+  notes            String?
+  items            FieldSellerOrderItem[]
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([sellerId])
+  @@index([employeeId])
+  @@index([areaId])
+  @@index([orderDate])
+  @@index([orderStatus])
+  @@map("field_seller_orders")
+}
+
+model FieldSellerOrderItem {
+  id               String           @id @default(cuid())
+  orderId          String
+  order            FieldSellerOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  fruitName        String
+  quantity         Decimal          @db.Decimal(12, 2)
+  unit             String           @default("BOX")
+  rate             Decimal          @db.Decimal(12, 2)
+  amount           Decimal          @db.Decimal(14, 2)
+
+  @@index([orderId])
+  @@map("field_seller_order_items")
+}
+
+model FieldSellerAssignmentHistory {
+  id              String       @id @default(cuid())
+  sellerId        String
+  seller          FieldSeller  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  fromEmployeeId  String?
+  fromEmployee    Employee?    @relation("TransferredFromSellers", fields: [fromEmployeeId], references: [id], onDelete: SetNull)
+  toEmployeeId    String
+  toEmployee      Employee     @relation("TransferredToSellers", fields: [toEmployeeId], references: [id], onDelete: Restrict)
+  transferredById String?
+  transferredAt   DateTime     @default(now())
+  reason          String?
+
+  @@index([sellerId])
+  @@map("field_seller_assignment_history")
+}
+
+model FieldVisit {
+  id                   String      @id @default(cuid())
+  sellerId             String
+  seller               FieldSeller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  employeeId           String
+  employee             Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  areaId               String
+  area                 FieldArea   @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  visitDate            DateTime    @default(now())
+  purpose              String
+  discussionSummary    String
+  fruitsDiscussed      String?
+  customerRequirements String?
+  feedbackText         String?
+  nextFollowUpDate     DateTime?
+  status               String      @default("INTERESTED") // INTERESTED, FOLLOW_UP_REQUIRED, NOT_INTERESTED, CONVERTED
+  photoUrl             String?
+  isVerified           Boolean     @default(false)
+  pointsAwarded        Int         @default(0)
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  @@index([sellerId])
+  @@index([employeeId])
+  @@index([visitDate])
+  @@map("field_visits")
+}
+
+model FieldSellerFeedback {
+  id                  String      @id @default(cuid())
+  sellerId            String
+  seller              FieldSeller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  employeeId          String
+  employee            Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  visitId             String?
+  qualityRating       Int?
+  pricingRating       Int?
+  availabilityRating  Int?
+  deliveryRating      Int?
+  overallSatisfaction Int         @default(4)
+  suggestions         String?
+  complaintDetails    String?
+  isResolved          Boolean     @default(true)
+  followUpRequired    Boolean     @default(false)
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+
+  @@map("field_seller_feedbacks")
+}
+
+model DailyFieldReport {
+  id                  String    @id @default(cuid())
+  reportDate          DateTime  @db.Date
+  employeeId          String
+  employee            Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  areaId              String
+  area                FieldArea @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  shopsVisited        Int       @default(0)
+  newSellersContacted Int       @default(0)
+  sellersRegistered   Int       @default(0)
+  interestedSellers   Int       @default(0)
+  followUpsCompleted  Int       @default(0)
+  purchaseConversions Int       @default(0)
+  majorAchievements   String?
+  problemsFaced       String?
+  tomorrowPlan        String?
+  status              String    @default("PENDING_APPROVAL") // PENDING_APPROVAL, APPROVED, REJECTED
+  reviewedById        String?
+  reviewedAt          DateTime?
+  reviewComments      String?
+  pointsAwarded       Int       @default(0)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([employeeId, reportDate, areaId])
+  @@index([reportDate])
+  @@index([employeeId])
+  @@map("daily_field_reports")
+}
+
+model FieldPerformancePoint {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  points      Int
+  actionType  String   // UNIQUE_VISIT, NEW_SELLER_REG, FIRST_PURCHASE, REPEAT_PURCHASE, DAILY_REPORT, MANUAL_ADJUSTMENT
+  referenceId String?
+  reason      String
+  monthYear   String   // e.g. "2026-11"
+  awardedById String?
+  createdAt   DateTime @default(now())
+
+  @@index([employeeId, monthYear])
+  @@map("field_performance_points")
+}
+
+model FieldScoringConfig {
+  id                   String   @id @default(cuid())
+  uniqueVisitPoints    Int      @default(5)
+  newSellerRegPoints   Int      @default(10)
+  firstPurchasePoints  Int      @default(50)
+  repeatPurchasePoints Int      @default(20)
+  dailyReportPoints    Int      @default(5)
+  updatedAt            DateTime @updatedAt
+
+  @@map("field_scoring_configs")
+}
+
+model EmployeeMonthlyTarget {
+  id                        String   @id @default(cuid())
+  employeeId                String
+  employee                  Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  monthYear                 String   // "2026-11"
+  targetShopsVisited        Int      @default(100)
+  targetSellersRegistered   Int      @default(20)
+  targetConvertedPurchasers Int      @default(5)
+  targetPurchaseValue       Decimal  @default(500000) @db.Decimal(12, 2)
+  targetPoints              Int      @default(500)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@unique([employeeId, monthYear])
+  @@map("employee_monthly_targets")
 }
 
 

@@ -9,16 +9,39 @@ import {
   MapPin,
   Clock,
   ShieldCheck,
-  Sparkles,
+  Compass,
+  Navigation,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../services/api';
+
+export interface GpsLocationData {
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  workplaceLocationId?: string;
+  workplaceName?: string;
+  distanceMeters?: number;
+}
 
 interface AttendancePhotoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (photoBase64: string, location: string) => Promise<void>;
+  onSubmit: (photoBase64: string, location: string, gpsData?: GpsLocationData) => Promise<void>;
   isSubmitting: boolean;
   type?: 'in' | 'out';
+}
+
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3; // Earth radius in meters
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
@@ -32,8 +55,16 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
-  const [locationName, setLocationName] = useState('3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda, Telangana, 506011');
   const [currentTimeStr, setCurrentTimeStr] = useState('');
+
+  // GPS State
+  const [gpsStatus, setGpsStatus] = useState<'locating' | 'ready' | 'error' | 'denied'>('locating');
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number; accuracy: number } | null>(null);
+  const [workplaces, setWorkplaces] = useState<any[]>([]);
+  const [nearestWorkplace, setNearestWorkplace] = useState<any | null>(null);
+  const [distanceToWorkplace, setDistanceToWorkplace] = useState<number | null>(null);
+  const [isInGeofence, setIsInGeofence] = useState<boolean | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -60,16 +91,110 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Start webcam when modal opens
+  // Fetch workplace geofences
+  useEffect(() => {
+    if (!isOpen) return;
+    api
+      .getWorkplaces()
+      .then((res) => {
+        if (res?.workplaces) {
+          setWorkplaces(res.workplaces);
+        }
+      })
+      .catch((err) => console.warn('Could not fetch workplaces:', err));
+  }, [isOpen]);
+
+  // Request high-accuracy GPS position
+  const requestGpsPosition = () => {
+    if (!navigator.geolocation) {
+      setGpsStatus('error');
+      setGpsError('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setGpsStatus('locating');
+    setGpsError(null);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        setCoords({ latitude, longitude, accuracy });
+        setGpsStatus('ready');
+      },
+      (err) => {
+        console.warn('GPS error:', err);
+        if (err.code === err.PERMISSION_DENIED) {
+          setGpsStatus('denied');
+          setGpsError('Location permission denied. Please enable GPS location in your browser settings.');
+        } else {
+          setGpsStatus('error');
+          setGpsError(`Unable to acquire GPS position: ${err.message}`);
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  // Evaluate geofence when coordinates or workplaces update
+  useEffect(() => {
+    if (!coords) return;
+
+    // Default SAFAL coordinates if workplaces list empty
+    const locationsToTest = workplaces.length > 0 ? workplaces : [
+      {
+        id: 'default-hq',
+        name: 'SAFAL Head Office & Operations Facility',
+        address: '3-4-693/5/1/A/1, Raipura, Kakatiya colony, Hanamkonda',
+        latitude: 18.0065,
+        longitude: 79.5584,
+        allowedRadiusMeters: 100,
+      },
+    ];
+
+    let nearest = locationsToTest[0];
+    let minD = calculateDistance(
+      coords.latitude,
+      coords.longitude,
+      Number(nearest.latitude),
+      Number(nearest.longitude)
+    );
+
+    for (let i = 1; i < locationsToTest.length; i++) {
+      const wp = locationsToTest[i];
+      const d = calculateDistance(
+        coords.latitude,
+        coords.longitude,
+        Number(wp.latitude),
+        Number(wp.longitude)
+      );
+      if (d < minD) {
+        minD = d;
+        nearest = wp;
+      }
+    }
+
+    setNearestWorkplace(nearest);
+    setDistanceToWorkplace(minD);
+    setIsInGeofence(minD <= (nearest.allowedRadiusMeters || 100));
+  }, [coords, workplaces]);
+
+  // Start webcam and GPS when modal opens
   useEffect(() => {
     if (!isOpen) {
       stopCamera();
       setCapturedPhoto(null);
       setCameraError(null);
+      setCoords(null);
       return;
     }
 
     startCamera();
+    requestGpsPosition();
+
     return () => {
       stopCamera();
     };
@@ -109,7 +234,8 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
   };
 
   /**
-   * Stamps real-time timestamp, staff name, and office location directly onto the photo
+   * Stamps real-time timestamp, staff name, GPS coordinates, and workplace geofence info
+   * directly onto the photo
    */
   const stampPhotoWatermark = (imageElement: HTMLVideoElement | HTMLImageElement): string => {
     const canvas = document.createElement('canvas');
@@ -124,37 +250,50 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
     ctx.drawImage(imageElement, 0, 0, width, height);
 
     // Draw dark translucent banner at the bottom for tamper-proof watermark
-    const bannerHeight = 85;
-    ctx.fillStyle = 'rgba(6, 45, 25, 0.85)';
+    const bannerHeight = 98;
+    ctx.fillStyle = 'rgba(6, 45, 25, 0.90)';
     ctx.fillRect(0, height - bannerHeight, width, bannerHeight);
 
-    // Draw green accent border above the banner
-    ctx.fillStyle = '#10B981';
+    // Accent line above banner
+    ctx.fillStyle = isInGeofence ? '#10B981' : '#F59E0B';
     ctx.fillRect(0, height - bannerHeight, width, 3);
 
     // Stamp text: Brand & Timestamp
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.fillText('SAFAL EXPORT AND IMPORT PVT LTD', 16, height - 58);
+    ctx.font = 'bold 14px sans-serif';
+    ctx.fillText('SAFAL EXPORT AND IMPORT PVT LTD', 16, height - 72);
 
     ctx.fillStyle = '#6EE7B7';
-    ctx.font = 'bold 13px monospace';
-    ctx.fillText(`📅 ${currentTimeStr}`, 16, height - 38);
+    ctx.font = 'bold 12px monospace';
+    ctx.fillText(`📅 ${currentTimeStr}`, 16, height - 52);
 
-    // Stamp text: Staff Info & Location
+    // Stamp text: Staff Info & Shift
     const staffId = user?.employee?.employeeId || user?.accountantProfile?.accountantId || 'STAFF';
     ctx.fillStyle = '#F3F4F6';
-    ctx.font = '12px sans-serif';
-    ctx.fillText(`👤 ${user?.name || 'Employee'} (${staffId}) · ${type === 'in' ? 'OFFICE IN (ARRIVAL)' : 'OFFICE OUT (DEPARTURE)'} · Shift (05:30-14:00 +2h Sales)`, 16, height - 16);
+    ctx.font = '11px sans-serif';
+    ctx.fillText(
+      `👤 ${user?.name || 'Employee'} (${staffId}) · ${type === 'in' ? 'PUNCH IN (ARRIVAL)' : 'PUNCH OUT (DEPARTURE)'}`,
+      16,
+      height - 32
+    );
 
+    // Stamp text: GPS verification coordinates & geofence distance
+    ctx.fillStyle = coords ? (isInGeofence ? '#A7F3D0' : '#FDE68A') : '#D1D5DB';
+    ctx.font = '10px monospace';
+    const gpsText = coords
+      ? `📍 GPS: ${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)} (±${Math.round(coords.accuracy)}m) · ${nearestWorkplace?.name || 'SAFAL Hub'} (${distanceToWorkplace ?? 0}m)`
+      : '📍 GPS: Locating Device Coordinates...';
+    ctx.fillText(gpsText, 16, height - 12);
+
+    // Stamp badge on right: Verified status
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#A7F3D0';
+    ctx.fillStyle = isInGeofence ? '#10B981' : '#F59E0B';
     ctx.font = 'bold 11px sans-serif';
-    ctx.fillText(`📍 Raipura, Hanamkonda (Telangana)`, width - 16, height - 48);
+    ctx.fillText(isInGeofence ? '✔ GEOFENCE VERIFIED' : '⚠ GEOFENCE PENDING', width - 16, height - 68);
 
-    ctx.fillStyle = '#FCD34D';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.fillText('✔ VERIFIED OFFICE CAPTURE', width - 16, height - 24);
+    ctx.fillStyle = '#A7F3D0';
+    ctx.font = '10px sans-serif';
+    ctx.fillText(nearestWorkplace?.name ? `${nearestWorkplace.name.slice(0, 28)}` : 'Raipura, Hanamkonda', width - 16, height - 48);
 
     return canvas.toDataURL('image/jpeg', 0.9);
   };
@@ -190,7 +329,21 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
 
   const handleConfirmSubmit = async () => {
     if (!capturedPhoto) return;
-    await onSubmit(capturedPhoto, locationName);
+
+    const locationName = nearestWorkplace?.name
+      ? `${nearestWorkplace.name} (GPS Verified)`
+      : 'SAFAL Operations Facility, Hanamkonda';
+
+    const gpsData: GpsLocationData = {
+      latitude: coords?.latitude,
+      longitude: coords?.longitude,
+      accuracy: coords?.accuracy,
+      workplaceLocationId: nearestWorkplace?.id,
+      workplaceName: nearestWorkplace?.name,
+      distanceMeters: distanceToWorkplace ?? undefined,
+    };
+
+    await onSubmit(capturedPhoto, locationName, gpsData);
     onClose();
   };
 
@@ -204,15 +357,15 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
           <div>
             <div className="flex items-center gap-2 text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">
               <Camera size={15} />
-              <span>{type === 'in' ? 'Office Arrival Verification' : 'Office Departure Verification'}</span>
+              <span>{type === 'in' ? 'GPS Workplace Verification & Photo' : 'Office Departure Verification'}</span>
             </div>
             <h2 className="text-xl font-extrabold text-gray-900">
-              {type === 'in' ? 'Take Office Arrival Photo (Office In)' : 'Take Office Departure Photo (Office Out)'}
+              {type === 'in' ? 'Record Office Arrival (GPS Verified IN)' : 'Record Office Departure (Office Out)'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
               {type === 'in'
-                ? 'Take a live photo upon arriving at the office to submit your daily attendance. Date, time, and location will be stamped automatically.'
-                : 'Take a live photo before leaving the office to verify your departure and complete your shift for today.'}
+                ? 'Your device GPS coordinates and live photo verify attendance within the registered workplace geofence. Lateness is calculated from your assigned shift.'
+                : 'Take a live departure photo to complete your daily shift hours and conclude attendance.'}
             </p>
           </div>
           <button
@@ -224,18 +377,82 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
         </div>
 
         {/* Content Body */}
-        <div className="overflow-y-auto flex-1 py-4 space-y-4 text-xs">
+        <div className="overflow-y-auto flex-1 py-3 space-y-3 text-xs">
+          {/* GPS Live Geofence Banner */}
+          <div
+            className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+              gpsStatus === 'ready'
+                ? isInGeofence
+                  ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                  : 'bg-amber-50 border-amber-300 text-amber-950'
+                : gpsStatus === 'locating'
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-rose-50 border-rose-300 text-rose-900'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white ${
+                  gpsStatus === 'ready'
+                    ? isInGeofence
+                      ? 'bg-emerald-600'
+                      : 'bg-amber-500'
+                    : gpsStatus === 'locating'
+                    ? 'bg-blue-600'
+                    : 'bg-rose-600'
+                }`}
+              >
+                {gpsStatus === 'locating' ? (
+                  <RefreshCw size={16} className="animate-spin" />
+                ) : (
+                  <Compass size={16} />
+                )}
+              </div>
+              <div>
+                <div className="font-extrabold flex items-center gap-2">
+                  <span>
+                    {gpsStatus === 'ready'
+                      ? isInGeofence
+                        ? `Inside Workplace Geofence (${distanceToWorkplace}m away)`
+                        : `Outside Authorized Geofence (${distanceToWorkplace}m away)`
+                      : gpsStatus === 'locating'
+                      ? 'Acquiring High-Accuracy GPS Fix...'
+                      : 'GPS Location Unavailable'}
+                  </span>
+                  {gpsStatus === 'ready' && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-mono bg-white/70 border border-current">
+                      ±{Math.round(coords?.accuracy || 0)}m
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] opacity-85 mt-0.5">
+                  {nearestWorkplace
+                    ? `${nearestWorkplace.name} · Allowed radius: ${nearestWorkplace.allowedRadiusMeters || 100}m`
+                    : 'Locating closest SAFAL office or warehouse...'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={requestGpsPosition}
+              className="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white shadow-xs border border-gray-200 hover:bg-gray-50 flex items-center gap-1 transition"
+              title="Refresh GPS"
+            >
+              <Navigation size={12} />
+              <span>Retry GPS</span>
+            </button>
+          </div>
+
           {/* Viewport / Photo Frame */}
-          <div className="relative w-full aspect-4/3 max-h-[360px] bg-black rounded-2xl overflow-hidden border-2 border-emerald-700/40 shadow-inner flex items-center justify-center">
+          <div className="relative w-full aspect-4/3 max-h-[330px] bg-black rounded-2xl overflow-hidden border-2 border-emerald-700/40 shadow-inner flex items-center justify-center">
             {capturedPhoto ? (
-              // Captured & Watermarked Photo Preview
               <img
                 src={capturedPhoto}
                 alt="Captured Office Selfie"
                 className="w-full h-full object-cover"
               />
             ) : cameraError ? (
-              // Camera Error / Manual Fallback
               <div className="p-6 text-center text-white space-y-3 max-w-md">
                 <AlertTriangle size={36} className="text-amber-400 mx-auto" />
                 <p className="text-xs text-gray-200">{cameraError}</p>
@@ -248,7 +465,6 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
                 </button>
               </div>
             ) : (
-              // Live Video Stream
               <>
                 <video
                   ref={videoRef}
@@ -259,19 +475,18 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
                   onLoadedMetadata={() => videoRef.current?.play()}
                 />
                 {/* Live Target Reticle Overlay */}
-                <div className="absolute inset-0 pointer-events-none border-2 border-white/20 m-6 rounded-2xl flex flex-col justify-between p-3">
+                <div className="absolute inset-0 pointer-events-none border-2 border-white/20 m-5 rounded-2xl flex flex-col justify-between p-3">
                   <div className="flex justify-between items-center text-[11px] font-bold text-white bg-black/40 backdrop-blur-xs px-3 py-1 rounded-full w-fit">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse mr-2" />
-                    <span>Live Office Feed · {currentTimeStr}</span>
+                    <span>Live Camera · {currentTimeStr}</span>
                   </div>
                   <div className="text-[11px] text-emerald-200 text-center bg-black/50 backdrop-blur-xs py-1 rounded-lg">
-                    Align your face within the frame and click Capture
+                    Look at the camera and click Capture Office Photo
                   </div>
                 </div>
               </>
             )}
 
-            {/* Hidden fallback file input */}
             <input
               type="file"
               ref={fileInputRef}
@@ -285,24 +500,22 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
           {/* Stamped Info Preview Box */}
           <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2">
-              <Clock size={15} className="text-emerald-700" />
-              <span className="text-gray-600 font-medium">Timestamp:</span>
+              <Clock size={14} className="text-emerald-700" />
+              <span className="text-gray-600 font-medium">Punch Timestamp:</span>
               <span className="font-mono font-bold text-emerald-950">{currentTimeStr}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-emerald-800 font-bold bg-white px-2 py-1 rounded-lg border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-              <span>Shift: 05:30/06:00 AM – 02:00 PM (+2h Sales Growth)</span>
-            </div>
             <div className="flex items-center gap-2">
-              <MapPin size={15} className="text-emerald-700" />
-              <span className="text-gray-600 font-medium">Location:</span>
-              <span className="font-bold text-emerald-950">{locationName}</span>
+              <MapPin size={14} className="text-emerald-700" />
+              <span className="text-gray-600 font-medium">Nearest Workplace:</span>
+              <span className="font-bold text-emerald-950">
+                {nearestWorkplace?.name || 'SAFAL Raipura Hanamkonda'}
+              </span>
             </div>
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="modal-actions pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
+        <div className="modal-actions pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
           <div>
             {!capturedPhoto && (
               <button
@@ -346,8 +559,8 @@ export const AttendancePhotoModal: React.FC<AttendancePhotoModalProps> = ({
                     {isSubmitting
                       ? 'Submitting...'
                       : type === 'in'
-                      ? 'Submit Office In'
-                      : 'Submit Office Out'}
+                      ? 'Confirm & Submit Office In'
+                      : 'Confirm & Submit Office Out'}
                   </span>
                 </button>
               </>

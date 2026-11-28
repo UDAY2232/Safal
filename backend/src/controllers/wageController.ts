@@ -103,6 +103,20 @@ export async function getWages(req: AuthRequest, res: Response) {
   }
 }
 
+function parsePayPeriodMonthYear(payPeriod: string): string {
+  const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+  const parts = payPeriod.toLowerCase().trim().split(/\s+/);
+  if (parts.length >= 2) {
+    const mIdx = months.findIndex((m) => parts[0].startsWith(m.slice(0, 3)));
+    const y = parts[1];
+    if (mIdx !== -1 && y.length === 4) {
+      return `${y}-${String(mIdx + 1).padStart(2, '0')}`;
+    }
+  }
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
 export async function generateWagePeriod(req: AuthRequest, res: Response) {
   try {
     const { payPeriod } = req.body;
@@ -120,6 +134,7 @@ export async function generateWagePeriod(req: AuthRequest, res: Response) {
     }
 
     let createdCount = 0;
+    const monthYear = parsePayPeriodMonthYear(payPeriod);
 
     for (const emp of activeEmployees) {
       // Check if wage record for this period already exists
@@ -132,22 +147,52 @@ export async function generateWagePeriod(req: AuthRequest, res: Response) {
 
       if (!exists) {
         const gross = Number(emp.baseWageRate);
-        const net = gross;
 
-        await prisma.employeeWageRecord.create({
+        // Fetch approved or pending attendance deductions for this period
+        const deductionsList = await prisma.attendanceSalaryDeduction.findMany({
+          where: {
+            employeeId: emp.id,
+            payPeriodMonthYear: monthYear,
+            status: { in: ['APPROVED', 'PENDING_APPROVAL'] },
+          },
+        });
+
+        const totalDeductions = deductionsList.reduce((sum, d) => sum + Number(d.penaltyAmount), 0);
+        const net = Math.max(0, gross - totalDeductions);
+        const deductionNotes =
+          totalDeductions > 0
+            ? `Includes ₹${totalDeductions} late arrival penalty deductions (${deductionsList.length} instances)`
+            : null;
+
+        const newWage = await prisma.employeeWageRecord.create({
           data: {
             employeeId: emp.id,
             payPeriod,
             wageType: emp.wageType,
             wageRate: emp.baseWageRate,
             grossAmount: gross,
-            deductions: 0,
+            deductions: totalDeductions,
+            deductionNotes,
             netPayable: net,
             amountPaid: 0,
             balanceRemaining: net,
             status: 'PENDING',
           },
         });
+
+        // Link and mark attendance deduction records as applied
+        if (deductionsList.length > 0) {
+          await prisma.attendanceSalaryDeduction.updateMany({
+            where: {
+              id: { in: deductionsList.map((d) => d.id) },
+            },
+            data: {
+              wageRecordId: newWage.id,
+              status: 'APPLIED_TO_PAYROLL',
+            },
+          });
+        }
+
         createdCount++;
       }
     }

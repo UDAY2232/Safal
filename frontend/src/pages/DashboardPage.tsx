@@ -291,6 +291,9 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate, onCrea
   };
 
   const loadVendors = async () => {
+    if (user?.role === 'EMPLOYEE' || user?.role === 'VENDOR') {
+      return;
+    }
     try {
       setLoadingVendors(true);
       setLoadingOps(true);

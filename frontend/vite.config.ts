@@ -9,6 +9,7 @@ const currentBuildTime = Date.now().toString();
 function autoVersionPlugin(): Plugin {
   return {
     name: 'safal-auto-version',
+    apply: 'build',
     buildStart() {
       const payload = JSON.stringify(
         {

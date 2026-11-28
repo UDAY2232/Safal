@@ -19,6 +19,8 @@ import { InvoicesPage } from './pages/InvoicesPage';
 import { AttendancePage } from './pages/AttendancePage';
 import { VendorDashboardPage } from './pages/VendorDashboardPage';
 import { VendorsAdminPage } from './pages/VendorsAdminPage';
+import { FieldWorkEmployeePage } from './pages/FieldWorkEmployeePage';
+import { FieldWorkAdminPage } from './pages/FieldWorkAdminPage';
 import { CreatePOModal } from './components/CreatePOModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { ServerMaintenanceScreen } from './components/ServerMaintenanceScreen';
@@ -117,6 +119,10 @@ function MainApp() {
       clean = 'Attendance';
     } else if (clean.startsWith('vendors')) {
       clean = 'Vendors (KYC)';
+    } else if (clean.startsWith('field-work-mgmt') || clean.startsWith('field-management')) {
+      clean = 'Field Work Management';
+    } else if (clean.startsWith('field-work') || clean.startsWith('field')) {
+      clean = user?.role === 'EMPLOYEE' ? 'Field Work' : 'Field Work Management';
     }
 
     // If an employee attempts to navigate to 'Purchase Order (PO)', reroute to 'Customer Due (CD)'
@@ -300,7 +306,11 @@ function MainApp() {
             activePage !== 'Customer Due (CD)' &&
             activePage !== 'Vendors (KYC)' &&
             activePage !== 'Dashboard' &&
-            activePage !== 'Attendance' && (
+            activePage !== 'Attendance' &&
+            activePage !== 'Field Work' &&
+            activePage !== 'Seller Business Tracking' &&
+            activePage !== 'Field Work Management' &&
+            activePage !== 'Field Sales & Seller Business' && (
             <PageHeading
               page={activePage}
               onAction={() => {
@@ -379,6 +389,16 @@ function MainApp() {
           {activePage === 'Accountant Performance' && <PerformancePage />}
           {activePage === 'Activity Logs' && <ActivityLogsPage />}
           {activePage === 'Settings' && <SettingsPage onNotify={notify} />}
+          {activePage === 'Field Work' && user?.role === 'EMPLOYEE' && <FieldWorkEmployeePage onNotify={notify} />}
+          {activePage === 'Seller Business Tracking' && user?.role === 'EMPLOYEE' && (
+            <FieldWorkEmployeePage onNotify={notify} initialTab="business" />
+          )}
+          {activePage === 'Field Work Management' && (user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
+            <FieldWorkAdminPage onNotify={notify} />
+          )}
+          {activePage === 'Field Sales & Seller Business' && (user?.role === 'ADMIN' || user?.role === 'ACCOUNTANT') && (
+            <FieldWorkAdminPage onNotify={notify} initialTab="business" />
+          )}
         </main>
       </div>
 

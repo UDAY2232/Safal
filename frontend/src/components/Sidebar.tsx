@@ -24,6 +24,8 @@ import {
   ShieldCheck,
   Scale,
   User,
+  MapPin,
+  TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Role } from '../types';
@@ -52,7 +54,11 @@ const navItems: NavEntry[] = [
   { label: 'Weighbridge & QC Slips', icon: Scale, roles: ['VENDOR'] },
   { label: 'Profile', icon: User, roles: ['VENDOR'] },
   { label: 'Customer Due (CD)', icon: CreditCard, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
+  { label: 'Field Work', icon: MapPin, roles: ['EMPLOYEE'] },
+  { label: 'Seller Business Tracking', icon: TrendingUp, roles: ['EMPLOYEE'] },
   { label: 'Vendors (KYC)', icon: ShieldCheck, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Field Work Management', icon: MapPin, roles: ['ADMIN', 'ACCOUNTANT'] },
+  { label: 'Field Sales & Seller Business', icon: TrendingUp, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Attendance', icon: Clock, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },
   { label: 'Invoices', icon: FileText, roles: ['ADMIN', 'ACCOUNTANT'] },
   { label: 'Employee Expenses', icon: ReceiptIndianRupee, roles: ['ADMIN', 'ACCOUNTANT', 'EMPLOYEE'] },

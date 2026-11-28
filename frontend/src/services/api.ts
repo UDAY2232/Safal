@@ -297,6 +297,24 @@ export const api = {
   getTodayAttendance: () => request<any>('/attendance/today'),
   getMyAttendanceHistory: () => request<any>('/attendance/my-history'),
   getAllAttendance: (params: string = '') => request<any>(`/attendance/all${params}`),
+  getEmployeeAttendanceSummary: (month?: string) =>
+    request<any>(`/attendance/summary/employee${month ? `?month=${month}` : ''}`),
+  submitAttendanceCorrection: (data: { attendanceRecordId: string; requestedTime?: string; reason: string }) =>
+    request<any>('/attendance/correction-request', { method: 'POST', body: JSON.stringify(data) }),
+  getAdminAttendanceManagement: (params: string = '') =>
+    request<any>(`/attendance/admin/management${params}`),
+  getAdminPenaltyReports: (month?: string) =>
+    request<any>(`/attendance/admin/penalties${month ? `?month=${month}` : ''}`),
+  reviewAttendanceCorrection: (id: string, data: { status: 'APPROVED' | 'REJECTED'; adminComments?: string; waivePenalty?: boolean }) =>
+    request<any>(`/attendance/admin/correction/${id}/review`, { method: 'POST', body: JSON.stringify(data) }),
+  reviewSalaryDeduction: (id: string, data: { status: 'APPROVED' | 'WAIVED' | 'PENDING_APPROVAL'; waiverReason?: string; adjustedAmount?: number }) =>
+    request<any>(`/attendance/admin/deduction/${id}/review`, { method: 'POST', body: JSON.stringify(data) }),
+  getWorkplaces: () => request<{ workplaces: any[] }>('/attendance/workplaces'),
+  createWorkplace: (data: any) => request<any>('/attendance/admin/workplaces', { method: 'POST', body: JSON.stringify(data) }),
+  updateWorkplace: (id: string, data: any) => request<any>(`/attendance/admin/workplaces/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteWorkplace: (id: string) => request<any>(`/attendance/admin/workplaces/${id}`, { method: 'DELETE' }),
+  getAttendancePolicy: () => request<{ policy: any }>('/attendance/admin/policy'),
+  updateAttendancePolicy: (data: any) => request<any>('/attendance/admin/policy', { method: 'PUT', body: JSON.stringify(data) }),
 
   // Vendor Operations
   getVendorProfile: () => request<{ vendor: any }>('/vendor/profile'),
@@ -336,5 +354,50 @@ export const api = {
       body: isForm ? data : JSON.stringify(data),
     });
   },
+
+  // Field Work & Seller Management
+  getFieldEmployeeDashboard: () => request<any>('/field/dashboard/employee'),
+  getFieldAdminDashboard: () => request<any>('/field/dashboard/admin'),
+  getFieldAreas: () => request<any[]>('/field/areas'),
+  createFieldArea: (data: any) => request<any>('/field/areas', { method: 'POST', body: JSON.stringify(data) }),
+  assignFieldArea: (data: { employeeId: string; areaId: string; notes?: string }) =>
+    request<any>('/field/areas/assign', { method: 'POST', body: JSON.stringify(data) }),
+  removeFieldAreaAssignment: (id: string) => request<any>(`/field/areas/assignment/${id}`, { method: 'DELETE' }),
+  getFieldSellers: (params: string = '') => request<any[]>(`/field/sellers${params}`),
+  createFieldSeller: (data: any) => request<any>('/field/sellers', { method: 'POST', body: JSON.stringify(data) }),
+  verifyFieldSeller: (id: string) => request<any>(`/field/sellers/${id}/verify`, { method: 'POST' }),
+  getFieldVisits: (params: string = '') => request<any[]>(`/field/visits${params}`),
+  createFieldVisit: (formData: FormData | any) => {
+    const isForm = typeof FormData !== 'undefined' && formData instanceof FormData;
+    return request<any>('/field/visits', {
+      method: 'POST',
+      body: isForm ? formData : JSON.stringify(formData),
+    });
+  },
+  getDailyFieldReports: (params: string = '') => request<any[]>(`/field/reports${params}`),
+  submitDailyFieldReport: (data: any) => request<any>('/field/reports', { method: 'POST', body: JSON.stringify(data) }),
+  reviewDailyFieldReport: (id: string, data: { status: 'APPROVED' | 'REJECTED'; reviewComments?: string }) =>
+    request<any>(`/field/reports/${id}/review`, { method: 'POST', body: JSON.stringify(data) }),
+  linkPurchaseConversion: (data: { sellerId: string; orderId?: string; purchaseAmount?: number }) =>
+    request<any>('/field/conversions/link-purchase', { method: 'POST', body: JSON.stringify(data) }),
+  getMyPerformancePoints: () => request<any>('/field/points/my'),
+  getFieldLeaderboard: () => request<any>('/field/points/leaderboard'),
+  adjustFieldPoints: (data: { employeeId: string; points: number; reason: string; monthYear?: string }) =>
+    request<any>('/field/points/adjust', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Seller Business & Purchase Tracking
+  getMyRegisteredSellersBusiness: (params: string = '') => request<any>(`/field/seller-business/my-sellers${params}`),
+  getSellerBusinessProfile: (id: string) => request<any>(`/field/seller-business/seller/${id}`),
+  getMonthlySellerBusiness: (params: string = '') => request<any>(`/field/seller-business/monthly-summary${params}`),
+  getEmployeeSalesPerformance: (params: string = '') => request<any>(`/field/seller-business/my-performance${params}`),
+  getSellerOrders: (params: string = '') => request<any[]>(`/field/seller-business/orders${params}`),
+  createSellerOrder: (data: any) => request<any>('/field/seller-business/orders', { method: 'POST', body: JSON.stringify(data) }),
+  getAdminBusinessOverview: () => request<any>('/field/seller-business/admin/overview'),
+  getAdminEmployeePerformance: () => request<any[]>('/field/seller-business/admin/employees'),
+  getAdminAreaPerformance: () => request<any[]>('/field/seller-business/admin/areas'),
+  getAdminSellerReports: (params: string = '') => request<any[]>(`/field/seller-business/admin/sellers${params}`),
+  getAdminMonthlyReport: (params: string = '') => request<any>(`/field/seller-business/admin/monthly-report${params}`),
+  transferSellerAttribution: (data: { sellerId: string; toEmployeeId: string; reason?: string }) =>
+    request<any>('/field/seller-business/admin/transfer-seller', { method: 'POST', body: JSON.stringify(data) }),
 };
 

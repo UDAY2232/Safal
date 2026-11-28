@@ -76,12 +76,23 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
     setShowPhotoModal(true);
   };
 
-  const handlePhotoSubmit = async (photoBase64: string, location: string) => {
+  const handlePhotoSubmit = async (
+    photoBase64: string,
+    location: string,
+    gpsData?: any
+  ) => {
     try {
       setActionLoading(true);
       setFeedback(null);
       if (photoModalType === 'in') {
-        const res = await api.clockInAttendance({ photo: photoBase64, location });
+        const res = await api.clockInAttendance({
+          photo: photoBase64,
+          location,
+          latitude: gpsData?.latitude,
+          longitude: gpsData?.longitude,
+          gpsAccuracyMeters: gpsData?.accuracy,
+          workplaceLocationId: gpsData?.workplaceLocationId,
+        });
         setFeedback({
           type: 'success',
           message: res.message || 'Office arrival photo verified! Attendance recorded successfully.',
@@ -247,6 +258,29 @@ export const AttendancePunchWidget: React.FC<AttendancePunchWidgetProps> = ({
                 <span>
                   {record?.status === 'LATE' ? 'Late Arrival Marked' : 'Attendance Marked (Present)'}
                 </span>
+              </div>
+            )}
+
+            {record?.penaltyAmount > 0 && (
+              <div className="mt-2 text-[11px] p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 flex items-center justify-between w-full">
+                <span>
+                  Late Penalty: <strong>₹{Number(record.penaltyAmount)}</strong> ({record.lateMinutes}m late)
+                </span>
+                {record.penaltyWaived ? (
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                    Waived by HR
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">
+                    Deduction Logged
+                  </span>
+                )}
+              </div>
+            )}
+            {record?.workplaceName && (
+              <div className="text-[10px] text-emerald-700 font-medium mt-1 flex items-center gap-1">
+                <MapPin size={11} className="text-emerald-600" />
+                <span>{record.workplaceName} {record.distanceMeters !== null && record.distanceMeters !== undefined ? `(${record.distanceMeters}m)` : ''}</span>
               </div>
             )}
 
