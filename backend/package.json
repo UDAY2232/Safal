@@ -12,6 +12,7 @@
     "prisma:seed": "tsx src/utils/seed.ts",
     "prisma:clean": "tsx src/utils/cleanDatabase.ts",
     "prisma:studio": "prisma studio",
+    "backfill:commissions": "tsx src/utils/backfillCommissions.ts",
     "migrate:neon": "node src/utils/migrateNeonToLocal.cjs"
   },
   "dependencies": {
